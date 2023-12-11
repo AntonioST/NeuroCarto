@@ -1,0 +1,38 @@
+# https://packaging.python.org/en/latest/tutorials/packaging-projects/
+# https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
+# https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/
+
+[project]
+name = 'chmap_editor'
+version = '0.0.0'
+authors = [
+    { name = "Ta-Shun Su", email = "Ta.Shun.Su@nerf.be" },
+]
+description = "A web-interface channelmap editor for Neuropixels probe familiy"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+keywords = ["Eletrophysiology", "Neuropixels", 'Channelmap']
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    'Natural Language :: English',
+    "Operating System :: OS Independent",
+    "Framework :: Bokeh",
+    'Topic :: Scientific/Engineering :: Medical Science Apps.',
+    'Intended Audience :: Science/Research',
+]
+
+dynamic = ["dependencies"]
+
+[project.urls]
+#Homepage = "https://github.com/pypa/sampleproject"
+#Issues = "https://github.com/pypa/sampleproject/issues"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0"]
+
