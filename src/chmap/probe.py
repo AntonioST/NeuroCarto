@@ -1,8 +1,9 @@
 import abc
+import importlib
 from collections.abc import Hashable
 from typing import TypeVar, Generic, Any
 
-__all__ = ['ProbeDesp', 'ElectrodeDesp']
+__all__ = ['ProbeDesp', 'ElectrodeDesp', 'get_probe_desp']
 
 
 class ElectrodeDesp:
@@ -86,3 +87,16 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
                 r.append(e)
 
         return r
+
+
+def get_probe_desp(name: str, package: str = 'chmap') -> ProbeDesp:
+    if package == 'chmap' and not name.startswith('probe_'):
+        name = f'probe_{name}'
+
+    module = importlib.import_module('.', package + '.' + name)
+
+    for attr in dir(module):
+        if not attr.startswith('_') and issubclass(desp := getattr(module, attr), ProbeDesp):
+            return desp
+
+    raise RuntimeError(f'ProbeDesp[{name}] not found')

@@ -2,12 +2,15 @@ import abc
 from typing import cast
 
 from bokeh.model import Model
-from bokeh.models import Div, GlyphRenderer
+from bokeh.models import Div, GlyphRenderer, TextAreaInput
 from bokeh.plotting import figure as Figure
 
 __all__ = [
     'UIComponent',
-    'as_layout'
+    'RenderComponent',
+    'as_layout',
+    #
+    'MessageLogArea',
 ]
 
 
@@ -79,3 +82,39 @@ def _as_layout(model: list, depth: int) -> Model:
         return column(*ret, **style)
     else:
         return row(*ret, **style)
+
+
+class MessageLogArea(UIComponent):
+    def __init__(self, title: str, rows: int, cols: int, **kwargs):
+        self.area = TextAreaInput(
+            title=title,
+            rows=rows,
+            cols=cols,
+            disabled=True,
+            **kwargs
+        )
+
+    def model(self) -> Model:
+        return self.area
+
+    def log_message(self, *message, reset=False):
+        area = self.area
+
+        message = '\n'.join(message)
+        area.disabled = False
+        try:
+            if reset:
+                area.value = message
+            else:
+                text = area.value
+                area.value = message + '\n' + text
+        finally:
+            area.disabled = True
+
+    def clear_message(self):
+        area = self.area
+        area.disabled = False
+        try:
+            area.value = ""
+        finally:
+            area.disabled = True
