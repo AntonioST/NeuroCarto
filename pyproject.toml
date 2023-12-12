@@ -23,7 +23,7 @@ classifiers = [
     'Intended Audience :: Science/Research',
 ]
 
-dynamic = ["dependencies"]
+dynamic = ["dependencies", "optional-dependencies"]
 
 [project.urls]
 #Homepage = "https://github.com/pypa/sampleproject"
@@ -31,6 +31,7 @@ dynamic = ["dependencies"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
+optional-dependencies = { file = ["requirements-opt.txt"] }
 
 [build-system]
 build-backend = "setuptools.build_meta"
@@ -39,7 +40,6 @@ requires = ["setuptools>=61.0"]
 # https://mypy.readthedocs.io/en/stable/config_file.html#using-a-pyproject-toml-file
 [tool.mypy]
 python_version = "3.10"
-exclude = ['imec_imro.py']
 
 [[tool.mypy.overrides]]
 module = "chmap.*"
