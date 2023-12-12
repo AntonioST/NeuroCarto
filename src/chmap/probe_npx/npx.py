@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
+from pathlib import Path
 from typing import NamedTuple, Final, Literal, overload, Sized, cast, Any
 
 import numpy as np
@@ -8,15 +9,14 @@ from numpy.typing import NDArray
 
 __all__ = [
     'ProbeType',
+    'PROBE_TYPE',
     'PROBE_TYPE_NP1',
     'PROBE_TYPE_NP21',
     'PROBE_TYPE_NP24',
-    'Electrodes',
+    'Electrode',
     'ChannelMap',
     'channel_coordinate',
     'electrode_coordinate',
-    'parse_imro',
-    'string_imro',
 ]
 
 
@@ -77,6 +77,7 @@ PROBE_TYPE = {
     # 'NP1110': PROBE_TYPE_UHD,
     #
     21: PROBE_TYPE_NP21,
+    '21': PROBE_TYPE_NP21,
     'NP2_1': PROBE_TYPE_NP21,
     'PRB2_1_2_0640_0': PROBE_TYPE_NP21,
     'PRB2_1_4_0480_1': PROBE_TYPE_NP21,
@@ -85,6 +86,7 @@ PROBE_TYPE = {
     'NP2004': PROBE_TYPE_NP21,
     #
     24: PROBE_TYPE_NP24,
+    '24': PROBE_TYPE_NP24,
     'NP2_4': PROBE_TYPE_NP24,
     'PRB2_4_2_0640_0': PROBE_TYPE_NP24,
     'NP2010': PROBE_TYPE_NP24,
@@ -106,9 +108,9 @@ class Electrode:
     __match_args__ = ('shank', 'column', 'row')
 
     def __init__(self, shank: int, column: int, row: int, in_used: bool | int = True):
-        self.shank = shank
-        self.column = column
-        self.row = row
+        self.shank = int(shank)
+        self.column = int(column)
+        self.row = int(row)
 
         if isinstance(in_used, int):
             in_used = in_used != 0
@@ -178,6 +180,8 @@ Es = list[int] | NDArray[np.int_] | list[Electrode]
 
 
 class ChannelMap:
+    __match_args__ = 'probe_type',
+
     def __init__(self, probe_type: int | str | ProbeType,
                  electrodes: list[Electrode] | ChannelMap = None):
         if electrodes is None:
@@ -198,9 +202,48 @@ class ChannelMap:
                 raise ChannelHasUsedError(e)
             self._electrodes[c] = Electrode(e.shank, e.column, e.row)
 
+    # ========= #
+    # load/save #
+    # ========= #
+
     @classmethod
     def parse(cls, source: str) -> ChannelMap:
+        from .io import parse_imro
         return parse_imro(source)
+
+    @classmethod
+    def from_meta(cls, path: str | Path) -> ChannelMap:
+        from .io import load_meta
+        return load_meta(path)
+
+    @classmethod
+    def from_imro(cls, path: str | Path) -> ChannelMap:
+        from .io import load_imro
+        return load_imro(path)
+
+    @classmethod
+    def from_probe(cls, probe) -> ChannelMap:
+        from .io import from_probe
+        return from_probe(probe)
+
+    def save_imro(self, path: str | Path):
+        from .io import save_imro
+        save_imro(self, path)
+
+    def to_probe(self):
+        from .io import to_probe
+        return to_probe(self)
+
+    def __str__(self) -> str:
+        from .io import string_imro
+        return string_imro(self)
+
+    def __repr__(self) -> str:
+        return f'ChannelMap[{self.n_shank},{self.n_col_shank},{self.n_row_shank},{len(self._electrodes)}]'
+
+    # ================= #
+    # Basic information #
+    # ================= #
 
     def __len__(self) -> int:
         ret = 0
@@ -208,12 +251,6 @@ class ChannelMap:
             if e is not None:
                 ret += 1
         return ret
-
-    def __str__(self) -> str:
-        return string_imro(self)
-
-    def __repr__(self) -> str:
-        return f'ChannelMap[{self.n_shank},{self.n_col_shank},{self.n_row_shank},{len(self._electrodes)}]'
 
     @property
     def n_shank(self) -> int:
@@ -258,6 +295,10 @@ class ChannelMap:
         """
         return ReferenceInfo.of(self.probe_type, self._reference)
 
+    # =================== #
+    # channel information #
+    # =================== #
+
     @property
     def channel_shank(self) -> NDArray[np.int_]:
         return np.array([it.shank for it in self.electrodes])
@@ -281,12 +322,14 @@ class ChannelMap:
 
     def get_electrode(self, electrode: E) -> Electrode | None:
         match electrode:
-            case int():
+            case electrode if all_int(electrode):
                 shank = 0
                 column, row = e2cr(self.probe_type, electrode)
-            case (int(shank), int(electrode)):
+            case (shank, electrode) if all_int(shank, electrode):
                 column, row = e2cr(self.probe_type, electrode)
-            case (int(shank), int(column), int(row)) | Electrode(shank=shank, column=column, row=row):
+            case (shank, column, row) if all_int(shank, column, row):
+                pass
+            case Electrode(shank=shank, column=column, row=row):
                 pass
             case _:
                 raise TypeError()
@@ -299,6 +342,10 @@ class ChannelMap:
     @property
     def electrodes(self) -> Electrodes:
         return Electrodes(self.probe_type, self._electrodes)
+
+    # ==================== #
+    # add/delete electrode #
+    # ==================== #
 
     def add_electrode(self, electrode: E,
                       in_used: bool = True,
@@ -315,15 +362,20 @@ class ChannelMap:
         :raise ChannelHasUsedError: duplicated channels using in electrodes
         """
         match electrode:
-            case int():
+            case electrode if all_int(electrode):
                 shank = 0
-                column, row = e2cr(self.probe_type, electrode)
-            case (int(shank), int(electrode)):
-                column, row = e2cr(self.probe_type, electrode)
-            case (int(shank), int(column), int(row)) | Electrode(shank=shank, column=column, row=row):
+                column, row = e2cr(self.probe_type, int(electrode))
+            case (shank, electrode) if all_int(shank, electrode):
+                shank = int(shank)
+                column, row = e2cr(self.probe_type, int(electrode))
+            case (shank, column, row) if all_int(shank, column, row):
+                shank = int(shank)
+                column = int(column)
+                row = int(row)
+            case Electrode(shank=shank, column=column, row=row):
                 pass
             case _:
-                raise TypeError()
+                raise TypeError(repr(electrode))
 
         probe_type = self.probe_type
 
@@ -359,15 +411,17 @@ class ChannelMap:
         :return: removed electrodes
         """
         match electrode:
-            case int():
+            case electrode if all_int(electrode):
                 shank = 0
                 column, row = e2cr(self.probe_type, electrode)
-            case (int(shank), int(electrode)):
+            case (shank, electrode) if all_int(shank, electrode):
                 column, row = e2cr(self.probe_type, electrode)
-            case (int(shank), int(column), int(row)) | Electrode(shank=shank, column=column, row=row):
+            case (shank, column, row) if all_int(shank, column, row):
+                pass
+            case Electrode(shank=shank, column=column, row=row):
                 pass
             case _:
-                raise TypeError()
+                raise TypeError(repr(electrode))
 
         for c, e in enumerate(self._electrodes):
             if e is not None and e.shank == shank and e.column == column and e.row == row:
@@ -399,7 +453,7 @@ class Channels(Sized, Iterable[Electrode]):
         return ret
 
     def __getitem__(self, item):
-        if isinstance(item, int) or isinstance(item, np.integer):
+        if all_int(item):
             return self._electrodes[int(item)]
         elif isinstance(item, slice):
             return [self._electrodes[it] for it in range(len(self._electrodes))[item]]
@@ -407,7 +461,7 @@ class Channels(Sized, Iterable[Electrode]):
             return [self._electrodes[int(it)] for it in np.arange(len(self._electrodes))[item]]
 
     def __delitem__(self, item):
-        if isinstance(item, int) or isinstance(item, np.integer):
+        if all_int(item):
             self._electrodes[int(item)] = None
         elif isinstance(item, slice):
             for it in range(len(self._electrodes))[item]:
@@ -434,43 +488,27 @@ class Electrodes(Sized, Iterable[Electrode]):
                 ret += 1
         return ret
 
-    @classmethod
-    def _set(cls, x, n: int) -> set[int]:
-        if x is None:
-            return set(range(n))
-        if isinstance(x, int) or isinstance(x, np.integer):
-            return {int(x)}
-        elif isinstance(x, slice):
-            return set(range(n)[x])
-        elif isinstance(x, tuple):
-            ret = set()
-            for xx in x:
-                ret.update(cls._set(xx, n))
-            return ret
-        else:
-            return set(map(int, x))
-
     def __getitem__(self, item):
         shank, cols, rows = item
         match item:
             case (None, None, None):
                 return [e for e in self._electrodes if e is not None]
-            case (int(shank), int(column), int(row)):
+            case (shank, column, row) if all_int(shank, column, row):
                 for e in self._electrodes:
                     if e is not None and e.shank == shank and e.column == column and e.row == row:
                         return e
                 return None
             case (_, _, _):
-                shank = self._set(shank, self._probe_type.n_shank)
-                cols = self._set(cols, self._probe_type.n_col_shank)
-                rows = self._set(rows, self._probe_type.n_row_shank)
+                shank = as_set(shank, self._probe_type.n_shank)
+                cols = as_set(cols, self._probe_type.n_col_shank)
+                rows = as_set(rows, self._probe_type.n_row_shank)
                 ret = []
                 for e in self._electrodes:
                     if e is not None and e.shank in shank and e.column in cols and e.row in rows:
                         ret.append(e)
                 return ret
             case _:
-                raise TypeError()
+                raise TypeError(repr(item))
 
     def __delitem__(self, item):
         shank, cols, rows = item
@@ -478,22 +516,22 @@ class Electrodes(Sized, Iterable[Electrode]):
             case (None, None, None):
                 for c in range(len(self._electrodes)):
                     self._electrodes[c] = None
-            case (int(shank), int(column), int(row)):
+            case (shank, column, row) if all_int(shank, column, row):
                 for c in range(len(self._electrodes)):
                     e = self._electrodes[c]
                     if e is not None and e.shank == shank and e.column == column and e.row == row:
                         self._electrodes[c] = e
                         break
             case (_, _, _):
-                shank = self._set(shank, self._probe_type.n_shank)
-                cols = self._set(cols, self._probe_type.n_col_shank)
-                rows = self._set(rows, self._probe_type.n_row_shank)
+                shank = as_set(shank, self._probe_type.n_shank)
+                cols = as_set(cols, self._probe_type.n_col_shank)
+                rows = as_set(rows, self._probe_type.n_row_shank)
                 for c in range(len(self._electrodes)):
                     e = self._electrodes[c]
                     if e is not None and e.shank in shank and e.column in cols and e.row in rows:
                         self._electrodes[c] = None
             case _:
-                raise TypeError()
+                raise TypeError(repr(item))
 
     def __iter__(self) -> Iterator[Electrode]:
         for e in self._electrodes:
@@ -526,9 +564,16 @@ def channel_coordinate(shank_map: ChannelMap,
     return x, y
 
 
-def electrode_coordinate(probe_type: ChannelMap | ProbeType) -> NDArray[np.int_]:
-    if isinstance(probe_type, ChannelMap):
-        probe_type = probe_type.probe_type
+def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType) -> NDArray[np.int_]:
+    match probe_type:
+        case ChannelMap(probe_type=probe_type):
+            pass
+        case ProbeType():
+            pass
+        case str() | int():
+            probe_type = PROBE_TYPE[probe_type]
+        case _:
+            raise TypeError(repr(probe_type))
 
     y = probe_type.r_space * np.arange(probe_type.n_row_shank)
     x = probe_type.c_space * np.arange(probe_type.n_col_shank)
@@ -568,26 +613,25 @@ def e2cr(probe_type: ProbeType, e):
     :return: (column, row)
     """
     match e:
-        case int(e):
-            pass
-        case (int(), int(e)):
-            pass
-        case (int(), int(c), int(r)):
-            return c, r
+        case e if all_int(e):
+            e = int(e)
+        case (s, e) if all_int(s, e):
+            e = int(e)
+        case (s, c, r) if all_int(s, c, r):
+            return int(c), int(r)
         case Electrode(column=c, row=r):
             return c, r
-        case [int(), *_]:
-            e = np.array(e)
         case [Electrode(), *_]:
             c = np.array([it.column for it in e])
             r = np.array([it.row for it in e])
             return c, r
-
-        case _ if isinstance(e, np.ndarray):
+        case [*_]:
+            e = np.array(e)
+        case e if isinstance(e, np.ndarray):
             if e.ndim != 1:
                 raise ValueError()
         case _:
-            raise TypeError()
+            raise TypeError(repr(e))
 
     n = probe_type.n_col_shank
     r = e // n
@@ -614,39 +658,34 @@ def cr2e(probe_type: ProbeType, p):
     :return:
     """
     match p:
-        case int(e):
-            return e
-        case (int(c), int(r)):
-            pass
-        case (int(), int(c), int(r)):
-            pass
+        case e if all_int(e):
+            return int(e)
+        case (c, r) if all_int(c, r):
+            c = int(c)
+            r = int(r)
+        case (s, c, r) if all_int(s, c, r):
+            c = int(c)
+            r = int(r)
         case Electrode(column=c, row=r):
             pass
-        case (int(c), r):
-            r = np.asarray(r)
-            c = np.full_like(r, c)
-        case (c, int(r)):
-            c = np.asarray(c)
-            r = np.full_like(c, r)
         case (c, r):
-            r = np.asarray(r)
-            c = np.asarray(c)
-        case [int(), *_]:
-            return np.array(p)
+            c, r = align_arr(c, r)
         case [Electrode(), *_]:
             c = np.array([it.column for it in p])
             r = np.array([it.row for it in p])
+        case [*_]:
+            return np.array(p)
         case _ if isinstance(p, np.ndarray):
             match p.shape:
-                case (int(), ):
+                case (_, ):
                     return p
-                case (int(), 2):
+                case (_, 2):
                     c = p[:, 0]
                     r = p[:, 1]
                 case _:
                     raise ValueError()
         case _:
-            raise TypeError()
+            raise TypeError(repr(p))
 
     n = probe_type.n_col_shank
     return r * n + c
@@ -680,36 +719,29 @@ def e2cb(probe_type: ProbeType, electrode: Es | tuple[int | A, A] | tuple[int | 
 
 def e2cb(probe_type: ProbeType, electrode):
     match electrode:
-        case int():
+        case electrode if all_int(electrode):
             shank = 0
-        case (int(shank), int(electrode)):
-            pass
-        case (int(shank), int(column), int(row)):
+            electrode = int(electrode)
+        case (shank, electrode) if all_int(shank, electrode):
+            shank = int(shank)
+            electrode = int(electrode)
+        case (shank, column, row) if all_int(shank, column, row):
+            shank = int(shank)
             electrode = cr2e(probe_type, (column, row))
         case Electrode(shank=shank, column=column, row=row):
             electrode = cr2e(probe_type, (column, row))
-        case [int(), *_]:
-            electrode = np.array(electrode)
-            shank = np.zeros_like(electrode)
         case [Electrode(), *_]:
             shank = np.array([it.shank for it in electrode])
             electrode = np.array([it.electrode for it in electrode])
+        case [*_]:
+            shank, electrode = align_arr(0, np.array(electrode))
         case _ if isinstance(electrode, np.ndarray):
             shank = np.zeros_like(electrode, dtype=int)
-        case (int(shank), electrode):
-            electrode = np.array(electrode)
-            shank = np.full_like(electrode, shank)
         case (shank, electrode):
-            electrode = np.array(electrode)
-            shank = np.array(shank)
-            _ = electrode + shank
-        case (int(shank), column, row):
-            electrode = cr2e(probe_type, (column, row))
-            shank = np.full_like(electrode, shank)
+            shank, electrode = align_arr(shank, electrode)
         case (shank, column, row):
             electrode = cr2e(probe_type, (column, row))
-            shank = np.array(shank)
-            _ = electrode + shank
+            shank, electrode = align_arr(shank, electrode)
         case _:
             raise TypeError()
 
@@ -787,7 +819,8 @@ def c2e(probe_type: ProbeType, channel: A, bank: int | A = None, shank: int | A 
 
 def c2e(probe_type: ProbeType, channel, bank=None, shank=None):
     match (bank, channel):
-        case (None, None, int(channel)):
+        case (None, channel) if all_int(channel):
+            channel = int(channel)
             n = probe_type.n_channels
             bank = channel // n
             channel = channel % n
@@ -796,17 +829,11 @@ def c2e(probe_type: ProbeType, channel, bank=None, shank=None):
             channel = np.asarray(channel)
             bank = channel // n
             channel = channel % n
-        case (int(bank), int(channel)):
-            pass
-        case (int(bank), _):
-            channel = np.asarray(channel)
-            bank = np.full_like(channel, bank)
-        case (_, int()):
-            raise TypeError()
-        case (_, _):
-            bank = np.asarray(bank)
-            channel = np.asarray(channel)
-            _ = bank + channel
+        case (bank, channel) if all_int(bank, channel):
+            bank = int(bank)
+            channel = int(channel)
+        case (bank, channel):
+            bank, channel = align_arr(bank, channel)
         case _:
             raise TypeError()
 
@@ -817,21 +844,15 @@ def c2e(probe_type: ProbeType, channel, bank=None, shank=None):
             return c2e21(bank, channel)
         case 24:
             match (shank, channel):
-                case (None, int()):
+                case (None, channel) if all_int(channel):
                     shank = 0
-                case (None, _):
+                case (None, channel):
                     shank = np.zeros_like(channel)
-                case (int(), int()):
-                    pass
-                case (int(), _):
-                    shank = np.full_like(channel, shank)
-                case (_, int()):
-                    shank = np.asarray(shank)
-                    bank = np.full_like(shank, bank)
-                    channel = np.full_like(shank, channel)
-                case (_, _):
-                    shank = np.asarray(shank)
-                    _ = channel + shank
+                case (shank, channel) if all_int(shank, channel):
+                    shank = int(shank)
+                    channel = int(channel)
+                case (shank, channel):
+                    shank, bank, channel = align_arr(shank, bank, channel)
                 case _:
                     raise TypeError()
 
@@ -867,11 +888,17 @@ def c2e21(bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]
 def c2e21(bank, channel):
     bf, ba = ELECTRODE_MAP_21
 
+    if all_int(bank, channel):
+        bank = int(bank)
+        channel = int(channel)
+    else:
+        bank, channel = align_arr(bank, channel)
+
     block, index = divmod(channel, 32)
     row, col = divmod(index, 2)
     rows = np.arange(0, 16)
 
-    if isinstance(bank, int) or isinstance(bank, np.integer):
+    if isinstance(bank, int):
         mat = (rows * bf[bank] + col * ba[bank]) % 16
         row = np.nonzero(mat == row)[0][0]
     else:
@@ -893,10 +920,17 @@ def c2e24(shank: NDArray[np.int_], bank: NDArray[np.int_], channel: NDArray[np.i
 
 
 def c2e24(shank, bank, channel):
+    if all_int(shank, bank, channel):
+        shank = int(shank)
+        bank = int(bank)
+        channel = int(channel)
+    else:
+        shank, bank, channel = align_arr(shank, bank, channel)
+
     index = channel % 48
     block = channel // 48
 
-    if isinstance(shank, int) or isinstance(shank, np.integer):
+    if isinstance(shank, int):
         block = np.nonzero(ELECTRODE_MAP_24[shank] == block)[0][0]
     else:
         block, i = np.nonzero(ELECTRODE_MAP_24[shank].T == block)
@@ -905,89 +939,37 @@ def c2e24(shank, bank, channel):
     return 384 * bank + 48 * block + index
 
 
-def parse_imro(source: str) -> ChannelMap:
-    if not source.startswith('(') or not source.endswith(')'):
-        raise RuntimeError('not imro format')
+def all_int(*x) -> bool:
+    for xx in x:
+        if not isinstance(xx, (int, np.integer)):
+            return False
+    return True
 
-    type_code = -1
-    ref = 0
-    electrodes = []
 
-    i = 0  # left '('
-    j = source.index(')')  # right ')'
-    k = 0  # count of '(...)'
+def align_arr(*x: int | NDArray[np.int_]) -> list[NDArray[np.int_]]:
+    if len(x) < 2:
+        raise RuntimeError()
 
-    while 0 <= i < j:
-        part = source[i + 1:j]
+    ret = [np.asarray(it) for it in x]
+    sz = max([len(it) for it in ret])
+    ret = [np.full((sz,), it) if it.ndim == 0 else it for it in ret]
+    if not all([it.ndim == 1 and len(it) == sz for it in ret]):
+        raise RuntimeError()
 
-        if k == 0:  # first ()
-            type_code, n = tuple(map(int, part.split(',')))
-            if type_code not in PROBE_TYPE:
-                raise RuntimeError(f"unsupported probe type : {type_code}")
-            k += 1
-
-        elif type_code == 0:  # NP1
-            ch, bank, ref, a, l, f = tuple(map(int, part.split(' ')))
-            e = Electrode(0, *e2cr(PROBE_TYPE_NP1, ch))
-            e.ap_band_gain = a
-            e.lf_band_gain = l
-            e.ap_hp_filter = f != 0
-            electrodes.append(e)
-
-        elif type_code == 21:  # NP 2.0, single multiplexed shank
-            ch, bank, ref, ed = tuple(map(int, part.split(' ')))
-            assert e2c21(ed) == (ch, bank)
-            electrodes.append(Electrode(0, *e2cr(PROBE_TYPE_NP21, ed)))
-
-        elif type_code == 24:  # NP 2.0, 4-shank
-            ch, s, bank, ref, ed = tuple(map(int, part.split(' ')))
-            assert e2c24(s, ed) == (ch, bank)
-            electrodes.append(Electrode(s, *e2cr(PROBE_TYPE_NP24, ed)))
-
-        else:
-            raise RuntimeError(f'unsupported imro type : {type_code}')
-
-        i = j + 1
-        if i < len(source):
-            if source[i] != '(':
-                raise RuntimeError()
-
-            j = source.index(')', i)
-        else:
-            j = -1
-
-    ret = ChannelMap(type_code, electrodes)
-    ret.reference = ref
     return ret
 
 
-def string_imro(chmap: ChannelMap) -> str:
-    if len(chmap) != chmap.n_channels:
-        raise RuntimeError()
-
-    # header
-    ret = [f'({chmap.probe_type},{chmap.n_channels})']
-
-    # channels
-    match chmap.probe_type.code:
-        case 0:
-            for ch, e in enumerate(chmap.electrodes):
-                ret.append(f'({ch} 0 {chmap.reference} {e.ap_band_gain} {e.lf_band_gain} {1 if e.ap_hp_filter else 0})')
-
-        case 21:
-            ref = chmap.reference
-            for e in chmap.electrodes:
-                electrode = cr2e(PROBE_TYPE_NP21, e)
-                channel, bank = e2c21(electrode)
-                ret.append(f'({channel} {bank} {ref} {electrode})')
-
-        case 24:
-            ref = chmap.reference
-            for e in chmap.electrodes:
-                electrode = cr2e(PROBE_TYPE_NP24, e)
-                bank, channel = e2c24(e.shank, electrode)
-                ret.append(f'({channel} {e.shank} {bank} {ref} {electrode})')
-        case _:
-            raise RuntimeError(f'unknown imro type : {chmap.probe_type}')
-
-    return ''.join(ret)
+def as_set(x, n: int) -> set[int]:
+    if x is None:
+        return set(range(n))
+    if all_int(x):
+        return {int(x)}
+    elif isinstance(x, slice):
+        return set(range(n)[x])
+    elif isinstance(x, tuple):
+        ret = set()
+        for xx in x:
+            ret.update(as_set(xx, n))
+        return ret
+    else:
+        return set(map(int, x))
