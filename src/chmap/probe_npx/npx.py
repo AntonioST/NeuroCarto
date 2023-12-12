@@ -470,10 +470,9 @@ class Channels(Sized, Iterable[Electrode]):
             for it in np.arange(len(self._electrodes))[item]:
                 self._electrodes[int(it)] = None
 
-    def __iter__(self) -> Iterator[Electrode]:
+    def __iter__(self) -> Iterator[Electrode | None]:
         for e in self._electrodes:
-            if e is not None:
-                yield e
+            yield e
 
 
 class Electrodes(Sized, Iterable[Electrode]):
@@ -593,6 +592,50 @@ ELECTRODE_MAP_24 = np.array([
     [4, 6, 0, 2, 1, 3, 5, 7],  # shank-2
     [5, 7, 1, 3, 0, 2, 4, 6],  # shank-3
 ], dtype=int)
+
+
+@overload
+def e2p(probe_type: ProbeType, e: E) -> tuple[float, float]:
+    pass
+
+
+@overload
+def e2p(probe_type: ProbeType, e: Es) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+    pass
+
+
+def e2p(probe_type: ProbeType, e):
+    match e:
+        case e if all_int(e):
+            s = 0
+            c, r = e2cr(probe_type, e)
+        case (s, e) if all_int(s, e):
+            s = int(s)
+            c, r = e2cr(probe_type, e)
+        case (s, c, r) if all_int(s, c, r):
+            s = int(s)
+            c = int(c)
+            r = int(r)
+        case Electrode(shank=s, column=c, row=r):
+            pass
+        case [Electrode(), *_]:
+            s = np.array([it.shank for it in e])
+            c = np.array([it.column for it in e])
+            r = np.array([it.row for it in e])
+        case [*_]:
+            s, e = align_arr(0, np.array(e))
+            c, r = e2cr(probe_type, e)
+        case e if isinstance(e, np.ndarray):
+            if e.ndim != 1:
+                raise ValueError()
+            s, e = align_arr(0, e)
+            c, r = e2cr(probe_type, e)
+        case _:
+            raise TypeError(repr(e))
+
+    x = probe_type.s_space * s + probe_type.c_space * c
+    y = probe_type.r_space * r
+    return x, y
 
 
 @overload

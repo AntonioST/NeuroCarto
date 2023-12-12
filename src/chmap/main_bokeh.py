@@ -1,9 +1,13 @@
 from pathlib import Path
 
-from chmap.gui_config import ChannelMapEditorConfig, parse_cli
+from bokeh.models import Div
+from bokeh.plotting import figure as Figure
+
+from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe_npx.npx import ChannelMap
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.bokeh_app import BokehApplication, run_server
+from chmap.views.probe import ProbeView
 
 
 class ChannelMapEditorApp(BokehApplication):
@@ -47,6 +51,14 @@ class ChannelMapEditorApp(BokehApplication):
 
     def save_imro(self, name: str | Path, chmap: ChannelMap):
         return chmap.save_imro(self.get_imro_file(name).with_suffix('.imro'))
+
+    # ============= #
+    # UI components #
+    # ============= #
+
+    probe_fig: Figure
+    probe_view: ProbeView
+    probe_info: Div
 
 
 def main(config: ChannelMapEditorConfig = None):
