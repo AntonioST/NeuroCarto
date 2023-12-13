@@ -1,11 +1,28 @@
+from __future__ import annotations
+
 import abc
 from collections.abc import Hashable
-from typing import TypeVar, Generic, Any, overload
+from pathlib import Path
+from typing import TypeVar, Generic, Any, ClassVar
 
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ['ProbeDesp', 'ElectrodeDesp']
+__all__ = ['ProbeDesp', 'ElectrodeDesp', 'get_probe_desp']
+
+
+def get_probe_desp(name: str, package: str = 'chmap') -> type[ProbeDesp]:
+    if package == 'chmap' and not name.startswith('probe_'):
+        name = f'probe_{name}'
+
+    import importlib
+    module = importlib.import_module('.', package + '.' + name)
+
+    for attr in dir(module):
+        if not attr.startswith('_') and issubclass(desp := getattr(module, attr), ProbeDesp):
+            return desp
+
+    raise RuntimeError(f'ProbeDesp[{name}] not found')
 
 
 class ElectrodeDesp:
@@ -49,13 +66,44 @@ M = TypeVar('M')  # channelmap
 class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     """A probe interface for GUI interaction between different probe implements."""
 
+    STATE_UNUSED: ClassVar = 0
+    STATE_USED: ClassVar = 1
+    STATE_FORBIDDEN: ClassVar = 2
+
+    POLICY_UNSET: ClassVar = 0
+    POLICY_FORBIDDEN: ClassVar = 1
+    POLICY_SPARSE: ClassVar = 2
+
+    @property
+    @abc.abstractmethod
+    def possible_type(self) -> dict[str, int]:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def possible_states(self) -> dict[str, int]:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def possible_policy(self) -> dict[str, int]:
+        pass
+
     @property
     @abc.abstractmethod
     def channelmap_file_suffix(self) -> str:
         pass
 
     @abc.abstractmethod
-    def new_channelmap(self, *args, **kwargs) -> M:
+    def load_from_file(self, file: Path) -> M:
+        pass
+
+    @abc.abstractmethod
+    def save_to_file(self, chmap: M, file: Path):
+        pass
+
+    @abc.abstractmethod
+    def new_channelmap(self, chmap: int | M) -> M:
         """Create a new, empty channelmap"""
         pass
 
@@ -166,15 +214,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
-    @overload
     def invalid_electrodes(self, chmap: M, e: E, s: list[E]) -> list[E]:
-        pass
-
-    @overload
-    def invalid_electrodes(self, chmap: M, e: E, s: dict[K, E]) -> dict[K, E]:
-        pass
-
-    def invalid_electrodes(self, chmap: M, e: E, s):
         """
         Picking an invalid electrode set from *s* once an electrode *e* is added into *chmap*,
         under the probe restriction.
@@ -186,10 +226,17 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         if isinstance(s, list):
             return [it for it in s if not self.probe_rule(chmap, e, it)]
-        elif isinstance(s, dict):
-            return {k: it for k, it in s.items() if not self.probe_rule(chmap, e, it)}
         else:
             raise TypeError()
+
+    @abc.abstractmethod
+    def select_electrodes(self, chmap: M, s: list[E], **kwargs) -> M:
+        """
+
+        :param chmap: channelmap type. It is a reference.
+        :param s: channelmap policy
+        :return: generate channelmap
+        """
 
     @staticmethod
     def electrode_diff(s: list[E], e: E | list[E]) -> list[E]:

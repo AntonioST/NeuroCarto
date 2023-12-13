@@ -1,35 +1,166 @@
-from chmap.probe import ProbeDesp, E, M
+import time
+
+from bokeh.models import ColumnDataSource, GlyphRenderer
+from bokeh.plotting import figure as Figure
+
+from chmap.probe import ProbeDesp, E, M, K
 from chmap.util.bokeh_view import RenderComponent
 
 __all__ = ['ProbeView']
 
 
 class ProbeView(RenderComponent):
+    data_electrodes: dict[int, ColumnDataSource]
+    render_electrodes: dict[int, GlyphRenderer]
+
+    data_highlight: ColumnDataSource
+    render_highlight: GlyphRenderer
+
     def __init__(self, desp: ProbeDesp[M, E]):
-        self.desp: ProbeDesp[M, E] = desp
+        self.probe: ProbeDesp[M, E] = desp
         self.channelmap: M | None = None
         self.electrodes: list[E] | None = None
+        self._e2i: dict[K, int] = {}
+
+        self.data_electrodes = {}
+        for state in self.probe.possible_states.values():
+            self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[]))
+            self.data_electrodes[state].selected.on_change('indices', self.on_select(state))
+        if (state := ProbeDesp.STATE_FORBIDDEN) not in self.data_electrodes:
+            self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[]))
+            self.data_electrodes[state].selected.on_change('indices', self.on_select(state))
+        self.data_highlight = ColumnDataSource(data=dict(x=[], y=[], e=[]))
+
+        self.style_electrodes = {  # TODO config somewhere
+            ProbeDesp.STATE_USED: dict(color='green'),
+            ProbeDesp.STATE_UNUSED: dict(color='black'),
+            ProbeDesp.STATE_FORBIDDEN: dict(color='red', size=2, alpha=0.2),
+            'highlight': dict(color='yellow', size=6, alpha=0.5)
+        }
+
+    def plot(self, f: Figure):
+        self.render_electrodes = {}
+        self.render_highlight = f.scatter(
+            x='x', y='y', source=self.data_highlight, **self.style_electrodes.get('highlight', {})
+        )
+
+        for state, data in self.data_electrodes.items():
+            self.render_electrodes[state] = f.scatter(
+                x='x', y='y', source=data, **self.style_electrodes.get(state, {})
+            )
 
     def channelmap_desp(self) -> str:
-        return self.desp.channelmap_desp(self.channelmap)
+        return self.probe.channelmap_desp(self.channelmap)
 
     def reset(self, *args, **kwargs):
         if len(args) == 0 and len(kwargs) == 0 and self.channelmap is not None:
-            channelmap = self.desp.new_channelmap(self.channelmap)
+            channelmap = self.probe.new_channelmap(self.channelmap)
         else:
-            channelmap = self.desp.new_channelmap(*args, **kwargs)
+            channelmap = self.probe.new_channelmap(*args, **kwargs)
 
         self.channelmap = channelmap
-        self.electrodes = self.desp.all_electrodes(channelmap)
+        self.electrodes = self.probe.all_electrodes(channelmap)
+
+        self._e2i = {}
+        for i, e in enumerate(self.electrodes):  # type: int, E
+            self._e2i[e.electrode] = i
+
+    def update_electrode(self):
+        for state, data in self.data_electrodes.items():
+            self.update_electrode_position(data, self.get_electrodes(None, state=state))
+        self.update_electrode_position(self.data_highlight, [])
+
+    def refresh_selection(self):
+        self.channelmap = self.probe.select_electrodes(self.channelmap, self.electrodes)
+
+    def get_electrodes(self, s: None | int | list[int] | ColumnDataSource, *, state: int = None) -> list[E]:
+        ret: list[E]
+
+        match s:
+            case None:
+                ret = list(self.electrodes)
+            case int():
+                ret = [self.electrodes[s]]
+            case list():
+                ret = [self.electrodes[it] for it in s]
+            case _ if isinstance(s, ColumnDataSource):
+                ret = [self.electrodes[it] for it in s.data['e']]
+            case _:
+                raise TypeError()
+
+        if state is not None:
+            ret = [it for it in ret if it.state == state]
+
+        return ret
+
+    def get_selected(self, d: ColumnDataSource = None, *, reset=False) -> list[E]:
+        if d is None:
+            ret = []
+            for state, data in self.data_electrodes.items():
+                if isinstance(state, int):
+                    ret = self.probe.electrode_union(ret, self.get_selected(data, reset=reset))
+            return ret
+        else:
+            selected_index = d.selected.indices
+            if reset:
+                d.selected.indices = []
+
+            e = d.data['e']
+            return self.get_electrodes([e[it] for it in selected_index])
+
+    def on_select(self, state: int):
+        time_stamp = 0
+
+        # noinspection PyUnusedLocal
+        def on_select_callback(prop: str, old: list[int], selected: list[int]):
+            nonlocal time_stamp
+            now = time.time()
+            self.set_highlight(self.get_selected(self.data_electrodes[state]), append=now - time_stamp < 0.3)
+            time_stamp = now
+
+        return on_select_callback
+
+    def update_electrode_position(self, d: ColumnDataSource, e: list[E], *, append=False):
+        if len(e) == 0 and not append:
+            d.data = dict(x=[], y=[], e=[])
+        else:
+            x = [it.x for it in e]
+            y = [it.y for it in e]
+            i = [self._e2i[it.electrode] for it in e]
+
+            if append:
+                data = d.data
+                x.extend(data['x'])
+                y.extend(data['y'])
+                i.extend(data['e'])
+
+            d.data = dict(x=x, y=y, e=i)
+
+    def set_highlight(self, s: list[E], *, invalid=True, append=False):
+        h = list(s)
+
+        if invalid:
+            for e in s:
+                h = self.probe.electrode_union(h, self.probe.invalid_electrodes(self.channelmap, e, self.electrodes))
+
+        self.update_electrode_position(self.data_highlight, h, append=append)
 
     def set_state_for_selected(self, state: int):
-        pass
+        if state == ProbeDesp.STATE_USED:
+            for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
+                for i in self.probe.invalid_electrodes(self.channelmap, e, self.electrodes):
+                    i.state = ProbeDesp.STATE_FORBIDDEN
 
-    def set_policy_for_selected(self, state: int):
-        pass
+                e.state = state
+                self.probe.add_electrode(self.channelmap, e)
 
-    def update(self):
-        pass
+        elif state == ProbeDesp.STATE_UNUSED:
+            for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
+                for i in self.probe.invalid_electrodes(self.channelmap, e, self.electrodes):
+                    i.state = ProbeDesp.STATE_UNUSED
 
-    def refresh(self):
-        pass
+                self.probe.del_electrode(self.channelmap, e)
+
+    def set_policy_for_selected(self, policy: int):
+        for e in self.get_selected(reset=True):
+            e.policy = policy

@@ -23,7 +23,7 @@ classifiers = [
     'Intended Audience :: Science/Research',
 ]
 
-dynamic = ["dependencies", "optional-dependencies"]
+dynamic = ["dependencies"]
 
 [project.urls]
 #Homepage = "https://github.com/pypa/sampleproject"
@@ -31,7 +31,7 @@ dynamic = ["dependencies", "optional-dependencies"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
-optional-dependencies = { file = ["requirements-opt.txt"] }
+optional-dependencies = { opt = { file = ["requirements-opt.txt"] } }
 
 [build-system]
 build-backend = "setuptools.build_meta"
