@@ -5,7 +5,7 @@ from typing import TypeVar, Generic, Any, overload
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ['ProbeDesp', 'ElectrodeDesp', 'get_probe_desp']
+__all__ = ['ProbeDesp', 'ElectrodeDesp']
 
 
 class ElectrodeDesp:
