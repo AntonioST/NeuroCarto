@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
-from chmap.probe import ProbeDesp, ElectrodeDesp
+from chmap.probe import ProbeDesp, ElectrodeDesp, M, E
 from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
@@ -16,11 +16,24 @@ class NpxElectrodeDesp(ElectrodeDesp):
 
 class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
-    def new_channelmap(self, probe_type: int | str) -> ChannelMap:
+    @property
+    def channelmap_file_suffix(self) -> str:
+        return '.imro'
+
+    def new_channelmap(self, probe_type: int | str | ChannelMap = 24) -> ChannelMap:
+        if isinstance(probe_type, ChannelMap):
+            probe_type = probe_type.probe_type
         return ChannelMap(probe_type)
 
     def copy_channelmap(self, chmap: ChannelMap) -> ChannelMap:
         return ChannelMap(chmap.probe_type, chmap)
+
+    def channelmap_desp(self, chmap: ChannelMap | None) -> str:
+        if chmap is None:
+            return '<b>Probe</b> 0/0'
+        else:
+            t = chmap.probe_type
+            return f'<b>Probe[{t.code}]</b> {len(chmap)}/{t.n_channels}'
 
     def all_electrodes(self, chmap: ChannelMap) -> list[NpxElectrodeDesp]:
         probe_type = chmap.probe_type
@@ -60,17 +73,14 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def get_electrode(self, s: list[NpxElectrodeDesp], e: tuple[int, int, int]) -> NpxElectrodeDesp | None:
         return super().get_electrode(s, e)
 
-    def add_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp) -> ChannelMap:
-        chmap.add_electrode(e.electrode)
-        return chmap
+    def add_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp):
+        chmap.add_electrode(e.electrode, exist_ok=True)
 
-    def del_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp) -> ChannelMap:
+    def del_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp):
         chmap.del_electrode(e.electrode)
-        return chmap
 
-    def invalid_electrodes(self, chmap: ChannelMap, e: NpxElectrodeDesp, s: list[NpxElectrodeDesp]) -> list[NpxElectrodeDesp]:
-        c = e.channel
-        return [it for it in s if it.channel == c]
+    def probe_rule(self, chmap: M, e1: E, e2: E) -> bool:
+        return e1.channel != e2.channel
 
     def electrode_to_numpy(self, s: list[NpxElectrodeDesp]) -> NDArray[np.int_]:
         ret = np.zeros((len(s), 5), dtype=int)  # (N, (shank, col, row, state, policy))

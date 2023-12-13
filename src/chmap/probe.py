@@ -1,7 +1,6 @@
 import abc
-import importlib
 from collections.abc import Hashable
-from typing import TypeVar, Generic, Any
+from typing import TypeVar, Generic, Any, overload
 
 import numpy as np
 from numpy.typing import NDArray
@@ -42,12 +41,18 @@ class ElectrodeDesp:
         return f'Electrode[{self.channel}:{self.electrode}]({pos}){{state={self.state}, policy={self.policy}}}'
 
 
+K = TypeVar('K')
 E = TypeVar('E', bound=ElectrodeDesp)  # electrode
 M = TypeVar('M')  # channelmap
 
 
 class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     """A probe interface for GUI interaction between different probe implements."""
+
+    @property
+    @abc.abstractmethod
+    def channelmap_file_suffix(self) -> str:
+        pass
 
     @abc.abstractmethod
     def new_channelmap(self, *args, **kwargs) -> M:
@@ -57,6 +62,10 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def copy_channelmap(self, chmap: M) -> M:
         """Copy a channelmap."""
+        pass
+
+    @abc.abstractmethod
+    def channelmap_desp(self, chmap: M | None) -> str:
         pass
 
     @abc.abstractmethod
@@ -81,7 +90,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         return None
 
     @abc.abstractmethod
-    def add_electrode(self, chmap: M, e: E) -> M:
+    def add_electrode(self, chmap: M, e: E):
         """
         Add an electrode *e* into *chmap*.
 
@@ -96,24 +105,22 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         :param chmap:
         :param e:
-        :return: updated channelmap.
         :raise: any error means the action was failed.
         """
         pass
 
     @abc.abstractmethod
-    def del_electrode(self, chmap: M, e: E) -> M:
+    def del_electrode(self, chmap: M, e: E):
         """
         Remove an electrode *e* from *chmap*.
 
         :param chmap:
         :param e:
-        :return: updated channelmap.
         :raise: any error means the action was failed.
         """
         pass
 
-    def copy_electrode(self, e: list[E]) -> list[E]:
+    def copy_electrode(self, s: list[E]) -> list[E]:
         """Copy an electrode set, including **ALL** information for every electrode.
 
         The default implement only consider simple case, so it won't work once
@@ -123,14 +130,14 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         2. type E has any attribute name start with '_'
         3. type E overwrite `__getattr__`, `__setattr__`
 
-        :param e:
+        :param s:
         :return:
         """
-        if len(e) == 0:
+        if len(s) == 0:
             return []
 
-        t = type(e[0])
-        return [self._copy_electrode(it, t()) for it in e]
+        t = type(s[0])
+        return [self._copy_electrode(it, t()) for it in s]
 
     def _copy_electrode(self, r: E, e: E, **kwargs) -> E:
         """A copy helper function to move data from *s* to *e*.
@@ -149,17 +156,40 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         return e
 
     @abc.abstractmethod
+    def probe_rule(self, chmap: M, e1: E, e2: E) -> bool:
+        """Does electrode *e1* and *e2* can be used in the same time?
+
+        :param chmap: channelmap type. It is a reference.
+        :param e1:
+        :param e2:
+        :return:
+        """
+        pass
+
+    @overload
     def invalid_electrodes(self, chmap: M, e: E, s: list[E]) -> list[E]:
+        pass
+
+    @overload
+    def invalid_electrodes(self, chmap: M, e: E, s: dict[K, E]) -> dict[K, E]:
+        pass
+
+    def invalid_electrodes(self, chmap: M, e: E, s):
         """
         Picking an invalid electrode set from *s* once an electrode *e* is added into *chmap*,
         under the probe restriction.
 
-        :param chmap:
+        :param chmap: channelmap type. It is a reference.
         :param e: a reference electrode. Usually, it is a most-recent selected electrode.
         :param s: an electrode set. Usually, it is a candidate set.
         :return: an invalid electrode set
         """
-        pass
+        if isinstance(s, list):
+            return [it for it in s if not self.probe_rule(chmap, e, it)]
+        elif isinstance(s, dict):
+            return {k: it for k, it in s.items() if not self.probe_rule(chmap, e, it)}
+        else:
+            raise TypeError()
 
     @staticmethod
     def electrode_diff(s: list[E], e: E | list[E]) -> list[E]:
@@ -172,16 +202,19 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         match (s, e):
             case ([], list() | ElectrodeDesp()):
                 return []
-            case (list(), []):
+            case (list(), [] | {}):
                 return list(s)
-            case (list(), list(e)):
+            case (_, list(e)):
                 t = set([it.electrode for it in e])
-            case (list(), ElectrodeDesp(electrode=e)):
+            case (_, ElectrodeDesp(electrode=e)):
                 t = {e}
             case _:
-                raise TypeError()
+                raise TypeError('e=' + repr(e))
 
-        return [it for it in s if it.electrode not in t]
+        if isinstance(s, list):
+            return [it for it in s if it.electrode not in t]
+        else:
+            raise TypeError('s=' + repr(s))
 
     @staticmethod
     def electrode_union(s: list[E], e: E | list[E]) -> list[E]:
@@ -261,16 +294,3 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         :return: *e*
         """
         pass
-
-
-def get_probe_desp(name: str, package: str = 'chmap') -> ProbeDesp:
-    if package == 'chmap' and not name.startswith('probe_'):
-        name = f'probe_{name}'
-
-    module = importlib.import_module('.', package + '.' + name)
-
-    for attr in dir(module):
-        if not attr.startswith('_') and issubclass(desp := getattr(module, attr), ProbeDesp):
-            return desp
-
-    raise RuntimeError(f'ProbeDesp[{name}] not found')

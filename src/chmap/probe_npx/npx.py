@@ -355,9 +355,7 @@ class ChannelMap:
 
         :param electrode: electrode ID, tuple of (shank, electrode) or tuple of (shank, column, row)
         :param in_used: Is it used.
-        :param exist_ok:
-            `exist_ok == False` will raise an error if electrode has existed.
-            `exist_ok == None` will return None if electrode has existed.
+        :param exist_ok: if not exist_ok, an error will raise if electrode has existed.
         :return: return an electrode which has been created.
         :raise ValueError: one of shank, column and row out of range
         :raise ChannelHasUsedError: duplicated channels using in electrodes
@@ -398,8 +396,6 @@ class ChannelMap:
                 raise ChannelHasUsedError(e)
             self._electrodes[c] = e
             return e
-        elif exist_ok is None:
-            return None
         elif exist_ok:
             return e
         else:

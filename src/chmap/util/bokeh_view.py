@@ -1,5 +1,5 @@
 import abc
-from typing import cast
+from typing import cast, TypeVar
 
 from bokeh.model import Model
 from bokeh.models import Div, GlyphRenderer, TextAreaInput
@@ -9,10 +9,12 @@ __all__ = [
     'UIComponent',
     'RenderComponent',
     'as_layout',
+    'col_layout',
     #
     'MessageLogArea',
 ]
 
+T = TypeVar('T')
 
 class UIComponent(metaclass=abc.ABCMeta):
     @abc.abstractmethod
@@ -59,6 +61,13 @@ class RenderComponent:
 
 def as_layout(model) -> Model:
     return _as_layout(model, 0)
+
+
+def col_layout(model: list[T], n: int) -> list[list[T]]:
+    ret = []
+    for i in range(0, len(model), n):
+        ret.append(model[i:i + n])
+    return ret
 
 
 def _as_layout(model: list, depth: int) -> Model:

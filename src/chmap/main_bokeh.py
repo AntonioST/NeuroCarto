@@ -1,15 +1,17 @@
+import functools
 from pathlib import Path
 
+import numpy as np
 from bokeh.models import Div, Select, AutocompleteInput, Toggle
 from bokeh.plotting import figure as Figure
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
-from chmap.probe import get_probe_desp
 from chmap.probe_npx.npx import ChannelMap
+from chmap.select import Selector
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.bokeh_app import BokehApplication, run_server
 from chmap.util.bokeh_util import ButtonFactory, SelectFactory
-from chmap.util.bokeh_view import MessageLogArea
+from chmap.util.bokeh_view import MessageLogArea, col_layout
 from chmap.views.probe import ProbeView
 
 
@@ -19,7 +21,13 @@ class ChannelMapEditorApp(BokehApplication):
     def __init__(self, config: ChannelMapEditorConfig):
         self.config = config
         self._setup_atlas_brain()
-        self._desp = get_probe_desp('npx')
+
+        from .probe_npx.desp import NpxProbeDesp
+        from .probe_npx.select import NpxSelector
+        self._desp = NpxProbeDesp()
+        self._selector: Selector = NpxSelector(self._desp)
+
+        self._use_imro: Path | None = None
 
     def _setup_atlas_brain(self):
         try:
@@ -38,29 +46,43 @@ class ChannelMapEditorApp(BokehApplication):
     # ==================== #
 
     def list_imro_files(self) -> list[Path]:
-        return list(sorted(self.config.imro_root.glob('*.imro'), key=Path.name.__get__))
+        pattern = '*' + self._desp.channelmap_file_suffix
+        return list(sorted(self.config.imro_root.glob(pattern), key=Path.name.__get__))
 
     def get_imro_file(self, name: str) -> Path:
         if '/' in name:
             return Path(name)
         else:
-            return (self.config.imro_root / name).with_suffix('.imro')
+            return (self.config.imro_root / name).with_suffix(self._desp.channelmap_file_suffix)
 
     def load_imro(self, name: str | Path) -> ChannelMap:
         return ChannelMap.from_imro(self.get_imro_file(name))
 
-    def save_imro(self, name: str | Path, chmap: ChannelMap):
-        return chmap.save_imro(self.get_imro_file(name).with_suffix('.imro'))
+    def save_imro(self, name: str | Path, chmap: ChannelMap) -> Path:
+        file = self.get_imro_file(name).with_suffix(self._desp.channelmap_file_suffix)
+        chmap.save_imro(file)
+        return file
 
     def get_policy_file(self, chmap: str | Path, name: str) -> Path:
         imro_file = self.get_imro_file(chmap)
         return imro_file.with_stem(imro_file.stem + '-' + name).with_suffix('.npy')
 
-    def load_policy(self, chmap: str | Path, name: str):
-        pass
+    def load_policy(self, chmap: str | Path, name: str) -> bool:
+        if (electrodes := self.probe_view.electrodes) is None:
+            return False
 
-    def save_policy(self, chmap: str | Path, name: str):
-        pass
+        data = np.load(self.get_policy_file(chmap, name))
+        self._desp.electrode_from_numpy(electrodes, data)
+        return True
+
+    def save_policy(self, chmap: str | Path, name: str) -> Path | None:
+        if (electrodes := self.probe_view.electrodes) is None:
+            return None
+
+        file = self.get_policy_file(chmap, name)
+        data = self._desp.electrode_to_numpy(electrodes)
+        np.save(file, data)
+        return file
 
     # ============= #
     # UI components #
@@ -105,14 +127,16 @@ class ChannelMapEditorApp(BokehApplication):
         self.probe_view = ProbeView(self._desp)
         self.probe_view.plot(self.probe_fig)
 
-        enable_btn = new_btn('Enable', self.on_enable)
-        disable_btn = new_btn('Disable', self.on_disable)
-        unset_btn = new_btn('Unset', self.on_unset)
-        set_btn = new_btn('Set', self.on_set)
-        density2_btn = new_btn('Half Density', self.on_density_2)
-        density4_btn = new_btn('Quarter Density', self.on_density_4)
-        random_btn = new_btn('Random', self.on_random)
-        forbidden_btn = new_btn('Forbidden', self.on_forbidden)
+        state_btns = col_layout([
+            new_btn(name, functools.partial(self.on_state_change, state=value))
+            for name, value in self._selector.possible_states.items()
+        ], 2)
+
+        policy_btns = col_layout([
+            new_btn(name, functools.partial(self.on_policy_change, policy=value))
+            for name, value in self._selector.possible_policy.items()
+        ], 2)
+
         refresh_btn = new_btn('Refresh', self.on_refresh)
         self.auto_btn = Toggle(label='Auto', active=False, min_width=150, width_policy='min')
         self.auto_btn.on_change('active', self.on_autoupdate)
@@ -128,12 +152,10 @@ class ChannelMapEditorApp(BokehApplication):
                     self.input_imro,
                     [empty_btn, load_btn, save_btn],
                     self.output_imro,
-                    header("Direct"),
-                    [enable_btn, disable_btn],
-                    header("Random"),
-                    [unset_btn, set_btn],
-                    [density2_btn, density4_btn],
-                    [forbidden_btn, random_btn],
+                    header("State"),
+                    *state_btns,
+                    header("Policy"),
+                    *policy_btns,
                     [self.auto_btn, refresh_btn],
                     self.message_area,
                 ],
@@ -147,21 +169,14 @@ class ChannelMapEditorApp(BokehApplication):
     def update(self):
         self.reload_input_imro_list()
 
-        if (use_imro := self.main.use_imro()) is not None:
-            if '/' in use_imro:
-                use_imro = Path(use_imro).stem
+        if (use_imro := self._use_imro) is not None:
+            use_imro = use_imro.stem
             if use_imro in self.input_imro.options:
                 self.input_imro.value = use_imro
                 self.run_later(self.on_load)
 
     def update_probe_info(self):
-        s = self.probe_view.shank_map
-        if s is None:
-            self.probe_info.text = f"<b>Probe</b> 0 / 0"
-        else:
-            t = s.n_channels
-            c = len(s.electrodes)
-            self.probe_info.text = f"<b>Probe</b> {c} / {t}"
+        self.probe_info.text = self.probe_view.channelmap_desp()
 
     # ========= #
     # callbacks #
@@ -169,10 +184,10 @@ class ChannelMapEditorApp(BokehApplication):
 
     def on_new(self):
         self.probe_view.reset()
-        self.probe_view.update_probe()
+        self.probe_view.update()
 
         if len(self.output_imro.value_input) == 0:
-            self.output_imro.value = "New.imro"
+            self.output_imro.value = "New"
 
         self.update_probe_info()
 
@@ -180,14 +195,17 @@ class ChannelMapEditorApp(BokehApplication):
         name: str = self.input_imro.value
         try:
             self.log_message(f'load {name}')
-            sm = self.load_imro(name)
+            file = self.get_imro_file(name)
+            chmap = self.load_imro(file)
         except FileNotFoundError as x:
             self.log_message(repr(x))
         else:
-            self.probe_view.reset(sm)
-            self.probe_view.update_probe()
+            self._use_imro = file
 
-            self.output_imro.value = name.replace('.imro', '')
+            self.probe_view.reset(chmap)
+            self.probe_view.update()
+
+            self.output_imro.value = file.stem
 
             self.update_probe_info()
 
@@ -207,47 +225,23 @@ class ChannelMapEditorApp(BokehApplication):
         if len(name) == 0:
             self.log_message('empty output filename')
         else:
-            sm = self.probe_view.shank_map
-            if len(sm) < imec_imro.PROBE_TYPE[sm.probe_type].n_channels:
-                self.log_message(f'incomplete imro : {len(sm)}')
+            chmap = self.probe_view.channelmap
+
+            if self._desp.is_valid(chmap):
+                self.log_message(f'incomplete channelmap')
             else:
-                path = self.main.save_imro(name, sm)
+                path = self.save_imro(name, chmap)
                 self.log_message('save', path.name)
                 self.output_imro.value = path.stem
                 self.reload_input_imro_list(path.stem)
 
-    def on_enable(self):
-        self.probe_view.set_state_for_selected(Electrode.STATE_USED)
-        self.probe_view.update_probe()
+    def on_state_change(self, state: int):
+        self.probe_view.set_state_for_selected(state)
+        self.probe_view.update()
         self.update_probe_info()
 
-    def on_disable(self):
-        self.probe_view.set_state_for_selected(Electrode.STATE_UNUSED)
-        self.probe_view.update_probe()
-        self.update_probe_info()
-
-    def on_set(self):
-        self.probe_view.set_possible_for_selected(Electrode.POSSIBLE_SET)
-        self._update_channelmap()
-
-    def on_unset(self):
-        self.probe_view.set_possible_for_selected(Electrode.POSSIBLE_UNSET)
-        self._update_channelmap()
-
-    def on_forbidden(self):
-        self.probe_view.set_possible_for_selected(Electrode.POSSIBLE_FORBIDDEN)
-        self._update_channelmap()
-
-    def on_density_2(self):
-        self.probe_view.set_possible_for_selected(Electrode.POSSIBLE_D2)
-        self._update_channelmap()
-
-    def on_density_4(self):
-        self.probe_view.set_possible_for_selected(Electrode.POSSIBLE_D4)
-        self._update_channelmap()
-
-    def on_random(self):
-        self.probe_view.set_possible_for_selected(Electrode.POSSIBLE_RANDOM)
+    def on_policy_change(self, policy: int):
+        self.probe_view.set_policy_for_selected(policy)
         self._update_channelmap()
 
     def _update_channelmap(self):
@@ -261,7 +255,7 @@ class ChannelMapEditorApp(BokehApplication):
 
     def on_refresh(self):
         self.probe_view.refresh()
-        self.probe_view.update_probe()
+        self.probe_view.update()
         self.update_probe_info()
 
     def log_message(self, *message):
