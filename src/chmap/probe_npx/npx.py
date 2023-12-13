@@ -246,6 +246,7 @@ class ChannelMap:
     # ================= #
 
     def __len__(self) -> int:
+        """number of channels"""
         ret = 0
         for e in self._electrodes:
             if e is not None:
