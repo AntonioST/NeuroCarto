@@ -234,6 +234,28 @@ class ChannelMap:
         from .io import to_probe
         return to_probe(self)
 
+    def __hash__(self):
+        ret = 3 + 5 * self.probe_type.code
+        ret = 7 * ret + 11 * self._reference
+        for e in self._electrodes:
+            ret = 7 * ret + 11 * (0 if e is None else hash(e))
+        return ret
+
+    def __eq__(self, other):
+        try:
+            if self.probe_type.code != other.probe_type.code:
+                return False
+            if self._reference != other._reference:
+                return False
+            if len(self._electrodes) != len(other._electrodes):
+                return False
+            for e, t in zip(self._electrodes, other._electrodes):
+                if e != t:
+                    return False
+            return True
+        except AttributeError:
+            return False
+
     def __str__(self) -> str:
         from .io import string_imro
         return string_imro(self)

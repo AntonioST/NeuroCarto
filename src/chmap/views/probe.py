@@ -60,10 +60,17 @@ class ProbeView(RenderComponent):
 
         self.channelmap = channelmap
         self.electrodes = self.probe.all_electrodes(channelmap)
+        self._reset_electrode_state()
 
         self._e2i = {}
         for i, e in enumerate(self.electrodes):  # type: int, E
             self._e2i[e.electrode] = i
+
+    def _reset_electrode_state(self):
+        for e in self.electrodes:
+            e.state = ProbeDesp.STATE_FORBIDDEN
+        for e in self.probe.all_channels(self.channelmap):
+            self.electrodes[self._e2i[e.electrode]].state = ProbeDesp.STATE_USED
 
     def update_electrode(self):
         for state, data in self.data_electrodes.items():
@@ -72,6 +79,7 @@ class ProbeView(RenderComponent):
 
     def refresh_selection(self):
         self.channelmap = self.probe.select_electrodes(self.channelmap, self.electrodes)
+        self._reset_electrode_state()
 
     def get_electrodes(self, s: None | int | list[int] | ColumnDataSource, *, state: int = None) -> list[E]:
         ret: list[E]

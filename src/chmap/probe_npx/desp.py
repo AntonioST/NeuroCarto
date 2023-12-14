@@ -149,13 +149,13 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
         cand: dict[E, NpxElectrodeDesp] = {it.electrode: it for it in self.all_electrodes(ret)}
         for e in s:
-            cand[e.electrode] = e
+            cand[e.electrode].policy = e.policy
 
         for e in s:
             if e.state == self.STATE_USED:
                 self._add_electrode(ret, cand, e)
 
-        return self._select_loop(chmap, cand)
+        return self._select_loop(ret, cand)
 
     def _select_loop(self, chmap: ChannelMap, cand: dict[E, NpxElectrodeDesp], *, limit: int = 1000, **kwargs) -> ChannelMap:
         # remove forbidden electrodes from the candidate set
