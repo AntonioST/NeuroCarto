@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from collections.abc import Hashable
+from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import TypeVar, Generic, Any, ClassVar
 
@@ -126,7 +126,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def all_channels(self, chmap: M, s: list[E] = None) -> list[E]:
+    def all_channels(self, chmap: M, s: Iterable[E] = None) -> list[E]:
         """selected electrode set in *chmap*"""
         pass
 
@@ -135,7 +135,13 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """Is *chmap* a valid channelmap?"""
         pass
 
-    def get_electrode(self, s: list[E], e: Hashable) -> E | None:
+    def get_electrode(self, s: Iterable[E], e: Hashable) -> E | None:
+        """
+
+        :param s: an electrode set
+        :param e: electrode identify, as same as ElectrodeDesp.electrode.
+        :return: found electrode in *s*. None if not found.
+        """
         for ee in s:
             if ee.electrode == e:
                 return ee
@@ -173,7 +179,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
-    def copy_electrode(self, s: list[E]) -> list[E]:
+    def copy_electrode(self, s: Sequence[E]) -> list[E]:
         """Copy an electrode set, including **ALL** information for every electrode.
 
         The default implement only consider simple case, so it won't work once
@@ -219,7 +225,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
-    def invalid_electrodes(self, chmap: M, e: E, s: list[E]) -> list[E]:
+    def invalid_electrodes(self, chmap: M, e: E | Iterable[E], s: Iterable[E]) -> list[E]:
         """
         Picking an invalid electrode set from *s* once an electrode *e* is added into *chmap*,
         under the probe restriction.
@@ -229,10 +235,10 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         :param s: an electrode set. Usually, it is a candidate set.
         :return: an invalid electrode set
         """
-        if isinstance(s, list):
-            return [it for it in s if not self.probe_rule(chmap, e, it)]
+        if isinstance(e, Iterable):
+            return [it for it in s if any([not self.probe_rule(chmap, ee, it) for ee in e])]
         else:
-            raise TypeError()
+            return [it for it in s if not self.probe_rule(chmap, e, it)]
 
     @abc.abstractmethod
     def select_electrodes(self, chmap: M, s: list[E], **kwargs) -> M:
@@ -242,91 +248,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         :param s: channelmap policy
         :return: generate channelmap
         """
-
-    @staticmethod
-    def electrode_diff(s: list[E], e: E | list[E]) -> list[E]:
-        """set difference.
-
-        :param s: an electrode set S
-        :param e: an electrode or a set E
-        :return: an electrode set S \\ E
-        """
-        match (s, e):
-            case ([], list() | ElectrodeDesp()):
-                return []
-            case (list(), [] | {}):
-                return list(s)
-            case (_, list(e)):
-                t = set([it.electrode for it in e])
-            case (_, ElectrodeDesp(electrode=e)):
-                t = {e}
-            case _:
-                raise TypeError('e=' + repr(e))
-
-        if isinstance(s, list):
-            return [it for it in s if it.electrode not in t]
-        else:
-            raise TypeError('s=' + repr(s))
-
-    @staticmethod
-    def electrode_union(s: list[E], e: E | list[E]) -> list[E]:
-        """set union.
-
-        :param s: an electrode set S
-        :param e: an electrode set E
-        :return: an electrode set S ⋃ E
-        """
-        match (s, e):
-            case ([], list()):
-                return list(e)
-            case ([], ElectrodeDesp()):
-                return [e]
-            case (list(), []):
-                return list(s)
-            case (list(), list()):
-                pass
-            case (list(), ElectrodeDesp()):
-                e = [e]
-            case _:
-                raise TypeError()
-
-        r = list(s)
-        t = set([it.electrode for it in s])
-
-        for ee in e:
-            if ee.electrode not in t:
-                r.append(ee)
-
-        return r
-
-    @staticmethod
-    def electrode_intersect(s: list[E], e: E | list[E]) -> list[E]:
-        """set intersect.
-
-        :param s: an electrode set S
-        :param e: an electrode set E
-        :return: an electrode set S ⋂ E
-        """
-        match (s, e):
-            case ([], list() | ElectrodeDesp()):
-                return []
-            case (_, []):
-                return []
-            case (_, list()):
-                pass
-            case (_, ElectrodeDesp()):
-                e = [e]
-            case _:
-                raise TypeError()
-
-        r = []
-        t = set([it.electrode for it in s])
-
-        for ee in e:
-            if ee.electrode in t:
-                r.append(ee)
-
-        return r
+        pass
 
     @abc.abstractmethod
     def electrode_to_numpy(self, s: list[E]) -> NDArray[np.int_]:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Iterable
 from pathlib import Path
 from typing import ClassVar, TypeAlias
 
@@ -95,7 +96,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                     ret.append(d)
         return ret
 
-    def all_channels(self, chmap: ChannelMap, s: list[NpxElectrodeDesp] = None) -> list[NpxElectrodeDesp]:
+    def all_channels(self, chmap: ChannelMap, s: Iterable[NpxElectrodeDesp] = None) -> list[NpxElectrodeDesp]:
         probe_type = chmap.probe_type
         ret = []
         for c, e in enumerate(chmap.channels):  # type: int, Electrode|None
@@ -118,7 +119,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def is_valid(self, chmap: ChannelMap) -> bool:
         return len(chmap) == chmap.probe_type.n_channels
 
-    def get_electrode(self, s: list[NpxElectrodeDesp], e: tuple[int, int, int]) -> NpxElectrodeDesp | None:
+    def get_electrode(self, s: Iterable[NpxElectrodeDesp], e: E) -> NpxElectrodeDesp | None:
         return super().get_electrode(s, e)
 
     def add_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp, *, overwrite=False):

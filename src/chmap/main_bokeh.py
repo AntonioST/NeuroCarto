@@ -1,18 +1,17 @@
 import functools
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from bokeh.events import MenuItemClick
-from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools
+from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, Button, TextAreaInput, UIElement
 from bokeh.plotting import figure as Figure
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.bokeh_app import BokehApplication, run_server
-from chmap.util.bokeh_util import ButtonFactory, SelectFactory
-from chmap.util.bokeh_view import MessageLogArea, col_layout
 from chmap.views.probe import ProbeView
 
 
@@ -24,9 +23,9 @@ class ChannelMapEditorApp(BokehApplication):
         self.config = config
         self._setup_atlas_brain()
 
-        self.probe = get_probe_desp('npx')()
+        self.probe = get_probe_desp(config.probe_family)()
 
-        self._use_imro: Path | None = None
+        self._use_chmap_path: Path | None = None
 
     def _setup_atlas_brain(self):
         try:
@@ -38,39 +37,42 @@ class ChannelMapEditorApp(BokehApplication):
 
     @property
     def title(self) -> str:
-        return "Channel Map"
+        f = self.config.probe_family.upper()
+        return f"{f} Channel Map Editor"
 
     # ==================== #
     # load/save imro files #
     # ==================== #
 
-    def list_imro_files(self) -> list[Path]:
+    def list_chmap_files(self) -> list[Path]:
         pattern = '*' + self.probe.channelmap_file_suffix
-        return list(sorted(self.config.imro_root.glob(pattern), key=Path.name.__get__))
+        return list(sorted(self.config.chmap_root.glob(pattern), key=Path.name.__get__))
 
-    def get_imro_file(self, name: str) -> Path:
+    def get_chmap_file(self, name: str) -> Path:
         if '/' in name:
-            return Path(name)
+            p = Path(name)
         else:
-            return (self.config.imro_root / name).with_suffix(self.probe.channelmap_file_suffix)
+            p = (self.config.chmap_root / name)
 
-    def load_imro(self, name: str | Path) -> M:
-        file = self.get_imro_file(name)
+        return p.with_suffix(self.probe.channelmap_file_suffix)
+
+    def load_chmap(self, name: str | Path) -> M:
+        file = self.get_chmap_file(name)
         ret = self.probe.load_from_file(file)
         self.log_message(f'load channelmap : {file.name}')
-        self._use_imro = file
+        self._use_chmap_path = file
         return ret
 
-    def save_imro(self, name: str | Path, chmap: M) -> Path:
-        file = self.get_imro_file(name).with_suffix(self.probe.channelmap_file_suffix)
+    def save_chmap(self, name: str | Path, chmap: M) -> Path:
+        file = self.get_chmap_file(name)
         self.probe.save_to_file(chmap, file)
         self.log_message(f'save channelmap : {file.name}')
-        self._use_imro = file
+        self._use_chmap_path = file
         return file
 
     def get_policy_file(self, chmap: str | Path) -> Path:
-        imro_file = self.get_imro_file(chmap)
-        return imro_file.with_stem(imro_file.stem).with_suffix('.npy')
+        imro_file = self.get_chmap_file(chmap)
+        return imro_file.with_suffix('.npy')
 
     def load_policy(self, chmap: str | Path) -> bool:
         if (electrodes := self.probe_view.electrodes) is None:
@@ -110,28 +112,29 @@ class ChannelMapEditorApp(BokehApplication):
 
     input_imro: Select
     output_imro: AutocompleteInput
-    message_area: MessageLogArea
+    message_area: TextAreaInput
 
     auto_btn: Toggle
 
     def index(self):
         new_btn = ButtonFactory(min_width=150, width_policy='min')
-        new_select = SelectFactory(width=300)
 
-        def header(text: str):
-            return Div(text=f'<b>{text}</b>')
-
-        self.message_area = MessageLogArea("Log:", rows=10, cols=100, width=300)
+        self.message_area = TextAreaInput(title="Log:", rows=10, cols=100, width=300, disabled=True)
 
         #
-        self.input_imro = new_select('Input Channelmap file', [])
+        self.input_imro = Select(
+            title='Input Channelmap file',
+            options=[], value="",
+            width=300
+        )
 
-        self.output_imro = AutocompleteInput(title='Output Channelmap file', width=300,
-                                             max_completions=5, case_sensitive=False,
-                                             restrict=True)
+        self.output_imro = AutocompleteInput(
+            title='Output Channelmap file',
+            width=300, max_completions=5, case_sensitive=False, restrict=True
+        )
 
         #
-        self.probe_info = header("<b>Probe</b>")
+        self.probe_info = Div(text="<b>Probe</b>")
         self.probe_fig = Figure(width=600, height=800, tools='', toolbar_location='above')
         self.probe_view = ProbeView(self.probe)
         self.probe_view.plot(self.probe_fig)
@@ -171,26 +174,25 @@ class ChannelMapEditorApp(BokehApplication):
         load_btn = new_btn('Load', self.on_load, min_width=100, align='end')
         save_btn = new_btn('Save', self.on_save, min_width=100, align='end')
 
-        return [  # column
-            [  # row
-                [
-                    header("Imro File"),
-                    self.input_imro,
-                    [empty_btn, load_btn, save_btn],
-                    self.output_imro,
-                    header("State"),
-                    *state_btns,
-                    header("Policy"),
-                    *policy_btns,
-                    [self.auto_btn, refresh_btn],
-                    self.message_area,
-                ],
-                [
-                    self.probe_info,
-                    self.probe_fig,
-                ],
-            ],
-        ]
+        from bokeh.layouts import column, row
+        return row(
+            column(
+                Div(text="<b>Imro File</b>"),
+                self.input_imro,
+                row(empty_btn, load_btn, save_btn),
+                self.output_imro,
+                Div(text="<b>State</b>"),
+                *state_btns,
+                Div(text="<b>Policy</b>"),
+                *policy_btns,
+                row(self.auto_btn, refresh_btn),
+                self.message_area,
+            ),
+            column(
+                self.probe_info,
+                self.probe_fig,
+            )
+        )
 
     def update(self):
         self.reload_input_imro_list()
@@ -205,7 +207,7 @@ class ChannelMapEditorApp(BokehApplication):
     def on_new(self, e: MenuItemClick):
         probe_type = self.probe.possible_type[e.item]
 
-        self._use_imro = None
+        self._use_chmap_path = None
         self.probe_view.reset(probe_type)
         self.probe_view.update_electrode()
 
@@ -220,8 +222,8 @@ class ChannelMapEditorApp(BokehApplication):
             return
 
         try:
-            file = self.get_imro_file(name)
-            chmap = self.load_imro(file)
+            file = self.get_chmap_file(name)
+            chmap = self.load_chmap(file)
         except FileNotFoundError as x:
             self.log_message(repr(x))
         else:
@@ -238,7 +240,7 @@ class ChannelMapEditorApp(BokehApplication):
         if preselect is None:
             preselect = self.input_imro.value
 
-        imro_list = [f.stem for f in self.list_imro_files()]
+        imro_list = [f.stem for f in self.list_chmap_files()]
         self.input_imro.options = imro_list
 
         if preselect in imro_list:
@@ -256,7 +258,7 @@ class ChannelMapEditorApp(BokehApplication):
             self.log_message(f'incomplete channelmap')
             return
 
-        path = self.save_imro(name, chmap)
+        path = self.save_chmap(name, chmap)
         self.output_imro.value = path.stem
         self.reload_input_imro_list(path.stem)
 
@@ -281,8 +283,46 @@ class ChannelMapEditorApp(BokehApplication):
         self.probe_view.update_electrode()
         self.update_probe_info()
 
-    def log_message(self, *message):
-        self.message_area.log_message(*message)
+    def log_message(self, *message, reset=False):
+        area = self.message_area
+        message = '\n'.join(message)
+        area.disabled = False
+        try:
+            if reset:
+                area.value = message
+            else:
+                text = area.value
+                area.value = message + '\n' + text
+        finally:
+            area.disabled = True
+
+    def log_clear(self):
+        area = self.message_area
+        area.disabled = False
+        try:
+            area.value = ""
+        finally:
+            area.disabled = True
+
+
+class ButtonFactory(object):
+    def __init__(self, **kwargs):
+        self.__kwargs = kwargs
+
+    def __call__(self, label: str, callback: Callable[..., None], **kwargs) -> Button:
+        for k, v in self.__kwargs.items():
+            kwargs.setdefault(k, v)
+        btn = Button(label=label, **kwargs)
+        btn.on_click(callback)
+        return btn
+
+
+def col_layout(model: list[UIElement], n: int) -> list[UIElement]:
+    from bokeh.layouts import row
+    ret = []
+    for i in range(0, len(model), n):
+        ret.append(row(model[i:i + n]))
+    return ret
 
 
 def main(config: ChannelMapEditorConfig = None):

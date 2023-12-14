@@ -10,8 +10,6 @@ from bokeh.model import Model
 from bokeh.plotting import figure as Figure
 from bokeh.server.server import Server
 
-from .bokeh_view import as_layout
-
 __all__ = [
     'BokehApplication',
     'run_later',
@@ -41,16 +39,12 @@ class BokehApplication(metaclass=abc.ABCMeta):
         self.document = document
         document.title = self.title
 
-        model = self.index()
-        if isinstance(model, list):
-            model = as_layout(model)
-
-        document.add_root(model)
+        document.add_root(self.index())
         document.on_session_destroyed(self.cleanup_session)
         document.add_next_tick_callback(self.update)
 
     @abc.abstractmethod
-    def index(self):
+    def index(self) -> Model:
         pass
 
     def update(self):
@@ -75,8 +69,16 @@ class BokehApplication(metaclass=abc.ABCMeta):
     def run_periodic(self, cycle: int, callback: Callable, *args, **kwargs):
         self.document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
 
+    @classmethod
+    def get_server(cls) -> Server:
+        for frame in inspect.stack():
+            if frame.function == 'run_server' and isinstance((server := frame.frame.f_locals.get('server', None)), Server):
+                return server
+        raise RuntimeError()
+
 
 def run_later(callback: Callable, *args, **kwargs):
+    # TODO bokeh.io.curdoc() ?
     document = BokehApplication.get_application().document
     document.add_next_tick_callback(functools.partial(callback, *args, **kwargs))
 
@@ -89,13 +91,6 @@ def run_timeout(delay: int, callback: Callable, *args, **kwargs):
 def run_periodic(cycle: int, callback: Callable, *args, **kwargs):
     document = BokehApplication.get_application().document
     document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
-
-
-def get_server() -> Server:
-    for frame in inspect.stack():
-        if frame.function == 'run_server' and isinstance((server := frame.frame.f_locals.get('server', None)), Server):
-            return server
-    raise RuntimeError()
 
 
 def run_server(handlers: BokehApplication | dict[str, BokehApplication], *,
