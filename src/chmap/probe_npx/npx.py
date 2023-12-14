@@ -7,6 +7,8 @@ from typing import NamedTuple, Final, Literal, overload, Sized, cast, Any
 import numpy as np
 from numpy.typing import NDArray
 
+from chmap.util.utils import all_int, as_set, align_arr
+
 __all__ = [
     'ProbeType',
     'PROBE_TYPE',
@@ -1001,39 +1003,3 @@ def c2e24(shank, bank, channel):
         block = block[np.argsort(i)]
 
     return 384 * bank + 48 * block + index
-
-
-def all_int(*x) -> bool:
-    for xx in x:
-        if not isinstance(xx, (int, np.integer)):
-            return False
-    return True
-
-
-def align_arr(*x: int | NDArray[np.int_]) -> list[NDArray[np.int_]]:
-    if len(x) < 2:
-        raise RuntimeError()
-
-    ret = [np.asarray(it) for it in x]
-    sz = max([len(it) for it in ret])
-    ret = [np.full((sz,), it) if it.ndim == 0 else it for it in ret]
-    if not all([it.ndim == 1 and len(it) == sz for it in ret]):
-        raise RuntimeError()
-
-    return ret
-
-
-def as_set(x, n: int) -> set[int]:
-    if x is None:
-        return set(range(n))
-    if all_int(x):
-        return {int(x)}
-    elif isinstance(x, slice):
-        return set(range(n)[x])
-    elif isinstance(x, tuple):
-        ret = set()
-        for xx in x:
-            ret.update(as_set(xx, n))
-        return ret
-    else:
-        return set(map(int, x))

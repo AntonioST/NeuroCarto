@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 from bokeh.events import MenuItemClick
+from bokeh.layouts import row as Row, column as Column
 from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, Button, TextAreaInput, UIElement
 from bokeh.plotting import figure as Figure
 
@@ -12,6 +13,7 @@ from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.bokeh_app import BokehApplication, run_server
+from chmap.views.atlas import AtlasBrainView
 from chmap.views.probe import ProbeView
 
 
@@ -30,7 +32,8 @@ class ChannelMapEditorApp(BokehApplication):
     def _setup_atlas_brain(self):
         try:
             atlas_brain = get_atlas_brain(self.config.atlas_name, self.config.atlas_root)
-        except ImportError:
+        except ImportError as e:
+            print(repr(e))
             atlas_brain = None
 
         self.atlas_brain = atlas_brain
@@ -110,6 +113,8 @@ class ChannelMapEditorApp(BokehApplication):
     probe_view: ProbeView
     probe_info: Div
 
+    brain_view: AtlasBrainView
+
     input_imro: Select
     output_imro: AutocompleteInput
     message_area: TextAreaInput
@@ -117,9 +122,18 @@ class ChannelMapEditorApp(BokehApplication):
     auto_btn: Toggle
 
     def index(self):
-        new_btn = ButtonFactory(min_width=150, width_policy='min')
+        row = [
+            Column(self._index_left_control()),
+            Column(self._index_main_view())
+        ]
 
-        self.message_area = TextAreaInput(title="Log:", rows=10, cols=100, width=300, disabled=True)
+        if len(c := self._index_right_control()) > 0:
+            row.append(Column(c))
+
+        return Row(row)
+
+    def _index_left_control(self) -> list[UIElement]:
+        new_btn = ButtonFactory(min_width=150, width_policy='min')
 
         #
         self.input_imro = Select(
@@ -134,8 +148,55 @@ class ChannelMapEditorApp(BokehApplication):
         )
 
         #
+        state_btns = col_layout([
+            new_btn(name, functools.partial(self.on_state_change, state=value))
+            for name, value in self.probe.possible_states.items()
+        ], 2)
+
+        policy_btns = col_layout([
+            new_btn(name, functools.partial(self.on_policy_change, policy=value))
+            for name, value in self.probe.possible_policy.items()
+        ], 2)
+
+        #
+
+        empty_btn = Dropdown(
+            label='New',
+            menu=list(self.probe.possible_type),
+            min_width=100, align='end', width_policy='min',
+            stylesheets=["div.bk-menu { width: 300%; }"]
+        )
+        empty_btn.on_click(self.on_new)
+
+        load_btn = new_btn('Load', self.on_load, min_width=100, align='end')
+        save_btn = new_btn('Save', self.on_save, min_width=100, align='end')
+
+        #
+
+        refresh_btn = new_btn('Refresh', self.on_refresh)
+        self.auto_btn = Toggle(label='Auto', active=True, min_width=150, width_policy='min')
+        self.auto_btn.on_change('active', self.on_autoupdate)
+
+        #
+        self.message_area = TextAreaInput(title="Log:", rows=10, cols=100, width=300, disabled=True)
+
+        return [
+            Div(text="<b>Imro File</b>"),
+            self.input_imro,
+            Row(empty_btn, load_btn, save_btn),
+            self.output_imro,
+            Div(text="<b>State</b>"),
+            *state_btns,
+            Div(text="<b>Policy</b>"),
+            *policy_btns,
+            Row(self.auto_btn, refresh_btn),
+            self.message_area,
+        ]
+
+    def _index_main_view(self) -> list[UIElement]:
         self.probe_info = Div(text="<b>Probe</b>")
         self.probe_fig = Figure(width=600, height=800, tools='', toolbar_location='above')
+
         self.probe_view = ProbeView(self.probe)
         self.probe_view.plot(self.probe_fig)
 
@@ -150,52 +211,46 @@ class ChannelMapEditorApp(BokehApplication):
         self.probe_fig.toolbar.active_drag = t_drag
         self.probe_fig.toolbar.active_scroll = t_scroll
 
-        state_btns = col_layout([
-            new_btn(name, functools.partial(self.on_state_change, state=value))
-            for name, value in self.probe.possible_states.items()
-        ], 2)
+        return [
+            self.probe_info,
+            self.probe_fig
+        ]
 
-        policy_btns = col_layout([
-            new_btn(name, functools.partial(self.on_policy_change, policy=value))
-            for name, value in self.probe.possible_policy.items()
-        ], 2)
+    def _index_right_control(self) -> list[UIElement]:
+        ret = []
+        if self.atlas_brain is not None:
+            ret.extend(self._index_brain_view(self.atlas_brain))
+        return ret
 
-        refresh_btn = new_btn('Refresh', self.on_refresh)
-        self.auto_btn = Toggle(label='Auto', active=True, min_width=150, width_policy='min')
-        self.auto_btn.on_change('active', self.on_autoupdate)
+    def _index_brain_view(self, atlas: BrainGlobeAtlas) -> list[UIElement]:
+        new_btn = ButtonFactory(min_width=100, width_policy='min')
 
-        empty_btn = Dropdown(
-            label='New',
-            menu=list(self.probe.possible_type),
-            min_width=100, align='end', width_policy='min',
-            stylesheets=["div.bk-menu { width: 300%; }"]
-        )
-        empty_btn.on_click(self.on_new)
-        load_btn = new_btn('Load', self.on_load, min_width=100, align='end')
-        save_btn = new_btn('Save', self.on_save, min_width=100, align='end')
+        self.brain_view = AtlasBrainView(atlas)
+        self.brain_view.plot(self.probe_fig)
+        self.brain_view.setup()
 
-        from bokeh.layouts import column, row
-        return row(
-            column(
-                Div(text="<b>Imro File</b>"),
-                self.input_imro,
-                row(empty_btn, load_btn, save_btn),
-                self.output_imro,
-                Div(text="<b>State</b>"),
-                *state_btns,
-                Div(text="<b>Policy</b>"),
-                *policy_btns,
-                row(self.auto_btn, refresh_btn),
-                self.message_area,
-            ),
-            column(
-                self.probe_info,
-                self.probe_fig,
-            )
-        )
+        reset_rth = new_btn('reset', self.brain_view.reset_rth)
+        reset_rtv = new_btn('reset', self.brain_view.reset_rtv)
+
+        return [
+            Div(text="<b>Brain Atlas</b>"),
+            Row(self.brain_view.slice_select, self.brain_view.plane_slider),
+            Row(reset_rth, self.brain_view.rth_slider),
+            Row(reset_rtv, self.brain_view.rtv_slider),
+        ]
 
     def update(self):
         self.reload_input_imro_list()
+        self.update_brain_view()
+
+    def update_brain_view(self):
+        try:
+            view = self.brain_view
+        except AttributeError:
+            pass
+
+        if view.brain_slice is None:
+            view.update_brain_view('coronal')
 
     def update_probe_info(self):
         self.probe_info.text = self.probe_view.channelmap_desp()
@@ -318,10 +373,9 @@ class ButtonFactory(object):
 
 
 def col_layout(model: list[UIElement], n: int) -> list[UIElement]:
-    from bokeh.layouts import row
     ret = []
     for i in range(0, len(model), n):
-        ret.append(row(model[i:i + n]))
+        ret.append(Row(model[i:i + n]))
     return ret
 
 
