@@ -1,9 +1,11 @@
+import math
 from typing import get_args
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
+from scipy.ndimage import rotate
 
 from chmap.util.atlas_brain import BrainGlobeAtlas
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
@@ -11,11 +13,16 @@ from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
 
 class AtlasBrainView:
     data_brain: ColumnDataSource
+    data_brain_boundary: ColumnDataSource
+
     render_brain: GlyphRenderer
+    render_brain_boundary: GlyphRenderer
 
     def __init__(self, brain: BrainGlobeAtlas):
         self.brain: BrainGlobeAtlas = brain
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
+        self.data_brain_boundary = ColumnDataSource(data=dict(x=[], y=[], w=[], h=[], r=[]))
+
         self._brain_view: SliceView | None = None
         self._brain_slice: SlicePlane | None = None
 
@@ -25,6 +32,10 @@ class AtlasBrainView:
         self._sy: float = 1
         self._rt: float = 0
 
+    # ========= #
+    # load/save #
+    # ========= #
+
     # ============= #
     # UI components #
     # ============= #
@@ -33,6 +44,8 @@ class AtlasBrainView:
     plane_slider: Slider
     rth_slider: Slider
     rtv_slider: Slider
+    imr_slider: Slider
+    ims_slider: Slider
 
     def setup(self, width: int = 300, rotate_steps=(-1000, 1000, 5)):
         #
@@ -79,6 +92,28 @@ class AtlasBrainView:
         )
         self.rtv_slider.on_change('value', self._on_diff_changed)
 
+        #
+        self.imr_slider = Slider(
+            start=-25,
+            end=25,
+            step=1,
+            value=0,
+            title='image rotation (deg)',
+            width=width,
+        )
+        self.imr_slider.on_change('value', self._on_image_rotate)
+
+        #
+        self.ims_slider = Slider(
+            start=-1,
+            end=1,
+            step=0.01,
+            value=0,
+            title='image scale (log)',
+            width=width,
+        )
+        self.ims_slider.on_change('value', self._on_image_scale)
+
     # noinspection PyUnusedLocal
     def _on_slice_selected(self, prop: str, old: str, s: str):
         # if old != s:
@@ -99,6 +134,12 @@ class AtlasBrainView:
             q = p.with_offset(x, y)
             self.update_brain_slice(q)
 
+    def _on_image_rotate(self, prop: str, old: int, s: int):
+        self.update_image_rotate(s)
+
+    def _on_image_scale(self, prop: str, old: float, s: float):
+        self.update_image_scale(math.pow(10, s))
+
     def reset_rth(self):
         try:
             self.rth_slider.value = 0
@@ -110,6 +151,18 @@ class AtlasBrainView:
             self.rtv_slider.value = 0
         except AttributeError:
             pass
+
+    def reset_imr(self):
+        try:
+            self.imr_slider.value = 0
+        except AttributeError:
+            self.update_image_rotate(0)
+
+    def reset_ims(self):
+        try:
+            self.ims_slider.value = 0
+        except AttributeError:
+            self.update_image_scale(1)
 
     # ================= #
     # render components #
@@ -132,8 +185,35 @@ class AtlasBrainView:
     def plot(self, f: Figure, palette: str = 'Greys256'):
         self.render_brain = f.image(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
-            palette=palette, level="image",
+            palette=palette, level="image", global_alpha=0.5, syncable=False,
         )
+        self.render_brain_boundary = f.rect(
+            'x', 'y', 'w', 'h', 'r', source=self.data_brain_boundary,
+            fill_alpha=0, angle_units='deg',
+        )
+        self.data_brain_boundary.on_change('data', self._on_boundary_change)
+
+    def boundary_tool(self):
+        from bokeh.models import tools
+        return tools.BoxEditTool(
+            description='drag atlas brain image',
+            renderers=[self.render_brain_boundary], num_objects=1
+        )
+
+    def _on_boundary_change(self, prop: str, old: dict, value: dict[str, list[float]]):
+        try:
+            x = float(value['x'][0])
+        except IndexError:
+            return
+
+        y = float(value['y'][0])
+        w = float(value['w'][0])
+        h = float(value['h'][0])
+        x -= w / 2
+        y -= h / 2
+        sw = w / self.width
+        sy = h / self.height
+        self.update_image_transform(p=(x, y), s=(sw, sy), update_boundary=False)
 
     # ============================= #
     # properties and update methods #
@@ -159,7 +239,6 @@ class AtlasBrainView:
 
     def update_brain_view(self, view: SLICE | SliceView):
         if isinstance(view, str):
-            print('update_brain_view', view)
             view = SliceView(view, self.brain.reference, self.brain.resolution[0])
 
         self._brain_view = view
@@ -202,10 +281,8 @@ class AtlasBrainView:
         self._brain_slice = plane
 
         if plane is None:
-            print('update_brain_slice', None)
             self.update_image(None)
         else:
-            print('update_brain_slice', plane.plane)
             self.update_image(plane.image)
 
     @property
@@ -245,7 +322,8 @@ class AtlasBrainView:
     def update_image_transform(self, *,
                                p: tuple[float, float] = None,
                                s: float | tuple[float, float] = None,
-                               rt: float = None):
+                               rt: float = None,
+                               update_boundary=True):
         if p is not None:
             self._dx, self._dy = p
 
@@ -258,19 +336,28 @@ class AtlasBrainView:
             self._rt = rt
 
         if (plane := self._brain_slice) is not None:
-            self.update_image(plane.image)
+            self.update_image(plane.image, update_boundary=update_boundary)
 
-    def update_image(self, image_data: NDArray[np.int_] | None):
+    def update_image(self, image_data: NDArray[np.int_] | None, *, update_boundary=True):
         if image_data is None:
-            print('update image (Nan, NaN Nan, NaN)')
             self.data_brain.data = dict(image=[], dw=[], dh=[], x=[], y=[])
+            self.data_brain_boundary.data = dict(x=[], y=[], w=[], h=[], r=[])
         else:
             w = self.width * self._sx
             h = self.height * self._sy
             x = self._dx
             y = self._dy
-            print(f'update image ({x}, {y}, {w}, {h})')
+            image = np.flipud(image_data)
+
+            if self._rt != 0:
+                image = rotate(image, -self._rt, reshape=False)
+
             self.data_brain.data = dict(
-                image=[np.flipud(image_data)],
+                image=[image],
                 dw=[w], dh=[h], x=[x], y=[y]
             )
+
+            if update_boundary:
+                self.data_brain_boundary.data = dict(
+                    x=[x + w / 2], y=[y + h / 2], w=[w], h=[h], r=[self._rt]
+                )

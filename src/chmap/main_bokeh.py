@@ -122,9 +122,32 @@ class ChannelMapEditorApp(BokehApplication):
     auto_btn: Toggle
 
     def index(self):
+        self.probe_info = Div(text="<b>Probe</b>")
+        self.probe_fig = Figure(width=600, height=800, tools='', toolbar_location='above')
+        self.probe_view = ProbeView(self.probe)
+        self.probe_view.plot(self.probe_fig)
+
+        dimensions = 'height'
+        if self.atlas_brain is not None:
+            dimensions = 'both'
+
+        self.probe_fig.tools.clear()
+        self.probe_fig.add_tools(
+            (t_drag := tools.PanTool(dimensions=dimensions)),
+            tools.BoxSelectTool(description='select electrode', renderers=list(self.probe_view.render_electrodes.values())),
+            #
+            tools.WheelPanTool(dimension='height'),
+            (t_scroll := tools.WheelZoomTool(dimensions=dimensions)),
+            #
+            tools.ResetTool()
+        )
+        self.probe_fig.toolbar.active_drag = t_drag
+        self.probe_fig.toolbar.active_scroll = t_scroll
+
+        #
         row = [
             Column(self._index_left_control()),
-            Column(self._index_main_view())
+            Column(self.probe_info, self.probe_fig)
         ]
 
         if len(c := self._index_right_control()) > 0:
@@ -193,29 +216,6 @@ class ChannelMapEditorApp(BokehApplication):
             self.message_area,
         ]
 
-    def _index_main_view(self) -> list[UIElement]:
-        self.probe_info = Div(text="<b>Probe</b>")
-        self.probe_fig = Figure(width=600, height=800, tools='', toolbar_location='above')
-
-        self.probe_view = ProbeView(self.probe)
-        self.probe_view.plot(self.probe_fig)
-
-        self.probe_fig.tools.clear()
-        self.probe_fig.add_tools(
-            (t_drag := tools.PanTool(dimensions='height')),
-            tools.BoxSelectTool(description='select electrode', renderers=list(self.probe_view.render_electrodes.values())),
-            tools.WheelPanTool(dimension='height'),
-            (t_scroll := tools.WheelZoomTool(dimensions='height')),
-            tools.ResetTool()
-        )
-        self.probe_fig.toolbar.active_drag = t_drag
-        self.probe_fig.toolbar.active_scroll = t_scroll
-
-        return [
-            self.probe_info,
-            self.probe_fig
-        ]
-
     def _index_right_control(self) -> list[UIElement]:
         ret = []
         if self.atlas_brain is not None:
@@ -231,12 +231,18 @@ class ChannelMapEditorApp(BokehApplication):
 
         reset_rth = new_btn('reset', self.brain_view.reset_rth)
         reset_rtv = new_btn('reset', self.brain_view.reset_rtv)
+        reset_imr = new_btn('reset', self.brain_view.reset_imr)
+        reset_ims = new_btn('reset', self.brain_view.reset_ims)
+
+        self.probe_fig.tools.insert(-2, self.brain_view.boundary_tool())
 
         return [
             Div(text="<b>Brain Atlas</b>"),
             Row(self.brain_view.slice_select, self.brain_view.plane_slider),
             Row(reset_rth, self.brain_view.rth_slider),
             Row(reset_rtv, self.brain_view.rtv_slider),
+            Row(reset_imr, self.brain_view.imr_slider),
+            Row(reset_ims, self.brain_view.ims_slider),
         ]
 
     def update(self):
