@@ -158,7 +158,7 @@ class ChannelMapEditorApp(BokehApplication):
         ], 2)
 
         refresh_btn = new_btn('Refresh', self.on_refresh)
-        self.auto_btn = Toggle(label='Auto', active=False, min_width=150, width_policy='min')
+        self.auto_btn = Toggle(label='Auto', active=True, min_width=150, width_policy='min')
         self.auto_btn.on_change('active', self.on_autoupdate)
 
         empty_btn = Dropdown(

@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.probe import ProbeDesp, ElectrodeDesp, M, E
-from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType
+from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
 
@@ -44,11 +44,14 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def possible_policy(self) -> dict[str, int]:
         return {
             'Unset': self.POLICY_UNSET,
-            'Forbidden': self.POLICY_FORBIDDEN,
-            'Sparse': self.POLICY_SPARSE,
+            'Set': self.POLICY_SET,
+            #
             'Full Density': self.POLICY_D1,
             'Half Density': self.POLICY_D2,
+            #
             'Quarter Density': self.POLICY_D4,
+            'Sparse': self.POLICY_SPARSE,
+            'Forbidden': self.POLICY_FORBIDDEN,
         }
 
     @property
@@ -92,19 +95,23 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                     ret.append(d)
         return ret
 
-    def all_channels(self, chmap: ChannelMap) -> list[NpxElectrodeDesp]:
+    def all_channels(self, chmap: ChannelMap, s: list[NpxElectrodeDesp] = None) -> list[NpxElectrodeDesp]:
         probe_type = chmap.probe_type
         ret = []
         for c, e in enumerate(chmap.channels):  # type: int, Electrode|None
             if e is not None:
-                d = NpxElectrodeDesp()
+                if s is None:
+                    d = NpxElectrodeDesp()
 
-                d.electrode = (e.shank, e.column, e.row)
-                d.x, d.y = e2p(probe_type, e)
-                d.z = None
-                d.channel = c
+                    d.electrode = (e.shank, e.column, e.row)
+                    d.x, d.y = e2p(probe_type, e)
+                    d.z = None
+                    d.channel = c
+                else:
+                    d = self.get_electrode(s, (e.shank, e.column, e.row))
 
-                ret.append(d)
+                if d is not None:
+                    ret.append(d)
 
         return ret
 
@@ -114,8 +121,13 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def get_electrode(self, s: list[NpxElectrodeDesp], e: tuple[int, int, int]) -> NpxElectrodeDesp | None:
         return super().get_electrode(s, e)
 
-    def add_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp):
-        chmap.add_electrode(e.electrode, exist_ok=True)
+    def add_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp, *, overwrite=False):
+        try:
+            chmap.add_electrode(e.electrode, exist_ok=True)
+        except ChannelHasUsedError as x:
+            if overwrite:
+                chmap.del_electrode(x.electrode)
+                chmap.add_electrode(e.electrode, exist_ok=True)
 
     def del_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp):
         chmap.del_electrode(e.electrode)
@@ -152,15 +164,20 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             cand[e.electrode].policy = e.policy
 
         for e in s:
-            if e.state == self.STATE_USED:
+            # add pre-selected
+            if e.policy == self.POLICY_SET:
                 self._add_electrode(ret, cand, e)
+
+            # remove forbidden electrodes from the candidate set
+            elif e.policy == self.POLICY_FORBIDDEN:
+                try:
+                    del cand[e.electrode]
+                except KeyError:
+                    pass
 
         return self._select_loop(ret, cand)
 
     def _select_loop(self, chmap: ChannelMap, cand: dict[E, NpxElectrodeDesp], *, limit: int = 1000, **kwargs) -> ChannelMap:
-        # remove forbidden electrodes from the candidate set
-        cand = {k: e for k, e in cand.items() if e.policy != self.POLICY_FORBIDDEN}
-
         count = 0
         while len(cand) and count < limit:
             p, e = self._select_electrode(cand)

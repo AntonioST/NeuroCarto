@@ -68,9 +68,12 @@ class ProbeView(RenderComponent):
 
     def _reset_electrode_state(self):
         for e in self.electrodes:
-            e.state = ProbeDesp.STATE_FORBIDDEN
-        for e in self.probe.all_channels(self.channelmap):
-            self.electrodes[self._e2i[e.electrode]].state = ProbeDesp.STATE_USED
+            e.state = ProbeDesp.STATE_UNUSED
+
+        for e in self.probe.all_channels(self.channelmap, self.electrodes):
+            for i in self.probe.invalid_electrodes(self.channelmap, e, self.electrodes):
+                i.state = ProbeDesp.STATE_FORBIDDEN
+            e.state = ProbeDesp.STATE_USED
 
     def update_electrode(self):
         for state, data in self.data_electrodes.items():
@@ -123,7 +126,7 @@ class ProbeView(RenderComponent):
         def on_select_callback(prop: str, old: list[int], selected: list[int]):
             nonlocal time_stamp
             now = time.time()
-            self.set_highlight(self.get_selected(self.data_electrodes[state]), append=now - time_stamp < 0.3)
+            self.set_highlight(self.get_selected(self.data_electrodes[state]), append=now - time_stamp < 1)
             time_stamp = now
 
         return on_select_callback
@@ -156,18 +159,15 @@ class ProbeView(RenderComponent):
     def set_state_for_selected(self, state: int):
         if state == ProbeDesp.STATE_USED:
             for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
-                for i in self.probe.invalid_electrodes(self.channelmap, e, self.electrodes):
-                    i.state = ProbeDesp.STATE_FORBIDDEN
-
-                e.state = state
                 self.probe.add_electrode(self.channelmap, e)
+            for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
+                self.probe.add_electrode(self.channelmap, e, overwrite=True)
 
         elif state == ProbeDesp.STATE_UNUSED:
             for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
-                for i in self.probe.invalid_electrodes(self.channelmap, e, self.electrodes):
-                    i.state = ProbeDesp.STATE_UNUSED
-
                 self.probe.del_electrode(self.channelmap, e)
+
+        self._reset_electrode_state()
 
     def set_policy_for_selected(self, policy: int):
         for e in self.get_selected(reset=True):

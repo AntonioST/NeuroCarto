@@ -226,6 +226,10 @@ class ChannelMap:
         from .io import from_probe
         return from_probe(probe)
 
+    def to_imro(self) -> str:
+        from .io import string_imro
+        return string_imro(self)
+
     def save_imro(self, path: str | Path):
         from .io import save_imro
         save_imro(self, path)
@@ -257,11 +261,9 @@ class ChannelMap:
             return False
 
     def __str__(self) -> str:
-        from .io import string_imro
-        return string_imro(self)
+        return f'ChannelMap[{self.n_shank},{self.n_col_shank},{self.n_row_shank},{len(self._electrodes)},{len(self)}]'
 
-    def __repr__(self) -> str:
-        return f'ChannelMap[{self.n_shank},{self.n_col_shank},{self.n_row_shank},{len(self._electrodes)}]'
+    __repr__ = __str__
 
     # ================= #
     # Basic information #
@@ -414,8 +416,8 @@ class ChannelMap:
         if e is None:
             e = Electrode(shank, column, row, in_used)
             c, _ = e2cb(self.probe_type, e)
-            if self._electrodes[c] is not None:
-                raise ChannelHasUsedError(e)
+            if (t := self._electrodes[c]) is not None:
+                raise ChannelHasUsedError(t)
             self._electrodes[c] = e
             return e
         elif exist_ok:

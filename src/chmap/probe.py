@@ -71,22 +71,26 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     STATE_FORBIDDEN: ClassVar = 2
 
     POLICY_UNSET: ClassVar = 0
-    POLICY_FORBIDDEN: ClassVar = 1
-    POLICY_SPARSE: ClassVar = 2
+    POLICY_SET: ClassVar = 1
+    POLICY_FORBIDDEN: ClassVar = 2
+    POLICY_SPARSE: ClassVar = 3
 
     @property
     @abc.abstractmethod
     def possible_type(self) -> dict[str, int]:
+        """all possible probe type."""
         pass
 
     @property
     @abc.abstractmethod
     def possible_states(self) -> dict[str, int]:
+        """all possible exported electrode state."""
         pass
 
     @property
     @abc.abstractmethod
     def possible_policy(self) -> dict[str, int]:
+        """all possible exported electrode policy."""
         pass
 
     @property
@@ -122,8 +126,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def all_channels(self, chmap: M) -> list[E]:
-        """all selected electrode set in *chmap*"""
+    def all_channels(self, chmap: M, s: list[E] = None) -> list[E]:
+        """selected electrode set in *chmap*"""
         pass
 
     @abc.abstractmethod
@@ -138,7 +142,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         return None
 
     @abc.abstractmethod
-    def add_electrode(self, chmap: M, e: E):
+    def add_electrode(self, chmap: M, e: E, *, overwrite=False):
         """
         Add an electrode *e* into *chmap*.
 
@@ -153,6 +157,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         :param chmap:
         :param e:
+        :param overwrite: force add electrode
         :raise: any error means the action was failed.
         """
         pass

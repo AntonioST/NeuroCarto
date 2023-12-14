@@ -137,8 +137,9 @@ def save_imro(chmap: ChannelMap, path: str | Path):
     if path.suffix != '.imro':
         raise RuntimeError()
 
+    imro = string_imro(chmap)
     with path.open('w') as f:
-        print(str(chmap), file=f)
+        print(imro, file=f)
 
 
 def from_probe(probe: Probe) -> ChannelMap:
