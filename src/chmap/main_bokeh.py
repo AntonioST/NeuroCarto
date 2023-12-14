@@ -55,29 +55,29 @@ class ChannelMapEditorApp(BokehApplication):
         if '/' in name:
             p = Path(name)
         else:
-            p = (self.config.chmap_root / name)
+            p = self.config.chmap_root / name
 
         return p.with_suffix(self.probe.channelmap_file_suffix)
 
-    def load_chmap(self, name: str | Path) -> M:
+    def load_chmap(self, name: str) -> M:
         file = self.get_chmap_file(name)
         ret = self.probe.load_from_file(file)
         self.log_message(f'load channelmap : {file.name}')
         self._use_chmap_path = file
         return ret
 
-    def save_chmap(self, name: str | Path, chmap: M) -> Path:
+    def save_chmap(self, name: str, chmap: M) -> Path:
         file = self.get_chmap_file(name)
         self.probe.save_to_file(chmap, file)
         self.log_message(f'save channelmap : {file.name}')
         self._use_chmap_path = file
         return file
 
-    def get_policy_file(self, chmap: str | Path) -> Path:
+    def get_policy_file(self, chmap: str) -> Path:
         imro_file = self.get_chmap_file(chmap)
         return imro_file.with_suffix('.npy')
 
-    def load_policy(self, chmap: str | Path) -> bool:
+    def load_policy(self, chmap: str) -> bool:
         if (electrodes := self.probe_view.electrodes) is None:
             return False
 
@@ -266,7 +266,10 @@ class ChannelMapEditorApp(BokehApplication):
     # ========= #
 
     def on_new(self, e: MenuItemClick):
-        probe_type = self.probe.possible_type[e.item]
+        if (item := e.item) is None:
+            return
+
+        probe_type = self.probe.possible_type[item]
 
         self._use_chmap_path = None
         self.probe_view.reset(probe_type)

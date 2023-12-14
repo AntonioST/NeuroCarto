@@ -338,7 +338,7 @@ class AtlasBrainView:
         if (plane := self._brain_slice) is not None:
             self.update_image(plane.image, update_boundary=update_boundary)
 
-    def update_image(self, image_data: NDArray[np.int_] | None, *, update_boundary=True):
+    def update_image(self, image_data: NDArray[np.uint] | None, *, update_boundary=True):
         if image_data is None:
             self.data_brain.data = dict(image=[], dw=[], dh=[], x=[], y=[])
             self.data_brain_boundary.data = dict(x=[], y=[], w=[], h=[], r=[])

@@ -13,11 +13,11 @@ from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, Cha
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
 
-E: TypeAlias = tuple[int, int, int]
+K: TypeAlias = tuple[int, int, int]
 
 
 class NpxElectrodeDesp(ElectrodeDesp):
-    electrode: E
+    electrode: K
     channel: int
 
 
@@ -65,7 +65,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def save_to_file(self, chmap: ChannelMap, file: Path):
         chmap.save_imro(file)
 
-    def new_channelmap(self, probe_type: int | ChannelMap = 24) -> ChannelMap:
+    def new_channelmap(self, probe_type: int | ProbeType | ChannelMap = 24) -> ChannelMap:
         if isinstance(probe_type, ChannelMap):
             probe_type = probe_type.probe_type
         return ChannelMap(probe_type)
@@ -119,7 +119,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def is_valid(self, chmap: ChannelMap) -> bool:
         return len(chmap) == chmap.probe_type.n_channels
 
-    def get_electrode(self, s: Iterable[NpxElectrodeDesp], e: E) -> NpxElectrodeDesp | None:
+    def get_electrode(self, s: Iterable[NpxElectrodeDesp], e: K) -> NpxElectrodeDesp | None:
         return super().get_electrode(s, e)
 
     def add_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp, *, overwrite=False):
@@ -160,7 +160,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def select_electrodes(self, chmap: ChannelMap, s: list[NpxElectrodeDesp], **kwargs) -> ChannelMap:
         ret = self.new_channelmap(chmap)
 
-        cand: dict[E, NpxElectrodeDesp] = {it.electrode: it for it in self.all_electrodes(ret)}
+        cand: dict[K, NpxElectrodeDesp] = {it.electrode: it for it in self.all_electrodes(ret)}
         for e in s:
             cand[e.electrode].policy = e.policy
 
@@ -178,7 +178,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
         return self._select_loop(ret, cand)
 
-    def _select_loop(self, chmap: ChannelMap, cand: dict[E, NpxElectrodeDesp], *, limit: int = 1000, **kwargs) -> ChannelMap:
+    def _select_loop(self, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], *, limit: int = 1000, **kwargs) -> ChannelMap:
         count = 0
         while len(cand) and count < limit:
             p, e = self._select_electrode(cand)
@@ -192,7 +192,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
         return chmap
 
-    def _select_electrode(self, cand: dict[E, NpxElectrodeDesp]) -> tuple[int, NpxElectrodeDesp | None]:
+    def _select_electrode(self, cand: dict[K, NpxElectrodeDesp]) -> tuple[int, NpxElectrodeDesp | None]:
         if len(cand) == 0:
             return self.POLICY_FORBIDDEN, None
 
@@ -213,7 +213,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
         return self.POLICY_FORBIDDEN, None
 
-    def _update(self, chmap: ChannelMap, cand: dict[E, NpxElectrodeDesp], e: NpxElectrodeDesp, policy: int):
+    def _update(self, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp, policy: int):
         match policy:
             case self.POLICY_D1:
                 return self._update_d1(chmap, cand, e)
@@ -226,7 +226,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             case _:
                 raise ValueError()
 
-    def _update_d1(self, chmap: ChannelMap, cand: dict[E, NpxElectrodeDesp], e: NpxElectrodeDesp):
+    def _update_d1(self, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp):
         self._add_electrode(chmap, cand, e)
 
         if (t := _get(chmap, cand, e, 1, 0)) is not None:
@@ -237,7 +237,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         if (t := _get(chmap, cand, e, 0, -1)) is not None:
             self._update_d1(chmap, cand, t)
 
-    def _update_d2(self, chmap: ChannelMap, cand: dict[E, NpxElectrodeDesp], e: NpxElectrodeDesp):
+    def _update_d2(self, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp):
         self._add_electrode(chmap, cand, e)
         _del(cand, _get(chmap, cand, e, 1, 0))
 
@@ -246,7 +246,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         if (t := _get(chmap, cand, e, 1, -1)) is not None:
             self._update_d2(chmap, cand, t)
 
-    def _update_d4(self, chmap: ChannelMap, cand: dict[E, NpxElectrodeDesp], e: NpxElectrodeDesp):
+    def _update_d4(self, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp):
         self._add_electrode(chmap, cand, e)
         _del(cand, _get(chmap, cand, e, 1, 0))
         _del(cand, _get(chmap, cand, e, 0, 1))
@@ -259,7 +259,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         if (t := _get(chmap, cand, e, 1, -2)) is not None:
             self._update_d4(chmap, cand, t)
 
-    def _add_electrode(self, chmap: ChannelMap, cand: dict[E, NpxElectrodeDesp], e: NpxElectrodeDesp):
+    def _add_electrode(self, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp):
         try:
             self.add_electrode(chmap, e)
         except BaseException:
@@ -272,7 +272,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                 del cand[k]
 
 
-def _del(cand: dict[E, NpxElectrodeDesp], e: NpxElectrodeDesp | None):
+def _del(cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp | None):
     if e is not None:
         try:
             del cand[e.electrode]
@@ -280,12 +280,12 @@ def _del(cand: dict[E, NpxElectrodeDesp], e: NpxElectrodeDesp | None):
             pass
 
 
-def _get(chmap: ChannelMap, cand: dict[E, NpxElectrodeDesp], e: NpxElectrodeDesp, c: int, r: int) -> NpxElectrodeDesp | None:
+def _get(chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp, c: int, r: int) -> NpxElectrodeDesp | None:
     ret = cand.get(_move(chmap.probe_type, e, c, r))
     return ret if ret is not None and ret.policy == e.policy else None
 
 
-def _move(probe_type: ProbeType, e: NpxElectrodeDesp, c: int, r: int) -> E:
+def _move(probe_type: ProbeType, e: NpxElectrodeDesp, c: int, r: int) -> K:
     eh, ec, er = e.electrode
     nc = probe_type.n_col_shank
     return eh, (ec + c) % nc, (er + r)

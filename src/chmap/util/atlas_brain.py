@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, TypedDict, overload
+from typing import Any, TypedDict, overload, TypeAlias
 
 import numpy as np
 from numpy.typing import NDArray
@@ -32,10 +32,10 @@ def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
     )
 
 
-JSON = dict[str, Any]
-COORD = tuple[float, float, float] | list[float] | NDArray[np.float_]
-MESH = Any
-ACRONYM = str
+JSON: TypeAlias = dict[str, Any]
+COORD: TypeAlias = tuple[float, float, float] | list[float] | NDArray[np.float_]
+MESH: TypeAlias = Any
+ACRONYM: TypeAlias = str
 
 
 class Structure(TypedDict):
@@ -46,7 +46,7 @@ class Structure(TypedDict):
     structure_id_path: list[int]
     rgb_triplet: list[int]
     mesh_filename: Path
-    mesh: Any  # type: MESH
+    mesh: Any  # MESH
 
 
 class Atlas:
@@ -63,7 +63,7 @@ class Atlas:
     structures_list: JSON
 
     structures: dict[int | str, Structure]
-    space: Any  # type: AnatomicalSpace
+    space: Any  # AnatomicalSpace
 
     def __init__(self, path: str | Path):
         """

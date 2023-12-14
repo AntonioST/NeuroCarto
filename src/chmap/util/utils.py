@@ -21,9 +21,9 @@ def align_arr(*x: int | NDArray[np.int_]) -> list[NDArray[np.int_]]:
     sz = set([it.shape for it in ret if it.ndim > 0])
     if len(sz) != 1:
         raise RuntimeError('input ndim not aligned')
-    sz = list(sz)[0]
+    shape = list(sz)[0]
 
-    return [np.full(sz, it) if it.ndim == 0 else it for it in ret]
+    return [np.full(shape, it) if it.ndim == 0 else it for it in ret]
 
 
 def as_set(x, n: int) -> set[int]:

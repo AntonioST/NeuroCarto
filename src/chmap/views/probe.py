@@ -1,5 +1,6 @@
 import time
 from collections.abc import Iterable
+from typing import Any
 
 from bokeh.models import ColumnDataSource, GlyphRenderer
 from bokeh.plotting import figure as Figure
@@ -31,7 +32,7 @@ class ProbeView:
             self.data_electrodes[state].selected.on_change('indices', self.on_select(state))
         self.data_highlight = ColumnDataSource(data=dict(x=[], y=[], e=[]))
 
-        self.style_electrodes = {  # TODO config somewhere
+        self.style_electrodes: dict[int | str, dict[str, Any]] = {  # TODO config somewhere
             ProbeDesp.STATE_USED: dict(color='green'),
             ProbeDesp.STATE_UNUSED: dict(color='black'),
             ProbeDesp.STATE_FORBIDDEN: dict(color='red', size=2, alpha=0.2),
@@ -86,17 +87,20 @@ class ProbeView:
         self._reset_electrode_state()
 
     def get_electrodes(self, s: None | int | list[int] | ColumnDataSource, *, state: int = None) -> list[E]:
+        if (electrodes := self.electrodes) is None:
+            return []
+
         ret: list[E]
 
         match s:
             case None:
-                ret = list(self.electrodes)
+                ret = list(electrodes)
             case int():
-                ret = [self.electrodes[s]]
+                ret = [electrodes[s]]
             case list():
-                ret = [self.electrodes[it] for it in s]
+                ret = [electrodes[it] for it in s]
             case _ if isinstance(s, ColumnDataSource):
-                ret = [self.electrodes[it] for it in s.data['e']]
+                ret = [electrodes[it] for it in s.data['e']]
             case _:
                 raise TypeError()
 
@@ -107,7 +111,7 @@ class ProbeView:
 
     def get_selected(self, d: ColumnDataSource = None, *, reset=False) -> set[E]:
         if d is None:
-            ret = set()
+            ret = set[E]()
             for state, data in self.data_electrodes.items():
                 ret.update(self.get_selected(data, reset=reset))
             return ret
