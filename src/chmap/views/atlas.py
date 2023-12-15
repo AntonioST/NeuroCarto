@@ -1,12 +1,13 @@
 import math
-from typing import get_args, TypedDict
+from typing import get_args, TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider
+from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, Div
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 from scipy.ndimage import rotate
 
+from chmap.main_bokeh import ButtonFactory
 from chmap.util.atlas_brain import BrainGlobeAtlas
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
 from chmap.util.utils import is_recursive_called
@@ -28,6 +29,8 @@ class AtlasBrainViewState(TypedDict):
 
 
 class AtlasBrainView:
+    brain: Final[BrainGlobeAtlas]
+
     data_brain: ColumnDataSource
     data_brain_boundary: ColumnDataSource
 
@@ -35,7 +38,8 @@ class AtlasBrainView:
     render_brain_boundary: GlyphRenderer
 
     def __init__(self, brain: BrainGlobeAtlas):
-        self.brain: BrainGlobeAtlas = brain
+        self.brain = brain
+
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
         self.data_brain_boundary = ColumnDataSource(data=dict(x=[], y=[], w=[], h=[], r=[]))
 
@@ -92,7 +96,9 @@ class AtlasBrainView:
     imr_slider: Slider
     ims_slider: Slider
 
-    def setup(self, width: int = 300, rotate_steps=(-1000, 1000, 5)):
+    def setup(self, width: int = 300, rotate_steps=(-1000, 1000, 5)) -> list[UIElement]:
+        new_btn = ButtonFactory(min_width=100, width_policy='min')
+
         #
         slice_view_options = list(get_args(SLICE))
         self.slice_select = Select(
@@ -159,6 +165,21 @@ class AtlasBrainView:
         )
         self.ims_slider.on_change('value', self._on_image_scale)
 
+        reset_rth = new_btn('reset', self.reset_rth)
+        reset_rtv = new_btn('reset', self.reset_rtv)
+        reset_imr = new_btn('reset', self.reset_imr)
+        reset_ims = new_btn('reset', self.reset_ims)
+
+        from bokeh.layouts import row
+        return [
+            Div(text="<b>Brain Atlas</b>"),
+            row(self.slice_select, self.plane_slider),
+            row(reset_rth, self.rth_slider),
+            row(reset_rtv, self.rtv_slider),
+            row(reset_imr, self.imr_slider),
+            row(reset_ims, self.ims_slider),
+        ]
+
     # noinspection PyUnusedLocal
     def _on_slice_selected(self, prop: str, old: str, s: str):
         if is_recursive_called():
@@ -187,18 +208,21 @@ class AtlasBrainView:
             q = p.with_offset(x, y)
             self.update_brain_slice(q)
 
+    # noinspection PyUnusedLocal
     def _on_image_rotate(self, prop: str, old: int, s: int):
         if is_recursive_called():
             return
 
         self.update_image_rotate(s)
 
+    # noinspection PyUnusedLocal
     def _on_image_scale(self, prop: str, old: float, s: float):
         if is_recursive_called():
             return
 
         self.update_image_scale(math.pow(10, s))
 
+    # noinspection PyUnusedLocal
     def _on_boundary_change(self, prop: str, old: dict, value: dict[str, list[float]]):
         if is_recursive_called():
             return
@@ -262,6 +286,7 @@ class AtlasBrainView:
     def visible(self, v: bool):
         try:
             self.render_brain.visible = v
+            self.render_brain_boundary.visible = v
         except AttributeError:
             pass
 

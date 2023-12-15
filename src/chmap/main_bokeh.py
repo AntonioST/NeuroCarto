@@ -223,27 +223,12 @@ class ChannelMapEditorApp(BokehApplication):
         return ret
 
     def _index_brain_view(self, atlas: BrainGlobeAtlas) -> list[UIElement]:
-        new_btn = ButtonFactory(min_width=100, width_policy='min')
-
         self.brain_view = AtlasBrainView(atlas)
         self.brain_view.plot(self.probe_fig)
-        self.brain_view.setup()
-
-        reset_rth = new_btn('reset', self.brain_view.reset_rth)
-        reset_rtv = new_btn('reset', self.brain_view.reset_rtv)
-        reset_imr = new_btn('reset', self.brain_view.reset_imr)
-        reset_ims = new_btn('reset', self.brain_view.reset_ims)
 
         self.probe_fig.tools.insert(-2, self.brain_view.boundary_tool())
 
-        return [
-            Div(text="<b>Brain Atlas</b>"),
-            Row(self.brain_view.slice_select, self.brain_view.plane_slider),
-            Row(reset_rth, self.brain_view.rth_slider),
-            Row(reset_rtv, self.brain_view.rtv_slider),
-            Row(reset_imr, self.brain_view.imr_slider),
-            Row(reset_ims, self.brain_view.ims_slider),
-        ]
+        return self.brain_view.setup()
 
     def update(self):
         self.reload_input_imro_list()
