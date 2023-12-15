@@ -30,7 +30,6 @@ class ElectrodeDesp:
 
     x: float  # x position in um
     y: float  # y position in um
-    z: float | None  # z position in um
     electrode: Hashable  # for identify
     channel: Any  # for display
     state: int = 0

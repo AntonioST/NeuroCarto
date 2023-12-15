@@ -90,7 +90,6 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
                     d.electrode = (s, c, r)
                     d.x, d.y = e2p(probe_type, d.electrode)
-                    d.z = None
                     d.channel, _ = e2cb(probe_type, d.electrode)
 
                     ret.append(d)
@@ -106,7 +105,6 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
                     d.electrode = (e.shank, e.column, e.row)
                     d.x, d.y = e2p(probe_type, e)
-                    d.z = None
                     d.channel = c
                 else:
                     d = self.get_electrode(s, (e.shank, e.column, e.row))
@@ -281,7 +279,7 @@ def _del(cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp | None):
 
 
 def _get(chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp, c: int, r: int) -> NpxElectrodeDesp | None:
-    ret = cand.get(_move(chmap.probe_type, e, c, r))
+    ret = cand.get(_move(chmap.probe_type, e, c, r), None)
     return ret if ret is not None and ret.policy == e.policy else None
 
 
