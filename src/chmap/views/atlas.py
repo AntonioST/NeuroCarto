@@ -1,5 +1,5 @@
 import math
-from typing import get_args
+from typing import get_args, TypedDict
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider
@@ -9,6 +9,21 @@ from scipy.ndimage import rotate
 
 from chmap.util.atlas_brain import BrainGlobeAtlas
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
+
+__all__ = ['AtlasBrainView', 'AtlasBrainViewState']
+
+
+class AtlasBrainViewState(TypedDict):
+    atlas_brain: str
+    brain_slice: SLICE | None
+    slice_plane: int | None
+    slice_rot_w: int | None
+    slice_rot_h: int | None
+    image_dx: float
+    image_dy: float
+    image_sx: float
+    image_sy: float
+    image_rt: float
 
 
 class AtlasBrainView:
@@ -32,9 +47,40 @@ class AtlasBrainView:
         self._sy: float = 1
         self._rt: float = 0
 
+        self._lock = UpdateLock()
+
     # ========= #
     # load/save #
     # ========= #
+
+    def save_state(self) -> AtlasBrainViewState:
+        return AtlasBrainViewState(
+            atlas_brain=self.brain.atlas_name,
+            brain_slice=None if (p := self._brain_view) is None else p.name,
+            slice_plane=None if (p := self._brain_slice) is None else p.plane,
+            slice_rot_w=None if p is None else p.dw,
+            slice_rot_h=None if p is None else p.dh,
+            image_dx=self._dx,
+            image_dy=self._dy,
+            image_sx=self._sx,
+            image_sy=self._sy,
+            image_rt=self._rt,
+        )
+
+    def restore_state(self, state: AtlasBrainViewState):
+        if self.brain.atlas_name != state['atlas_brain']:
+            raise RuntimeError()
+
+        self.update_brain_view(state['brain_slice'], update_image=False)
+        self.update_brain_slice(state['slice_plane'], update_image=False)
+
+        dp = state['slice_plane']
+        dw = state['slice_rot_w']
+        dh = state['slice_rot_h']
+        brain_slice = self.brain_view.plane_at(dp).with_offset(dw, dh)
+        self.update_brain_slice(brain_slice, update_image=False)
+
+        self.update_image_transform(p=(state['image_dx'], state['image_dy']), s=(state['image_sx'], state['image_sx']), rt=state['image_rt'])
 
     # ============= #
     # UI components #
@@ -116,7 +162,6 @@ class AtlasBrainView:
 
     # noinspection PyUnusedLocal
     def _on_slice_selected(self, prop: str, old: str, s: str):
-        # if old != s:
         self.update_brain_view(s)
 
     # noinspection PyUnusedLocal
@@ -139,6 +184,28 @@ class AtlasBrainView:
 
     def _on_image_scale(self, prop: str, old: float, s: float):
         self.update_image_scale(math.pow(10, s))
+
+    def _on_boundary_change(self, prop: str, old: dict, value: dict[str, list[float]]):
+        try:
+            x = float(value['x'][0])
+        except IndexError:
+            return
+
+        y = float(value['y'][0])
+        w = float(value['w'][0])
+        h = float(value['h'][0])
+        x -= w / 2
+        y -= h / 2
+        sw = w / self.width
+        sy = h / self.height
+
+        try:
+            self.ims_slider.value = round(math.log10(min(sw, sy)), 2)
+        except AttributeError:
+            pass
+
+        with self._lock('update_image_transform') as flag:
+            self.update_image_transform(p=(x, y), s=(sw, sy))
 
     def reset_rth(self):
         try:
@@ -200,21 +267,6 @@ class AtlasBrainView:
             renderers=[self.render_brain_boundary], num_objects=1
         )
 
-    def _on_boundary_change(self, prop: str, old: dict, value: dict[str, list[float]]):
-        try:
-            x = float(value['x'][0])
-        except IndexError:
-            return
-
-        y = float(value['y'][0])
-        w = float(value['w'][0])
-        h = float(value['h'][0])
-        x -= w / 2
-        y -= h / 2
-        sw = w / self.width
-        sy = h / self.height
-        self.update_image_transform(p=(x, y), s=(sw, sy), update_boundary=False)
-
     # ============================= #
     # properties and update methods #
     # ============================= #
@@ -237,18 +289,22 @@ class AtlasBrainView:
     def brain_view(self) -> SliceView:
         return self._brain_view
 
-    def update_brain_view(self, view: SLICE | SliceView):
+    def update_brain_view(self, view: SLICE | SliceView, *,
+                          update_image=True):
         if isinstance(view, str):
             view = SliceView(view, self.brain.reference, self.brain.resolution[0])
 
         self._brain_view = view
 
-        try:
-            self.slice_select.value = view.name
-        except AttributeError:
-            pass
+        with self._lock('update_brain_view:slice_select') as flag:
+            if flag:
+                try:
+                    self.slice_select.value = view.name
+                except AttributeError:
+                    pass
 
         try:
+            self.plane_slider.title = f'Slice Plane (1/{view.resolution} um)'
             self.plane_slider.end = view.n_plane
         except AttributeError:
             pass
@@ -271,30 +327,50 @@ class AtlasBrainView:
 
             p = view.plane_at(p)
 
-        self.update_brain_slice(p)
+        self.update_brain_slice(p, update_image=update_image)
 
     @property
     def brain_slice(self) -> SlicePlane | None:
         return self._brain_slice
 
-    def update_brain_slice(self, plane: SlicePlane | None):
+    def update_brain_slice(self, plane: int | SlicePlane | None, *,
+                           update_image=True):
+        if isinstance(plane, int):
+            plane = self.brain_view.plane(plane)
+
         self._brain_slice = plane
 
-        if plane is None:
-            self.update_image(None)
-        else:
-            self.update_image(plane.image)
+        with self._lock('update_brain_slice:plane_slider') as flag:
+            if flag:
+                try:
+                    self.plane_slider.value = plane.plane
+                except AttributeError:
+                    pass
+        with self._lock('update_brain_slice:rth_slider') as flag:
+            if flag:
+                try:
+                    self.rth_slider.value = plane.dw
+                except AttributeError:
+                    pass
+        with self._lock('update_brain_slice:rtv_slider') as flag:
+            if flag:
+                try:
+                    self.rtv_slider.value = plane.dh
+                except AttributeError:
+                    pass
+
+        if update_image:
+            if plane is None:
+                self.update_image(None)
+            else:
+                self.update_image(plane.image)
 
     @property
     def image_pos(self) -> tuple[float, float]:
         return self._dx, self._dy
 
     def update_image_pos(self, x: float, y: float):
-        self._dx = x
-        self._dy = y
-
-        if (plane := self._brain_slice) is not None:
-            self.update_image(plane.image)
+        self.update_image_transform(p=(x, y))
 
     @property
     def image_scale(self) -> tuple[float, float]:
@@ -302,43 +378,52 @@ class AtlasBrainView:
 
     def update_image_scale(self, s: float | tuple[float, float]):
         if isinstance(s, tuple):
-            self._sx, self._sy = s
+            sx, sy = s
         else:
-            self._sx = self._sy = float(s)
+            sx = sy = float(s)
 
-        if (plane := self._brain_slice) is not None:
-            self.update_image(plane.image)
+        self.update_image_transform(s=(sx, sy))
 
     @property
     def image_rotate(self) -> float:
         return self._rt
 
     def update_image_rotate(self, rt: float):
-        self._rt = rt
-
-        if (plane := self._brain_slice) is not None:
-            self.update_image(plane.image)
+        self.update_image_transform(rt=rt)
 
     def update_image_transform(self, *,
                                p: tuple[float, float] = None,
                                s: float | tuple[float, float] = None,
-                               rt: float = None,
-                               update_boundary=True):
+                               rt: float = None):
         if p is not None:
             self._dx, self._dy = p
 
-        if isinstance(s, tuple):
-            self._sx, self._sy = s
-        elif s is not None:
-            self._sx = self._sy = float(s)
+        if s is not None:
+            if isinstance(s, tuple):
+                self._sx, self._sy = s
+            else:
+                self._sx = self._sy = float(s)
+
+
 
         if rt is not None:
             self._rt = rt
 
-        if (plane := self._brain_slice) is not None:
-            self.update_image(plane.image, update_boundary=update_boundary)
+        w = self.width * self._sx
+        h = self.height * self._sy
+        x = self._dx
+        y = self._dy
 
-    def update_image(self, image_data: NDArray[np.uint] | None, *, update_boundary=True):
+        with self._lock('update_image_transform') as flag:
+            if flag:
+                self.data_brain_boundary.data = dict(
+                    x=[x + w / 2], y=[y + h / 2], w=[w], h=[h], r=[self._rt]
+                )
+            else:  # from _on_boundary_change
+                if (plane := self._brain_slice) is not None:
+                    self.update_image(plane.image)
+
+    def update_image(self, image_data: NDArray[np.uint] | None):
         if image_data is None:
             self.data_brain.data = dict(image=[], dw=[], dh=[], x=[], y=[])
             self.data_brain_boundary.data = dict(x=[], y=[], w=[], h=[], r=[])
@@ -356,8 +441,3 @@ class AtlasBrainView:
                 image=[image],
                 dw=[w], dh=[h], x=[x], y=[y]
             )
-
-            if update_boundary:
-                self.data_brain_boundary.data = dict(
-                    x=[x + w / 2], y=[y + h / 2], w=[w], h=[h], r=[self._rt]
-                )
