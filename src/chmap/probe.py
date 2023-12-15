@@ -51,8 +51,6 @@ class ElectrodeDesp:
 
     def __repr__(self):
         pos = [self.x, self.y]
-        if self.z is not None:
-            pos.append(self.z)
         pos = ','.join(map(str, pos))
         return f'Electrode[{self.channel}:{self.electrode}]({pos}){{state={self.state}, policy={self.policy}}}'
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import NamedTuple, Final, Literal, overload, Sized, cast, Any
@@ -8,6 +9,11 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.util.utils import all_int, as_set, align_arr
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 __all__ = [
     'ProbeType',
@@ -153,7 +159,7 @@ class ReferenceInfo(NamedTuple):
         return 1 + n_shank + n_shank * len(refs)
 
     @classmethod
-    def of(cls, probe_type: ProbeType, reference: int) -> ReferenceInfo:
+    def of(cls, probe_type: ProbeType, reference: int) -> Self:
         """
         get information of reference value.
 
@@ -209,22 +215,22 @@ class ChannelMap:
     # ========= #
 
     @classmethod
-    def parse(cls, source: str) -> ChannelMap:
+    def parse(cls, source: str) -> Self:
         from .io import parse_imro
         return parse_imro(source)
 
     @classmethod
-    def from_meta(cls, path: str | Path) -> ChannelMap:
+    def from_meta(cls, path: str | Path) -> Self:
         from .io import load_meta
         return load_meta(path)
 
     @classmethod
-    def from_imro(cls, path: str | Path) -> ChannelMap:
+    def from_imro(cls, path: str | Path) -> Self:
         from .io import load_imro
         return load_imro(path)
 
     @classmethod
-    def from_probe(cls, probe) -> ChannelMap:
+    def from_probe(cls, probe) -> Self:
         from .io import from_probe
         return from_probe(probe)
 

@@ -3,3 +3,4 @@ scipy
 matplotlib
 probeinterface
 bokeh
+typing_extensions
