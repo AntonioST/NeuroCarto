@@ -18,7 +18,7 @@ from chmap.views.probe import ProbeView
 
 class ChannelMapEditorApp(BokehApplication):
     probe: ProbeDesp[M, Any]
-    right_view_type: list[type[ViewBase]]
+    right_view_type: list[ViewBase | type[ViewBase]]
 
     def __init__(self, config: ChannelMapEditorConfig):
         self.config = config
@@ -207,7 +207,13 @@ class ChannelMapEditorApp(BokehApplication):
 
         ret = []
         for view_type in self.right_view_type:
-            view = view_type(self.config)
+            if isinstance(view_type, type):
+                view = view_type(self.config)
+            elif isinstance(view_type, ViewBase):
+                view = view_type
+            else:
+                raise TypeError()
+
             view.plot(self.probe_fig)
             ret.extend(view.setup())
             self.right_views.append(view)

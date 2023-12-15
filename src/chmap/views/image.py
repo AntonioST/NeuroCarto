@@ -1,5 +1,4 @@
 import abc
-import math
 import sys
 from typing import TypedDict, Final
 
@@ -7,10 +6,10 @@ import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
-from scipy.ndimage import rotate
 
-from chmap.util.bokeh_util import ButtonFactory
+from chmap.config import ChannelMapEditorConfig
 from chmap.util.utils import is_recursive_called
+from chmap.views.base import BoundView, StateView, BoundaryState
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -74,192 +73,24 @@ class ImageHandler(metaclass=abc.ABCMeta):
         return NumpyImageHandler(filename, image, resolution=resolution)
 
 
-class ImageView:
+class ImageView(BoundView, StateView[ImageViewState]):
     image: Final[ImageHandler]
 
     data_image: ColumnDataSource
-    data_image_boundary: ColumnDataSource
 
     render_image: GlyphRenderer
-    render_image_boundary: GlyphRenderer
 
-    def __init__(self, image: ImageHandler):
+    def __init__(self, config: ChannelMapEditorConfig, image: ImageHandler):
+        super().__init__(config)
+
         self.image = image
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
-        self.data_brain_boundary = ColumnDataSource(data=dict(x=[], y=[], w=[], h=[], r=[]))
 
         self._index: int = 0
-        self._dx: float = 0
-        self._dy: float = 0
-        self._sx: float = 1
-        self._sy: float = 1
-        self._rt: float = 0
 
-    # ========= #
-    # load/save #
-    # ========= #
-
-    def save_state(self) -> ImageViewState:
-        return ImageViewState(
-            filename=self.image.filename,
-            index=self._index,
-            image_dx=self._dx,
-            image_dy=self._dy,
-            image_sx=self._sx,
-            image_sy=self._sy,
-            image_rt=self._rt,
-        )
-
-    def restore_state(self, state: ImageViewState | list[ImageViewState]):
-        if isinstance(state, list):
-            for _state in state:  # type:ImageViewState
-                if _state['filename'] == self.image.filename:
-                    state = _state
-                    break
-            else:
-                return
-        elif state['filename'] != self.image.filename:
-            raise RuntimeError()
-
-        update_image = len(self.image) == 1
-
-        self.update_image_transform(p=(state['image_dx'], state['image_dy']),
-                                    s=(state['image_sx'], state['image_sx']),
-                                    rt=state['image_rt'],
-                                    update_image=update_image)
-
-        if not update_image:
-            index = state['index']
-            if index is None:
-                index = 0
-
-            self.update_image(index)
-
-    # ============= #
-    # UI components #
-    # ============= #
-
-    index_slider: Slider
-    imr_slider: Slider
-    ims_slider: Slider
-
-    def setup(self, width: int = 300) -> list[UIElement]:
-        new_btn = ButtonFactory(min_width=100, width_policy='min')
-
-        #
-        self.imr_slider = Slider(
-            start=-25,
-            end=25,
-            step=1,
-            value=0,
-            title='image rotation (deg)',
-            width=width,
-        )
-        self.imr_slider.on_change('value', self._on_image_rotate)
-
-        #
-        self.ims_slider = Slider(
-            start=-1,
-            end=1,
-            step=0.01,
-            value=0,
-            title='image scale (log)',
-            width=width,
-        )
-        self.ims_slider.on_change('value', self._on_image_scale)
-
-        reset_imr = new_btn('reset', self.reset_imr)
-        reset_ims = new_btn('reset', self.reset_ims)
-
-        from bokeh.layouts import row
-        ret = [
-            Div(text=f"<b>Image</b> {self.image.filename}"),
-            row(reset_imr, self.imr_slider),
-            row(reset_ims, self.ims_slider),
-        ]
-
-        if len(self.image) > 1:
-            #
-            self.index_slider = Slider(
-                start=0,
-                end=len(self.image),
-                step=1,
-                value=0,
-                title='Index',
-                width=width,
-                align='end',
-            )
-            self.index_slider.on_change('value', self._on_index_changed)
-            ret.insert(1, self.index_slider)
-
-        return ret
-
-    # noinspection PyUnusedLocal
-    def _on_image_selected(self, prop: str, old: str, s: str):
-        if is_recursive_called():
-            return
-
-    # noinspection PyUnusedLocal
-    def _on_index_changed(self, prop: str, old: int, s: int):
-        if is_recursive_called():
-            return
-
-        self.update_image(s)
-
-    # noinspection PyUnusedLocal
-    def _on_image_rotate(self, prop: str, old: int, s: int):
-        if is_recursive_called():
-            return
-
-        self.update_image_rotate(s)
-
-    # noinspection PyUnusedLocal
-    def _on_image_scale(self, prop: str, old: float, s: float):
-        if is_recursive_called():
-            return
-
-        self.update_image_scale(math.pow(10, s))
-
-    # noinspection PyUnusedLocal
-    def _on_boundary_change(self, prop: str, old: dict, value: dict[str, list[float]]):
-        if is_recursive_called():
-            return
-
-        try:
-            x = float(value['x'][0])
-        except IndexError:
-            return
-
-        y = float(value['y'][0])
-        w = float(value['w'][0])
-        h = float(value['h'][0])
-        x -= w / 2
-        y -= h / 2
-        sx = w / self.width
-        sy = h / self.height
-
-        try:
-            self.ims_slider.value = round(math.log10(min(sx, sy)), 2)
-        except AttributeError:
-            pass
-
-        self.update_image_transform(p=(x, y), s=(sx, sy))
-
-    def reset_imr(self):
-        try:
-            self.imr_slider.value = 0
-        except AttributeError:
-            self.update_image_rotate(0)
-
-    def reset_ims(self):
-        try:
-            self.ims_slider.value = 0
-        except AttributeError:
-            self.update_image_scale(1)
-
-    # ================= #
-    # render components #
-    # ================= #
+    # ========== #
+    # properties #
+    # ========== #
 
     @property
     def visible(self) -> bool:
@@ -272,31 +103,9 @@ class ImageView:
     def visible(self, v: bool):
         try:
             self.render_image.visible = v
-            self.render_image_boundary.visible = v
+            self.render_boundary.visible = v
         except AttributeError:
             pass
-
-    def plot(self, f: Figure, palette: str = 'Greys256'):
-        self.render_image = f.image(
-            'image', x='x', y='y', dw='dw', dh='dh', source=self.data_image,
-            palette=palette, level="image", global_alpha=0.5, syncable=False,
-        )
-        self.render_image_boundary = f.rect(
-            'x', 'y', 'w', 'h', 'r', source=self.data_image_boundary,
-            fill_alpha=0, angle_units='deg',
-        )
-        self.render_image_boundary.on_change('data', self._on_boundary_change)
-
-    def boundary_tool(self):
-        from bokeh.models import tools
-        return tools.BoxEditTool(
-            description='drag image',
-            renderers=[self.render_image_boundary], num_objects=1
-        )
-
-    # ============================= #
-    # properties and update methods #
-    # ============================= #
 
     @property
     def width(self) -> float:
@@ -312,73 +121,112 @@ class ImageView:
         except TypeError:
             return 0
 
-    @property
-    def image_pos(self) -> tuple[float, float]:
-        return self._dx, self._dy
+    # ================= #
+    # render components #
+    # ================= #
 
-    def update_image_pos(self, x: float, y: float):
-        self.update_image_transform(p=(x, y))
+    def plot(self, f: Figure, palette: str = 'Greys256',
+             boundary_color: str = 'black',
+             boundary_desp: str = 'drag image',
+             **kwargs):
+        self.render_image = f.image(
+            'image', x='x', y='y', dw='dw', dh='dh', source=self.data_image,
+            palette=palette, level="image", global_alpha=0.5, syncable=False,
+        )
 
-    @property
-    def image_scale(self) -> tuple[float, float]:
-        return self._sx, self._sy
+        super().plot(f, boundary_color=boundary_color, boundary_desp=boundary_desp, **kwargs)
 
-    def update_image_scale(self, s: float | tuple[float, float]):
-        if isinstance(s, tuple):
-            sx, sy = s
-        else:
-            sx = sy = float(s)
+    # ============= #
+    # UI components #
+    # ============= #
 
-        self.update_image_transform(s=(sx, sy))
+    index_slider: Slider
 
-    @property
-    def image_rotate(self) -> float:
-        return self._rt
+    def setup(self, slider_width: int = 300) -> list[UIElement]:
+        self.index_slider = Slider(
+            start=0,
+            end=len(self.image),
+            step=1,
+            value=0,
+            title='Index',
+            width=slider_width,
+            align='end',
+            disabled=len(self.image) == 1
+        )
+        self.index_slider.on_change('value', self.on_index_changed)
 
-    def update_image_rotate(self, rt: float):
-        self.update_image_transform(rt=rt)
+        return [
+            Div(text=f"<b>Image</b> {self.image.filename}"),
+            self.index_slider,
+            *self.setup_slider(slider_width=slider_width)
+        ]
 
-    def update_image_transform(self, *,
-                               p: tuple[float, float] = None,
-                               s: float | tuple[float, float] = None,
-                               rt: float = None,
-                               update_image=True):
+    # noinspection PyUnusedLocal
+    def _on_image_selected(self, prop: str, old: str, s: str):
         if is_recursive_called():
             return
 
-        if p is not None:
-            self._dx, self._dy = p
+    # noinspection PyUnusedLocal
+    def on_index_changed(self, prop: str, old: int, s: int):
+        if is_recursive_called():
+            return
 
-        if s is not None:
-            if isinstance(s, tuple):
-                self._sx, self._sy = s
-            else:
-                self._sx = self._sy = float(s)
+        self.update_image(s)
 
-        if rt is not None:
-            self._rt = rt
+    # ========= #
+    # load/save #
+    # ========= #
 
-        w = self.width * self._sx
-        h = self.height * self._sy
-        x = self._dx
-        y = self._dy
+    def save_state(self) -> ImageViewState:
+        boundary = self.get_boundary_state()
 
-        try:
-            self.ims_slider.value = round(math.log10(min(self._sx, self._sy)), 2)
-        except AttributeError:
-            pass
-
-        try:
-            self.imr_slider.value = self._rt
-        except AttributeError:
-            pass
-
-        self.data_brain_boundary.data = dict(
-            x=[x + w / 2], y=[y + h / 2], w=[w], h=[h], r=[self._rt]
+        return ImageViewState(
+            filename=self.image.filename,
+            index=self._index,
+            image_dx=boundary['dx'],
+            image_dy=boundary['dy'],
+            image_sx=boundary['sx'],
+            image_sy=boundary['sy'],
+            image_rt=boundary['rt'],
         )
 
-        if update_image:
-            self.update_image(self.image[self._index])
+    def restore_state(self, state: ImageViewState | list[ImageViewState]):
+        if isinstance(state, list):
+            for _state in state:  # type:ImageViewState
+                if _state['filename'] == self.image.filename:
+                    state = _state
+                    break
+            else:
+                return
+        elif state['filename'] != self.image.filename:
+            raise RuntimeError()
+
+        self.update_boundary_transform(p=(state['image_dx'], state['image_dy']),
+                                       s=(state['image_sx'], state['image_sx']),
+                                       rt=state['image_rt'])
+
+        index = state['index']
+        if index is None:
+            index = 0
+
+        self.update_image(index)
+
+    # ================ #
+    # updating methods #
+    # ================ #
+
+    def update(self):
+        self.on_reset_boundary()
+
+    def _update_boundary_transform(self, state: BoundaryState):
+        super()._update_boundary_transform(state)
+
+        try:
+            image = self.image[self._index]
+        except IndexError:
+            pass
+        else:
+            self.update_image(image)
 
     def update_image(self, image_data: int | NDArray[np.uint] | None):
         if is_recursive_called():
@@ -394,18 +242,8 @@ class ImageView:
                 pass
 
         if image_data is None:
+            self.render_boundary.visible = False
             self.data_brain.data = dict(image=[], dw=[], dh=[], x=[], y=[])
-            self.data_brain_boundary.data = dict(x=[], y=[], w=[], h=[], r=[])
         else:
-            w = self.image.width * self._sx
-            h = self.image.height * self._sy
-            x = self._dx
-            y = self._dy
-
-            if self._rt != 0:
-                image_data = rotate(image_data, -self._rt, reshape=False)
-
-            self.data_brain.data = dict(
-                image=[image_data],
-                dw=[w], dh=[h], x=[x], y=[y]
-            )
+            self.render_boundary.visible = self.render_image.visible
+            self.data_brain.data = self.transform_image_data(image_data)

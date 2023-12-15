@@ -1,11 +1,14 @@
 import abc
 import math
-from typing import TypeVar, Generic, TypedDict
+from typing import TypeVar, Generic, TypedDict, Any
 
+import numpy as np
 from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider
 from bokeh.plotting import figure as Figure
+from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
+from chmap.probe import ProbeDesp
 from chmap.util.bokeh_util import ButtonFactory
 from chmap.util.utils import is_recursive_called
 
@@ -37,6 +40,11 @@ class StateView(Generic[S]):
         pass
 
     def restore_state(self, state: S | list[S]):
+        pass
+
+
+class DynamicView:
+    def on_probe_update(self, probe: ProbeDesp):
         pass
 
 
@@ -261,3 +269,19 @@ class BoundView(ViewBase, metaclass=abc.ABCMeta):
             self.boundary_rotate_slider.value = state['rt']
         except AttributeError:
             pass
+
+    def transform_image_data(self, image: NDArray[np.uint], boundary: BoundaryState = None, *,
+                             field_image='image', field_x='x', field_y='y', field_w='dw', field_h='dh') -> dict[str, Any]:
+        if boundary is None:
+            boundary = self.get_boundary_state()
+
+        w = self.width * boundary['sx']
+        h = self.height * boundary['sy']
+        x = boundary['dx'] - w / 2
+        y = boundary['dy'] - h / 2
+
+        if (rt := boundary['rt']) != 0:
+            from scipy.ndimage import rotate
+            image = rotate(image, -rt, reshape=False)
+
+        return {field_image: [image], field_w: [w], field_h: [h], field_x: [x], field_y: [y]}

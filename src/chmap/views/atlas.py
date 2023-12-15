@@ -4,7 +4,6 @@ import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, Div
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
-from scipy.ndimage import rotate
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
@@ -45,9 +44,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         self._brain_view: SliceView | None = None
         self._brain_slice: SlicePlane | None = None
 
-    # ================= #
-    # render components #
-    # ================= #
+    # ========== #
+    # properties #
+    # ========== #
 
     @property
     def visible(self) -> bool:
@@ -64,6 +63,32 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         except AttributeError:
             pass
 
+    @property
+    def width(self) -> float:
+        try:
+            return self._brain_slice.width
+        except TypeError:
+            return 0
+
+    @property
+    def height(self) -> float:
+        try:
+            return self._brain_slice.height
+        except TypeError:
+            return 0
+
+    @property
+    def brain_view(self) -> SliceView:
+        return self._brain_view
+
+    @property
+    def brain_slice(self) -> SlicePlane | None:
+        return self._brain_slice
+
+    # ================= #
+    # render components #
+    # ================= #
+
     def plot(self, f: Figure, palette: str = 'Greys256',
              boundary_color: str = 'black',
              boundary_desp: str = 'drag atlas brain image',
@@ -72,7 +97,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
             palette=palette, level="image", global_alpha=0.5, syncable=False,
         )
-        super().plot(f, boundary_color=boundary_color, boundary_desp=boundary_desp, )
+        super().plot(f, boundary_color=boundary_color, boundary_desp=boundary_desp, **kwargs)
 
     # ============= #
     # UI components #
@@ -220,20 +245,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # updating methods #
     # ================ #
 
-    @property
-    def width(self) -> float:
-        try:
-            return self._brain_slice.width
-        except TypeError:
-            return 0
-
-    @property
-    def height(self) -> float:
-        try:
-            return self._brain_slice.height
-        except TypeError:
-            return 0
-
     def update(self):
         if self.brain_view is None:
             try:
@@ -244,10 +255,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             self.update_brain_view(view)
         elif (plane := self._brain_slice) is not None:
             self.update_image(plane.image)
-
-    @property
-    def brain_view(self) -> SliceView:
-        return self._brain_view
 
     def update_brain_view(self, view: SLICE | SliceView, *,
                           update_image=True):
@@ -295,10 +302,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         self.update_brain_slice(p, update_image=update_image)
         self.update_boundary_transform()
 
-    @property
-    def brain_slice(self) -> SlicePlane | None:
-        return self._brain_slice
-
     def update_brain_slice(self, plane: int | SlicePlane | None, *,
                            update_image=True):
         if is_recursive_called():
@@ -339,18 +342,4 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             self.data_brain.data = dict(image=[], dw=[], dh=[], x=[], y=[])
         else:
             self.render_boundary.visible = self.render_brain.visible
-
-            boundary = self.get_boundary_state()
-            w = self.width * boundary['sx']
-            h = self.height * boundary['sy']
-            x = boundary['dx'] - w / 2
-            y = boundary['dy'] - h / 2
-            image = np.flipud(image_data)
-
-            if (rt := boundary['rt']) != 0:
-                image = rotate(image, -rt, reshape=False)
-
-            self.data_brain.data = dict(
-                image=[image],
-                dw=[w], dh=[h], x=[x], y=[y]
-            )
+            self.data_brain.data = self.transform_image_data(np.flipud(image_data))
