@@ -7,9 +7,9 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 from scipy.ndimage import rotate
 
-from chmap.main_bokeh import ButtonFactory
 from chmap.util.atlas_brain import BrainGlobeAtlas
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
+from chmap.util.bokeh_util import ButtonFactory
 from chmap.util.utils import is_recursive_called
 
 __all__ = ['AtlasBrainView', 'AtlasBrainViewState']
@@ -75,7 +75,6 @@ class AtlasBrainView:
             raise RuntimeError()
 
         self.update_brain_view(state['brain_slice'], update_image=False)
-        self.update_brain_slice(state['slice_plane'], update_image=False)
 
         dp = state['slice_plane']
         dw = state['slice_rot_w']

@@ -1,6 +1,8 @@
 numpy
 scipy
 matplotlib
-probeinterface
-bokeh
 typing_extensions
+probeinterface
+Pillow
+tifffile
+bokeh

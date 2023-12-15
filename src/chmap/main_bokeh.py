@@ -1,18 +1,18 @@
 import functools
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from bokeh.events import MenuItemClick
 from bokeh.layouts import row as Row, column as Column
-from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, Button, TextAreaInput, UIElement
+from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, TextAreaInput, UIElement
 from bokeh.plotting import figure as Figure
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.bokeh_app import BokehApplication, run_server
+from chmap.util.bokeh_util import ButtonFactory, col_layout
 from chmap.views.atlas import AtlasBrainView
 from chmap.views.probe import ProbeView
 
@@ -352,25 +352,6 @@ class ChannelMapEditorApp(BokehApplication):
             area.value = ""
         finally:
             area.disabled = True
-
-
-class ButtonFactory(object):
-    def __init__(self, **kwargs):
-        self.__kwargs = kwargs
-
-    def __call__(self, label: str, callback: Callable[..., None], **kwargs) -> Button:
-        for k, v in self.__kwargs.items():
-            kwargs.setdefault(k, v)
-        btn = Button(label=label, **kwargs)
-        btn.on_click(callback)
-        return btn
-
-
-def col_layout(model: list[UIElement], n: int) -> list[UIElement]:
-    ret = []
-    for i in range(0, len(model), n):
-        ret.append(Row(model[i:i + n]))
-    return ret
 
 
 def main(config: ChannelMapEditorConfig = None):

@@ -1,19 +1,27 @@
 import abc
 import math
-from pathlib import Path
+import sys
 from typing import TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement
+from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 from scipy.ndimage import rotate
 
+from chmap.util.bokeh_util import ButtonFactory
 from chmap.util.utils import is_recursive_called
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
+__all__ = ['ImageView', 'ImageViewState', 'ImageHandler']
 
 
 class ImageViewState(TypedDict):
-    filename: Path
+    filename: str
     index: int | None
     image_dx: float
     image_dy: float
@@ -22,12 +30,11 @@ class ImageViewState(TypedDict):
     image_rt: float
 
 
-class ImageOper(metaclass=abc.ABCMeta):
-
-    @property
-    @abc.abstractmethod
-    def filename(self) -> Path:
-        pass
+class ImageHandler(metaclass=abc.ABCMeta):
+    filename: str
+    resolution: tuple[float, float]  # (x, y)
+    width: float
+    height: float
 
     @property
     @abc.abstractmethod
@@ -38,24 +45,37 @@ class ImageOper(metaclass=abc.ABCMeta):
     def __getitem__(self, index: int) -> NDArray[np.uint]:
         pass
 
-    @property
-    @abc.abstractmethod
-    def width(self) -> float:
-        pass
+    @classmethod
+    def from_numpy(cls, filename: str, image: NDArray[np.uint] = None, *,
+                   resolution: tuple[float, float] = (1, 1)) -> Self:
+        from .image_npy import NumpyImageHandler
+        return NumpyImageHandler(filename, image, resolution=resolution)
 
-    @property
-    @abc.abstractmethod
-    def height(self) -> float:
-        pass
+    @classmethod
+    def from_file(cls, filename: str, *,
+                  resolution: tuple[float, float] = (1, 1)) -> Self:
+        """
 
-    @property
-    @abc.abstractmethod
-    def resolution(self) -> tuple[float, int]:
-        pass
+        :param filename: any Pillow support image format
+        :param resolution:
+        :return:
+        """
+        from PIL import Image
+        from .image_npy import NumpyImageHandler
+        image = np.asarray(Image.open(filename, mode='r'))
+        return NumpyImageHandler(filename, image, resolution=resolution)
+
+    @classmethod
+    def from_tiff(cls, filename: str, *,
+                  resolution: tuple[float, float] = (1, 1)) -> Self:
+        import tifffile
+        from .image_npy import NumpyImageHandler
+        image = tifffile.TiffFile(filename, mode='r').asarray()  # TODO memmap?
+        return NumpyImageHandler(filename, image, resolution=resolution)
 
 
 class ImageView:
-    image: Final[ImageOper]
+    image: Final[ImageHandler]
 
     data_image: ColumnDataSource
     data_image_boundary: ColumnDataSource
@@ -63,7 +83,7 @@ class ImageView:
     render_image: GlyphRenderer
     render_image_boundary: GlyphRenderer
 
-    def __init__(self, image: ImageOper):
+    def __init__(self, image: ImageHandler):
         self.image = image
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
         self.data_brain_boundary = ColumnDataSource(data=dict(x=[], y=[], w=[], h=[], r=[]))
@@ -90,20 +110,89 @@ class ImageView:
             image_rt=self._rt,
         )
 
-    def restore_state(self, state: ImageViewState):
-        pass
+    def restore_state(self, state: ImageViewState | list[ImageViewState]):
+        if isinstance(state, list):
+            for _state in state:  # type:ImageViewState
+                if _state['filename'] == self.image.filename:
+                    state = _state
+                    break
+            else:
+                return
+        elif state['filename'] != self.image.filename:
+            raise RuntimeError()
+
+        update_image = len(self.image) == 1
+
+        self.update_image_transform(p=(state['image_dx'], state['image_dy']),
+                                    s=(state['image_sx'], state['image_sx']),
+                                    rt=state['image_rt'],
+                                    update_image=update_image)
+
+        if not update_image:
+            index = state['index']
+            if index is None:
+                index = 0
+
+            self.update_image(index)
 
     # ============= #
     # UI components #
     # ============= #
 
-    image_select: Select
     index_slider: Slider
     imr_slider: Slider
     ims_slider: Slider
 
     def setup(self, width: int = 300) -> list[UIElement]:
-        pass
+        new_btn = ButtonFactory(min_width=100, width_policy='min')
+
+        #
+        self.imr_slider = Slider(
+            start=-25,
+            end=25,
+            step=1,
+            value=0,
+            title='image rotation (deg)',
+            width=width,
+        )
+        self.imr_slider.on_change('value', self._on_image_rotate)
+
+        #
+        self.ims_slider = Slider(
+            start=-1,
+            end=1,
+            step=0.01,
+            value=0,
+            title='image scale (log)',
+            width=width,
+        )
+        self.ims_slider.on_change('value', self._on_image_scale)
+
+        reset_imr = new_btn('reset', self.reset_imr)
+        reset_ims = new_btn('reset', self.reset_ims)
+
+        from bokeh.layouts import row
+        ret = [
+            Div(text=f"<b>Image</b> {self.image.filename}"),
+            row(reset_imr, self.imr_slider),
+            row(reset_ims, self.ims_slider),
+        ]
+
+        if len(self.image) > 1:
+            #
+            self.index_slider = Slider(
+                start=0,
+                end=len(self.image),
+                step=1,
+                value=0,
+                title='Index',
+                width=width,
+                align='end',
+            )
+            self.index_slider.on_change('value', self._on_index_changed)
+            ret.insert(1, self.index_slider)
+
+        return ret
 
     # noinspection PyUnusedLocal
     def _on_image_selected(self, prop: str, old: str, s: str):
@@ -201,7 +290,7 @@ class ImageView:
     def boundary_tool(self):
         from bokeh.models import tools
         return tools.BoxEditTool(
-            description='drag atlas brain image',
+            description='drag image',
             renderers=[self.render_image_boundary], num_objects=1
         )
 
@@ -312,12 +401,11 @@ class ImageView:
             h = self.image.height * self._sy
             x = self._dx
             y = self._dy
-            image = np.flipud(image_data)
 
             if self._rt != 0:
-                image = rotate(image, -self._rt, reshape=False)
+                image_data = rotate(image_data, -self._rt, reshape=False)
 
             self.data_brain.data = dict(
-                image=[image],
+                image=[image_data],
                 dw=[w], dh=[h], x=[x], y=[y]
             )
