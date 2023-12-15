@@ -10,33 +10,28 @@ from bokeh.plotting import figure as Figure
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
-from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.bokeh_app import BokehApplication, run_server
 from chmap.util.bokeh_util import ButtonFactory, col_layout
-from chmap.views.atlas import AtlasBrainView
+from chmap.views.base import ViewBase
 from chmap.views.probe import ProbeView
 
 
 class ChannelMapEditorApp(BokehApplication):
     probe: ProbeDesp[M, Any]
-    atlas_brain: BrainGlobeAtlas | None
+    right_view_type: list[type[ViewBase]]
 
     def __init__(self, config: ChannelMapEditorConfig):
         self.config = config
-        self._setup_atlas_brain()
 
         self.probe = get_probe_desp(config.probe_family)()
 
         self._use_chmap_path: Path | None = None
 
-    def _setup_atlas_brain(self):
-        try:
-            atlas_brain = get_atlas_brain(self.config.atlas_name, self.config.atlas_root)
-        except ImportError as e:
-            print(repr(e))
-            atlas_brain = None
+        self.right_view_type = []
 
-        self.atlas_brain = atlas_brain
+        if config.atlas_name is not None:
+            from chmap.views.atlas import AtlasBrainView
+            self.right_view_type.append(AtlasBrainView)
 
     @property
     def title(self) -> str:
@@ -113,7 +108,7 @@ class ChannelMapEditorApp(BokehApplication):
     probe_view: ProbeView
     probe_info: Div
 
-    brain_view: AtlasBrainView
+    right_views: list[ViewBase]
 
     input_imro: Select
     output_imro: AutocompleteInput
@@ -127,33 +122,24 @@ class ChannelMapEditorApp(BokehApplication):
         self.probe_view = ProbeView(self.probe)
         self.probe_view.plot(self.probe_fig)
 
-        dimensions = 'height'
-        if self.atlas_brain is not None:
-            dimensions = 'both'
-
         self.probe_fig.tools.clear()
         self.probe_fig.add_tools(
-            (t_drag := tools.PanTool(dimensions=dimensions)),
+            (t_drag := tools.PanTool(dimensions='both')),
             tools.BoxSelectTool(description='select electrode', renderers=list(self.probe_view.render_electrodes.values())),
             #
             tools.WheelPanTool(dimension='height'),
-            (t_scroll := tools.WheelZoomTool(dimensions=dimensions)),
+            (t_scroll := tools.WheelZoomTool(dimensions='both')),
             #
             tools.ResetTool()
         )
         self.probe_fig.toolbar.active_drag = t_drag
         self.probe_fig.toolbar.active_scroll = t_scroll
 
-        #
-        row = [
+        return Row(
             Column(self._index_left_control()),
-            Column(self.probe_info, self.probe_fig)
-        ]
-
-        if len(c := self._index_right_control()) > 0:
-            row.append(Column(c))
-
-        return Row(row)
+            Column(self.probe_info, self.probe_fig),
+            Column(self._index_right_control())
+        )
 
     def _index_left_control(self) -> list[UIElement]:
         new_btn = ButtonFactory(min_width=150, width_policy='min')
@@ -217,31 +203,21 @@ class ChannelMapEditorApp(BokehApplication):
         ]
 
     def _index_right_control(self) -> list[UIElement]:
+        self.right_views = []
+
         ret = []
-        if self.atlas_brain is not None:
-            ret.extend(self._index_brain_view(self.atlas_brain))
+        for view_type in self.right_view_type:
+            view = view_type(self.config)
+            view.plot(self.probe_fig)
+            ret.extend(view.setup())
+            self.right_views.append(view)
+
         return ret
-
-    def _index_brain_view(self, atlas: BrainGlobeAtlas) -> list[UIElement]:
-        self.brain_view = AtlasBrainView(atlas)
-        self.brain_view.plot(self.probe_fig)
-
-        self.probe_fig.tools.insert(-2, self.brain_view.boundary_tool())
-
-        return self.brain_view.setup()
 
     def update(self):
         self.reload_input_imro_list()
-        self.update_brain_view()
-
-    def update_brain_view(self):
-        try:
-            view = self.brain_view
-        except AttributeError:
-            pass
-        else:
-            if view.brain_view is None:
-                view.update_brain_view(view.slice_select.value)
+        for view in self.right_views:
+            view.update()
 
     def update_probe_info(self):
         self.probe_info.text = self.probe_view.channelmap_desp()
