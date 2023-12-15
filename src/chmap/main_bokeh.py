@@ -254,9 +254,9 @@ class ChannelMapEditorApp(BokehApplication):
             view = self.brain_view
         except AttributeError:
             pass
-
-        if view.brain_slice is None:
-            view.update_brain_view('coronal')
+        else:
+            if view.brain_view is None:
+                view.update_brain_view(view.slice_select.value)
 
     def update_probe_info(self):
         self.probe_info.text = self.probe_view.channelmap_desp()

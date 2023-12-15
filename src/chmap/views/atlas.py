@@ -9,6 +9,7 @@ from scipy.ndimage import rotate
 
 from chmap.util.atlas_brain import BrainGlobeAtlas
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
+from chmap.util.utils import is_recursive_called
 
 __all__ = ['AtlasBrainView', 'AtlasBrainViewState']
 
@@ -46,8 +47,6 @@ class AtlasBrainView:
         self._sx: float = 1
         self._sy: float = 1
         self._rt: float = 0
-
-        self._lock = UpdateLock()
 
     # ========= #
     # load/save #
@@ -162,16 +161,25 @@ class AtlasBrainView:
 
     # noinspection PyUnusedLocal
     def _on_slice_selected(self, prop: str, old: str, s: str):
+        if is_recursive_called():
+            return
+
         self.update_brain_view(s)
 
     # noinspection PyUnusedLocal
     def _on_slice_changed(self, prop: str, old: int, s: int):
+        if is_recursive_called():
+            return
+
         if (p := self._brain_slice) is not None:
             q = p.slice.plane_at(int(s)).with_offset(p.dw, p.dh)
             self.update_brain_slice(q)
 
     # noinspection PyUnusedLocal
     def _on_diff_changed(self, prop: str, old: int, s: int):
+        if is_recursive_called():
+            return
+
         if (p := self._brain_slice) is not None:
             r = p.slice.resolution
             x = int(self.rth_slider.value / r)
@@ -180,12 +188,21 @@ class AtlasBrainView:
             self.update_brain_slice(q)
 
     def _on_image_rotate(self, prop: str, old: int, s: int):
+        if is_recursive_called():
+            return
+
         self.update_image_rotate(s)
 
     def _on_image_scale(self, prop: str, old: float, s: float):
+        if is_recursive_called():
+            return
+
         self.update_image_scale(math.pow(10, s))
 
     def _on_boundary_change(self, prop: str, old: dict, value: dict[str, list[float]]):
+        if is_recursive_called():
+            return
+
         try:
             x = float(value['x'][0])
         except IndexError:
@@ -196,16 +213,15 @@ class AtlasBrainView:
         h = float(value['h'][0])
         x -= w / 2
         y -= h / 2
-        sw = w / self.width
+        sx = w / self.width
         sy = h / self.height
 
         try:
-            self.ims_slider.value = round(math.log10(min(sw, sy)), 2)
+            self.ims_slider.value = round(math.log10(min(sx, sy)), 2)
         except AttributeError:
             pass
 
-        with self._lock('update_image_transform') as flag:
-            self.update_image_transform(p=(x, y), s=(sw, sy))
+        self.update_image_transform(p=(x, y), s=(sx, sy))
 
     def reset_rth(self):
         try:
@@ -291,21 +307,32 @@ class AtlasBrainView:
 
     def update_brain_view(self, view: SLICE | SliceView, *,
                           update_image=True):
+        if is_recursive_called():
+            return
+
         if isinstance(view, str):
-            view = SliceView(view, self.brain.reference, self.brain.resolution[0])
+            view = SliceView(self.brain, view)
 
         self._brain_view = view
 
-        with self._lock('update_brain_view:slice_select') as flag:
-            if flag:
-                try:
-                    self.slice_select.value = view.name
-                except AttributeError:
-                    pass
+        try:
+            self.slice_select.value = view.name
+        except AttributeError:
+            pass
 
         try:
             self.plane_slider.title = f'Slice Plane (1/{view.resolution} um)'
             self.plane_slider.end = view.n_plane
+        except AttributeError:
+            pass
+
+        try:
+            self.rth_slider.step = view.resolution
+        except AttributeError:
+            pass
+
+        try:
+            self.rtv_slider.step = view.resolution
         except AttributeError:
             pass
 
@@ -319,15 +346,10 @@ class AtlasBrainView:
                 pass
         else:
             self._brain_slice = None  # avoid self.plane_slider.value invoke updating methods
-
-            try:
-                p = self.plane_slider.value
-            except AttributeError:
-                p = view.n_plane // 2
-
-            p = view.plane_at(p)
+            p = view.plane_at(view.n_plane // 2)
 
         self.update_brain_slice(p, update_image=update_image)
+        self.update_image_transform()
 
     @property
     def brain_slice(self) -> SlicePlane | None:
@@ -335,29 +357,26 @@ class AtlasBrainView:
 
     def update_brain_slice(self, plane: int | SlicePlane | None, *,
                            update_image=True):
+        if is_recursive_called():
+            return
+
         if isinstance(plane, int):
             plane = self.brain_view.plane(plane)
 
         self._brain_slice = plane
 
-        with self._lock('update_brain_slice:plane_slider') as flag:
-            if flag:
-                try:
-                    self.plane_slider.value = plane.plane
-                except AttributeError:
-                    pass
-        with self._lock('update_brain_slice:rth_slider') as flag:
-            if flag:
-                try:
-                    self.rth_slider.value = plane.dw
-                except AttributeError:
-                    pass
-        with self._lock('update_brain_slice:rtv_slider') as flag:
-            if flag:
-                try:
-                    self.rtv_slider.value = plane.dh
-                except AttributeError:
-                    pass
+        try:
+            self.plane_slider.value = plane.plane
+        except AttributeError:
+            pass
+        try:
+            self.rth_slider.value = plane.dw * plane.resolution
+        except AttributeError:
+            pass
+        try:
+            self.rtv_slider.value = plane.dh * plane.resolution
+        except AttributeError:
+            pass
 
         if update_image:
             if plane is None:
@@ -394,7 +413,11 @@ class AtlasBrainView:
     def update_image_transform(self, *,
                                p: tuple[float, float] = None,
                                s: float | tuple[float, float] = None,
-                               rt: float = None):
+                               rt: float = None,
+                               update_image=True):
+        if is_recursive_called():
+            return
+
         if p is not None:
             self._dx, self._dy = p
 
@@ -404,8 +427,6 @@ class AtlasBrainView:
             else:
                 self._sx = self._sy = float(s)
 
-
-
         if rt is not None:
             self._rt = rt
 
@@ -414,14 +435,22 @@ class AtlasBrainView:
         x = self._dx
         y = self._dy
 
-        with self._lock('update_image_transform') as flag:
-            if flag:
-                self.data_brain_boundary.data = dict(
-                    x=[x + w / 2], y=[y + h / 2], w=[w], h=[h], r=[self._rt]
-                )
-            else:  # from _on_boundary_change
-                if (plane := self._brain_slice) is not None:
-                    self.update_image(plane.image)
+        try:
+            self.ims_slider.value = round(math.log10(min(self._sx, self._sy)), 2)
+        except AttributeError:
+            pass
+
+        try:
+            self.imr_slider.value = self._rt
+        except AttributeError:
+            pass
+
+        self.data_brain_boundary.data = dict(
+            x=[x + w / 2], y=[y + h / 2], w=[w], h=[h], r=[self._rt]
+        )
+
+        if update_image and (plane := self._brain_slice) is not None:
+            self.update_image(plane.image)
 
     def update_image(self, image_data: NDArray[np.uint] | None):
         if image_data is None:

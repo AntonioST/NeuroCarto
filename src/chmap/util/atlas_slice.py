@@ -1,10 +1,11 @@
 import abc
 import math
-from typing import Literal, TypeVar, Final, overload, NamedTuple
+from typing import Literal, TypeVar, Final, overload, NamedTuple, get_args
 
 import numpy as np
 from numpy.typing import NDArray
 
+from chmap.util.atlas_brain import BrainGlobeAtlas
 from chmap.util.utils import all_int, align_arr
 
 __all__ = ['SLICE', 'SliceView', 'SlicePlane']
@@ -33,7 +34,7 @@ class SliceView(metaclass=abc.ABCMeta):
     grid_x: Final[NDArray[np.int_]]
     grid_y: Final[NDArray[np.int_]]
 
-    def __new__(cls, name: SLICE, reference: np.ndarray, resolution: int):
+    def __new__(cls, brain: BrainGlobeAtlas, name: SLICE, reference: NDArray[np.uint] = None):
         if name == 'coronal':
             return object.__new__(CoronalView)
         elif name == 'sagittal':
@@ -43,16 +44,22 @@ class SliceView(metaclass=abc.ABCMeta):
         else:
             raise ValueError()
 
-    def __init__(self, name: SLICE, reference: NDArray[np.uint], resolution: int):
+    def __init__(self, brain: BrainGlobeAtlas, name: SLICE, reference: NDArray[np.uint] = None):
         """
 
         :param name: view
         :param reference: reference brain volume with shape (AP, DL, ML)
         :param resolution: um/pixel
         """
+        if reference is not None:
+            if reference.shape != brain.reference.shape:
+                raise RuntimeError()
+        else:
+            reference = brain.reference
+
         self.name = name
         self.reference = reference
-        self.resolution = int(resolution)
+        self.resolution = int(brain.resolution[get_args(SLICE).index(name)])
         self.grid_y, self.grid_x = np.mgrid[0:self.height, 0:self.width]
 
     def __str__(self):
@@ -347,6 +354,10 @@ class SlicePlane(NamedTuple):
     @property
     def slice_name(self) -> str:
         return self.slice.name
+
+    @property
+    def resolution(self) -> int:
+        return self.slice.resolution
 
     @property
     def width(self) -> float:
