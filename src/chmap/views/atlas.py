@@ -1,7 +1,7 @@
 from typing import get_args, TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, Div
+from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, Toggle
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -103,6 +103,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # UI components #
     # ============= #
 
+    visible_btn: Toggle
+    save_btn: Toggle
     slice_select: Select
     plane_slider: Slider
     rotate_hor_slider: Slider
@@ -155,17 +157,26 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         )
         self.rotate_ver_slider.on_change('value', self.on_rotate_changed)
 
+        self.visible_btn = Toggle(label='Brain Atlas', active=True, min_width=150, width_policy='min')
+        self.visible_btn.on_change('active', self.on_visible)
+
+        self.save_btn = Toggle(label='Auto Save', active=True, min_width=150, width_policy='min')
+
         reset_rth = new_btn('reset', self.on_reset_rotate_horizontal)
         reset_rtv = new_btn('reset', self.on_reset_rotate_vertical)
 
         from bokeh.layouts import row
         return [
-            Div(text="<b>Brain Atlas</b>"),
+            row(self.visible_btn, self.save_btn),
             row(self.slice_select, self.plane_slider),
             row(reset_rth, self.rotate_hor_slider),
             row(reset_rtv, self.rotate_ver_slider),
             *self.setup_slider(slider_width=slider_width)
         ]
+
+    # noinspection PyUnusedLocal
+    def on_visible(self, prop: str, old: bool, active: bool):
+        self.visible = active
 
     # noinspection PyUnusedLocal
     def on_slice_selected(self, prop: str, old: str, s: str):
@@ -210,6 +221,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # ========= #
     # load/save #
     # ========= #
+
+    def is_auto_saving(self) -> bool:
+        return self.save_btn.active
 
     def save_state(self) -> AtlasBrainViewState:
         boundary = self.get_boundary_state()

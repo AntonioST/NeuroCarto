@@ -35,10 +35,17 @@ class ViewBase(metaclass=abc.ABCMeta):
 S = TypeVar('S', bound=dict)
 
 
-class StateView(Generic[S]):
-    def save_state(self) -> S:
+class StateView(Generic[S], metaclass=abc.ABCMeta):
+
+    @abc.abstractmethod
+    def is_auto_saving(self) -> bool:
         pass
 
+    @abc.abstractmethod
+    def save_state(self) -> S | list[S]:
+        pass
+
+    @abc.abstractmethod
     def restore_state(self, state: S | list[S]):
         pass
 

@@ -177,10 +177,13 @@ class ImageView(BoundView, StateView[ImageViewState]):
     # load/save #
     # ========= #
 
-    def save_state(self) -> ImageViewState:
+    def is_auto_saving(self) -> bool:
+        return True
+
+    def save_state(self) -> list[ImageViewState]:
         boundary = self.get_boundary_state()
 
-        return ImageViewState(
+        return [ImageViewState(
             filename=self.image.filename,
             index=self._index,
             image_dx=boundary['dx'],
@@ -188,7 +191,7 @@ class ImageView(BoundView, StateView[ImageViewState]):
             image_sx=boundary['sx'],
             image_sy=boundary['sy'],
             image_rt=boundary['rt'],
-        )
+        )]
 
     def restore_state(self, state: ImageViewState | list[ImageViewState]):
         if isinstance(state, list):
