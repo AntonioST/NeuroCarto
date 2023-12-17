@@ -146,13 +146,13 @@ class ChannelMapEditorApp(BokehApplication):
 
         #
         self.input_imro = Select(
-            title='Input Channelmap file',
+            title='Input file',
             options=[], value="",
             width=300
         )
 
         self.output_imro = AutocompleteInput(
-            title='Output Channelmap file',
+            title='Save filename',
             width=300, max_completions=5, case_sensitive=False, restrict=True
         )
 
@@ -190,7 +190,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.message_area = TextAreaInput(title="Log:", rows=10, cols=100, width=300, disabled=True)
 
         return [
-            Div(text="<b>Imro File</b>"),
+            Div(text="<b>ChannelMap File</b>"),
             self.input_imro,
             Row(empty_btn, load_btn, save_btn),
             self.output_imro,
