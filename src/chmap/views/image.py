@@ -271,8 +271,7 @@ class ImageView(BoundView, StateView[ImageViewState]):
                 pass
 
         if image_data is None:
-            self.render_boundary.visible = False
+            self.visible = False
             self.data_brain.data = dict(image=[], dw=[], dh=[], x=[], y=[])
         else:
-            self.render_boundary.visible = self.render_image.visible
             self.data_brain.data = self.transform_image_data(image_data)

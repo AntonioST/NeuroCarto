@@ -309,8 +309,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
     def update_image(self, image_data: NDArray[np.uint] | None):
         if image_data is None:
-            self.render_boundary.visible = False
+            self.visible = False
             self.data_brain.data = dict(image=[], dw=[], dh=[], x=[], y=[])
         else:
-            self.render_boundary.visible = self.render_brain.visible
             self.data_brain.data = self.transform_image_data(np.flipud(image_data))
