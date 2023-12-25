@@ -78,10 +78,10 @@ class ImageView(BoundView, StateView[ImageViewState]):
     data_image: ColumnDataSource
     render_image: GlyphRenderer
 
-    def __init__(self, config: ChannelMapEditorConfig):
+    def __init__(self, config: ChannelMapEditorConfig, image: ImageHandler = None):
         super().__init__(config)
 
-        self.image: ImageHandler | None = None
+        self.image: ImageHandler | None = image
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
 
         self._index: int = 0
@@ -142,10 +142,14 @@ class ImageView(BoundView, StateView[ImageViewState]):
     index_slider: Slider
 
     def setup(self, slider_width: int = 300) -> list[UIElement]:
-        self.image_input = FileInput(
-            accept='image/*'
-        )
-        self.image_input.on_change('filename', self._on_image_selected)
+        ret = [Div(text=f"<b>Image</b>")]
+
+        if self.image is None:
+            self.image_input = FileInput(
+                accept='image/*'
+            )
+            self.image_input.on_change('filename', self._on_image_selected)
+            ret.append(self.image_input)
 
         self.index_slider = Slider(
             start=0,
@@ -158,13 +162,10 @@ class ImageView(BoundView, StateView[ImageViewState]):
             disabled=True
         )
         self.index_slider.on_change('value', self.on_index_changed)
+        ret.append(self.index_slider)
 
-        return [
-            Div(text=f"<b>Image</b>"),
-            self.image_input,
-            self.index_slider,
-            *self.setup_slider(slider_width=slider_width)
-        ]
+        ret.extend(self.setup_slider(slider_width=slider_width))
+        return ret
 
     # noinspection PyUnusedLocal
     def _on_image_selected(self, prop: str, old: str, filename: str):

@@ -12,7 +12,8 @@ from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server
 from chmap.util.bokeh_util import ButtonFactory, col_layout
-from chmap.views.base import ViewBase, StateView
+from chmap.views.base import ViewBase, StateView, DynamicView
+from chmap.views.data import DataView
 from chmap.views.probe import ProbeView
 
 
@@ -33,6 +34,9 @@ class ChannelMapEditorApp(BokehApplication):
         if config.atlas_name is not None:
             from chmap.views.atlas import AtlasBrainView
             self.right_view_type.append(AtlasBrainView)
+
+        from chmap.views.data_density import ElectrodeDensityData
+        self.right_view_type.append(DataView(config, ElectrodeDensityData()))
 
     @property
     def title(self) -> str:
@@ -266,9 +270,6 @@ class ChannelMapEditorApp(BokehApplication):
         for view in self.right_views:
             view.update()
 
-    def update_probe_info(self):
-        self.probe_info.text = self.probe_view.channelmap_desp()
-
     # ========= #
     # callbacks #
     # ========= #
@@ -281,12 +282,11 @@ class ChannelMapEditorApp(BokehApplication):
 
         self._use_chmap_path = None
         self.probe_view.reset(probe_type)
-        self.probe_view.update_electrode()
 
         if len(self.output_imro.value_input) == 0:
             self.output_imro.value = "New"
 
-        self.update_probe_info()
+        self.on_probe_update()
 
     def on_load(self):
         name: str
@@ -305,9 +305,6 @@ class ChannelMapEditorApp(BokehApplication):
         self.probe_view.reset(chmap)
         self.load_policy(file)
 
-        self.probe_view.update_electrode()
-        self.update_probe_info()
-
         config = self.load_view_config(file, reset=True)
         for view in self.right_views:
             if isinstance(view, StateView):
@@ -320,6 +317,8 @@ class ChannelMapEditorApp(BokehApplication):
                         view.restore_state(_config)
                     except RuntimeError as e:
                         self.log_message(type(view).__name__ + '::' + repr(e))
+
+        self.on_probe_update()
 
     def reload_input_imro_list(self, preselect: str = None):
         if preselect is None:
@@ -352,14 +351,23 @@ class ChannelMapEditorApp(BokehApplication):
 
     def on_state_change(self, state: int):
         self.probe_view.set_state_for_selected(state)
-        self.probe_view.update_electrode()
-        self.update_probe_info()
+        self.on_probe_update()
 
     def on_policy_change(self, policy: int):
         self.probe_view.set_policy_for_selected(policy)
 
         if self.auto_btn.active:
             self.on_refresh()
+
+        self.on_probe_update()
+
+    def on_probe_update(self):
+        self.probe_info.text = self.probe_view.channelmap_desp()
+        self.probe_view.update_electrode()
+
+        for view in self.right_views:
+            if isinstance(view, DynamicView):
+                view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
 
     # noinspection PyUnusedLocal
     def on_autoupdate(self, prop: str, old: bool, active: bool):
@@ -369,7 +377,7 @@ class ChannelMapEditorApp(BokehApplication):
     def on_refresh(self):
         self.probe_view.refresh_selection()
         self.probe_view.update_electrode()
-        self.update_probe_info()
+        self.on_probe_update()
 
     def log_message(self, *message, reset=False):
         area = self.message_area

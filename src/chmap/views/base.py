@@ -8,11 +8,11 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.probe import ProbeDesp
+from chmap.probe import ProbeDesp, M, E
 from chmap.util.bokeh_util import ButtonFactory
 from chmap.util.utils import is_recursive_called
 
-__all__ = ['ViewBase', 'StateView', 'BoundaryState', 'BoundView']
+__all__ = ['ViewBase', 'StateView', 'DynamicView', 'BoundaryState', 'BoundView']
 
 
 class ViewBase(metaclass=abc.ABCMeta):
@@ -51,7 +51,7 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
 
 
 class DynamicView:
-    def on_probe_update(self, probe: ProbeDesp):
+    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
         pass
 
 

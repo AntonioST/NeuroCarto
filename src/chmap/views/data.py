@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import abc
 import sys
-from pathlib import Path
-from typing import Final
+from typing import ClassVar, final
 
-import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement
+from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement, FileInput, Div
 from bokeh.plotting import figure as Figure
-from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.views.base import ViewBase
+from chmap.probe import ProbeDesp, M, E
+from chmap.util.utils import is_recursive_called
+from chmap.views.base import ViewBase, DynamicView
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -22,47 +21,47 @@ __all__ = ['DataReader', 'DataView']
 
 
 class DataReader(metaclass=abc.ABCMeta):
-    __match_args__ = 'filename',
+    READERS: ClassVar[list[type[DataReader]]] = []
 
-    @classmethod
-    def register(cls, filename: str, reader: type[DataReader]):
+    def __init_subclass__(cls, **kwargs):
+        cls.READERS.append(cls)
+
+    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
+        pass
+
+    @abc.abstractmethod
+    def data(self) -> list[tuple[list[float], list[float]]] | None:
         """
 
-        :param filename: filename pattern
-        :param reader:
-        :return:
+        :return: [shank: ([x], [y])]
         """
         pass
 
     @classmethod
-    def load(cls, filename: str | Path) -> Self:
-        pass
+    def match_file(cls, filename: str) -> bool:
+        raise NotImplementedError
 
-    filename: Final[Path]
-    pos: NDArray[np.float_]  # Array[float, S, Y, (x, y)]
-    data: NDArray[np.float_]  # Array[float, S, Y]
+    @classmethod
+    @final
+    def load_file(cls, filename: str) -> Self:
+        for reader in cls.READERS:
+            if reader.match_file(filename):
+                return reader._load_file(filename)
+        raise RuntimeError()
 
-    def __init__(self, filename: Path):
-        self.filename = filename
-
-    @property
-    def n_shank(self) -> int:
-        if self.data.ndim == 2:
-            return len(self.data)
-        else:
-            return 1
+    @classmethod
+    def _load_file(cls, filename: str) -> Self:
+        raise NotImplementedError
 
 
-class DataView(ViewBase):
-    data_reader: Final[DataReader]
-
+class DataView(ViewBase, DynamicView):
     data_electrode: ColumnDataSource
     render_electrode: GlyphRenderer
 
-    def __init__(self, config: ChannelMapEditorConfig, reader: DataReader):
+    def __init__(self, config: ChannelMapEditorConfig, reader: DataReader = None):
         super().__init__(config)
 
-        self.data_reader = reader
+        self.reader: DataReader | None = reader
         self.data_electrode = ColumnDataSource(data=dict(x=[], y=[]))
 
     # ================= #
@@ -78,20 +77,63 @@ class DataView(ViewBase):
     # UI components #
     # ============= #
 
+    data_input: FileInput
+
     def setup(self, **kwargs) -> list[UIElement]:
-        pass
+        if self.reader is not None:
+            return []
+
+        self.data_input = FileInput()
+        self.data_input.on_change('filename', self._on_data_selected)
+
+        return [
+            Div(text=f"<b>Data</b>"),
+            self.data_input
+        ]
+
+    # noinspection PyUnusedLocal
+    def _on_data_selected(self, prop: str, old: str, filename: str):
+        if is_recursive_called():
+            return
+
+        try:
+            self.reader = DataReader.load_file(filename)
+        except RuntimeError as e:
+            from chmap.main_bokeh import ChannelMapEditorApp
+            ChannelMapEditorApp.get_application().log_message(repr(e))
+        else:
+            if isinstance(self.reader, DynamicView) and (probe := self._cache_probe) is not None:
+                self.reader.on_probe_update(probe, self._cache_channelmap, self._cache_electrodes)
+
+            self.update()
 
     # ================ #
     # updating methods #
     # ================ #
 
+    _cache_probe: ProbeDesp = None
+    _cache_channelmap: M = None
+    _cache_electrodes: list[E] = None
+
+    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
+        self._cache_probe = probe
+        self._cache_channelmap = chmap
+        self._cache_electrodes = e
+
+        self.reader.on_probe_update(probe, chmap, e)
+        self.update()
+
     def update(self):
-        data = self.data_reader.pos
+        if (reader := self.reader) is None:
+            return
 
-        x = []
-        y = []
-        for sh in range(data.shape[0]):
-            x.append(list(data[sh, :, 0]))
-            y.append(list(data[sh, :, 1]))
+        if (data := reader.data()) is None:
+            return
 
-        self.data_electrode.data = dict(x=x, y=y)
+        xx = []
+        yy = []
+        for (x, y) in data:
+            xx.append(list(x))
+            yy.append(list(y))
+
+        self.data_electrode.data = dict(x=xx, y=yy)
