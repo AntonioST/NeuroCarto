@@ -257,21 +257,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         try:
             self.slice_select.value = view.name
-        except AttributeError:
-            pass
-
-        try:
             self.plane_slider.title = f'Slice Plane (1/{view.resolution} um)'
             self.plane_slider.end = view.n_plane
-        except AttributeError:
-            pass
-
-        try:
             self.rotate_hor_slider.step = view.resolution
-        except AttributeError:
-            pass
-
-        try:
             self.rotate_ver_slider.step = view.resolution
         except AttributeError:
             pass
@@ -303,13 +291,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         try:
             self.plane_slider.value = plane.plane
-        except AttributeError:
-            pass
-        try:
             self.rotate_hor_slider.value = plane.dw * plane.resolution
-        except AttributeError:
-            pass
-        try:
             self.rotate_ver_slider.value = plane.dh * plane.resolution
         except AttributeError:
             pass
