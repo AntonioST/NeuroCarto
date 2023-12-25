@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ __all__ = [
 
 
 def parse_imro(source: str) -> ChannelMap:
+    source = source.strip()
     if not source.startswith('(') or not source.endswith(')'):
         raise RuntimeError('not imro format')
 
@@ -100,7 +102,7 @@ def string_imro(chmap: ChannelMap) -> str:
             ref = chmap.reference
             for e in chmap.electrodes:
                 electrode = cr2e(PROBE_TYPE_NP24, e)
-                bank, channel = e2c24(e.shank, electrode)
+                channel, bank = e2c24(e.shank, electrode)
                 ret.append(f'({channel} {e.shank} {bank} {ref} {electrode})')
         case _:
             raise RuntimeError(f'unknown imro type : {chmap.probe_type}')
@@ -165,3 +167,7 @@ def from_probe(probe: Probe) -> ChannelMap:
 def to_probe(chmap: ChannelMap) -> Probe:
     from probeinterface.io import _read_imro_string
     return _read_imro_string(repr(chmap))
+
+
+if __name__ == '__main__':
+    parse_imro(Path(sys.argv[1]).read_text())

@@ -12,12 +12,13 @@ from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server
 from chmap.util.bokeh_util import ButtonFactory, col_layout
-from chmap.views.base import ViewBase
+from chmap.views.base import ViewBase, StateView
 from chmap.views.probe import ProbeView
 
 
 class ChannelMapEditorApp(BokehApplication):
     probe: ProbeDesp[M, Any]
+    right_view_config: dict[str, Any] = {}
     right_view_type: list[ViewBase | type[ViewBase]]
 
     def __init__(self, config: ChannelMapEditorConfig):
@@ -68,11 +69,14 @@ class ChannelMapEditorApp(BokehApplication):
         self._use_chmap_path = file
         return file
 
-    def get_policy_file(self, chmap: str) -> Path:
-        imro_file = self.get_chmap_file(chmap)
+    def get_policy_file(self, chmap: str | Path) -> Path:
+        if isinstance(chmap, str):
+            imro_file = self.get_chmap_file(chmap)
+        else:
+            imro_file = chmap
         return imro_file.with_suffix('.npy')
 
-    def load_policy(self, chmap: str) -> bool:
+    def load_policy(self, chmap: str | Path) -> bool:
         if (electrodes := self.probe_view.electrodes) is None:
             return False
 
@@ -99,6 +103,43 @@ class ChannelMapEditorApp(BokehApplication):
         self.log_message(f'save policy : {file.name}')
 
         return file
+
+    def get_view_config_file(self, chmap: str | Path) -> Path:
+        if isinstance(chmap, str):
+            imro_file = self.get_chmap_file(chmap)
+        else:
+            imro_file = chmap
+
+        return imro_file.with_suffix('.json')
+
+    def load_view_config(self, chmap: str | Path, *, reset=False) -> dict[str, Any]:
+        file = self.get_view_config_file(chmap)
+        if not file.exists():
+            return self.right_view_config
+
+        import json
+        with file.open('r') as f:
+            data = dict(json.load(f))
+            self.log_message(f'load image config : {file.name}')
+
+        if reset:
+            self.right_view_config.update(data)
+        else:
+            self.right_view_config = data
+
+        return self.right_view_config
+
+    def save_view_config(self, chmap: str | Path, *, direct=False):
+        if not direct:
+            for view in self.right_views:
+                if isinstance(view, StateView):
+                    self.right_view_config[type(view).__name__] = view.save_state()
+
+        import json
+        file = self.get_view_config_file(chmap)
+        with file.open('w') as f:
+            json.dump(self.right_view_config, f, indent=2)
+            self.log_message(f'save image config : {file.name}')
 
     # ============= #
     # UI components #
@@ -254,18 +295,31 @@ class ChannelMapEditorApp(BokehApplication):
 
         try:
             file = self.get_chmap_file(name)
-            chmap = self.load_chmap(file)
+            chmap = self.load_chmap(name)
         except FileNotFoundError as x:
             self.log_message(repr(x))
-        else:
-            self.output_imro.value = file.stem
+            return
 
-            self.probe_view.reset(chmap)
-            self.load_policy(file)
+        self.output_imro.value = file.stem
 
-            self.probe_view.update_electrode()
+        self.probe_view.reset(chmap)
+        self.load_policy(file)
 
-            self.update_probe_info()
+        self.probe_view.update_electrode()
+        self.update_probe_info()
+
+        config = self.load_view_config(file, reset=True)
+        for view in self.right_views:
+            if isinstance(view, StateView):
+                try:
+                    _config = config[type(view).__name__]
+                except KeyError:
+                    pass
+                else:
+                    try:
+                        view.restore_state(_config)
+                    except RuntimeError as e:
+                        self.log_message(type(view).__name__ + '::' + repr(e))
 
     def reload_input_imro_list(self, preselect: str = None):
         if preselect is None:
@@ -290,6 +344,9 @@ class ChannelMapEditorApp(BokehApplication):
             return
 
         path = self.save_chmap(name, chmap)
+        self.save_policy(path)
+        self.save_view_config(path)
+
         self.output_imro.value = path.stem
         self.reload_input_imro_list(path.stem)
 

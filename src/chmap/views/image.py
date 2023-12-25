@@ -1,9 +1,9 @@
 import abc
 import sys
-from typing import TypedDict, Final
+from typing import TypedDict
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div
+from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div, FileInput
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -74,16 +74,14 @@ class ImageHandler(metaclass=abc.ABCMeta):
 
 
 class ImageView(BoundView, StateView[ImageViewState]):
-    image: Final[ImageHandler]
-
+    image_config: dict[str, ImageViewState]
     data_image: ColumnDataSource
-
     render_image: GlyphRenderer
 
-    def __init__(self, config: ChannelMapEditorConfig, image: ImageHandler):
+    def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config)
 
-        self.image = image
+        self.image: ImageHandler | None = None
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
 
         self._index: int = 0
@@ -140,31 +138,53 @@ class ImageView(BoundView, StateView[ImageViewState]):
     # UI components #
     # ============= #
 
+    image_input: FileInput
     index_slider: Slider
 
     def setup(self, slider_width: int = 300) -> list[UIElement]:
+        self.image_input = FileInput(
+            accept='image/*'
+        )
+        self.image_input.on_change('filename', self._on_image_selected)
+
         self.index_slider = Slider(
             start=0,
-            end=len(self.image),
+            end=1,
             step=1,
             value=0,
             title='Index',
             width=slider_width,
             align='end',
-            disabled=len(self.image) == 1
+            disabled=True
         )
         self.index_slider.on_change('value', self.on_index_changed)
 
         return [
-            Div(text=f"<b>Image</b> {self.image.filename}"),
+            Div(text=f"<b>Image</b>"),
+            self.image_input,
             self.index_slider,
             *self.setup_slider(slider_width=slider_width)
         ]
 
     # noinspection PyUnusedLocal
-    def _on_image_selected(self, prop: str, old: str, s: str):
+    def _on_image_selected(self, prop: str, old: str, filename: str):
         if is_recursive_called():
             return
+
+        if (image := self.image) is not None:
+            if (state := self.save_current_state()) is not None:
+                self.image_config[state['filename']] = state
+
+        self.image = ImageHandler.from_file(filename)
+
+        if (n_image := len(self.image)) == 1:
+            self.index_slider.end = 1
+            self.index_slider.disabled = True
+        else:
+            self.index_slider.end = n_image
+            self.index_slider.disabled = False
+
+        self.restore_current_state()
 
     # noinspection PyUnusedLocal
     def on_index_changed(self, prop: str, old: int, s: int):
@@ -177,42 +197,44 @@ class ImageView(BoundView, StateView[ImageViewState]):
     # load/save #
     # ========= #
 
-    def is_auto_saving(self) -> bool:
-        return True
-
     def save_state(self) -> list[ImageViewState]:
-        boundary = self.get_boundary_state()
+        return list(self.image_config.values())
 
-        return [ImageViewState(
-            filename=self.image.filename,
+    def save_current_state(self) -> ImageViewState | None:
+        if (image := self.image) is None:
+            return None
+
+        boundary = self.get_boundary_state()
+        return ImageViewState(
+            filename=image.filename,
             index=self._index,
             image_dx=boundary['dx'],
             image_dy=boundary['dy'],
             image_sx=boundary['sx'],
             image_sy=boundary['sy'],
             image_rt=boundary['rt'],
-        )]
+        )
 
-    def restore_state(self, state: ImageViewState | list[ImageViewState]):
-        if isinstance(state, list):
-            for _state in state:  # type:ImageViewState
-                if _state['filename'] == self.image.filename:
-                    state = _state
-                    break
-            else:
-                return
-        elif state['filename'] != self.image.filename:
-            raise RuntimeError()
+    def restore_state(self, state: list[ImageViewState]):
+        for _state in state:  # type:ImageViewState
+            _state = ImageViewState(**_state)
+            self.image_config[_state['filename']] = _state
 
-        self.update_boundary_transform(p=(state['image_dx'], state['image_dy']),
-                                       s=(state['image_sx'], state['image_sx']),
-                                       rt=state['image_rt'])
+    def restore_current_state(self):
+        try:
+            state = self.image_config[self.image.filename]
+        except KeyError:
+            self.reset_boundary_transform()
+        else:
+            self.update_boundary_transform(p=(state['image_dx'], state['image_dy']),
+                                           s=(state['image_sx'], state['image_sx']),
+                                           rt=state['image_rt'])
 
-        index = state['index']
-        if index is None:
-            index = 0
+            index = state['index']
+            if index is None:
+                index = 0
 
-        self.update_image(index)
+            self.update_image(index)
 
     # ================ #
     # updating methods #
@@ -226,7 +248,7 @@ class ImageView(BoundView, StateView[ImageViewState]):
 
         try:
             image = self.image[self._index]
-        except IndexError:
+        except (IndexError, TypeError):
             pass
         else:
             self.update_image(image)
@@ -237,11 +259,15 @@ class ImageView(BoundView, StateView[ImageViewState]):
 
         if isinstance(image_data, int) or isinstance(image_data, np.integer):
             self._index = index = int(image_data)
-            image_data = self.image[index]
+
+            try:
+                image_data = self.image[index]
+            except TypeError:
+                return
 
             try:
                 self.index_slider.value = index
-            except AttributeError:
+            except (AttributeError, TypeError):
                 pass
 
         if image_data is None:

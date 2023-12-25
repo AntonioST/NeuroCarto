@@ -32,21 +32,21 @@ class ViewBase(metaclass=abc.ABCMeta):
         pass
 
 
-S = TypeVar('S', bound=dict)
+S = TypeVar('S')
 
 
 class StateView(Generic[S], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def is_auto_saving(self) -> bool:
+    def save_state(self) -> S:
+        """
+
+        :return:
+        """
         pass
 
     @abc.abstractmethod
-    def save_state(self) -> S | list[S]:
-        pass
-
-    @abc.abstractmethod
-    def restore_state(self, state: S | list[S]):
+    def restore_state(self, state: S):
         pass
 
 
@@ -216,6 +216,10 @@ class BoundView(ViewBase, metaclass=abc.ABCMeta):
         sy = h / self.height
 
         self.update_boundary_transform(p=(x, y), s=(sx, sy))
+
+    def reset_boundary_transform(self):
+        self.data_boundary.data = dict(x=[0], y=[0], w=[0], h=[0], r=[0], sx=[1], sy=[1])
+        self._update_boundary_transform(self.get_boundary_state())
 
     def update_boundary_transform(self, *,
                                   p: tuple[float, float] = None,
