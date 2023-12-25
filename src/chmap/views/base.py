@@ -3,7 +3,7 @@ import math
 from typing import TypeVar, Generic, TypedDict, Any
 
 import numpy as np
-from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider
+from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -29,6 +29,33 @@ class ViewBase(metaclass=abc.ABCMeta):
         pass
 
     def update(self):
+        pass
+
+
+class InvisibleView:
+    visible_btn: Switch
+
+    @property
+    def visible(self) -> bool:
+        try:
+            return self.visible_btn.active
+        except AttributeError:
+            return True
+
+    @visible.setter
+    def visible(self, v: bool):
+        try:
+            self.visible_btn.active = v
+        except AttributeError:
+            pass
+
+    def setup_visible_switch(self) -> Switch:
+        self.visible_btn = Switch(active=True)
+        self.visible_btn.on_change('active', lambda prop, old, active: self.on_visible(active))
+        return self.visible_btn
+
+    # noinspection PyUnusedLocal
+    def on_visible(self, visible: bool):
         pass
 
 
@@ -63,7 +90,7 @@ class BoundaryState(TypedDict):
     rt: float
 
 
-class BoundView(ViewBase, metaclass=abc.ABCMeta):
+class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     data_boundary: ColumnDataSource
     render_boundary: GlyphRenderer
 
@@ -71,20 +98,6 @@ class BoundView(ViewBase, metaclass=abc.ABCMeta):
         super().__init__(config)
 
         self.data_boundary = ColumnDataSource(data=dict(x=[0], y=[0], w=[0], h=[0], r=[0], sx=[1], sy=[1]))
-
-    @property
-    def visible(self) -> bool:
-        try:
-            return self.render_boundary.visible
-        except AttributeError:
-            return False
-
-    @visible.setter
-    def visible(self, v: bool):
-        try:
-            self.render_boundary.visible = v
-        except AttributeError:
-            pass
 
     @property
     @abc.abstractmethod
@@ -133,6 +146,9 @@ class BoundView(ViewBase, metaclass=abc.ABCMeta):
             description=boundary_desp,
             renderers=[self.render_boundary], num_objects=1
         ))
+
+    def on_visible(self, visible: bool):
+        self.render_boundary.visible = visible
 
     boundary_rotate_slider: Slider
     boundary_scale_slider: Slider

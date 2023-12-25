@@ -10,7 +10,7 @@ from bokeh.plotting import figure as Figure
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.utils import is_recursive_called
-from chmap.views.base import ViewBase, DynamicView
+from chmap.views.base import ViewBase, DynamicView, InvisibleView
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -25,6 +25,11 @@ class DataReader(metaclass=abc.ABCMeta):
 
     def __init_subclass__(cls, **kwargs):
         cls.READERS.append(cls)
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        pass
 
     def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
         pass
@@ -54,7 +59,7 @@ class DataReader(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
 
-class DataView(ViewBase, DynamicView):
+class DataView(ViewBase, InvisibleView, DynamicView):
     data_electrode: ColumnDataSource
     render_electrode: GlyphRenderer
 
@@ -73,6 +78,10 @@ class DataView(ViewBase, DynamicView):
             'x', 'y', source=self.data_electrode
         )
 
+    # noinspection PyUnusedLocal
+    def on_visible(self, visible: bool):
+        self.render_electrode.visible = visible
+
     # ============= #
     # UI components #
     # ============= #
@@ -80,19 +89,26 @@ class DataView(ViewBase, DynamicView):
     data_input: FileInput
 
     def setup(self, **kwargs) -> list[UIElement]:
+        from bokeh.layouts import row
+
+        label = 'Data'
         if self.reader is not None:
-            return []
+            label = self.reader.name
 
-        self.data_input = FileInput()
-        self.data_input.on_change('filename', self._on_data_selected)
-
-        return [
-            Div(text=f"<b>Data</b>"),
-            self.data_input
+        ret = [
+            row(self.setup_visible_switch(), Div(text=f"<b>{label}</b>"))
         ]
 
+        if self.reader is None:
+            self.data_input = FileInput()
+            self.data_input.on_change('filename', self.on_data_selected)
+
+            ret.append(self.data_input)
+
+        return ret
+
     # noinspection PyUnusedLocal
-    def _on_data_selected(self, prop: str, old: str, filename: str):
+    def on_data_selected(self, prop: str, old: str, filename: str):
         if is_recursive_called():
             return
 

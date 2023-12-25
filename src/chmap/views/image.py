@@ -91,21 +91,6 @@ class ImageView(BoundView, StateView[ImageViewState]):
     # ========== #
 
     @property
-    def visible(self) -> bool:
-        try:
-            return self.render_image.visible
-        except AttributeError:
-            return False
-
-    @visible.setter
-    def visible(self, v: bool):
-        try:
-            self.render_image.visible = v
-            self.render_boundary.visible = v
-        except AttributeError:
-            pass
-
-    @property
     def width(self) -> float:
         try:
             return self.image.width
@@ -134,6 +119,11 @@ class ImageView(BoundView, StateView[ImageViewState]):
 
         super().plot(f, boundary_color=boundary_color, boundary_desp=boundary_desp, **kwargs)
 
+    # noinspection PyUnusedLocal
+    def on_visible(self, visible: bool):
+        super().on_visible(visible)
+        self.render_image.visible = visible
+
     # ============= #
     # UI components #
     # ============= #
@@ -142,13 +132,22 @@ class ImageView(BoundView, StateView[ImageViewState]):
     index_slider: Slider
 
     def setup(self, slider_width: int = 300) -> list[UIElement]:
-        ret = [Div(text=f"<b>Image</b>")]
+        from bokeh.layouts import row
+
+        label = 'Image'
+        if self.image is not None:
+            label = self.image.filename
+
+        ret = [
+            row(self.setup_visible_switch(), Div(text=f"<b>{label}</b>"))
+        ]
 
         if self.image is None:
             self.image_input = FileInput(
                 accept='image/*'
             )
-            self.image_input.on_change('filename', self._on_image_selected)
+            self.image_input.on_change('filename', self.on_image_selected)
+
             ret.append(self.image_input)
 
         self.index_slider = Slider(
@@ -168,7 +167,7 @@ class ImageView(BoundView, StateView[ImageViewState]):
         return ret
 
     # noinspection PyUnusedLocal
-    def _on_image_selected(self, prop: str, old: str, filename: str):
+    def on_image_selected(self, prop: str, old: str, filename: str):
         if is_recursive_called():
             return
 

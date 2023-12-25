@@ -1,7 +1,7 @@
 from typing import get_args, TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, Toggle
+from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, Div
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -49,21 +49,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # ========== #
 
     @property
-    def visible(self) -> bool:
-        try:
-            return self.render_brain.visible
-        except AttributeError:
-            return False
-
-    @visible.setter
-    def visible(self, v: bool):
-        try:
-            self.render_brain.visible = v
-            self.render_boundary.visible = v
-        except AttributeError:
-            pass
-
-    @property
     def width(self) -> float:
         try:
             return self._brain_slice.width
@@ -99,11 +84,14 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         )
         super().plot(f, boundary_color=boundary_color, boundary_desp=boundary_desp, **kwargs)
 
+    def on_visible(self, visible: bool):
+        self.render_brain.visible = visible
+        super().on_visible(visible)
+
     # ============= #
     # UI components #
     # ============= #
 
-    visible_btn: Toggle
     slice_select: Select
     plane_slider: Slider
     rotate_hor_slider: Slider
@@ -156,24 +144,17 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         )
         self.rotate_ver_slider.on_change('value', self.on_rotate_changed)
 
-        self.visible_btn = Toggle(label='Brain Atlas', active=True, min_width=150, width_policy='min')
-        self.visible_btn.on_change('active', self.on_visible)
-
         reset_rth = new_btn('reset', self.on_reset_rotate_horizontal)
         reset_rtv = new_btn('reset', self.on_reset_rotate_vertical)
 
         from bokeh.layouts import row
         return [
-            self.visible_btn,
+            row(self.setup_visible_switch(), Div(text='<b>Atlas Brain</b>')),
             row(self.slice_select, self.plane_slider),
             row(reset_rth, self.rotate_hor_slider),
             row(reset_rtv, self.rotate_ver_slider),
             *self.setup_slider(slider_width=slider_width)
         ]
-
-    # noinspection PyUnusedLocal
-    def on_visible(self, prop: str, old: bool, active: bool):
-        self.visible = active
 
     # noinspection PyUnusedLocal
     def on_slice_selected(self, prop: str, old: str, s: str):

@@ -23,6 +23,10 @@ class ElectrodeDensityData(DataReader):
         self.chmap: M | None = None
         self._data: list[tuple[list[float], list[float]]] | None = None
 
+    @property
+    def name(self) -> str:
+        return 'Electrode Density Curve'
+
     @classmethod
     def match_file(cls, filename: str) -> bool:
         return filename == '!density'
