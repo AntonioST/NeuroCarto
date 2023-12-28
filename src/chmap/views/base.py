@@ -142,9 +142,10 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         self.data_boundary.on_change('data', self.on_boundary_change)
 
         from bokeh.models import tools
-        f.tools.insert(-2, tools.BoxEditTool(
+        f.tools.append(tools.BoxEditTool(
             description=boundary_desp,
-            renderers=[self.render_boundary], num_objects=1
+            renderers=[self.render_boundary],
+            num_objects=1
         ))
 
     def on_visible(self, visible: bool):

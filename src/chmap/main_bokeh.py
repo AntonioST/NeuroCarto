@@ -186,13 +186,12 @@ class ChannelMapEditorApp(BokehApplication):
 
         self.probe_fig.tools.clear()
         self.probe_fig.add_tools(
+            tools.ResetTool(),
             (t_drag := tools.PanTool(dimensions='both')),
-            tools.BoxSelectTool(description='select electrode', renderers=list(self.probe_view.render_electrodes.values())),
+            *self.probe_view.setup_tools(),
             #
             tools.WheelPanTool(dimension='height'),
             (t_scroll := tools.WheelZoomTool(dimensions='both')),
-            #
-            tools.ResetTool()
         )
         self.probe_fig.toolbar.active_drag = t_drag
         self.probe_fig.toolbar.active_scroll = t_scroll

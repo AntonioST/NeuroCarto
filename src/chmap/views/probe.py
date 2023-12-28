@@ -2,7 +2,7 @@ import time
 from collections.abc import Iterable
 from typing import Any
 
-from bokeh.models import ColumnDataSource, GlyphRenderer
+from bokeh.models import ColumnDataSource, GlyphRenderer, tools
 from bokeh.plotting import figure as Figure
 
 from chmap.probe import ProbeDesp, E, M
@@ -25,10 +25,10 @@ class ProbeView:
 
         self.data_electrodes = {}
         for state in self.probe.possible_states.values():
-            self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[]))
+            self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[], c=[]))
             self.data_electrodes[state].selected.on_change('indices', self.on_select(state))
         if (state := ProbeDesp.STATE_FORBIDDEN) not in self.data_electrodes:
-            self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[]))
+            self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[], c=[]))
             self.data_electrodes[state].selected.on_change('indices', self.on_select(state))
         self.data_highlight = ColumnDataSource(data=dict(x=[], y=[], e=[]))
 
@@ -49,6 +49,26 @@ class ProbeView:
             self.render_electrodes[state] = f.scatter(
                 x='x', y='y', source=data, **self.style_electrodes.get(state, {})
             )
+
+    def setup_tools(self) -> list[tools.Tool]:
+        return [
+            tools.BoxSelectTool(
+                description='select electrode',
+                renderers=list(self.render_electrodes.values())
+            ),
+            tools.HoverTool(
+                description="electrode information",
+                renderers=[
+                    self.render_electrodes[ProbeDesp.STATE_USED],
+                    self.render_electrodes[ProbeDesp.STATE_UNUSED],
+                    self.render_electrodes[ProbeDesp.STATE_FORBIDDEN],
+                ],
+                tooltips=[
+                    ('Channel', "@c"),
+                    ("(x,y)", "($x, $y)"),
+                ]
+            ),
+        ]
 
     def channelmap_desp(self) -> str:
         return self.probe.channelmap_desp(self.channelmap)
@@ -139,14 +159,16 @@ class ProbeView:
         x = [it.x for it in e]
         y = [it.y for it in e]
         i = [self._e2i[it] for it in e]
+        c = [str(it.channel) for it in e]
 
         if append:
             data = d.data
             x.extend(data['x'])
             y.extend(data['y'])
             i.extend(data['e'])
+            c.extend(data['c'])
 
-        d.data = dict(x=x, y=y, e=i)
+        d.data = dict(x=x, y=y, e=i, c=c)
 
     def set_highlight(self, s: Iterable[E], *, invalid=True, append=False):
         h = list(s)

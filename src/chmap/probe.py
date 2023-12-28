@@ -51,7 +51,7 @@ class ElectrodeDesp:
     x: float  # x position in um
     y: float  # y position in um
     electrode: Hashable  # for identify
-    channel: Any  # for display, not used now.
+    channel: Any  # for display in hover
     state: int = 0
     policy: int = 0
 
