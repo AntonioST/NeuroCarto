@@ -81,75 +81,154 @@ M = TypeVar('M')  # channelmap
 
 
 class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
-    """A probe interface for GUI interaction between different probe implementations."""
+    """A probe interface for GUI interaction between different probe implementations.
 
-    STATE_UNUSED: ClassVar = 0
-    STATE_USED: ClassVar = 1
-    STATE_FORBIDDEN: ClassVar = 2
+    :param M: channelmap, any class
+    :param E: electrode, subclass of ElectrodeDesp
+    """
 
-    POLICY_UNSET: ClassVar = 0
-    POLICY_SET: ClassVar = 1
-    POLICY_FORBIDDEN: ClassVar = 2
-    POLICY_SPARSE: ClassVar = 3
+    # predefined electrode states
+    STATE_UNUSED: ClassVar = 0  # electrode is not used, and it is selectable.
+    STATE_USED: ClassVar = 1  # electrode is selected.
+    STATE_FORBIDDEN: ClassVar = 2  # electrode is not used, but it is not selectable.
+
+    # predefined electrode selecting policy
+    POLICY_UNSET: ClassVar = 0  # initial value
+    POLICY_SET: ClassVar = 1  # pre-selected
+    POLICY_FORBIDDEN: ClassVar = 2  # never be selected
+    POLICY_SPARSE: ClassVar = 3  # random selected, less priority
 
     @property
     @abc.abstractmethod
-    def possible_type(self) -> dict[str, int]:
-        """all possible probe type."""
+    def supported_type(self) -> dict[str, int]:
+        """
+        All supported probe type.
+
+        Used in ChannelMapEditorApp._index_left_control() for dynamic generating options.
+
+        :return: dict of {description: code}, where code is used in new_channelmap(code)
+        """
         pass
 
     @property
     @abc.abstractmethod
     def possible_states(self) -> dict[str, int]:
-        """all possible exported electrode state."""
+        """
+        All possible exported electrode state.
+
+        Used in ChannelMapEditorApp._index_left_control() for dynamic generating buttons.
+
+        :return: dict of {description: state}
+        """
         pass
 
     @property
     @abc.abstractmethod
-    def possible_policy(self) -> dict[str, int]:
-        """all possible exported electrode policy."""
+    def possible_policies(self) -> dict[str, int]:
+        """
+        All possible exported electrode policies.
+
+        Used in ChannelMapEditorApp._index_left_control() for dynamic generating buttons.
+
+        :return: :return: dict of {description: policy}
+        """
         pass
 
     @property
     @abc.abstractmethod
     def channelmap_file_suffix(self) -> str:
+        """
+        The filename extension for supported channelmap.
+
+        :return: file extension, like ".imro"
+        """
         pass
 
     @abc.abstractmethod
     def load_from_file(self, file: Path) -> M:
+        """
+        Load channelmap file.
+
+        :param file: channelmap filepath
+        :return: channelmap instance
+        """
         pass
 
     @abc.abstractmethod
     def save_to_file(self, chmap: M, file: Path):
+        """
+        Save channelmap into file.
+
+        :param chmap: channelmap instance
+        :param file: channelmap filepath
+        """
         pass
 
     @abc.abstractmethod
     def new_channelmap(self, chmap: int | M) -> M:
-        """Create a new, empty channelmap"""
+        """
+        Create a new, empty channelmap instance.
+
+        :param chmap: a channelmap instance that copy from (at least same probe type), or a code from supported_type.
+        :return: a channelmap instance
+        """
         pass
 
     @abc.abstractmethod
     def copy_channelmap(self, chmap: M) -> M:
-        """Copy a channelmap."""
+        """
+        Copy a channelmap instance.
+
+        :param chmap: channelmap instance as reference.
+        :return: a channelmap instance
+        """
         pass
 
     @abc.abstractmethod
     def channelmap_desp(self, chmap: M | None) -> str:
+        """
+        A description for displaying the status of a channelmap instance.
+
+        :param chmap: a channelmap instance, or None when no probe (an initial description)
+        :return: description.
+        """
         pass
 
     @abc.abstractmethod
-    def all_electrodes(self, chmap: M) -> list[E]:
-        """all possible electrode set for *chmap* kind probe."""
+    def all_electrodes(self, chmap: int | M) -> list[E]:
+        """
+        Get all possible electrode set for the given channelmap kind.
+
+        :param chmap: a channelmap instance or a code from supported_type.
+        :return: a list of ElectrodeDesp
+        """
         pass
 
     @abc.abstractmethod
     def all_channels(self, chmap: M, s: Iterable[E] = None) -> list[E]:
-        """selected electrode set in *chmap*"""
+        """
+        Selected electrode set in channelmap.
+
+        :param chmap: a channelmap instance
+        :param s: restrict electrode set that the return set is its subset.
+        :return: a list of ElectrodeDesp
+        """
         pass
 
     @abc.abstractmethod
     def is_valid(self, chmap: M) -> bool:
-        """Is *chmap* a valid channelmap?"""
+        """
+        Is it a valid channelmap?
+
+        A valid channelmap means:
+
+        * not an incomplete channelmap.
+        * no electrode pair will break the probe restriction (probe_rule()).
+        * can be saved in file and read by other applications without error and mis-position.
+
+        :param chmap: a channelmap instance
+        :return:
+        """
         pass
 
     def get_electrode(self, s: Iterable[E], e: Hashable) -> E | None:
@@ -171,15 +250,15 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         An error raised when:
 
-        1. Either *chmap* or *e* is in incorrect state. For example, *e* is `None`.
-        2. *chmap* doesn't allow to add any additional electrode.
-        3. *chmap* doesn't allow to add *e* due to probe restriction.
+        * Either *chmap* or *e* is in incorrect state. For example, *e* is `None`.
+        * *chmap* is complete, and it doesn't allow to add any additional electrode.
+        * *chmap* is incomplete, but it doesn't allow to add *e* due to probe restriction.
 
         It is better to raise an error instead of ignoring because an error can carry
         the message to frontend.
 
-        :param chmap:
-        :param e:
+        :param chmap: a channelmap instance
+        :param e: an electrode
         :param overwrite: force add electrode
         :raise: any error means the action was failed.
         """
@@ -190,21 +269,22 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         Remove an electrode *e* from *chmap*.
 
-        :param chmap:
-        :param e:
+        :param chmap: a channelmap instance
+        :param e: an electrode
         :raise: any error means the action was failed.
         """
         pass
 
     def copy_electrode(self, s: Sequence[E]) -> list[E]:
-        """Copy an electrode set, including **ALL** information for every electrode.
+        """
+        Copy an electrode set, including **ALL** information for every electrode.
 
         The default implement only consider simple case, so it won't work once
         any following points break:
 
-        1. type E has no-arg `__init__`
-        2. type E has any attribute name start with '_'
-        3. type E overwrite `__getattr__`, `__setattr__`
+        * type E has no-arg `__init__`
+        * type E has any attribute name start with '_'
+        * type E overwrite `__getattr__`, `__setattr__`
 
         :param s:
         :return:
@@ -221,7 +301,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         :param r: a reference electrode
         :param e: a new electrode.
         :param kwargs: overwrite fields. If you want a deep copy for particular fields.
-        :return: e
+        :return: *e*
         """
         for attr in dir(r):
             if not attr.startswith('_'):
@@ -233,11 +313,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def probe_rule(self, chmap: M, e1: E, e2: E) -> bool:
-        """Does electrode *e1* and *e2* can be used in the same time?
+        """
+        Does electrode *e1* and *e2* can be used in the same time?
 
         :param chmap: channelmap type. It is a reference.
-        :param e1:
-        :param e2:
+        :param e1: an electrode.
+        :param e2: an electrode.
         :return:
         """
         pass
@@ -250,7 +331,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         :param chmap: channelmap type. It is a reference.
         :param e: a reference electrode. Usually, it is a most-recent selected electrode.
         :param s: an electrode set. Usually, it is a candidate set.
-        :return: an invalid electrode set
+        :return: an invalid electrode set from *s*.
         """
         if isinstance(e, Iterable):
             return [it for it in s if any([not self.probe_rule(chmap, ee, it) for ee in e])]
@@ -260,6 +341,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def select_electrodes(self, chmap: M, s: list[E], **kwargs) -> M:
         """
+        Selecting electrodes based on the electrode policy.
 
         :param chmap: channelmap type. It is a reference.
         :param s: channelmap policy
@@ -269,7 +351,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def electrode_to_numpy(self, s: list[E]) -> NDArray[np.int_]:
-        """Store electrode information into a numpy array for saving purpose.
+        """
+        Store electrode information into a numpy array for saving purpose.
 
         :param s:
         :return:
@@ -278,7 +361,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def electrode_from_numpy(self, s: list[E], a: NDArray[np.int_]) -> list[E]:
-        """Retrieve electrode information for an electrode set *e* from *a* for saving purpose.
+        """
+        Retrieve electrode information for an electrode set *e* from *a* for saving purpose.
 
         :param s:
         :param a:

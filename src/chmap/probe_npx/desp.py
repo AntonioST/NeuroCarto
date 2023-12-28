@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.probe import ProbeDesp, ElectrodeDesp, M, E
-from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError
+from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError, PROBE_TYPE
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
 
@@ -27,7 +27,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     POLICY_D4: ClassVar = 13
 
     @property
-    def possible_type(self) -> dict[str, int]:
+    def supported_type(self) -> dict[str, int]:
         return {
             '4-Shank Neuropixels probe 2.0': 24,
             'Neuropixels probe 2.0': 21,
@@ -42,7 +42,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         }
 
     @property
-    def possible_policy(self) -> dict[str, int]:
+    def possible_policies(self) -> dict[str, int]:
         return {
             'Unset': self.POLICY_UNSET,
             'Set': self.POLICY_SET,
@@ -80,8 +80,12 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             t = chmap.probe_type
             return f'<b>Probe[{t.code}]</b> {len(chmap)}/{t.n_channels}'
 
-    def all_electrodes(self, chmap: ChannelMap) -> list[NpxElectrodeDesp]:
-        probe_type = chmap.probe_type
+    def all_electrodes(self, chmap: int | ChannelMap) -> list[NpxElectrodeDesp]:
+        if isinstance(chmap, int):
+            probe_type = PROBE_TYPE[chmap]
+        else:
+            probe_type = chmap.probe_type
+
         ret = []
         for s in range(probe_type.n_shank):
             for r in range(probe_type.n_row_shank):

@@ -225,14 +225,14 @@ class ChannelMapEditorApp(BokehApplication):
 
         policy_btns = col_layout([
             new_btn(name, functools.partial(self.on_policy_change, policy=value))
-            for name, value in self.probe.possible_policy.items()
+            for name, value in self.probe.possible_policies.items()
         ], 2)
 
         #
 
         empty_btn = Dropdown(
             label='New',
-            menu=list(self.probe.possible_type),
+            menu=list(self.probe.supported_type),
             min_width=100, align='end', width_policy='min',
             stylesheets=["div.bk-menu { width: 300%; }"]
         )
@@ -294,7 +294,7 @@ class ChannelMapEditorApp(BokehApplication):
         if (item := e.item) is None:
             return
 
-        probe_type = self.probe.possible_type[item]
+        probe_type = self.probe.supported_type[item]
 
         self._use_chmap_path = None
         self.probe_view.reset(probe_type)
