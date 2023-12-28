@@ -11,18 +11,38 @@ from numpy.typing import NDArray
 __all__ = ['ProbeDesp', 'ElectrodeDesp', 'get_probe_desp']
 
 
-def get_probe_desp(name: str, package: str = 'chmap') -> type[ProbeDesp]:
+def get_probe_desp(name: str, package: str = 'chmap', describer: str = None) -> type[ProbeDesp]:
+    """Get probe describer.
+
+    Naming rules:
+    * *name* correspond Python module name.
+    * in `chmap` package, module name `probe_NAME` can shorten as `NAME`.
+
+    :param name: probe family name.
+    :param package: root package.
+    :param describer: class name of ProbeDesp. If None, find the first found.
+    :return: type of ProbeDesp.
+    :raise ModuleNotFoundError: module *name* not found.
+    :raise RuntimeError: no ProbeDesp subclass found in module.
+    :raise TypeError: *describer* in module not a subclass of ProbeDesp
+    """
     if package == 'chmap' and not name.startswith('probe_'):
         name = f'probe_{name}'
 
     import importlib
     module = importlib.import_module('.', package + '.' + name)
 
-    for attr in dir(module):
-        if not attr.startswith('_') and issubclass(desp := getattr(module, attr), ProbeDesp):
+    if describer is None:
+        for attr in dir(module):
+            if not attr.startswith('_') and issubclass(desp := getattr(module, attr), ProbeDesp):
+                return desp
+
+        raise RuntimeError(f'ProbeDesp[{name}] not found')
+    else:
+        if issubclass(desp := getattr(module, describer), ProbeDesp):
             return desp
 
-    raise RuntimeError(f'ProbeDesp[{name}] not found')
+        raise TypeError(f"type of {type(desp).__name__} not subclass of ProbeDesp")
 
 
 class ElectrodeDesp:
@@ -31,7 +51,7 @@ class ElectrodeDesp:
     x: float  # x position in um
     y: float  # y position in um
     electrode: Hashable  # for identify
-    channel: Any  # for display
+    channel: Any  # for display, not used now.
     state: int = 0
     policy: int = 0
 
@@ -61,7 +81,7 @@ M = TypeVar('M')  # channelmap
 
 
 class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
-    """A probe interface for GUI interaction between different probe implements."""
+    """A probe interface for GUI interaction between different probe implementations."""
 
     STATE_UNUSED: ClassVar = 0
     STATE_USED: ClassVar = 1

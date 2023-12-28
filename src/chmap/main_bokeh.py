@@ -16,11 +16,28 @@ from chmap.views.base import ViewBase, StateView, DynamicView
 from chmap.views.data import DataView
 from chmap.views.probe import ProbeView
 
+__all__ = ['ChannelMapEditorApp', 'main']
+
 
 class ChannelMapEditorApp(BokehApplication):
+    """Application of neural probe channelmap editor.
+
+    The layout of this application is split into:
+    * left: channelmap manipulating button groups.
+    * center: figure that contains probe/electrodes, image and curves.
+    * right: controls of image, curves that shown in center panel.
+
+
+    """
+
     probe: ProbeDesp[M, Any]
+    """probe describer"""
+
     right_view_config: dict[str, Any] = {}
+    """view configuration"""
+
     right_view_type: list[ViewBase | type[ViewBase]]
+    """install views on right panel"""
 
     def __init__(self, config: ChannelMapEditorConfig):
         self.config = config
@@ -265,7 +282,7 @@ class ChannelMapEditorApp(BokehApplication):
 
         return ret
 
-    def update(self):
+    def start(self):
         self.reload_input_imro_list()
         for view in self.right_views:
             view.update()

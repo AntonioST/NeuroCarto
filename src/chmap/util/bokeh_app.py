@@ -1,14 +1,20 @@
 import abc
 import functools
 import inspect
+import sys
 from collections.abc import Callable
-from typing import TypeVar
 
 from bokeh.application.application import SessionContext
 from bokeh.document import Document
 from bokeh.model import Model
 from bokeh.plotting import figure as Figure
+from bokeh.server.callbacks import SessionCallback
 from bokeh.server.server import Server
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 __all__ = [
     'BokehApplication',
@@ -19,55 +25,36 @@ __all__ = [
     'Figure'
 ]
 
-A = TypeVar('A')
-
-
-class UIComponent(metaclass=abc.ABCMeta):
-    @abc.abstractmethod
-    def model(self) -> Model:
-        pass
-
 
 class BokehApplication(metaclass=abc.ABCMeta):
+    """Bokeh Application of a single page"""
+
     document: Document
 
     @property
     def title(self) -> str:
+        """Application title (shown in web page title)"""
         return type(self).__name__
-
-    def setup(self, document: Document):
-        self.document = document
-        document.title = self.title
-
-        document.add_root(self.index())
-        document.on_session_destroyed(self.cleanup_session)
-        document.add_next_tick_callback(self.update)
 
     @abc.abstractmethod
     def index(self) -> Model:
+        """Web-page document content"""
         pass
 
-    def update(self):
+    def start(self):
+        """Invoked when session set"""
         pass
 
-    def cleanup_session(self, session_context: SessionContext):
+    def cleanup(self, context: SessionContext):
+        """Invoked when session destroyed"""
         pass
 
     @classmethod
-    def get_application(cls: type[A]) -> A:
+    def get_application(cls) -> Self:
         for frame in inspect.stack():
             if isinstance((app := frame.frame.f_locals.get('self', None)), BokehApplication):
                 return app
         raise RuntimeError()
-
-    def run_later(self, callback: Callable, *args, **kwargs):
-        self.document.add_next_tick_callback(functools.partial(callback, *args, **kwargs))
-
-    def run_timeout(self, delay: int, callback: Callable, *args, **kwargs):
-        self.document.add_timeout_callback(functools.partial(callback, *args, **kwargs), delay)
-
-    def run_periodic(self, cycle: int, callback: Callable, *args, **kwargs):
-        self.document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
 
     @classmethod
     def get_server(cls) -> Server:
@@ -76,29 +63,85 @@ class BokehApplication(metaclass=abc.ABCMeta):
                 return server
         raise RuntimeError()
 
+    def run_later(self, callback: Callable, *args, **kwargs) -> SessionCallback:
+        """
+        Run *callback* on next event loop.
 
-def run_later(callback: Callable, *args, **kwargs):
+        :param callback: callable
+        :param args: *callback* arguments
+        :param kwargs: *callback* arguments
+        """
+        return self.document.add_next_tick_callback(functools.partial(callback, *args, **kwargs))
+
+    def run_timeout(self, delay: int, callback: Callable, *args, **kwargs) -> SessionCallback:
+        """
+        Run *callback* after the  given time.
+
+        :param delay: milliseconds
+        :param callback: callable
+        :param args: *callback* arguments
+        :param kwargs: *callback* arguments
+        """
+        return self.document.add_timeout_callback(functools.partial(callback, *args, **kwargs), delay)
+
+    def run_periodic(self, cycle: int, callback: Callable, *args, **kwargs) -> SessionCallback:
+        """
+        Run *callback* on every given time.
+
+        :param cycle: milliseconds
+        :param callback: callable
+        :param args: *callback* arguments
+        :param kwargs: *callback* arguments
+        """
+        return self.document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
+
+
+def run_later(callback: Callable, *args, **kwargs) -> SessionCallback:
+    """
+    Run *callback* on next event loop.
+
+    :param callback: callable
+    :param args: *callback* arguments
+    :param kwargs: *callback* arguments
+    """
     # TODO bokeh.io.curdoc() ?
     document = BokehApplication.get_application().document
-    document.add_next_tick_callback(functools.partial(callback, *args, **kwargs))
+    return document.add_next_tick_callback(functools.partial(callback, *args, **kwargs))
 
 
-def run_timeout(delay: int, callback: Callable, *args, **kwargs):
+def run_timeout(delay: int, callback: Callable, *args, **kwargs) -> SessionCallback:
+    """
+    Run *callback* after the  given time.
+
+    :param delay: milliseconds
+    :param callback: callable
+    :param args: *callback* arguments
+    :param kwargs: *callback* arguments
+    """
     document = BokehApplication.get_application().document
-    document.add_timeout_callback(functools.partial(callback, *args, **kwargs), delay)
+    return document.add_timeout_callback(functools.partial(callback, *args, **kwargs), delay)
 
 
-def run_periodic(cycle: int, callback: Callable, *args, **kwargs):
+def run_periodic(cycle: int, callback: Callable, *args, **kwargs) -> SessionCallback:
+    """
+    Run *callback* on every given time.
+
+    :param cycle: milliseconds
+    :param callback: callable
+    :param args: *callback* arguments
+    :param kwargs: *callback* arguments
+    """
     document = BokehApplication.get_application().document
-    document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
+    return document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
 
 
 def run_server(handlers: BokehApplication | dict[str, BokehApplication], *,
                no_open_browser: bool = False):
-    """
-    :param handlers:
+    """start bokeh local server and run the application.
+
+    :param handlers: bokeh application, or a dict {path: app}
     :param no_open_browser:
-    :return:
+    :return: Never return, except a KeyboardInterrupt is raised
     """
     if isinstance(handlers, BokehApplication):
         handlers = {'/': handlers}
@@ -107,7 +150,7 @@ def run_server(handlers: BokehApplication | dict[str, BokehApplication], *,
         raise RuntimeError("no '/' handler")
 
     server = Server({
-        p: h.setup
+        p: _setup_application(h)
         for p, h in handlers.items()
     }, num_procs=1)
     server.start()
@@ -116,3 +159,15 @@ def run_server(handlers: BokehApplication | dict[str, BokehApplication], *,
         server.io_loop.add_callback(server.show, "/")
 
     server.run_until_shutdown()
+
+
+def _setup_application(handler: BokehApplication):
+    def setup(document: Document):
+        handler.document = document
+        document.title = handler.title
+
+        document.add_root(handler.index())
+        document.on_session_destroyed(handler.cleanup)
+        document.add_next_tick_callback(handler.start)
+
+    return setup

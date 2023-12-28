@@ -10,6 +10,11 @@ __all__ = [
 
 
 class ChannelMapEditorConfig:
+    """Start configuration for ChannelMapEditorApp.
+
+    It is a protocol class that wrap for argparse.Namespace.
+    """
+
     probe_family: str
     chmap_root: Path
 
@@ -20,6 +25,7 @@ class ChannelMapEditorConfig:
 
 
 def new_parser() -> argparse.ArgumentParser:
+    """Create a cli parse for ChannelMapEditorConfig."""
     ap = argparse.ArgumentParser()
 
     ap.add_argument('-P', '--probe', metavar='NAME', default='npx', dest='probe_family',
