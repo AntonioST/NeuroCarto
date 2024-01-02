@@ -20,8 +20,10 @@ __all__ = [
     'plot_probe_shape',
     'plot_channelmap_block',
     'plot_channelmap_grid',
+    'plot_channelmap_matrix',
     'plot_electrode_block',
     'plot_electrode_grid',
+    'plot_electrode_matrix',
 ]
 
 ELECTRODE_UNIT = Literal['cr', 'xy']
@@ -30,9 +32,10 @@ ELECTRODE_UNIT = Literal['cr', 'xy']
 def channel_coordinate(chmap: ChannelMap,
                        electrode_unit: ELECTRODE_UNIT = 'cr',
                        include_unused=False) -> NDArray[np.int_]:
-    """get all electrode coordinate for channel map.
+    """
+    Get all electrode coordinate for channel map.
 
-    :param chmap:
+    :param chmap: channelmap instance
     :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
     :param include_unused: including disconnected channels
     :return: Array[int, E, (S, C, R)|(X, Y)]
@@ -64,9 +67,10 @@ def channel_coordinate(chmap: ChannelMap,
 
 def electrode_coordinate(probe: ProbeType,
                          electrode_unit: ELECTRODE_UNIT = 'cr') -> NDArray[np.int_]:
-    """get all electrode coordinate on probe.
+    """
+    Get all electrode coordinate on probe.
 
-    :param probe:
+    :param probe: probe type
     :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
     :return: Array[int, E, (S, C, R)|(X, Y)]
     """
@@ -104,6 +108,8 @@ def electrode_coordinate(probe: ProbeType,
 
 
 class ElectrodeGridData(NamedTuple):
+    """Electrode arrangement in boundary mode"""
+
     probe: ProbeType
     v_grid: np.ndarray  # Array[int, S, R, C+1]
     h_grid: np.ndarray  # Array[int, S, R+1, C]
@@ -212,9 +218,8 @@ class ElectrodeGridData(NamedTuple):
         :param shank:
         :param cx: (c0, cw) custom position for *shank*
         :param color:
-        :param shank_width_scale:
-        :param kwargs:
-        :return:
+        :param shank_width_scale: scaling the width of a shank for visualizing purpose.
+        :param kwargs: pass to ax.plot(**kwargs)
         """
         s_step = self.probe.s_space
         h_step = self.probe.c_space * shank_width_scale
@@ -254,7 +259,8 @@ class ElectrodeMatData(NamedTuple):
            electrode_unit: ELECTRODE_UNIT = 'cr',
            reduce: Callable[[NDArray[np.float_]], float] = np.mean,
            kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]] | None = None) -> Self:
-        """convert electrode array data into matrix data.
+        """
+        Convert electrode array data into matrix data.
 
         :param probe: probe profile
         :param electrode: Array[int, E, (S, C, R, V)] or Array[int, E, (X, Y, V)]
@@ -540,6 +546,16 @@ def plot_probe_shape(ax: Axes,
                      label_axis=False,
                      shank_width_scale: float = 1,
                      **kwargs):
+    """
+    Plot the probe shape.
+
+    :param ax:
+    :param probe: probe type
+    :param height: max height (mm) of probe need to plot
+    :param label_axis: add labels on axes
+    :param shank_width_scale: scaling the width of a shank for visualizing purpose.
+    :param kwargs: pass to ax.plot(**kwargs)
+    """
     s_step = probe.s_space / 1000
     h_step = probe.c_space / 1000
     v_step = probe.r_space / 1000
@@ -583,13 +599,12 @@ def plot_channelmap_block(ax: Axes,
     """
 
     :param ax:
-    :param chmap:
-    :param height:
+    :param chmap: channelmap instance
+    :param height: max height (mm) of probe need to plot
     :param selection: electrode selection
-    :param shank_width_scale:
-    :param fill:
-    :param kwargs:
-    :return:
+    :param shank_width_scale: scaling the width of a shank for visualizing purpose.
+    :param fill: fill rectangle
+    :param kwargs: pass to Rectangle(**kwargs)
     """
 
     probe = chmap.probe_type
@@ -632,11 +647,10 @@ def plot_electrode_block(ax: Axes,
     :param probe: probe profile
     :param electrode: Array[int, E, (S, C, R)|(X, Y)]
     :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
-    :param height: max y to plot
-    :param shank_width_scale:
+    :param height: max height (mm) of probe need to plot
+    :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param fill: fill rectangle
-    :param kwargs:
-    :return:
+    :param kwargs: pass to Rectangle(**kwargs)
     """
     from matplotlib.patches import Rectangle
 
@@ -685,16 +699,15 @@ def plot_channelmap_grid(ax: Axes, chmap: ChannelMap, *,
                          **kwargs):
     """
 
-    :param chmap:
-    :param height: max y (mm) to plot
+    :param ax:
+    :param chmap: channelmap  instance
+    :param height: max height (mm) of probe need to plot
     :param shank_list: show shank in list
     :param unit_column: let one column as 1 mm
     :param unused: show disconnected channels
     :param half_as_full: make unused electrode which over half of surrounding electrode are read-out channels as a channel.
     :param color:
-    :param ax:
-    :param kwargs:
-    :return:
+    :param kwargs: pass to ax.plot(**kwargs)
     """
     probe = chmap.probe_type
     e = channel_coordinate(chmap, 'cr', include_unused=unused)
@@ -722,7 +735,7 @@ def plot_channelmap_grid(ax: Axes, chmap: ChannelMap, *,
 
     plot_electrode_grid(ax, probe, e, 'cr',
                         shank_list=shank_list,
-                        height=height * 1000,
+                        height=height,
                         unit_column=unit_column,
                         color=color,
                         **kwargs)
@@ -746,18 +759,17 @@ def plot_electrode_grid(ax: Axes,
     :param electrode: Array[int, E, (S, C, R)|(X, Y)]
     :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
     :param shank_list: show shank in list
-    :param height: max y (um) to plot
+    :param height: max height (mm) of probe need to plot
     :param unit_column: let one column as 1 mm, or (c0, c1, ..., cS, cw)
-    :param shank_width_scale:
+    :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param color: grid line color
     :param label:
-    :param kwargs:
-    :return:
+    :param kwargs: pass to ax.plot(**kwargs)
     """
     data = ElectrodeGridData.of(probe, electrode, electrode_unit)
 
     if height is not None:
-        data = data.with_height(height)
+        data = data.with_height(height * 1000)
 
     for s in data.shank_list:
         cx = None
@@ -792,15 +804,16 @@ def plot_channelmap_matrix(ax: Axes,
     """
 
     :param ax:
-    :param chmap:
+    :param chmap: channelmap instance
     :param data: Array[V:float, C] or Array[float, C', (C, V)]
-    :param shank_list:
-    :param kernel:
-    :param reduce:
-    :param cmap:
+    :param shank_list: show shank in order
+    :param kernel: interpolate missing data (NaN) between channels.
+        It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
+        Default (when use `True`) is `(0, 1)`.
+    :param reduce: function used when data has same (s, x, y) position
+    :param cmap: colormap used in ax.imshow(cmap)
     :param shank_gap_color:
-    :param kwargs:
-    :return:
+    :param kwargs: pass to ax.imshow(**kwargs)
     """
     x = channel_coordinate(chmap, 'cr', include_unused=True).astype(float)  # Array[float, E, (S, C, R)]
 
@@ -840,15 +853,14 @@ def plot_electrode_matrix(ax: Axes,
     :param probe: probe type
     :param electrode: Array[int, E, (S, C, R, V)] or Array[int, E, (X, Y, V)]
     :param electrode_unit: 'xy'=(X,Y,V), 'cr'=(S,C,R,V)
-    :param shank_list: show shank in list
+    :param shank_list: show shank in order
     :param kernel: interpolate missing data (NaN) between channels.
-         It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
+        It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
         Default (when use `True`) is `(0, 1)`.
     :param reduce: function used when data has same (s, x, y) position
-    :param cmap: colormap used im plt.imshow
+    :param cmap: colormap used in ax.imshow(cmap)
     :param shank_gap_color: color of shank gao line. Use None to disable plotting.
-    :param kwargs: keywords of :func:`Axes.imshow`
-    :return:
+    :param kwargs: pass to ax.imshow(**kwargs)
     """
     data = ElectrodeMatData.of(probe, electrode, electrode_unit, reduce, kernel)
     nc = probe.n_col_shank

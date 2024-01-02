@@ -71,7 +71,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         return ChannelMap(probe_type)
 
     def copy_channelmap(self, chmap: ChannelMap) -> ChannelMap:
-        return ChannelMap(chmap.probe_type, chmap)
+        return ChannelMap(chmap)
 
     def channelmap_desp(self, chmap: ChannelMap | None) -> str:
         if chmap is None:

@@ -104,11 +104,15 @@ PROBE_TYPE = {
 
 
 class Electrode:
+    # positions
     shank: Final[int]
     column: Final[int]
     row: Final[int]
 
+    # properties
     in_used: bool
+
+    # for NP1
     ap_band_gain: int
     lf_band_gain: int
     ap_hp_filter: bool
@@ -124,6 +128,17 @@ class Electrode:
             in_used = in_used != 0
 
         self.in_used = in_used
+
+    def copy(self, other: Electrode):
+        """
+        Copy electrode properties
+
+        :param other: copy reference.
+        """
+        self.in_used = other.in_used
+        self.ap_band_gain = other.ap_band_gain
+        self.lf_band_gain = other.lf_band_gain
+        self.ap_hp_filter = other.ap_hp_filter
 
     def __str__(self) -> str:
         return f'Electrode[{self.shank},{self.column},{self.row}]'
@@ -177,38 +192,64 @@ class ReferenceInfo(NamedTuple):
             return ReferenceInfo('tip', reference - n_shank, 0)
 
         x = reference - n_shank - 1
-        s = x // len(ref_shank)
-        c = ref_shank[x % len(ref_shank)]
+        s, i = divmod(x, len(ref_shank))
+        c = ref_shank[i]
         return ReferenceInfo('on-shank', s, c)
 
 
 E = int | tuple[int, int] | tuple[int, int, int] | Electrode
+"""single electrode types"""
+
 A = list[int] | NDArray[np.int_]
+"""Array-like"""
+
 Es = list[int] | NDArray[np.int_] | list[Electrode]
+"""electrode set"""
+
+
+def _channelmap_len_(e: list[Electrode | None]) -> int:
+    """number of channels (C) in e"""
+    ret = 0
+    for it in e:
+        if it is not None:
+            ret += 1
+    return ret
 
 
 class ChannelMap:
+    """Neuropixels channelmap"""
+
     __match_args__ = 'probe_type',
 
-    def __init__(self, probe_type: int | str | ProbeType,
-                 electrodes: list[Electrode] | ChannelMap = None):
-        if electrodes is None:
-            electrodes = []
-        elif isinstance(electrodes, ChannelMap):
-            electrodes = cast(list[Electrode], electrodes._electrodes)
+    def __init__(self, probe_type: int | str | ProbeType | ChannelMap,
+                 electrodes: list[Electrode] = None):
+        """
+
+        :param probe_type: probe type code, ProbeType or a ChannelMap for coping.
+        :param electrodes: pre-add electrodes
+        """
+        if isinstance(probe_type, ChannelMap):
+            chmap = cast(ChannelMap, probe_type)
+            probe_type = chmap.probe_type
+            if electrodes is None:
+                electrodes = chmap._electrodes
 
         if isinstance(probe_type, (int, str)):
             probe_type = PROBE_TYPE[probe_type]
+        elif not isinstance(probe_type, ProbeType):
+            raise TypeError()
 
         self.probe_type: Final = probe_type
         self._electrodes: Final[list[Electrode | None]] = [None] * probe_type.n_channels
         self._reference = 0
 
-        for e in electrodes:
-            c, _ = e2cb(probe_type, e)
-            if self._electrodes[c] is not None:
-                raise ChannelHasUsedError(e)
-            self._electrodes[c] = Electrode(e.shank, e.column, e.row)
+        if electrodes is not None:
+            for e in electrodes:
+                if e is not None:
+                    c, _ = e2cb(probe_type, e)
+                    if self._electrodes[c] is not None:
+                        raise ChannelHasUsedError(e)
+                    self._electrodes[c] = Electrode(e.shank, e.column, e.row)
 
     # ========= #
     # load/save #
@@ -216,33 +257,40 @@ class ChannelMap:
 
     @classmethod
     def parse(cls, source: str) -> Self:
+        """Parse imro table."""
         from .io import parse_imro
         return parse_imro(source)
 
     @classmethod
     def from_meta(cls, path: str | Path) -> Self:
+        """Read imro table from meta file."""
         from .io import load_meta
         return load_meta(path)
 
     @classmethod
     def from_imro(cls, path: str | Path) -> Self:
+        """Read imro file."""
         from .io import load_imro
         return load_imro(path)
 
     @classmethod
     def from_probe(cls, probe) -> Self:
+        """From probeinterface.Probe"""
         from .io import from_probe
         return from_probe(probe)
 
     def to_imro(self) -> str:
+        """format as imro table"""
         from .io import string_imro
         return string_imro(self)
 
     def save_imro(self, path: str | Path):
+        """save into imro file"""
         from .io import save_imro
         save_imro(self, path)
 
     def to_probe(self):
+        """to probeinterface.Probe"""
         from .io import to_probe
         return to_probe(self)
 
@@ -278,35 +326,37 @@ class ChannelMap:
     # ================= #
 
     def __len__(self) -> int:
-        """number of channels"""
-        ret = 0
-        for e in self._electrodes:
-            if e is not None:
-                ret += 1
-        return ret
+        """number of channels (C)"""
+        return _channelmap_len_(self._electrodes)
 
     @property
     def n_shank(self) -> int:
+        """number of shanks"""
         return self.probe_type.n_shank
 
     @property
     def n_col_shank(self) -> int:
+        """number of columns per shank"""
         return self.probe_type.n_col_shank
 
     @property
     def n_row_shank(self) -> int:
+        """number of rows per shank"""
         return self.probe_type.n_row_shank
 
     @property
     def n_electrode_shank(self) -> int:
+        """number of electrodes per shank"""
         return self.probe_type.n_electrode_shank
 
     @property
     def n_channels(self) -> int:
+        """number of total channels"""
         return self.probe_type.n_channels
 
     @property
     def n_electrode_block(self) -> int:
+        """number of electrode blocks"""
         return self.probe_type.n_electrode_block
 
     @property
@@ -323,9 +373,7 @@ class ChannelMap:
 
     @property
     def reference_info(self) -> ReferenceInfo:
-        """
-        reference information.
-        """
+        """ reference information. """
         return ReferenceInfo.of(self.probe_type, self._reference)
 
     # =================== #
@@ -334,19 +382,37 @@ class ChannelMap:
 
     @property
     def channel_shank(self) -> NDArray[np.int_]:
+        """
+
+        :return: Array[shank, C]
+        """
         return np.array([it.shank for it in self.electrodes])
 
     @property
     def channel_pos_x(self) -> NDArray[np.int_]:
+        """
+
+        :return: Array[um, C]
+        """
         x, y = channel_coordinate(self)
         return x
 
     @property
     def channel_pos_y(self) -> NDArray[np.int_]:
+        """
+
+        :return: Array[um, C]
+        """
         x, y = channel_coordinate(self)
         return y
 
     def get_channel(self, channel: int) -> Electrode | None:
+        """
+        Get electrode via channel ID
+
+        :param channel: channel ID.
+        :return: found electrode
+        """
         return self._electrodes[channel]
 
     @property
@@ -354,6 +420,12 @@ class ChannelMap:
         return Channels(self._electrodes)
 
     def get_electrode(self, electrode: E) -> Electrode | None:
+        """
+        Get electrode via electrode ID, or position.
+
+        :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row) or an Electrode.
+        :return: found electrodes.
+        """
         match electrode:
             case electrode if all_int(electrode):
                 shank = 0
@@ -384,13 +456,14 @@ class ChannelMap:
                       in_used: bool = True,
                       exist_ok: bool = False) -> Electrode | None:
         """
+        Add an electrode into this channelmap.
 
-        :param electrode: electrode ID, tuple of (shank, electrode) or tuple of (shank, column, row)
-        :param in_used: Is it used.
+        :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row), or an Electrode
+        :param in_used: Is it used?
         :param exist_ok: if not exist_ok, an error will raise if electrode has existed.
         :return: return an electrode which has been created.
-        :raise ValueError: one of shank, column and row out of range
-        :raise ChannelHasUsedError: duplicated channels using in electrodes
+        :raise ValueError: electrode position out of range
+        :raise ChannelHasUsedError: channel has been used by other electrode in this channelmap.
         """
         match electrode:
             case electrode if all_int(electrode):
@@ -435,8 +508,9 @@ class ChannelMap:
 
     def del_electrode(self, electrode: E) -> Electrode | None:
         """
+        Remove an electrode from this channelmap.
 
-        :param electrode:
+        :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row), or an Electrode
         :return: removed electrodes
         """
         match electrode:
@@ -460,28 +534,35 @@ class ChannelMap:
 
 
 class ChannelHasUsedError(RuntimeError):
-    """Error of a map contains two electrodes with same channel.
-
-    This limitation came from 4-shank Neuropixels version 2.
-    """
+    """Error of a map contains two electrodes with same channel."""
 
     def __init__(self, electrode: Electrode):
+        """
+
+        :param electrode: channel is occupied by this electrode.
+        """
         super().__init__(str(electrode))
         self.electrode: Final = electrode
 
 
-class Channels(Sized, Iterable[Electrode]):
-    def __init__(self, electrode: list[Electrode | None]):
+class Channels(Sized, Iterable[Electrode | None]):
+    """Dict-like accessor for navigating channels via channel ID."""
+
+    def __init__(self, probe_type: ProbeType, electrode: list[Electrode | None]):
+        self._probe_type: Final = probe_type
         self._electrodes: Final = electrode
 
     def __len__(self):
-        ret = 0
-        for e in self._electrodes:
-            if e is not None:
-                ret += 1
-        return ret
+        """number of total channels"""
+        return self._probe_type.n_channels
 
     def __getitem__(self, item):
+        """
+        Get electrode via channel ID.
+
+        :param item: channel id, id-slicing, or id-array
+        :return: electrode/s
+        """
         if all_int(item):
             return self._electrodes[int(item)]
         elif isinstance(item, slice):
@@ -489,7 +570,31 @@ class Channels(Sized, Iterable[Electrode]):
         else:
             return [self._electrodes[int(it)] for it in np.arange(len(self._electrodes))[item]]
 
+    def __setitem__(self, item, value: Electrode):
+        """
+        Copy electrode properties.
+
+        :param item: channel id, id-slicing, or id-array
+        :param value: copy reference
+        """
+        if all_int(item):
+            if (e := self._electrodes[int(item)]) is not None:
+                e.copy(value)
+        elif isinstance(item, slice):
+            for it in range(len(self._electrodes))[item]:
+                if (e := self._electrodes[it]) is not None:
+                    e.copy(value)
+        else:
+            for it in np.arange(len(self._electrodes))[item]:
+                if (e := self._electrodes[int(it)]) is not None:
+                    e.copy(value)
+
     def __delitem__(self, item):
+        """
+        Remove electrodes via channel IDs.
+
+        :param item: channel id, id-slicing, or id-array
+        """
         if all_int(item):
             self._electrodes[int(item)] = None
         elif isinstance(item, slice):
@@ -500,23 +605,29 @@ class Channels(Sized, Iterable[Electrode]):
                 self._electrodes[int(it)] = None
 
     def __iter__(self) -> Iterator[Electrode | None]:
+        """iterating over channels, index imply its channel ID."""
         for e in self._electrodes:
             yield e
 
 
 class Electrodes(Sized, Iterable[Electrode]):
+    """Dict-like accessor for navigating channels via electrode position (shank, column, row)"""
+
     def __init__(self, probe_type: ProbeType, electrode: list[Electrode | None]):
         self._probe_type: Final = probe_type
         self._electrodes: Final = electrode
 
     def __len__(self):
-        ret = 0
-        for e in self._electrodes:
-            if e is not None:
-                ret += 1
-        return ret
+        """number of channels (C)"""
+        return _channelmap_len_(self._electrodes)
 
     def __getitem__(self, item):
+        """
+        Get electrode via electrode positions.
+
+        :param item: tuple of (shank:I, column:I, row:I), where type I = `None | int | slice | tuple (union) | Iterable[int]`
+        :return: found electrode/s
+        """
         shank, cols, rows = item
         match item:
             case (None, None, None):
@@ -538,7 +649,41 @@ class Electrodes(Sized, Iterable[Electrode]):
             case _:
                 raise TypeError(repr(item))
 
+    def __setitem__(self, item, value: Electrode):
+        """
+        Copy electrode properties.
+
+        :param item: channel id, id-slicing, or id-array
+        :param value: copy reference
+        """
+        shank, cols, rows = item
+        match item:
+            case (None, None, None):
+                for e in self._electrodes:
+                    if e is not None:
+                        e.copy(value)
+                return [e for e in self._electrodes if e is not None]
+            case (shank, column, row) if all_int(shank, column, row):
+                for e in self._electrodes:
+                    if e is not None and e.shank == shank and e.column == column and e.row == row:
+                        e.copy(value)
+                return None
+            case (_, _, _):
+                shank = as_set(shank, self._probe_type.n_shank)
+                cols = as_set(cols, self._probe_type.n_col_shank)
+                rows = as_set(rows, self._probe_type.n_row_shank)
+                for e in self._electrodes:
+                    if e is not None and e.shank in shank and e.column in cols and e.row in rows:
+                        e.copy(value)
+            case _:
+                raise TypeError(repr(item))
+
     def __delitem__(self, item):
+        """
+        Remove electrodes via electrode position.
+
+        :param item: tuple of (shank:I, column:I, row:I), where type I = `None | int | slice | tuple (union) | Iterable[int]`
+        """
         shank, cols, rows = item
         match item:
             case (None, None, None):
@@ -562,6 +707,7 @@ class Electrodes(Sized, Iterable[Electrode]):
                 raise TypeError(repr(item))
 
     def __iter__(self) -> Iterator[Electrode]:
+        """iterating over channels"""
         for e in self._electrodes:
             if e is not None:
                 yield e
@@ -570,7 +716,7 @@ class Electrodes(Sized, Iterable[Electrode]):
 def channel_coordinate(shank_map: ChannelMap,
                        s_step: int = None) -> tuple[NDArray[np.int_], NDArray[np.int_]]:
     """
-    get coordinate of channels.
+    Get coordinate of all channels.
 
     :param shank_map:
     :param s_step: overwrite (horizontal) distance between shanks.
@@ -593,6 +739,12 @@ def channel_coordinate(shank_map: ChannelMap,
 
 
 def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType) -> NDArray[np.int_]:
+    """
+     Get coordinate of all electrodes.
+
+    :param probe_type:
+    :return: Array[um, E, (X, Y)]
+    """
     match probe_type:
         case ChannelMap(probe_type=probe_type):
             pass
@@ -705,10 +857,7 @@ def e2cr(probe_type: ProbeType, e):
         case _:
             raise TypeError(repr(e))
 
-    n = probe_type.n_col_shank
-    r = e // n
-    c = e % n
-
+    r, c = divmod(e, probe_type.n_col_shank)
     return c, r
 
 
@@ -892,15 +1041,11 @@ def c2e(probe_type: ProbeType, channel: A, bank: int | A = None, shank: int | A 
 def c2e(probe_type: ProbeType, channel, bank=None, shank=None):
     match (bank, channel):
         case (None, channel) if all_int(channel):
-            channel = int(channel)
             n = probe_type.n_channels
-            bank = channel // n
-            channel = channel % n
+            bank, channel = divmod(int(channel), n)
         case (None, channel):
             n = probe_type.n_channels
-            channel = np.asarray(channel)
-            bank = channel // n
-            channel = channel % n
+            bank, channel = divmod(np.asarray(channel), n)
         case (bank, channel) if all_int(bank, channel):
             bank = int(bank)
             channel = int(channel)
@@ -999,8 +1144,7 @@ def c2e24(shank, bank, channel):
     else:
         shank, bank, channel = align_arr(shank, bank, channel)
 
-    index = channel % 48
-    block = channel // 48
+    block, index = divmod(channel, 48)
 
     if isinstance(shank, int):
         block = np.nonzero(ELECTRODE_MAP_24[shank] == block)[0][0]
