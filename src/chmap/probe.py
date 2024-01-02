@@ -140,7 +140,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         The filename extension for supported channelmap.
 
-        :return: file extension, like ".imro"
+        :return: file extension, like ".imro".
         """
         pass
 
@@ -354,18 +354,18 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         Store electrode information into a numpy array for saving purpose.
 
-        :param s:
-        :return:
+        :param s: all electrode set.
+        :return: policy matrix for saving.
         """
         pass
 
     @abc.abstractmethod
     def electrode_from_numpy(self, s: list[E], a: NDArray[np.int_]) -> list[E]:
         """
-        Retrieve electrode information for an electrode set *e* from *a* for saving purpose.
+        Retrieve electrode information for an electrode set *s* from *a* for saving purpose.
 
-        :param s:
-        :param a:
-        :return: *e*
+        :param s: all electrode set.
+        :param a: saved policy matrix
+        :return: *s*
         """
         pass

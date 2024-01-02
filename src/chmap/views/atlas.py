@@ -29,6 +29,14 @@ class AtlasBrainViewState(TypedDict):
 
 
 class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
+    """
+    Atlas mouse brain displaying view component.
+
+    Used command-line arguments:
+    * '--atlas' : brain name.
+    * '--atlas-root' : data saving directory.
+    """
+
     brain: Final[BrainGlobeAtlas]
 
     data_brain: ColumnDataSource
@@ -78,6 +86,15 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
              boundary_color: str = 'black',
              boundary_desp: str = 'drag atlas brain image',
              **kwargs):
+        """
+        Setup brain plotting in figure.
+
+        :param f:
+        :param palette: image colormap.
+        :param boundary_color: boundary border color
+        :param boundary_desp: figure tool hint description.
+        :param kwargs:
+        """
         self.render_brain = f.image(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
             palette=palette, level="image", global_alpha=0.5, syncable=False,
@@ -234,7 +251,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # updating methods #
     # ================ #
 
-    def update(self):
+    def start(self):
         if self.brain_view is None:
             try:
                 view = self.slice_select.value

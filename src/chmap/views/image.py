@@ -73,7 +73,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         return NumpyImageHandler(filename, image, resolution=resolution)
 
 
-class ImageView(BoundView, StateView[ImageViewState]):
+class ImageView(BoundView, StateView[list[ImageViewState]]):
     image_config: dict[str, ImageViewState]
     data_image: ColumnDataSource
     render_image: GlyphRenderer
@@ -240,7 +240,7 @@ class ImageView(BoundView, StateView[ImageViewState]):
     # updating methods #
     # ================ #
 
-    def update(self):
+    def start(self):
         self.on_reset_boundary()
 
     def _update_boundary_transform(self, state: BoundaryState):

@@ -121,7 +121,7 @@ class DataView(ViewBase, InvisibleView, DynamicView):
             if isinstance(self.reader, DynamicView) and (probe := self._cache_probe) is not None:
                 self.reader.on_probe_update(probe, self._cache_channelmap, self._cache_electrodes)
 
-            self.update()
+            self.start()
 
     # ================ #
     # updating methods #
@@ -137,9 +137,9 @@ class DataView(ViewBase, InvisibleView, DynamicView):
         self._cache_electrodes = e
 
         self.reader.on_probe_update(probe, chmap, e)
-        self.update()
+        self.start()
 
-    def update(self):
+    def start(self):
         if (reader := self.reader) is None:
             return
 

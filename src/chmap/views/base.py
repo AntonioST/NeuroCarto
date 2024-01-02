@@ -16,23 +16,43 @@ __all__ = ['ViewBase', 'StateView', 'DynamicView', 'BoundaryState', 'BoundView']
 
 
 class ViewBase(metaclass=abc.ABCMeta):
-    visible: bool
+    """
+    View component base class.
+
+    """
 
     def __init__(self, config: ChannelMapEditorConfig):
         pass
 
     @abc.abstractmethod
     def setup(self, **kwargs) -> list[UIElement]:
+        """
+        Setup controls.
+
+        :param kwargs: control related parameters.
+        :return: row list.
+        """
         pass
 
     def plot(self, f: Figure, **kwargs):
+        """
+        Setup plotting in figure.
+
+        :param f:
+        :param kwargs: drawing related parameters.
+        """
         pass
 
-    def update(self):
+    def start(self):
+        """Invoked when figure is ready."""
         pass
 
 
 class InvisibleView:
+    """
+    This view component's visible state is controlled by GUI.
+    """
+
     visible_btn: Switch
 
     @property
@@ -50,12 +70,17 @@ class InvisibleView:
             pass
 
     def setup_visible_switch(self) -> Switch:
+        """Setup visible switch control."""
         self.visible_btn = Switch(active=True)
         self.visible_btn.on_change('active', lambda prop, old, active: self.on_visible(active))
         return self.visible_btn
 
     # noinspection PyUnusedLocal
     def on_visible(self, visible: bool):
+        """visible state changed callback.
+
+        :param visible: new visible state
+        """
         pass
 
 
@@ -63,36 +88,67 @@ S = TypeVar('S')
 
 
 class StateView(Generic[S], metaclass=abc.ABCMeta):
+    """
+    This view component has something states can be saved and restored.
+
+    :param S: stored information. type should be json-serialize.
+    """
 
     @abc.abstractmethod
     def save_state(self) -> S:
         """
+        Save current state into S.
 
-        :return:
+        :return: json-serialize instance.
         """
         pass
 
     @abc.abstractmethod
     def restore_state(self, state: S):
+        """
+        Restore state from *state*.
+
+        :param state: json-deserialize instance.
+        """
         pass
 
 
 class DynamicView:
+    """
+    This view component needs to be aware on modification of channelmap and electrodes.
+    """
+
     def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
+        """
+        Invoked when channelmap is changed or electrode's policy is changed.
+
+        :param probe: probe interface.
+        :param chmap: channelmap instance.
+        :param e: all electrodes.
+        """
         pass
 
 
 class BoundaryState(TypedDict):
-    dx: float
-    dy: float
-    sx: float
-    sy: float
-    rt: float
+    """Boundary parameters"""
+    dx: float  # x moving
+    dy: float  # y moving
+    sx: float  # x scaling
+    sy: float  # y scaling
+    rt: float  # rotating (degree)
 
 
 class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
-    data_boundary: ColumnDataSource
-    render_boundary: GlyphRenderer
+    """
+    This view component has draw a rectangle-like (shorten as *image*) on the plotting,
+    and supporting moving, scaling and rotating. This class provide a framework for
+    supporting image transforming.
+
+    This class handle a rectangle as boundary. The image should follow the boundary updating.
+    """
+
+    data_boundary: ColumnDataSource  # boundary data
+    render_boundary: GlyphRenderer  # boundary drawing
 
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config)
@@ -102,14 +158,17 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def width(self) -> float:
+        """Width of image"""
         pass
 
     @property
     @abc.abstractmethod
     def height(self) -> float:
+        """Height of image"""
         pass
 
     def get_boundary_state(self) -> BoundaryState:
+        """Get current boundary parameters."""
         data = self.data_boundary.data
         dx = float(data['x'][0])
         dy = float(data['y'][0])
@@ -135,6 +194,14 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
              boundary_color: str = 'black',
              boundary_desp: str = None,
              **kwargs):
+        """
+        Setup boundary plotting in figure.
+
+        :param f:
+        :param boundary_color: boundary border color
+        :param boundary_desp: figure tool hint description.
+        :param kwargs:
+        """
         self.render_boundary = f.rect(
             'x', 'y', 'w', 'h', 'r', source=self.data_boundary,
             color=boundary_color, fill_alpha=0, angle_units='deg',
@@ -155,6 +222,12 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     boundary_scale_slider: Slider
 
     def setup_slider(self, slider_width: int = 300) -> list[UIElement]:
+        """
+        Setup image transforming controls.
+
+        :param slider_width:
+        :return: row list.
+        """
         new_btn = ButtonFactory(min_width=100, width_policy='min')
 
         self.boundary_rotate_slider = Slider(
@@ -189,17 +262,13 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
 
     # noinspection PyUnusedLocal
     def on_boundary_rotate(self, prop: str, old: int, s: int):
-        if is_recursive_called():
-            return
-
-        self.update_boundary_transform(rt=s)
+        if not is_recursive_called():
+            self.update_boundary_transform(rt=s)
 
     # noinspection PyUnusedLocal
     def on_boundary_scale(self, prop: str, old: float, s: float):
-        if is_recursive_called():
-            return
-
-        self.update_boundary_transform(s=math.pow(10, s))
+        if not is_recursive_called():
+            self.update_boundary_transform(s=math.pow(10, s))
 
     def on_reset_boundary_rotate(self):
         try:
@@ -242,6 +311,13 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
                                   p: tuple[float, float] = None,
                                   s: float | tuple[float, float] = None,
                                   rt: float = None):
+        """
+        Image transforming updating handle.
+
+        :param p: position (x, y)
+        :param s: scaling (sx, sy)
+        :param rt: rotating
+        """
         if is_recursive_called():
             return
 
@@ -280,6 +356,11 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         self._update_boundary_transform(self.get_boundary_state())
 
     def _update_boundary_transform(self, state: BoundaryState):
+        """
+        Image transforming updating callback.
+
+        :param state: updated boundary parameters.
+        """
         try:
             sx = state['sx']
             sy = state['sy']
@@ -300,6 +381,18 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
 
     def transform_image_data(self, image: NDArray[np.uint], boundary: BoundaryState = None, *,
                              field_image='image', field_x='x', field_y='y', field_w='dw', field_h='dh') -> dict[str, Any]:
+        """
+        A helper method for transforming an image data.
+
+        :param image: image data
+        :param boundary: boundary parameters
+        :param field_image: field name of image in ColumnDataSource
+        :param field_x: field name of x
+        :param field_y: field name of y
+        :param field_w: field name of w
+        :param field_h: field name of h
+        :return: a dict which is ready for updating ColumnDataSource.
+        """
         if boundary is None:
             boundary = self.get_boundary_state()
 
