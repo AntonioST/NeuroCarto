@@ -30,19 +30,20 @@ def get_electrode_under_policy(*policies: int) -> NDArray[np.int_]:
 
 
 fg, ax = plt.subplots()
+height = 3.2
 
 if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_SET, NpxProbeDesp.POLICY_D1)) > 0:
-    plot_electrode_block(ax, chmap.probe_type, e, height=3.2, color='green', shank_width_scale=2)
+    plot_electrode_block(ax, chmap.probe_type, e, height=height, color='green', shank_width_scale=2)
 if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_D2)) > 0:
-    plot_electrode_block(ax, chmap.probe_type, e, height=3.2, color='orange', shank_width_scale=2)
+    plot_electrode_block(ax, chmap.probe_type, e, height=height, color='orange', shank_width_scale=2)
 if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_D4)) > 0:
-    plot_electrode_block(ax, chmap.probe_type, e, height=3.2, color='blue', shank_width_scale=2)
+    plot_electrode_block(ax, chmap.probe_type, e, height=height, color='blue', shank_width_scale=2)
 if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_SPARSE)) > 0:
-    plot_electrode_block(ax, chmap.probe_type, e, height=3.2, color='gray', shank_width_scale=2)
+    plot_electrode_block(ax, chmap.probe_type, e, height=height, color='gray', shank_width_scale=2)
 if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_FORBIDDEN)) > 0:
-    plot_electrode_block(ax, chmap.probe_type, e, height=3.2, color='pink', shank_width_scale=2)
+    plot_electrode_block(ax, chmap.probe_type, e, height=height, color='pink', shank_width_scale=2)
 
-plot_probe_shape(ax, chmap.probe_type, height=3.2, color='gray', label_axis=True, shank_width_scale=2)
+plot_probe_shape(ax, chmap.probe_type, height=height, color='gray', label_axis=True, shank_width_scale=2)
 
 if len(sys.argv) == 2:
     plt.show()
