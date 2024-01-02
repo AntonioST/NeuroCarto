@@ -124,7 +124,7 @@ class ElectrodeGridData(NamedTuple):
         v_grid = np.zeros((probe.n_shank, n_row, n_col + 1), dtype=int)
         h_grid = np.zeros((probe.n_shank, n_row + 1, n_col), dtype=int)
 
-        if electrode_unit == 'rc':
+        if electrode_unit == 'cr':
             s = electrode[:, 0].astype(int)
             c = electrode[:, 1].astype(int)
             r = electrode[:, 2].astype(int)
@@ -251,14 +251,14 @@ class ElectrodeMatData(NamedTuple):
     @classmethod
     def of(cls, probe: ProbeType,
            electrode: NDArray[np.float_],
-           electrode_unit: ELECTRODE_UNIT = 'rc',
+           electrode_unit: ELECTRODE_UNIT = 'cr',
            reduce: Callable[[NDArray[np.float_]], float] = np.mean,
            kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]] | None = None) -> Self:
         """convert electrode array data into matrix data.
 
         :param probe: probe profile
         :param electrode: Array[int, E, (S, C, R, V)] or Array[int, E, (X, Y, V)]
-        :param electrode_unit: 'xy'=(X,Y,V), 'rc'=(S,C,R,V)
+        :param electrode_unit: 'xy'=(X,Y,V), 'cr'=(S,C,R,V)
         :param reduce: function (Array[V, ?]) -> V used when data has same (s, x, y) position
         :param kernel: interpolate missing data (NaN) between channels.
             It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
@@ -269,7 +269,7 @@ class ElectrodeMatData(NamedTuple):
         h_step = probe.c_space
         v_step = probe.r_space
 
-        if electrode_unit == 'rc':
+        if electrode_unit == 'cr':
             s = electrode[:, 0].astype(int)  # Array[s, E]
             c = electrode[:, 1].astype(int)  # Array[c, E]
             r = electrode[:, 2].astype(int)  # Array[r, E]
@@ -564,10 +564,12 @@ def plot_probe_shape(ax: Axes,
             [(i * s_step + w / 2) for i in range(probe.n_shank)],
             [str(i) for i in range(probe.n_shank)],
         )
+        ax.set_xlabel('Shanks')
 
-        y_ticks = np.arange(int(math.ceil(height)) + 1)
+        y_ticks = np.arange(int(height) + 1)
         ax.set_yticks(y_ticks, y_ticks)
-        ax.set_yticks(np.arange(len(y_ticks) * 10) * 0.1, minor=True)
+        y_ticks = np.arange(int(math.ceil(height * 10))) * 0.1
+        ax.set_yticks(y_ticks, minor=True)
         ax.set_ylabel('Distance from Tip (mm)')
 
 
@@ -629,7 +631,7 @@ def plot_electrode_block(ax: Axes,
     :param ax:
     :param probe: probe profile
     :param electrode: Array[int, E, (S, C, R)|(X, Y)]
-    :param electrode_unit: 'xy'=(X,Y), 'rc'=(S,C,R)
+    :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
     :param height: max y to plot
     :param shank_width_scale:
     :param fill: fill rectangle
@@ -649,7 +651,7 @@ def plot_electrode_block(ax: Axes,
         w = int(h_step * 0.8)
         h = int(v_step * 0.8)
 
-    if electrode_unit == 'rc':
+    if electrode_unit == 'cr':
         s = electrode[:, 0]
         x = electrode[:, 1] * h_step + s * s_step
         y = electrode[:, 2] * v_step
@@ -837,7 +839,7 @@ def plot_electrode_matrix(ax: Axes,
     :param ax:
     :param probe: probe type
     :param electrode: Array[int, E, (S, C, R, V)] or Array[int, E, (X, Y, V)]
-    :param electrode_unit: 'xy'=(X,Y,V), 'rc'=(S,C,R,V)
+    :param electrode_unit: 'xy'=(X,Y,V), 'cr'=(S,C,R,V)
     :param shank_list: show shank in list
     :param kernel: interpolate missing data (NaN) between channels.
          It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.

@@ -1,0 +1,20 @@
+## figure dots per inch
+figure.dpi:100
+# figure size in inches
+figure.figsize:5, 10
+# the sides of the subplots of the figure
+figure.subplot.left:0.20
+figure.subplot.right:0.90
+figure.subplot.bottom:0.10
+figure.subplot.top:0.95
+# display axis spines
+axes.spines.left:True
+axes.spines.bottom:True
+axes.spines.top:False
+axes.spines.right:False
+# imshow
+image.interpolation:none
+image.cmap:plasma
+# font
+font.size:32
+

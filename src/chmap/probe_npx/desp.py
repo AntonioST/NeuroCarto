@@ -17,7 +17,7 @@ K: TypeAlias = tuple[int, int, int]
 
 
 class NpxElectrodeDesp(ElectrodeDesp):
-    electrode: K
+    electrode: K  # (shank, column, row)
     channel: int
 
 
