@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
-from chmap.util.bokeh_util import ButtonFactory
+from chmap.util.bokeh_util import ButtonFactory, SliderFactory
 from chmap.util.utils import is_recursive_called
 from chmap.views.base import StateView, BoundView, BoundaryState
 
@@ -116,6 +116,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
     def setup(self, slider_width: int = 300, rotate_steps=(-1000, 1000, 5), **kwargs) -> list[UIElement]:
         new_btn = ButtonFactory(min_width=100, width_policy='min')
+        new_slider = SliderFactory(width=slider_width, align='end')
 
         #
         slice_view_options = list(get_args(SLICE))
@@ -128,38 +129,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         self.slice_select.on_change('value', self.on_slice_selected)
 
         #
-        self.plane_slider = Slider(
-            start=0,
-            end=1,
-            step=1,
-            value=0,
-            title='Slice Plane',
-            width=slider_width,
-            align='end',
-        )
-        self.plane_slider.on_change('value', self.on_slice_changed)
-
-        #
-        self.rotate_hor_slider = Slider(
-            start=rotate_steps[0],
-            end=rotate_steps[1],
-            step=rotate_steps[2],
-            value=0,
-            title='horizontal rotation (um)',
-            width=slider_width,
-        )
-        self.rotate_hor_slider.on_change('value', self.on_rotate_changed)
-
-        #
-        self.rotate_ver_slider = Slider(
-            start=rotate_steps[0],
-            end=rotate_steps[1],
-            step=rotate_steps[2],
-            value=0,
-            title='vertical rotation (um)',
-            width=slider_width,
-        )
-        self.rotate_ver_slider.on_change('value', self.on_rotate_changed)
+        self.plane_slider = new_slider('Slice Plane', (0, 1, 1, 0), self.on_slice_changed)
+        self.rotate_hor_slider = new_slider('horizontal rotation (um)', rotate_steps, self.on_rotate_changed)
+        self.rotate_ver_slider = new_slider('vertical rotation (um)', rotate_steps, self.on_rotate_changed)
 
         reset_rth = new_btn('reset', self.on_reset_rotate_horizontal)
         reset_rtv = new_btn('reset', self.on_reset_rotate_vertical)
@@ -173,15 +145,13 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             *self.setup_slider(slider_width=slider_width)
         ]
 
-    # noinspection PyUnusedLocal
-    def on_slice_selected(self, prop: str, old: str, s: str):
+    def on_slice_selected(self, s: str):
         if is_recursive_called():
             return
 
         self.update_brain_view(s)
 
-    # noinspection PyUnusedLocal
-    def on_slice_changed(self, prop: str, old: int, s: int):
+    def on_slice_changed(self, s: int):
         if is_recursive_called():
             return
 
@@ -189,8 +159,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             q = p.slice.plane_at(int(s)).with_offset(p.dw, p.dh)
             self.update_brain_slice(q)
 
-    # noinspection PyUnusedLocal
-    def on_rotate_changed(self, prop: str, old: int, s: int):
+    def on_rotate_changed(self):
         if is_recursive_called():
             return
 

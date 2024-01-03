@@ -11,7 +11,7 @@ from bokeh.plotting import figure as Figure
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server
-from chmap.util.bokeh_util import ButtonFactory, col_layout
+from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback
 from chmap.views.base import ViewBase, StateView, DynamicView
 from chmap.views.data import DataView
 from chmap.views.probe import ProbeView
@@ -288,7 +288,6 @@ class ChannelMapEditorApp(BokehApplication):
         ], 2)
 
         #
-
         empty_btn = Dropdown(
             label='New',
             menu=list(self.probe.supported_type),
@@ -304,7 +303,7 @@ class ChannelMapEditorApp(BokehApplication):
 
         refresh_btn = new_btn('Refresh', self.on_refresh)
         self.auto_btn = Toggle(label='Auto', active=True, min_width=150, width_policy='min')
-        self.auto_btn.on_change('active', self.on_autoupdate)
+        self.auto_btn.on_change('active', as_callback(self.on_autoupdate))
 
         #
         self.message_area = TextAreaInput(title="Log:", rows=10, cols=100, width=300, disabled=True)
@@ -443,8 +442,7 @@ class ChannelMapEditorApp(BokehApplication):
             if isinstance(view, DynamicView):
                 view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
 
-    # noinspection PyUnusedLocal
-    def on_autoupdate(self, prop: str, old: bool, active: bool):
+    def on_autoupdate(self, active: bool):
         if active:
             self.on_refresh()
 

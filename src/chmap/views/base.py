@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
-from chmap.util.bokeh_util import ButtonFactory
+from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback
 from chmap.util.utils import is_recursive_called
 
 __all__ = ['ViewBase', 'StateView', 'DynamicView', 'BoundaryState', 'BoundView']
@@ -72,10 +72,9 @@ class InvisibleView:
     def setup_visible_switch(self) -> Switch:
         """Setup visible switch control."""
         self.visible_btn = Switch(active=True)
-        self.visible_btn.on_change('active', lambda prop, old, active: self.on_visible(active))
+        self.visible_btn.on_change('active', as_callback(self.on_visible))
         return self.visible_btn
 
-    # noinspection PyUnusedLocal
     def on_visible(self, visible: bool):
         """visible state changed callback.
 
@@ -206,7 +205,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
             'x', 'y', 'w', 'h', 'r', source=self.data_boundary,
             color=boundary_color, fill_alpha=0, angle_units='deg',
         )
-        self.data_boundary.on_change('data', self.on_boundary_change)
+        self.data_boundary.on_change('data', as_callback(self.on_boundary_change))
 
         from bokeh.models import tools
         f.tools.append(tools.BoxEditTool(
@@ -229,27 +228,10 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         :return: row list.
         """
         new_btn = ButtonFactory(min_width=100, width_policy='min')
+        new_slider = SliderFactory(width=slider_width, align='end')
 
-        self.boundary_rotate_slider = Slider(
-            start=-25,
-            end=25,
-            step=1,
-            value=0,
-            title='image rotation (deg)',
-            width=slider_width,
-        )
-        self.boundary_rotate_slider.on_change('value', self.on_boundary_rotate)
-
-        #
-        self.boundary_scale_slider = Slider(
-            start=-1,
-            end=1,
-            step=0.01,
-            value=0,
-            title='image scale (log)',
-            width=slider_width,
-        )
-        self.boundary_scale_slider.on_change('value', self.on_boundary_scale)
+        self.boundary_rotate_slider = new_slider('image rotation (deg)', (-25, 25, 1, 0), self.on_boundary_rotate)
+        self.boundary_scale_slider = new_slider('image scale (log)', (-1, 1, 0.01, 0), self.on_boundary_scale)
 
         reset_imr = new_btn('reset', self.on_reset_boundary_rotate)
         reset_ims = new_btn('reset', self.on_reset_boundary_scale)
@@ -260,13 +242,11 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
             row(reset_ims, self.boundary_scale_slider),
         ]
 
-    # noinspection PyUnusedLocal
-    def on_boundary_rotate(self, prop: str, old: int, s: int):
+    def on_boundary_rotate(self, s: int):
         if not is_recursive_called():
             self.update_boundary_transform(rt=s)
 
-    # noinspection PyUnusedLocal
-    def on_boundary_scale(self, prop: str, old: float, s: float):
+    def on_boundary_scale(self, s: float):
         if not is_recursive_called():
             self.update_boundary_transform(s=math.pow(10, s))
 
@@ -285,8 +265,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     def on_reset_boundary(self):
         self.update_boundary_transform(p=(0, 0), s=1, rt=0)
 
-    # noinspection PyUnusedLocal
-    def on_boundary_change(self, prop: str, old: dict, value: dict[str, list[float]]):
+    def on_boundary_change(self, value: dict[str, list[float]]):
         if is_recursive_called():
             return
 

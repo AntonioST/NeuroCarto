@@ -8,6 +8,7 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
+from chmap.util.bokeh_util import SliderFactory, as_callback
 from chmap.util.utils import is_recursive_called
 from chmap.views.base import BoundView, StateView, BoundaryState
 
@@ -143,31 +144,18 @@ class ImageView(BoundView, StateView[list[ImageViewState]]):
         ]
 
         if self.image is None:
-            self.image_input = FileInput(
-                accept='image/*'
-            )
-            self.image_input.on_change('filename', self.on_image_selected)
-
+            self.image_input = FileInput(accept='image/*')
+            self.image_input.on_change('filename', as_callback(self.on_image_selected))
             ret.append(self.image_input)
 
-        self.index_slider = Slider(
-            start=0,
-            end=1,
-            step=1,
-            value=0,
-            title='Index',
-            width=slider_width,
-            align='end',
-            disabled=True
-        )
-        self.index_slider.on_change('value', self.on_index_changed)
+        new_slider = SliderFactory(width=slider_width, align='end')
+        self.index_slider = new_slider('Index', (0, 1, 1, 0), self.on_index_changed, disabled=True)
         ret.append(self.index_slider)
 
         ret.extend(self.setup_slider(slider_width=slider_width))
         return ret
 
-    # noinspection PyUnusedLocal
-    def on_image_selected(self, prop: str, old: str, filename: str):
+    def on_image_selected(self, filename: str):
         if is_recursive_called():
             return
 
@@ -186,8 +174,7 @@ class ImageView(BoundView, StateView[list[ImageViewState]]):
 
         self.restore_current_state()
 
-    # noinspection PyUnusedLocal
-    def on_index_changed(self, prop: str, old: int, s: int):
+    def on_index_changed(self, s: int):
         if is_recursive_called():
             return
 
