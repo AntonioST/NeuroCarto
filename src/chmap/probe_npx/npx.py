@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import NamedTuple, Final, Literal, overload, Sized, cast, Any
+from typing import NamedTuple, Final, Literal, overload, Sized, cast, Any, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -14,6 +14,11 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
+    from probeinterface import Probe
 
 __all__ = [
     'ProbeType',
@@ -136,9 +141,13 @@ class Electrode:
         :param other: copy reference.
         """
         self.in_used = other.in_used
-        self.ap_band_gain = other.ap_band_gain
-        self.lf_band_gain = other.lf_band_gain
-        self.ap_hp_filter = other.ap_hp_filter
+
+        try:
+            self.ap_band_gain = other.ap_band_gain
+            self.lf_band_gain = other.lf_band_gain
+            self.ap_hp_filter = other.ap_hp_filter
+        except AttributeError:
+            pass
 
     def __str__(self) -> str:
         return f'Electrode[{self.shank},{self.column},{self.row}]'
@@ -246,10 +255,7 @@ class ChannelMap:
         if electrodes is not None:
             for e in electrodes:
                 if e is not None:
-                    c, _ = e2cb(probe_type, e)
-                    if self._electrodes[c] is not None:
-                        raise ChannelHasUsedError(e)
-                    self._electrodes[c] = Electrode(e.shank, e.column, e.row)
+                    self.add_electrode(e).copy(e)
 
     # ========= #
     # load/save #
@@ -274,7 +280,7 @@ class ChannelMap:
         return load_imro(path)
 
     @classmethod
-    def from_probe(cls, probe) -> Self:
+    def from_probe(cls, probe: Probe) -> Self:
         """From probeinterface.Probe"""
         from .io import from_probe
         return from_probe(probe)
@@ -289,10 +295,50 @@ class ChannelMap:
         from .io import save_imro
         save_imro(self, path)
 
-    def to_probe(self):
+    def to_probe(self) -> Probe:
         """to probeinterface.Probe"""
         from .io import to_probe
         return to_probe(self)
+
+    def to_pandas(self) -> pd.DataFrame:
+        """
+        To a pandas dataframe.
+
+        Use `-1` to fill empty channels.
+
+        ::
+
+                     shank  column  row  in_used    x     y
+            channel
+            0           -1      -1   -1    False   -1    -1
+            1            1       1  144     True  282  2160
+            ...        ...     ...  ...      ...  ...   ...
+
+        :return: a pandas dataframe
+        """
+        from .io import to_pandas
+        return to_pandas(self)
+
+    def to_polars(self) -> pl.DataFrame:
+        """
+        To a polars dataframe.
+
+        Use `null` to fill empty channels.
+
+        ::
+
+            ┌─────────┬───────┬────────┬──────┬─────────┬──────┬──────┐
+            │ channel ┆ shank ┆ column ┆ row  ┆ in_used ┆ x    ┆ y    │
+            │ i64     ┆ i64?  ┆ i64?   ┆ i64? ┆ bool    ┆ i64? ┆ i64? │
+            ╞═════════╪═══════╪════════╪══════╪═════════╪══════╪══════╡
+            │ 0       ┆ null  ┆ null   ┆ null ┆ false   ┆ null ┆ null │
+            │ 1       ┆ 1     ┆ 1      ┆ 144  ┆ true    ┆ 282  ┆ 2160 │
+            └─────────┴───────┴────────┴──────┴─────────┴──────┴──────┘
+
+        :return: a polars dataframe
+        """
+        from .io import to_polars
+        return to_polars(self)
 
     def __hash__(self):
         ret = 3 + 5 * self.probe_type.code
@@ -417,7 +463,7 @@ class ChannelMap:
 
     @property
     def channels(self) -> Channels:
-        return Channels(self._electrodes)
+        return Channels(self.probe_type, self._electrodes)
 
     def get_electrode(self, electrode: E) -> Electrode | None:
         """

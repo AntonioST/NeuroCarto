@@ -2,7 +2,4 @@ numpy
 scipy
 matplotlib
 typing_extensions
-probeinterface
-Pillow
-tifffile
 bokeh

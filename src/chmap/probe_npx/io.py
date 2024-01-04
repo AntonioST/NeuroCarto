@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import sys
 from pathlib import Path
-from typing import Any
-
-from probeinterface import Probe
+from typing import Any, TYPE_CHECKING
 
 from .npx import *
+
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
+    from probeinterface import Probe
 
 __all__ = [
     'parse_imro',
@@ -13,9 +18,15 @@ __all__ = [
     'load_imro',
     'save_imro',
     'from_probe',
-    'to_probe'
+    'to_probe',
+    'to_pandas',
+    'to_polars'
 ]
 
+
+# ===================== #
+# imro table expression #
+# ===================== #
 
 def parse_imro(source: str) -> ChannelMap:
     source = source.strip()
@@ -110,6 +121,10 @@ def string_imro(chmap: ChannelMap) -> str:
     return ''.join(ret)
 
 
+# ======================= #
+# SpikeGLX imro/meta file #
+# ======================= #
+
 def load_meta(path: str | Path) -> ChannelMap:
     path = Path(path)
     if path.suffix != '.meta':
@@ -144,6 +159,10 @@ def save_imro(chmap: ChannelMap, path: str | Path):
         print(imro, file=f)
 
 
+# ============== #
+# probeinterface #
+# ============== #
+
 def from_probe(probe: Probe) -> ChannelMap:
     if probe.manufacturer != 'IMEC':
         raise RuntimeError('not a Neuropixels probe')
@@ -167,6 +186,79 @@ def from_probe(probe: Probe) -> ChannelMap:
 def to_probe(chmap: ChannelMap) -> Probe:
     from probeinterface.io import _read_imro_string
     return _read_imro_string(repr(chmap))
+
+
+# ======================= #
+# pandas/polars dataframe #
+# ======================= #
+
+def to_pandas(chmap: ChannelMap) -> pd.DataFrame:
+    """
+    To a pandas dataframe.
+
+    Use `-1` to fill empty channels.
+
+    ::
+
+                 shank  column  row  in_used    x     y
+        channel
+        0           -1      -1   -1    False   -1    -1
+        1            1       1  144     True  282  2160
+        ...        ...     ...  ...      ...  ...   ...
+
+    :param chmap:
+    :return: a pandas dataframe
+    """
+    import pandas as pd
+
+    probe_type = chmap.probe_type
+    h = list(range(probe_type.n_channels))
+    s = [it.shank if it is not None else -1 for it in chmap.channels]
+    c = [it.column if it is not None else -1 for it in chmap.channels]
+    r = [it.row if it is not None else -1 for it in chmap.channels]
+    u = [it.in_used if it is not None else False for it in chmap.channels]
+
+    ret = pd.DataFrame(data=dict(shank=s, column=c, row=r, in_used=u), index=pd.Index(h, name='channel'))
+    ret['x'] = ret['shank'] * probe_type.s_space + ret['column'] * probe_type.c_space
+    ret['y'] = ret['row'] * probe_type.r_space
+    ret.loc[ret['shank'] == -1, ['x', 'y']] = -1
+
+    return ret
+
+
+def to_polars(chmap: ChannelMap) -> pl.DataFrame:
+    """
+    To a polars dataframe.
+
+    Use `null` to fill empty channels.
+
+    ::
+
+        ┌─────────┬───────┬────────┬──────┬─────────┬──────┬──────┐
+        │ channel ┆ shank ┆ column ┆ row  ┆ in_used ┆ x    ┆ y    │
+        │ i64     ┆ i64?  ┆ i64?   ┆ i64? ┆ bool    ┆ i64? ┆ i64? │
+        ╞═════════╪═══════╪════════╪══════╪═════════╪══════╪══════╡
+        │ 0       ┆ null  ┆ null   ┆ null ┆ false   ┆ null ┆ null │
+        │ 1       ┆ 1     ┆ 1      ┆ 144  ┆ true    ┆ 282  ┆ 2160 │
+        └─────────┴───────┴────────┴──────┴─────────┴──────┴──────┘
+
+
+    :param chmap:
+    :return: a polars dataframe
+    """
+    import polars as pl
+
+    probe_type = chmap.probe_type
+    h = list(range(probe_type.n_channels))
+    s = [it.shank if it is not None else None for it in chmap.channels]
+    c = [it.column if it is not None else None for it in chmap.channels]
+    r = [it.row if it is not None else None for it in chmap.channels]
+    u = [it.in_used if it is not None else False for it in chmap.channels]
+
+    return pl.DataFrame(data=dict(channel=h, shank=s, column=c, row=r, in_used=u)).with_columns(
+        x=pl.col('shank') * probe_type.s_space + pl.col('column') * probe_type.c_space,
+        y=pl.col('row') * probe_type.r_space
+    )
 
 
 if __name__ == '__main__':

@@ -80,11 +80,15 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             t = chmap.probe_type
             return f'<b>Probe[{t.code}]</b> {len(chmap)}/{t.n_channels}'
 
-    def all_electrodes(self, chmap: int | ChannelMap) -> list[NpxElectrodeDesp]:
+    def all_electrodes(self, chmap: int | ProbeType | ChannelMap) -> list[NpxElectrodeDesp]:
         if isinstance(chmap, int):
             probe_type = PROBE_TYPE[chmap]
-        else:
+        elif isinstance(chmap, ChannelMap):
             probe_type = chmap.probe_type
+        elif isinstance(chmap, ProbeType):
+            probe_type = chmap
+        else:
+            raise TypeError()
 
         ret = []
         for s in range(probe_type.n_shank):

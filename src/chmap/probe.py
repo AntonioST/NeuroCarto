@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import abc
+import sys
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import TypeVar, Generic, Any, ClassVar
 
 import numpy as np
 from numpy.typing import NDArray
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 __all__ = ['ProbeDesp', 'ElectrodeDesp', 'get_probe_desp']
 
@@ -56,6 +62,21 @@ class ElectrodeDesp:
     policy: int = 0
 
     __match_args__ = 'electrode', 'channel', 'state', 'policy'
+
+    def copy(self, r: ElectrodeDesp, **kwargs) -> Self:
+        """A copy helper function to move data from *r*.
+
+        :param r: copy reference electrode
+        :param kwargs: overwrite fields. If you want a deep copy for particular fields.
+        :return: self
+        """
+        for attr in dir(r):
+            if not attr.startswith('_'):
+                if attr in kwargs:
+                    setattr(self, attr, kwargs[attr])
+                else:
+                    setattr(self, attr, getattr(r, attr))
+        return self
 
     def __hash__(self) -> int:
         return hash(self.electrode)
@@ -169,7 +190,9 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         Create a new, empty channelmap instance.
 
-        :param chmap: a channelmap instance that copy from (at least same probe type), or a code from supported_type.
+        If you want to copy a channelmap instance, use `copy_channelmap` instead.
+
+        :param chmap: a code from supported_type or a channelmap instance as probe type.
         :return: a channelmap instance
         """
         pass
@@ -292,24 +315,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         if len(s) == 0:
             return []
 
-        t = type(s[0])
-        return [self._copy_electrode(it, t()) for it in s]
-
-    def _copy_electrode(self, r: E, e: E, **kwargs) -> E:
-        """A copy helper function to move data from *s* to *e*.
-
-        :param r: a reference electrode
-        :param e: a new electrode.
-        :param kwargs: overwrite fields. If you want a deep copy for particular fields.
-        :return: *e*
-        """
-        for attr in dir(r):
-            if not attr.startswith('_'):
-                if attr in kwargs:
-                    setattr(e, attr, kwargs[attr])
-                else:
-                    setattr(e, attr, getattr(r, attr))
-        return e
+        t: type[E] = type(s[0])
+        return [t().copy(it) for it in s]
 
     @abc.abstractmethod
     def probe_rule(self, chmap: M, e1: E, e2: E) -> bool:
