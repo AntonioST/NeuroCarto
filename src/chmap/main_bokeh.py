@@ -398,10 +398,13 @@ class ChannelMapEditorApp(BokehApplication):
             preselect = self.input_imro.value
 
         imro_list = [f.stem for f in self.list_chmap_files()]
-        self.input_imro.options = imro_list
+        self.input_imro.options = [""] + imro_list
 
         if preselect in imro_list:
             self.input_imro.value = preselect
+        else:
+            self.input_imro.value = ""
+
         self.output_imro.completions = imro_list
 
     def on_save(self):

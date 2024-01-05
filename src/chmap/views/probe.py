@@ -11,6 +11,20 @@ __all__ = ['ProbeView']
 
 
 class ProbeView:
+    """
+    Probe view.
+
+    It is a special view component handled by ChannelMapEditorApp, so we do not inherit from ViewBase.
+
+    """
+
+    STYLES: dict[int | str, dict[str, Any]] = {
+        ProbeDesp.STATE_USED: dict(color='green'),
+        ProbeDesp.STATE_UNUSED: dict(color='black'),
+        ProbeDesp.STATE_FORBIDDEN: dict(color='red', size=2, alpha=0.2),
+        'highlight': dict(color='yellow', size=6, alpha=0.5)
+    }
+
     data_electrodes: dict[int, ColumnDataSource]
     render_electrodes: dict[int, GlyphRenderer]
 
@@ -24,31 +38,23 @@ class ProbeView:
         self._e2i: dict[E, int] = {}
 
         self.data_electrodes = {}
-        for state in self.probe.possible_states.values():
+        for state in (ProbeDesp.STATE_UNUSED, ProbeDesp.STATE_USED, ProbeDesp.STATE_FORBIDDEN):
             self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[], c=[]))
             self.data_electrodes[state].selected.on_change('indices', self.on_select(state))
-        if (state := ProbeDesp.STATE_FORBIDDEN) not in self.data_electrodes:
-            self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[], c=[]))
-            self.data_electrodes[state].selected.on_change('indices', self.on_select(state))
+
         self.data_highlight = ColumnDataSource(data=dict(x=[], y=[], e=[]))
 
-        self.style_electrodes: dict[int | str, dict[str, Any]] = {  # TODO config somewhere
-            ProbeDesp.STATE_USED: dict(color='green'),
-            ProbeDesp.STATE_UNUSED: dict(color='black'),
-            ProbeDesp.STATE_FORBIDDEN: dict(color='red', size=2, alpha=0.2),
-            'highlight': dict(color='yellow', size=6, alpha=0.5)
-        }
-
     def plot(self, f: Figure):
-        self.render_electrodes = {}
         self.render_highlight = f.scatter(
-            x='x', y='y', source=self.data_highlight, **self.style_electrodes.get('highlight', {})
+            x='x', y='y', source=self.data_highlight, **self.STYLES.get('highlight', {})
         )
 
-        for state, data in self.data_electrodes.items():
-            self.render_electrodes[state] = f.scatter(
-                x='x', y='y', source=data, **self.style_electrodes.get(state, {})
+        self.render_electrodes = {
+            state: f.scatter(
+                x='x', y='y', source=data, **self.STYLES.get(state, {})
             )
+            for state, data in self.data_electrodes.items()
+        }
 
     def setup_tools(self) -> list[tools.Tool]:
         return [
@@ -63,7 +69,7 @@ class ProbeView:
                     self.render_electrodes[ProbeDesp.STATE_UNUSED],
                     self.render_electrodes[ProbeDesp.STATE_FORBIDDEN],
                 ],
-                tooltips=[
+                tooltips=[  # hover
                     ('Channel', "@c"),
                     ("(x,y)", "($x, $y)"),
                 ]
@@ -73,11 +79,18 @@ class ProbeView:
     def channelmap_desp(self) -> str:
         return self.probe.channelmap_desp(self.channelmap)
 
-    def reset(self, *args, **kwargs):
-        if len(args) == 0 and len(kwargs) == 0 and self.channelmap is not None:
+    def reset(self, chmap: int | M = None):
+        """
+        Reset channelmap.
+
+        :param chmap: channelmap code
+        """
+        if chmap is None:
             channelmap = self.probe.new_channelmap(self.channelmap)
+        elif isinstance(chmap, int):
+            channelmap = self.probe.new_channelmap(chmap)
         else:
-            channelmap = self.probe.new_channelmap(*args, **kwargs)
+            channelmap = self.probe.copy_channelmap(chmap)
 
         self.channelmap = channelmap
         self.electrodes = self.probe.all_electrodes(channelmap)
@@ -98,15 +111,24 @@ class ProbeView:
             e.state = ProbeDesp.STATE_USED
 
     def update_electrode(self):
+        """Refresh channelmap"""
         for state, data in self.data_electrodes.items():
             self.update_electrode_position(data, self.get_electrodes(None, state=state))
         self.update_electrode_position(self.data_highlight, [])
 
     def refresh_selection(self):
+        """Rerun electrode selection and refresh channelmap"""
         self.channelmap = self.probe.select_electrodes(self.channelmap, self.electrodes)
         self._reset_electrode_state()
 
     def get_electrodes(self, s: None | int | list[int] | ColumnDataSource, *, state: int = None) -> list[E]:
+        """
+        Get electrodes in source *s*.
+
+        :param s: electrode source.
+        :param state: filter electrodes with its state in returns
+        :return: electrodes
+        """
         if (electrodes := self.electrodes) is None:
             return []
 
@@ -130,6 +152,13 @@ class ProbeView:
         return ret
 
     def get_selected(self, d: ColumnDataSource = None, *, reset=False) -> set[E]:
+        """
+        Get selected electrodes.
+
+        :param d: one of `self.data_electrodes`
+        :param reset: reset the selecting state.
+        :return: selected electrodes.
+        """
         if d is None:
             ret = set[E]()
             for state, data in self.data_electrodes.items():
@@ -156,6 +185,13 @@ class ProbeView:
         return on_select_callback
 
     def update_electrode_position(self, d: ColumnDataSource, e: Iterable[E], *, append=False):
+        """
+        Show electrodes.
+
+        :param d: one of `self.data_electrodes`
+        :param e: new electrodes
+        :param append: append *e*.
+        """
         x = [it.x for it in e]
         y = [it.y for it in e]
         i = [self._e2i[it] for it in e]
@@ -171,6 +207,13 @@ class ProbeView:
         d.data = dict(x=x, y=y, e=i, c=c)
 
     def set_highlight(self, s: Iterable[E], *, invalid=True, append=False):
+        """
+        Highlight electrodes.
+
+        :param s: selected electrode set
+        :param invalid: extend the highlight set to include co-electrodes
+        :param append: append the highlight set.
+        """
         h = list(s)
 
         if invalid:
@@ -179,6 +222,11 @@ class ProbeView:
         self.update_electrode_position(self.data_highlight, h, append=append)
 
     def set_state_for_selected(self, state: int):
+        """
+        Set electrode state for selected electrodes.
+
+        :param state: new state. value in {ProbeDesp.STATE_USED, ProbeDesp.STATE_UNUSED}
+        """
         if state == ProbeDesp.STATE_USED:
             for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
                 self.probe.add_electrode(self.channelmap, e)
@@ -192,5 +240,11 @@ class ProbeView:
         self._reset_electrode_state()
 
     def set_policy_for_selected(self, policy: int):
+        """
+        Set electrode policy value for selected electrodes.
+
+        :param policy: policy value from ProbeDesp.POLICY_*
+        :return:
+        """
         for e in self.get_selected(reset=True):
             e.policy = policy

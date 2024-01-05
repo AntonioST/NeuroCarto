@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sized
 from pathlib import Path
-from typing import NamedTuple, Final, Literal, overload, Sized, cast, Any, TYPE_CHECKING
+from typing import Any, NamedTuple, Final, Literal, overload, cast, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
