@@ -26,7 +26,7 @@ class ChannelMapEditorConfig:
 
 def new_parser() -> argparse.ArgumentParser:
     """Create a cli parse for ChannelMapEditorConfig."""
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(prog='chmap')
 
     ap.add_argument('-P', '--probe', metavar='NAME', default='npx', dest='probe_family',
                     help='use probe family. default use "npx" (Neuropixels probe family).')

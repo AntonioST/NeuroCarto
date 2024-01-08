@@ -42,7 +42,7 @@ python -m build
 ### Install
 
 ```shell
-
+pip install dist/chmap_editor-0.0.0-py3-none-any.whl
 ```
 
 ### Document
