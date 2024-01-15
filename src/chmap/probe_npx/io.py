@@ -185,7 +185,7 @@ def from_probe(probe: Probe) -> ChannelMap:
 
 def to_probe(chmap: ChannelMap) -> Probe:
     from probeinterface.io import _read_imro_string
-    return _read_imro_string(repr(chmap))
+    return _read_imro_string(string_imro(chmap))
 
 
 # ======================= #

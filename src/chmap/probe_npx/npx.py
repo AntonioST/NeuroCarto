@@ -469,6 +469,15 @@ class ChannelMap:
         x, y = channel_coordinate(self)
         return y
 
+    @property
+    def channel_pos(self) -> NDArray[np.int_]:
+        """
+
+        :return: Array[um, C, 2]
+        """
+        x, y = channel_coordinate(self)
+        return np.vstack([x, y]).T
+
     def get_channel(self, channel: int) -> Electrode | None:
         """
         Get electrode via channel ID

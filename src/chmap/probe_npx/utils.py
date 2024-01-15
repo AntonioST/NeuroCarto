@@ -14,7 +14,8 @@ __all__ = [
     'npx24_stripe',
     'npx24_half_density',
     'npx24_quarter_density',
-    'npx24_one_eighth_density'
+    'npx24_one_eighth_density',
+    'print_probe'
 ]
 
 
@@ -278,7 +279,7 @@ def npx24_quarter_density(shank: int | tuple[int, int] | None = None,
     """
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in quarter density.
 
-    >>> print_probe([npx24_quarter_density(shank=0), npx24_quarter_density(shank=(0, 12)), npx24_quarter_density(None)])
+    >>> print_probe([npx24_quarter_density(shank=0), npx24_quarter_density(shank=(0, 2)), npx24_quarter_density(None)])
     638▕▘▏▕ ▏▕ ▏▕ ▏638▕ ▏▕ ▏▕ ▏▕ ▏638▕ ▏▕ ▏▕ ▏▕ ▏
     636▕▝▏▕ ▏▕ ▏▕ ▏636▕ ▏▕ ▏▕ ▏▕ ▏636▕ ▏▕ ▏▕ ▏▕ ▏
             :              :

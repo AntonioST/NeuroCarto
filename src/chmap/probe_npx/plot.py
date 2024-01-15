@@ -541,7 +541,7 @@ class ElectrodeMatData(NamedTuple):
 
 
 def plot_probe_shape(ax: Axes,
-                     probe: ProbeType,
+                     probe: ProbeType | ChannelMap,
                      height: float,
                      label_axis=False,
                      shank_width_scale: float = 1,
@@ -556,6 +556,9 @@ def plot_probe_shape(ax: Axes,
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param kwargs: pass to ax.plot(**kwargs)
     """
+    if isinstance(probe, ChannelMap):
+        probe = probe.probe_type
+
     s_step = probe.s_space / 1000
     h_step = probe.c_space / 1000
     v_step = probe.r_space / 1000
