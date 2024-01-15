@@ -1,8 +1,8 @@
-Tutorial: Build channelmap
-==========================
+Tutorials
+=========
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 3
+   :caption: Notebooks:
 
    notebooks/Example
