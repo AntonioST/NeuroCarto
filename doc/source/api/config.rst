@@ -2,4 +2,5 @@ chmap.config
 ============
 
 .. automodule:: chmap.config
-   :members:
+    :members:
+    :undoc-members:

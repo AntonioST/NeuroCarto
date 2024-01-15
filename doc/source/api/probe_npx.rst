@@ -13,3 +13,4 @@ modules
     probe_npx.desp
     probe_npx.io
     probe_npx.plot
+    probe_npx.utils
