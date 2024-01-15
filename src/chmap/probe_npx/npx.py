@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import sys
 from collections.abc import Iterable, Iterator, Sized
 from pathlib import Path
@@ -30,6 +31,7 @@ __all__ = [
     'ChannelMap',
     'channel_coordinate',
     'electrode_coordinate',
+    'ChannelHasUsedError',
 ]
 
 
@@ -54,6 +56,21 @@ class ProbeType(NamedTuple):
     r_space: int  # electrodes row space, um
     s_space: int  # shank space, um
     reference: tuple[int, ...]
+
+    @property
+    def n_bank(self) -> int:
+        """number of total banks"""
+        return int(math.ceil(self.n_electrode_shank / self.n_channels))
+
+    @property
+    def n_block(self) -> int:
+        """number of total blocks"""
+        return self.n_electrode_shank // self.n_electrode_block
+
+    @property
+    def n_block_bank(self) -> int:
+        """number of blocks in one bank"""
+        return self.n_channels // self.n_electrode_block
 
 
 PROBE_TYPE_NP1 = ProbeType(0, 1, 2, 480, 960, 384, 32, 32, 20, 0, (192, 576, 960))
@@ -500,14 +517,14 @@ class ChannelMap:
 
     def add_electrode(self, electrode: E,
                       in_used: bool = True,
-                      exist_ok: bool = False) -> Electrode | None:
+                      exist_ok: bool = False) -> Electrode:
         """
         Add an electrode into this channelmap.
 
         :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row), or an Electrode
         :param in_used: Is it used?
         :param exist_ok: if not exist_ok, an error will raise if electrode has existed.
-        :return: return an electrode which has been created.
+        :return: a correspond electrode.
         :raise ValueError: electrode position out of range
         :raise ChannelHasUsedError: channel has been used by other electrode in this channelmap.
         """

@@ -35,6 +35,9 @@ def as_set(x, n: int) -> set[int]:
         return {int(x)}
     elif isinstance(x, slice):
         return set(range(n)[x])
+    elif isinstance(x, range):
+        n = n if x.stop is None else min(n, x.stop)
+        return set(range(x.start, n, abs(x.step)))
     elif isinstance(x, tuple):
         ret = set()
         for xx in x:
