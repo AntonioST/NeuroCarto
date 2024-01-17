@@ -14,6 +14,13 @@ help:
 
 .PHONY: help Makefile
 
+markdown:
+	@rm -rf "$(BUILDDIR)/markdown"
+	@$(SPHINXBUILD) -M markdown "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	@cp -t wiki $(BUILDDIR)/markdown/*.md
+	@mkdir -p wiki/_static; cp -t wiki/_static $(SOURCEDIR)/_static/*
+	@mv wiki/index.md wiki/Home.md
+
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
