@@ -32,6 +32,7 @@ release = '0.0.0'
 extensions = [
     'sphinx.ext.autodoc',
     'nbsphinx',
+    'sphinx_markdown_builder',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
