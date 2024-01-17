@@ -1,0 +1,4 @@
+[filter "jupyter_clear_execute"]
+    clean = awk -F: '{if($1 ~ \"execution_count\") {print $1 \":null,\"} else {print}}' | jupyter nbconvert --stdin --stdout --log-level=ERROR --to notebook --ClearMetadataPreprocessor.enabled=True
+    smudge = cat
+    required = true
