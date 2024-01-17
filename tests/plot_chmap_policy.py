@@ -38,7 +38,7 @@ if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_D2)) > 0:
     plot_electrode_block(ax, chmap.probe_type, e, height=height, color='orange', shank_width_scale=2)
 if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_D4)) > 0:
     plot_electrode_block(ax, chmap.probe_type, e, height=height, color='blue', shank_width_scale=2)
-if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_SPARSE)) > 0:
+if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_REMAINDER)) > 0:
     plot_electrode_block(ax, chmap.probe_type, e, height=height, color='gray', shank_width_scale=2)
 if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_FORBIDDEN)) > 0:
     plot_electrode_block(ax, chmap.probe_type, e, height=height, color='pink', shank_width_scale=2)

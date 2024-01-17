@@ -51,7 +51,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             'Half Density': self.POLICY_D2,
             #
             'Quarter Density': self.POLICY_D4,
-            'Sparse': self.POLICY_SPARSE,
+            'Remainder': self.POLICY_REMAINDER,
             'Forbidden': self.POLICY_FORBIDDEN,
         }
 
@@ -211,8 +211,8 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         if len(ret := [e for e in cand.values() if e.policy == self.POLICY_D4]) > 0:
             return self.POLICY_D4, random.choice(ret)
 
-        if len(ret := [e for e in cand.values() if e.policy == self.POLICY_SPARSE]) > 0:
-            return self.POLICY_SPARSE, random.choice(ret)
+        if len(ret := [e for e in cand.values() if e.policy == self.POLICY_REMAINDER]) > 0:
+            return self.POLICY_REMAINDER, random.choice(ret)
 
         if len(ret := [e for e in cand.values() if e.policy == self.POLICY_UNSET]) > 0:
             return self.POLICY_UNSET, random.choice(ret)
@@ -227,7 +227,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                 return self._update_d2(chmap, cand, e)
             case self.POLICY_D4:
                 return self._update_d4(chmap, cand, e)
-            case self.POLICY_SPARSE | self.POLICY_UNSET:
+            case self.POLICY_REMAINDER | self.POLICY_UNSET:
                 return self._add_electrode(chmap, cand, e)
             case _:
                 raise ValueError()

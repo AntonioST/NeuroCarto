@@ -52,7 +52,7 @@ def get_probe_desp(name: str, package: str = 'chmap', describer: str = None) -> 
 
 
 class ElectrodeDesp:
-    """An electrode interface for GUI interaction between different electrode implements."""
+    """An electrode interface for GUI interaction between different electrode implementations."""
 
     x: float  # x position in um
     y: float  # y position in um
@@ -117,7 +117,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     POLICY_UNSET: ClassVar = 0  # initial value
     POLICY_SET: ClassVar = 1  # pre-selected
     POLICY_FORBIDDEN: ClassVar = 2  # never be selected
-    POLICY_SPARSE: ClassVar = 3  # random selected, less priority
+    POLICY_REMAINDER: ClassVar = 3  # random selected, less priority
 
     @property
     @abc.abstractmethod
@@ -323,21 +323,26 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         Does electrode *e1* and *e2* can be used in the same time?
 
+        This method's implementation should follow the rules in most cases:
+
+        * `probe_rule(M, e, e)` should return `False`
+        * `probe_rule(M, e1, e2) == probe_rule(M, e2, e1)`
+
         :param chmap: channelmap type. It is a reference.
         :param e1: an electrode.
         :param e2: an electrode.
-        :return:
+        :return: True when *e1* and *e2* are compatible.
         """
         pass
 
     def invalid_electrodes(self, chmap: M, e: E | Iterable[E], s: Iterable[E]) -> list[E]:
         """
-        Picking an invalid electrode set from *s* once an electrode *e* is added into *chmap*,
-        under the probe restriction.
+        Collect the invalid electrodes that an electrode from *s* will break the `probe_rule`
+        with the electrode *e* (or any electrode from *e*).
 
         :param chmap: channelmap type. It is a reference.
-        :param e: a reference electrode. Usually, it is a most-recent selected electrode.
-        :param s: an electrode set. Usually, it is a candidate set.
+        :param e: an electrode.
+        :param s: an electrode set.
         :return: an invalid electrode set from *s*.
         """
         if isinstance(e, Iterable):
