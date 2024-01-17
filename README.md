@@ -1,14 +1,22 @@
 Channelmap Editor for Neuropixels Family
 =========================================
 
+Relevant Papers
+---------------
+
+writing.
+
+Documents
+---------
+
+wiki.
+
 Install and Run
 ---------------
 
-### install
+### Install
 
-```shell
-
-```
+This package will upload onto PyPI soon.
 
 ### Run
 
@@ -23,6 +31,8 @@ python -m chmap
 * `probeinterface` probe/channelmap format import/export
 * `pandas`, `polars` channelmap data export.
 
+Full optional dependencies are list in [requirements-opt.txt](requirements-opt.txt).
+
 Build from source
 -----------------
 
@@ -33,21 +43,21 @@ python -m pip install --upgrade pip
 python -m pip install --upgrade build
 ```
 
-### Build
+### Build from source
 
 ```shell
 python -m build
 ```
 
-### Install
+### Install from local
 
 ```shell
 pip install dist/chmap_editor-0.0.0-py3-none-any.whl
 ```
 
-### Document
+### Build Document
 
-Require package `sphinx` listed in `requirement-doc.txt` 
+Require install extra packages listed in [requirements-doc.txt](requirements-doc.txt)
 
 ```shell
 cd doc
