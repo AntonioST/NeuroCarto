@@ -12,7 +12,7 @@ writing.
 Documents
 ---------
 
-Please check [wiki](wiki) for more details.
+Please check [wiki](https://github.com/AntonioST/chamap_editor/wiki) for more details.
 
 Install and Run
 ---------------
@@ -44,6 +44,6 @@ Full optional dependencies are list in [requirements-opt.txt](requirements-opt.t
 Build from source
 -----------------
 
-Please check [install](wiki/install) page in wiki.
+Please check [install](https://github.com/AntonioST/chamap_editor/wiki/install) page in wiki.
 
 
