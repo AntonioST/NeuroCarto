@@ -42,23 +42,23 @@ Application View
 
 .. image:: _static/fig3a.png
 
-*   Left
+*   Left panel
 
     *   Channelmap File
 
-        *   A. Input
+        *   Input (input-text-field).
 
             Channelmap files lists under `-C PATH`
 
         *   New/Load/Save
 
-            * New:Create a new channelmap
+            * New: Create a new channelmap
 
-            * Load: load channelmap from A.
+            * Load: load channelmap from input-text-field.
 
-            * Save: Save current channelmap into B.
+            * Save: Save current channelmap into output-text-field.
 
-        *   B. Save
+        *   Save (output-text-field)
 
             saved channelmap filename.
 
@@ -68,13 +68,13 @@ Application View
 
     *   Policy
 
-        Set electrode policy for electrodes selected by rectangle-tool.
+        Set electrode selection policy for electrodes selected by rectangle-tool.
 
     *   Log
 
         application log messages.
 
-*   Middle
+*   Middle panel
 
     *   Probe
 
@@ -113,13 +113,13 @@ Application View
         *   rectangle-tool example
 
 
-*   Right
+*   Right panel
 
     *   Atlas Brain control groups
 
         Control image's scaling and rotating. (move controlled by figure-tools)
 
-    *   Electrode Density Curve
+    *   Electrode Density Curve along shanks
 
         display electrode density curve (blue) along shanks.
 

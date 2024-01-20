@@ -1,5 +1,8 @@
-Channelmap Editor for Neuropixels Family
-=========================================
+Channelmap Editor for the Neuropixels Family
+============================================
+
+Neuropixels channelmap editor is an editor for generate a custom channelmap from 
+a given electrode-density blueprint.
 
 Relevant Papers
 ---------------
@@ -9,12 +12,17 @@ writing.
 Documents
 ---------
 
-wiki.
+Please check [wiki](wiki) for more details.
 
 Install and Run
 ---------------
 
+### prepare environment.
+
+Require `Python 3.10`.
+
 ### Install
+
 
 This package will upload onto PyPI soon.
 
@@ -36,32 +44,6 @@ Full optional dependencies are list in [requirements-opt.txt](requirements-opt.t
 Build from source
 -----------------
 
-### Update pip
-
-```shell
-python -m pip install --upgrade pip
-python -m pip install --upgrade build
-```
-
-### Build from source
-
-```shell
-python -m build
-```
-
-### Install from local
-
-```shell
-pip install dist/chmap_editor-0.0.0-py3-none-any.whl
-```
-
-### Build Document
-
-Require install extra packages listed in [requirements-doc.txt](requirements-doc.txt)
-
-```shell
-cd doc
-make html
-```
+Please check [install](wiki/install) page in wiki.
 
 

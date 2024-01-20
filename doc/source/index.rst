@@ -6,8 +6,8 @@
 Welcome to ChmapEditor's documentation!
 =======================================
 
-descriptions.
-
+Neuropixels channelmap editor is an editor for generate a custom channelmap from
+a given electrode-density blueprint.
 
 
 Contents
