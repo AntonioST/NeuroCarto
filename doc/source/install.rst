@@ -5,7 +5,7 @@ Install
 -------
 
 :warning:
-    So far this packages doesn't upload to https://pypi.org/.
+    So far this package hasn't upload to https://pypi.org/.
 
 ::
 
@@ -73,7 +73,7 @@ For contributors only.
 
     make markdown
 
-3. check output at `doc/wiki`. Note that the `rst` output may be not suitable for `md`.
+3. check the output at `doc/wiki`. Note that the `rst` output may be not suitable for `md`.
    Check the git difference and modify the contents are necessary.
 
 testing library versions
