@@ -5,7 +5,7 @@ Install
 -------
 
 :warning:
-    So far this package hasn't upload to https://pypi.org/.
+    So far this package hasn't been uploaded to https://pypi.org/.
 
 ::
 
@@ -29,7 +29,8 @@ Build from source
 
 2. clone repository. ::
 
-    git clone https://github.com/AntonioST/chamap_editor.git
+    git clone https://github.com/AntonioST/chmap_editor.git
+    cd chmap_editor
 
 3. update pip. ::
 
@@ -42,8 +43,9 @@ Build from source
 
 5. install. ::
 
-    pip install dist/chmap_editor-0.0.0-py3-none-any.whl
+        pip install dist/chmap_editor-0.0.0-py3-none-any.whl
 
+   change version `0.0.0` to latest when needed.
 
 Build Document
 --------------
