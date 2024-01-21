@@ -26,12 +26,18 @@ classifiers = [
 dynamic = ["dependencies"]
 
 [project.urls]
-#Homepage = "https://github.com/pypa/sampleproject"
-#Issues = "https://github.com/pypa/sampleproject/issues"
+Homepage = "https://github.com/AntonioST/chmap_editor"
+Issues = "https://github.com/AntonioST/chmap_editor/issues"
+
+[project.scripts]
+chmap = "chmap.main_bokeh:main"
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
-optional-dependencies = { opt = { file = ["requirements-opt.txt"] } }
+
+[tool.setuptools.dynamic.optional-dependencies]
+opt = { file = ["requirements-opt.txt"] }
+doc = { file = ["requirements-doc.txt"] }
 
 [build-system]
 build-backend = "setuptools.build_meta"
@@ -40,7 +46,7 @@ requires = ["setuptools>=61.0"]
 # https://mypy.readthedocs.io/en/stable/config_file.html#using-a-pyproject-toml-file
 [tool.mypy]
 python_version = "3.10"
-exclude = ['atlas_brain.py']
+exclude = []
 
 [[tool.mypy.overrides]]
 module = "chmap.*"

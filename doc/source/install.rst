@@ -1,6 +1,11 @@
 Installation
 ============
 
+Require
+-------
+
+Require `Python 3.10`, and (recommended) a Python virtual environment.
+
 Install
 -------
 
@@ -10,6 +15,13 @@ Install
 ::
 
     pip install chmap
+
+Run
+---
+
+::
+
+    chmap
 
 Optional dependency packages
 ----------------------------
@@ -22,7 +34,7 @@ Optional dependency packages
 Build from source
 -----------------
 
-1. create python environment. Here use conda as example. ::
+1. create python environment. Here use `conda` as example. ::
 
     conda create -n chmap python~=3.10.0
     conda activate chmap

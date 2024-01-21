@@ -29,7 +29,7 @@ This package will upload onto PyPI soon.
 ### Run
 
 ```shell
-python -m chmap
+chmap
 ```
 
 ### Optional dependency
