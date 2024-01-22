@@ -46,8 +46,11 @@ class ChannelMapEditorApp(BokehApplication):
         self.right_view_type = []
 
         if config.atlas_name is not None:
-            from chmap.views.atlas import AtlasBrainView
-            self.right_view_type.append(AtlasBrainView)
+            try:
+                from chmap.views.atlas import AtlasBrainView
+                self.right_view_type.append(AtlasBrainView)
+            except ImportError:
+                pass
 
         self.right_view_type.extend(self.probe.extra_controls(config))
 
