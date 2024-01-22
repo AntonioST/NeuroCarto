@@ -62,6 +62,8 @@ Build from source
 Build Document
 --------------
 
+Make sure the package has been installed or added in `PYTHONPATH`.
+
 1. install extra dependencies. ::
 
     pip install -r requirements-doc.txt
