@@ -8,10 +8,13 @@ from typing import ClassVar, TypeAlias
 import numpy as np
 from numpy.typing import NDArray
 
+from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, ElectrodeDesp, M, E
 from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError, PROBE_TYPE
+from chmap.views.data import DataView
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
+
 
 K: TypeAlias = tuple[int, int, int]
 
@@ -54,6 +57,10 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             'Remainder': self.POLICY_REMAINDER,
             'Forbidden': self.POLICY_FORBIDDEN,
         }
+
+    def extra_controls(self, config: ChannelMapEditorConfig):
+        from chmap.views.data_density import ElectrodeDensityData
+        return [DataView(config, ElectrodeDensityData())]
 
     @property
     def channelmap_file_suffix(self) -> str:

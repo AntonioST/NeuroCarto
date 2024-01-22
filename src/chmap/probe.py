@@ -4,10 +4,14 @@ import abc
 import sys
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import TypeVar, Generic, Any, ClassVar
+from typing import TypeVar, Generic, Any, ClassVar, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from chmap.config import ChannelMapEditorConfig
+    from chmap.views.base import ViewBase
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -154,6 +158,9 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         :return: :return: dict of {description: policy}
         """
         pass
+
+    def extra_controls(self, config: ChannelMapEditorConfig) -> list[ViewBase | type[ViewBase]]:
+        return []
 
     @property
     @abc.abstractmethod

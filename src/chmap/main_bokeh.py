@@ -13,7 +13,6 @@ from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback
 from chmap.views.base import ViewBase, StateView, DynamicView
-from chmap.views.data import DataView
 from chmap.views.probe import ProbeView
 
 __all__ = ['ChannelMapEditorApp', 'main']
@@ -50,8 +49,7 @@ class ChannelMapEditorApp(BokehApplication):
             from chmap.views.atlas import AtlasBrainView
             self.right_view_type.append(AtlasBrainView)
 
-        from chmap.views.data_density import ElectrodeDensityData
-        self.right_view_type.append(DataView(config, ElectrodeDensityData()))
+        self.right_view_type.extend(self.probe.extra_controls(config))
 
     @property
     def title(self) -> str:
@@ -300,7 +298,6 @@ class ChannelMapEditorApp(BokehApplication):
         save_btn = new_btn('Save', self.on_save, min_width=100, align='end')
 
         #
-
         refresh_btn = new_btn('Refresh', self.on_refresh)
         self.auto_btn = Toggle(label='Auto', active=True, min_width=150, width_policy='min')
         self.auto_btn.on_change('active', as_callback(self.on_autoupdate))

@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import abc
 import math
-from typing import TypeVar, Generic, TypedDict, Any
+from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING
 
 import numpy as np
 from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch
@@ -8,9 +10,11 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.probe import ProbeDesp, M, E
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback
 from chmap.util.utils import is_recursive_called
+
+if TYPE_CHECKING:
+    from chmap.probe import ProbeDesp, M, E
 
 __all__ = ['ViewBase', 'StateView', 'DynamicView', 'BoundaryState', 'BoundView']
 
