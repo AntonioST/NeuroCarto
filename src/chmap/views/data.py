@@ -1,86 +1,150 @@
 from __future__ import annotations
 
 import abc
-import sys
-from typing import ClassVar, final
 
-from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement, FileInput, Div
+import numpy as np
+from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement, Div, FileInput
 from bokeh.plotting import figure as Figure
+from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.utils import is_recursive_called
 from chmap.views.base import ViewBase, DynamicView, InvisibleView
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
-__all__ = ['DataReader', 'DataView']
+__all__ = ['DataView', 'Data1DView', 'FileDataView']
 
 
-class DataReader(metaclass=abc.ABCMeta):
-    READERS: ClassVar[list[type[DataReader]]] = []
+class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
+    """electrode data view base class."""
 
-    def __init_subclass__(cls, **kwargs):
-        cls.READERS.append(cls)
+    data_electrode: ColumnDataSource | None = None
+    render_electrode: GlyphRenderer | None = None
+
+    def __init__(self, config: ChannelMapEditorConfig):
+        super().__init__(config)
 
     @property
     @abc.abstractmethod
     def name(self) -> str:
-        pass
-
-    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
+        """data name"""
         pass
 
     @abc.abstractmethod
-    def data(self) -> list[tuple[list[float], list[float]]] | None:
-        """
-
-        :return: [shank: ([x], [y])]
-        """
+    def data(self) -> dict | None:
+        """get Electrode data. A dict used by ColumnDataSource."""
         pass
 
-    @classmethod
-    def match_file(cls, filename: str) -> bool:
-        raise NotImplementedError
+    # ================= #
+    # render components #
+    # ================= #
 
-    @classmethod
-    @final
-    def load_file(cls, filename: str) -> Self:
-        for reader in cls.READERS:
-            if reader.match_file(filename):
-                return reader._load_file(filename)
-        raise RuntimeError()
+    # noinspection PyUnusedLocal
+    def on_visible(self, visible: bool):
+        if (render := self.render_electrode) is not None:
+            render.visible = visible
 
-    @classmethod
-    def _load_file(cls, filename: str) -> Self:
-        raise NotImplementedError
+    # ============= #
+    # UI components #
+    # ============= #
+
+    def setup(self, **kwargs) -> list[UIElement]:
+        from bokeh.layouts import row
+
+        ret = [
+            row(self.setup_visible_switch(), Div(text=f"<b>{self.name}</b>"))
+        ]
+
+        return ret
+
+    # ================ #
+    # updating methods #
+    # ================ #
+
+    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
+        self.update()
+
+    def start(self):
+        self.update()
+
+    def update(self):
+        """update the electrode data"""
+        if (data := self.data()) is None:
+            return
+
+        if self.data_electrode is not None:
+            self.data_electrode.data = data
 
 
-class DataView(ViewBase, InvisibleView, DynamicView):
-    data_electrode: ColumnDataSource
-    render_electrode: GlyphRenderer
+class Data1DView(DataView, metaclass=abc.ABCMeta):
+    """
+    1D electrode data, represented in multi_line.
+    """
 
-    def __init__(self, config: ChannelMapEditorConfig, reader: DataReader = None):
+    def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config)
 
-        self.reader: DataReader | None = reader
         self.data_electrode = ColumnDataSource(data=dict(x=[], y=[]))
+
+    @abc.abstractmethod
+    def data(self) -> dict | None:
+        """
+
+        :return: dict(x=[[x]], y=[[y]])
+        """
+        pass
 
     # ================= #
     # render components #
     # ================= #
 
     def plot(self, f: Figure, **kwargs):
-        self.render_electrode = f.multi_line(
-            'x', 'y', source=self.data_electrode
-        )
+        self.render_electrode = f.multi_line('x', 'y', source=self.data_electrode, **kwargs)
 
-    # noinspection PyUnusedLocal
-    def on_visible(self, visible: bool):
-        self.render_electrode.visible = visible
+    # ========= #
+    # utilities #
+    # ========= #
+
+    @classmethod
+    def arr_to_dict(cls, data: NDArray[np.float_]) -> dict:
+        """
+
+        :param data: Array[float, [S,], Y, (x, y)]
+        :return: dict(x=[[x]], y=[[y]])
+        """
+        if data.ndim == 2:  # (Y, (x, y))
+            xx = [list(data[:, 0])]
+            yy = [list(data[:, 1])]
+        elif data.ndim == 3:  # (S, Y, (x, y))
+            xx = []
+            yy = []
+            for _data in data:
+                xx.append(list(_data[:, 0]))
+                yy.append(list(_data[:, 1]))
+        else:
+            raise RuntimeError(f'{type(set).__name__}.data() return .ndim{data.ndim}')
+
+        return dict(x=xx, y=yy)
+
+
+class FileDataView(DataView, metaclass=abc.ABCMeta):
+    """Electrode data from a file."""
+    
+    @property
+    @abc.abstractmethod
+    def accept_file_ext(self) -> str:
+        """
+
+        https://docs.bokeh.org/en/latest/docs/reference/models/widgets/inputs.html#bokeh.models.FileInput.accept
+
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    def load_data(self, filename: str):
+        """Load electrode data from *filename*"""
+        pass
 
     # ============= #
     # UI components #
@@ -89,21 +153,14 @@ class DataView(ViewBase, InvisibleView, DynamicView):
     data_input: FileInput
 
     def setup(self, **kwargs) -> list[UIElement]:
-        from bokeh.layouts import row
+        ret = super().setup(**kwargs)
 
-        label = 'Data'
-        if self.reader is not None:
-            label = self.reader.name
+        self.data_input = FileInput(
+            accept=self.accept_file_ext,
+        )
+        self.data_input.on_change('filename', self.on_data_selected)
 
-        ret = [
-            row(self.setup_visible_switch(), Div(text=f"<b>{label}</b>"))
-        ]
-
-        if self.reader is None:
-            self.data_input = FileInput()
-            self.data_input.on_change('filename', self.on_data_selected)
-
-            ret.append(self.data_input)
+        ret.append(self.data_input)
 
         return ret
 
@@ -113,15 +170,15 @@ class DataView(ViewBase, InvisibleView, DynamicView):
             return
 
         try:
-            self.reader = DataReader.load_file(filename)
+            self.load_data(filename)
         except RuntimeError as e:
             from chmap.main_bokeh import ChannelMapEditorApp
             ChannelMapEditorApp.get_application().log_message(repr(e))
         else:
-            if isinstance(self.reader, DynamicView) and (probe := self._cache_probe) is not None:
-                self.reader.on_probe_update(probe, self._cache_channelmap, self._cache_electrodes)
-
-            self.start()
+            if (probe := self._cache_probe) is not None:
+                self.on_probe_update(probe, self._cache_channelmap, self._cache_electrodes)
+            else:
+                self.update()
 
     # ================ #
     # updating methods #
@@ -136,20 +193,4 @@ class DataView(ViewBase, InvisibleView, DynamicView):
         self._cache_channelmap = chmap
         self._cache_electrodes = e
 
-        self.reader.on_probe_update(probe, chmap, e)
-        self.start()
-
-    def start(self):
-        if (reader := self.reader) is None:
-            return
-
-        if (data := reader.data()) is None:
-            return
-
-        xx = []
-        yy = []
-        for (x, y) in data:
-            xx.append(list(x))
-            yy.append(list(y))
-
-        self.data_electrode.data = dict(x=xx, y=yy)
+        self.update()

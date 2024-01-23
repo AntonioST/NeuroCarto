@@ -16,7 +16,7 @@ from chmap.util.utils import is_recursive_called
 if TYPE_CHECKING:
     from chmap.probe import ProbeDesp, M, E
 
-__all__ = ['ViewBase', 'StateView', 'DynamicView', 'BoundaryState', 'BoundView']
+__all__ = ['ViewBase', 'StateView', 'DynamicView', 'InvisibleView', 'BoundaryState', 'BoundView']
 
 
 class ViewBase(metaclass=abc.ABCMeta):
@@ -25,6 +25,7 @@ class ViewBase(metaclass=abc.ABCMeta):
 
     """
 
+    # noinspection PyUnusedLocal
     def __init__(self, config: ChannelMapEditorConfig):
         pass
 

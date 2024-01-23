@@ -326,10 +326,12 @@ class ChannelMapEditorApp(BokehApplication):
 
         ret = []
         for view_type in self.right_view_type:
-            if isinstance(view_type, type):
+            if isinstance(view_type, type) and issubclass(view_type, ViewBase):
                 view = view_type(self.config)
+
             elif isinstance(view_type, ViewBase):
                 view = view_type
+
             else:
                 raise TypeError()
 

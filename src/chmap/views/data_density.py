@@ -3,45 +3,44 @@ from __future__ import annotations
 import sys
 
 import numpy as np
+from numpy.typing import NDArray
 
+from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import NpxProbeDesp
 from chmap.probe_npx.npx import ChannelMap
-from chmap.views.data import DataReader
+from chmap.views.data import Data1DView
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
-__all__ = ['ElectrodeDensityData']
+__all__ = ['ElectrodeDensityDataView']
 
 
-class ElectrodeDensityData(DataReader):
-    def __init__(self):
-        self.probe: ProbeDesp[M, E] | None = None
-        self.chmap: M | None = None
-        self._data: list[tuple[list[float], list[float]]] | None = None
+class ElectrodeDensityDataView(Data1DView):
+    """Show electrode (selected) density curve beside the shank."""
+    def __init__(self, config: ChannelMapEditorConfig):
+        super().__init__(config)
+
+        self._data = None
 
     @property
     def name(self) -> str:
         return 'Electrode Density Curve'
 
-    @classmethod
-    def match_file(cls, filename: str) -> bool:
-        return filename == '!density'
-
     def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
-        self.probe = probe
-        self.chmap = chmap
-
         if isinstance(probe, NpxProbeDesp):
-            self._data = electrode_density_npx(probe, chmap)
+            try:
+                self._data = self.arr_to_dict(electrode_density_npx(probe, chmap))
+            except RuntimeError as e:
+                print(repr(e))
+                self._data = None
 
-    def data(self) -> list[tuple[list[float], list[float]]] | None:
-        if self.probe is None:
-            return None
+        self.update()
 
+    def data(self):
         return self._data
 
 
@@ -65,7 +64,13 @@ class ElectrodeDensity:
         return f'{self.channel}/{self.electrode}'
 
 
-def electrode_density_npx(probe: NpxProbeDesp, chmap: ChannelMap) -> list[tuple[list[float], list[float]]]:
+def electrode_density_npx(probe: NpxProbeDesp, chmap: ChannelMap) -> NDArray[np.float_]:
+    """
+
+    :param probe:
+    :param chmap:
+    :return: density curve array. Array[float, S, Y, (x, y)].
+    """
     from scipy.stats import norm
 
     kind = chmap.probe_type
@@ -107,6 +112,6 @@ def electrode_density_npx(probe: NpxProbeDesp, chmap: ChannelMap) -> list[tuple[
                 x += norm.pdf(y, ch.y, 30) * density(*ch.electrode) * f * 4
 
         x += (kind.n_col_shank - 1) * kind.c_space + shank * kind.s_space
-        ret.append((list(x), list(y)))
+        ret.append(np.vstack([x, y]).T)
 
-    return ret
+    return np.array(ret)
