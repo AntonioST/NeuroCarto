@@ -1,5 +1,5 @@
-Get Started
-===========
+Get Start
+=========
 
 Run. ::
 
@@ -78,23 +78,25 @@ Application View
 
     *   Probe
 
-        `Probe[CODE] CURRENT/TOTAL`
+        |probe-desp| `Probe[CODE] CURRENT/TOTAL`
 
-        where CODE indicates current probe type, TOTAL represents the total channels,
-        and CURRENT represents number of electrodes selected as channels.
+        where **CODE** indicates current probe type, **TOTAL** represents the total channels,
+        and **CURRENT** represents number of electrodes selected as channels.
 
     *   Tools
 
         Bokeh provides figure tools, there are:
 
+        |figure-toolbar|
+
         * figure pan |bk-tool-icon-pan| (mouse drag): figure view moving.
         * rectangle-tool |bk-tool-icon-box-select| (mouse drag): select electrodes for setting its state and policy.
-        * zoom |bk-tool-icon-wheel-zoom| (mouse wheel): figure view zoom
-        * wheel |bk-tool-icon-wheel-pan| (mouse wheel): figure view vertical moving
+        * zoom figure |bk-tool-icon-wheel-zoom| (mouse wheel): figure view zoom
+        * wheel figure |bk-tool-icon-wheel-pan| (mouse wheel): figure view vertical moving
         * image pan |bk-tool-icon-box-edit|: moving background image. (shifted-drag) move/scale image inside the dragged rectangle.
         * reset |bk-tool-icon-reset|: reset figure view
         * hover hint |bk-tool-icon-hover|: display electrode information when mouse moves on electrodes.
-        * bokeh |bk-logo-small|: goto bokeh website.
+        * bokeh logo |bk-logo-small|: goto bokeh website.
 
 
     *   Figures
@@ -110,9 +112,6 @@ Application View
 
             Atlas mouse image that controlled by right controls.
 
-        *   rectangle-tool example
-
-
 *   Right panel
 
     *   Atlas Brain control groups. (required extra package. check :ref:`atlas`)
@@ -123,6 +122,7 @@ Application View
 
         display electrode density curve (blue) along shanks.
 
+.. |figure-toolbar| image:: _static/figure-toolbar.png
 .. |bk-tool-icon-pan| image:: _static/bk-tool-icon-pan.svg
 .. |bk-tool-icon-box-select| image:: _static/bk-tool-icon-box-select.svg
 .. |bk-tool-icon-wheel-zoom| image:: _static/bk-tool-icon-wheel-zoom.png
@@ -139,35 +139,61 @@ A simple channelmap
 ~~~~~~~~~~~~~~~~~~~
 
 1.  Press **New** and choose a probe type to create/reset an empty channelmap.
+
+    |new-probe|
+
 2.  Move the probe (shown in electrodes) to the proper place.
-3.  Use rectangle-tool |bk-tool-icon-box-select| in the figure toolbar to select electrodes.
+3.  Use rectangle-tool in the figure toolbar to select electrodes.
+
+    |rect-select-tool|
 
     Selected electrodes will be kept in black and highlighted in yellow, and other electrodes will be faded.
 
     Other electrodes are also highlighted in yellow, which indicates they will be unable to be selected,
     according to Neuropixels' hardware restriction.
 
+    |rect-select-electrodes|
+
 4.  Click **Enable** to set the selected electrodes as readout channels.
+
+    |enable-electrodes|
 
     The yellow highlighted electrodes, except the selected ones, will disappear.
     However, they are still selectable and will overwrite the previous ones when they are enabled.
 
-5.  Repeat picking until text becomes `Probe[24] 384/384` at the top of the figure.
+    before: |rect-select-electrodes-overwrite| after: |rect-select-electrodes-after|
+
+5.  Repeat picking until text becomes |probe-desp| at the top of the figure.
 6.  Type the new filename for your channelmap in **Save filename** field.
+
+    |save-map|
+
 7.  Press **Save**.
 
     You will see the messages in **Log** said files are saved.
 
+    |save-log|
+
+.. |new-probe| image:: _static/new-probe.png
+.. |rect-select-tool| image:: _static/rect-select-tool.png
+.. |rect-select-electrodes| image:: _static/rect-select-electrodes.png
+.. |rect-select-electrodes-overwrite| image:: _static/rect-select-electrodes-overwrite.png
+.. |rect-select-electrodes-after| image:: _static/rect-select-electrodes-after.png
+.. |enable-electrodes| image:: _static/enable-electrodes.png
+.. |probe-desp| image:: _static/probe-desp.png
+.. |save-map| image:: _static/save-map.png
+.. |save-log| image:: _static/save-log.png
+
 Saved Files
 ~~~~~~~~~~~
 
-Once you save a channelmap with saving name `Example`, then you will get files under `-C PATH`:
+Once you save a channelmap (use previous example), then you will get files under `-C PATH`:
 
-* `Example.imro`: channelmap file
-* `Example.policy.npy`: electrode policies matrix
-* `Example.config.json`: view configurations of each component, such as the coordinate of atlas mouse image.
+* `First_map.imro`: channelmap file
+* `First_map.policy.npy`: electrode policies matrix
+* `First_map.config.json`: view configurations of each component, such as the coordinate of atlas mouse image.
 
-Once `Example.imro` load, the other files are also loaded to restore states.
+Once `First_map.imro` load, the other files are also loaded to restore states.
 
 A custom channelmap
 ~~~~~~~~~~~~~~~~~~~
@@ -177,15 +203,22 @@ A custom channelmap
 
     For example, I want to record signals from the Hippocampus.
 
-    1.  Change **Slice view** to *coronal*.
+    1.  Change **Slice view** to *coronal*. |atlas-slice|
     2.  Move **Slice Plane** to *290*.
     3.  Adjust other setting if needed.
-    4.  use box-edit |bk-tool-icon-box-edit| at the figure toolbar to move the atlas image
+    4.  use box-edit at the figure toolbar to move the atlas image
         to the proper position that the probe passes through the Hippocampus.
 
+        |box-edit-tool-hinted|
+
 3.  Move the probe (shown in electrodes) to the proper place.
+
+    |atlas-image-probe|
+
 4.  Use rectangle-tool |bk-tool-icon-box-select| in the figure toolbar to select electrodes in a particular area,
     then press one of the buttons in **Policy**.
+
+    |policy-full-density|
 
     In this step, rather than directly selecting electrodes as readout channels, we set an arrangement policy for selected electrodes.
     Following the policy setting (we called it a blueprint), the application will generate a channelmap.
@@ -193,16 +226,35 @@ A custom channelmap
     There are recommended steps for building a blueprint.
 
     1.  Set electrodes outside the brain with **forbidden** policy, so forbidden electrodes are never selected.
-    2.  Set electrodes around the regions of interest (Hippocampus structure here) with **Set** or **Full Density** policy.
-    3.  Set the other electrodes with a policy.
-    4.  A valid channelmap will be updated automatically (**Auto**).
 
-5.  Check text becomes `Probe[24] 384/384` at the top of the figure.
+        select |electrodes-outside| set |forbidden|
+
+    2.  Set electrodes around the regions of interest (Hippocampus structure here) with **Set** or **Full Density** policy.
+
+        |roi|
+
+    3.  Set the other electrodes with a policy.
+    4.  A valid channelmap will be updated automatically |auto|.
+
+5.  Check text becomes |probe-desp| at the top of the figure.
+
+    |custom-chmap|
 
     If not, it means the current blueprint isn't compatible with the Neuropixels's hardware restriction. Please check `tips`_
 
 6.  Type the new filename for your channelmap in **Save filename** field.
 7.  Press **Save**.
+
+.. |atlas-slice| image:: _static/atlas-slice.png
+.. |atlas-image-probe| image:: _static/atlas-image-probe.png
+.. |box-edit-tool-hinted| image:: _static/box-edit-tool-hinted.png
+.. |policy-full-density| image:: _static/policy-full-density.png
+.. |electrodes-outside| image:: _static/electrodes-outside.png
+.. |custom-chmap| image:: _static/custom-chmap.png
+.. |forbidden| image:: _static/forbidden.png
+.. |roi| image:: _static/roi.png
+.. |auto| image:: _static/auto.png
+
 
 .. _tips:
 
