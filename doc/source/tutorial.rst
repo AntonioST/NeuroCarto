@@ -6,3 +6,4 @@ Tutorials
    :caption: Notebooks:
 
    notebooks/Example
+   notebooks/Extending
