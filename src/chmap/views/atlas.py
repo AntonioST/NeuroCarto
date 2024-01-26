@@ -8,8 +8,7 @@ from numpy.typing import NDArray
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
-from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback
-from chmap.util.utils import is_recursive_called
+from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called
 from chmap.views.base import StateView, BoundView, BoundaryState
 
 __all__ = ['AtlasBrainView', 'AtlasBrainViewState']

@@ -25,6 +25,7 @@ def get_probe_desp(name: str, package: str = 'chmap', describer: str = None) -> 
     """Get probe describer.
 
     Naming rules:
+
     * *name* correspond Python module name.
     * in `chmap` package, module name `probe_NAME` can shorten as `NAME`.
 
@@ -366,11 +367,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def select_electrodes(self, chmap: M, s: list[E], **kwargs) -> M:
         """
-        Selecting electrodes based on the electrode policy.
+        Selecting electrodes based on the electrode blueprint.
 
         :param chmap: channelmap type. It is a reference.
-        :param s: channelmap policy
-        :return: generate channelmap
+        :param s: channelmap blueprint
+        :param kwargs: other parameters.
+        :return: generated channelmap
         """
         pass
 

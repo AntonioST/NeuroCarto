@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
-from chmap.util.utils import is_recursive_called
+from chmap.util.bokeh_util import is_recursive_called
 from chmap.views.base import ViewBase, DynamicView, InvisibleView
 
 __all__ = ['DataView', 'Data1DView', 'FileDataView']
@@ -129,7 +129,7 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
 
 class FileDataView(DataView, metaclass=abc.ABCMeta):
     """Electrode data from a file."""
-    
+
     @property
     @abc.abstractmethod
     def accept_file_ext(self) -> str:

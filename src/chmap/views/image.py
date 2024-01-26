@@ -8,8 +8,7 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.util.bokeh_util import SliderFactory, as_callback
-from chmap.util.utils import is_recursive_called
+from chmap.util.bokeh_util import SliderFactory, as_callback, is_recursive_called
 from chmap.views.base import BoundView, StateView, BoundaryState
 
 if sys.version_info >= (3, 11):

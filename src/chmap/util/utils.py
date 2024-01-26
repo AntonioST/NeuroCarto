@@ -5,7 +5,7 @@ import inspect
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ['all_int', 'align_arr', 'as_set', 'is_recursive_called']
+__all__ = ['all_int', 'align_arr', 'as_set']
 
 
 def all_int(*x) -> bool:
@@ -45,13 +45,3 @@ def as_set(x, n: int) -> set[int]:
         return ret
     else:
         return set(map(int, x))
-
-
-def is_recursive_called(limit=100) -> bool:
-    stack = inspect.stack()
-    caller = stack[1]
-
-    for i, frame in enumerate(stack[2:]):
-        if i < limit and frame.filename == caller.filename and frame.function == caller.function:
-            return True
-    return False

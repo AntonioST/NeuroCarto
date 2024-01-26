@@ -11,6 +11,7 @@ __all__ = [
     'SliderFactory',
     'as_callback',
     'col_layout',
+    'is_recursive_called',
 ]
 
 
@@ -85,3 +86,12 @@ def col_layout(model: list[UIElement], n: int) -> list[UIElement]:
     for i in range(0, len(model), n):
         ret.append(row(model[i:i + n]))
     return ret
+
+def is_recursive_called(limit=100) -> bool:
+    stack = inspect.stack()
+    caller = stack[1]
+
+    for i, frame in enumerate(stack[2:]):
+        if i < limit and frame.filename == caller.filename and frame.function == caller.function:
+            return True
+    return False

@@ -43,6 +43,7 @@ class ProbeView:
             self.data_electrodes[state].selected.on_change('indices', self.on_select(state))
 
         self.data_highlight = ColumnDataSource(data=dict(x=[], y=[], e=[]))
+        self.selecting_parameters = {}
 
     def plot(self, f: Figure):
         self.render_highlight = f.scatter(
@@ -118,7 +119,7 @@ class ProbeView:
 
     def refresh_selection(self):
         """Rerun electrode selection and refresh channelmap"""
-        self.channelmap = self.probe.select_electrodes(self.channelmap, self.electrodes)
+        self.channelmap = self.probe.select_electrodes(self.channelmap, self.electrodes, **self.selecting_parameters)
         self._reset_electrode_state()
 
     def get_electrodes(self, s: None | int | list[int] | ColumnDataSource, *, state: int = None) -> list[E]:
