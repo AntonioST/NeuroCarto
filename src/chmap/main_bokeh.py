@@ -32,27 +32,12 @@ class ChannelMapEditorApp(BokehApplication):
     probe: ProbeDesp[M, Any]
     """probe describer"""
 
-    right_view_config: dict[str, Any] = {}
+    right_panel_views_config: dict[str, Any] = {}
     """view configuration"""
-
-    right_view_type: list[ViewBase | type[ViewBase]]
-    """install views on right panel"""
 
     def __init__(self, config: ChannelMapEditorConfig):
         self.config = config
-
         self.probe = get_probe_desp(config.probe_family)()
-
-        self.right_view_type = []
-
-        if config.atlas_name is not None:
-            try:
-                from chmap.views.atlas import AtlasBrainView
-                self.right_view_type.append(AtlasBrainView)
-            except ImportError:
-                pass
-
-        self.right_view_type.extend(self.probe.extra_controls(config))
 
     @property
     def title(self) -> str:
@@ -190,7 +175,7 @@ class ChannelMapEditorApp(BokehApplication):
         """
         file = self.get_view_config_file(chmap)
         if not file.exists():
-            return self.right_view_config
+            return self.right_panel_views_config
 
         import json
         with file.open('r') as f:
@@ -198,11 +183,11 @@ class ChannelMapEditorApp(BokehApplication):
             self.log_message(f'load image config : {file.name}')
 
         if reset:
-            self.right_view_config.update(data)
+            self.right_panel_views_config.update(data)
         else:
-            self.right_view_config = data
+            self.right_panel_views_config = data
 
-        return self.right_view_config
+        return self.right_panel_views_config
 
     def save_view_config(self, chmap: str | Path, *, direct=False):
         """
@@ -212,14 +197,14 @@ class ChannelMapEditorApp(BokehApplication):
         :param direct: Do not update configurations from view components.
         """
         if not direct:
-            for view in self.right_views:
+            for view in self.right_panel_views:
                 if isinstance(view, StateView):
-                    self.right_view_config[type(view).__name__] = view.save_state()
+                    self.right_panel_views_config[type(view).__name__] = view.save_state()
 
         import json
         file = self.get_view_config_file(chmap)
         with file.open('w') as f:
-            json.dump(self.right_view_config, f, indent=2)
+            json.dump(self.right_panel_views_config, f, indent=2)
             self.log_message(f'save image config : {file.name}')
 
     # ============= #
@@ -230,7 +215,7 @@ class ChannelMapEditorApp(BokehApplication):
     probe_view: ProbeView
     probe_info: Div
 
-    right_views: list[ViewBase]
+    right_panel_views: list[ViewBase]
 
     input_imro: Select
     output_imro: AutocompleteInput
@@ -239,11 +224,13 @@ class ChannelMapEditorApp(BokehApplication):
     auto_btn: Toggle
 
     def index(self):
+        # index_middle_panel
         self.probe_info = Div(text="<b>Probe</b>")
         self.probe_fig = Figure(width=600, height=800, tools='', toolbar_location='above')
         self.probe_view = ProbeView(self.probe)
         self.probe_view.plot(self.probe_fig)
 
+        # figure toolbar
         self.probe_fig.tools.clear()
         self.probe_fig.add_tools(
             tools.ResetTool(),
@@ -257,12 +244,12 @@ class ChannelMapEditorApp(BokehApplication):
         self.probe_fig.toolbar.active_scroll = t_scroll
 
         return Row(
-            Column(self._index_left_control()),
+            Column(self._index_left_panel()),
             Column(self.probe_info, self.probe_fig),
-            Column(self._index_right_control())
+            Column(self._index_right_panel())
         )
 
-    def _index_left_control(self) -> list[UIElement]:
+    def _index_left_panel(self) -> list[UIElement]:
         new_btn = ButtonFactory(min_width=150, width_policy='min')
 
         #
@@ -277,18 +264,19 @@ class ChannelMapEditorApp(BokehApplication):
             width=300, max_completions=5, case_sensitive=False, restrict=True
         )
 
-        #
+        # electrode states buttons
         state_btns = col_layout([
             new_btn(name, functools.partial(self.on_state_change, state=value))
             for name, value in self.probe.possible_states.items()
         ], 2)
 
+        # electrode selecting policy buttons
         policy_btns = col_layout([
             new_btn(name, functools.partial(self.on_policy_change, policy=value))
             for name, value in self.probe.possible_policies.items()
         ], 2)
 
-        #
+        # channelmap IO buttons
         empty_btn = Dropdown(
             label='New',
             menu=list(self.probe.supported_type),
@@ -300,7 +288,7 @@ class ChannelMapEditorApp(BokehApplication):
         load_btn = new_btn('Load', self.on_load, min_width=100, align='end')
         save_btn = new_btn('Save', self.on_save, min_width=100, align='end')
 
-        #
+        # electrode selecting helping buttons
         refresh_btn = new_btn('Refresh', self.on_refresh)
         self.auto_btn = Toggle(label='Auto', active=True, min_width=150, width_policy='min')
         self.auto_btn.on_change('active', as_callback(self.on_autoupdate))
@@ -321,11 +309,11 @@ class ChannelMapEditorApp(BokehApplication):
             self.message_area,
         ]
 
-    def _index_right_control(self) -> list[UIElement]:
-        self.right_views = []
+    def _index_right_panel(self) -> list[UIElement]:
+        self.right_panel_views = []
 
         ret = []
-        for view_type in self.right_view_type:
+        for view_type in self.install_right_panel_views(self.config):
             if isinstance(view_type, type) and issubclass(view_type, ViewBase):
                 view = view_type(self.config)
 
@@ -337,13 +325,30 @@ class ChannelMapEditorApp(BokehApplication):
 
             view.plot(self.probe_fig)
             ret.extend(view.setup())
-            self.right_views.append(view)
+            self.right_panel_views.append(view)
 
+        return ret
+
+    def install_right_panel_views(self, config: ChannelMapEditorConfig) -> list[ViewBase | type[ViewBase]]:
+        """
+
+        :param config:
+        :return: list of ViewBase or ViewBase type
+        """
+        ret = []
+        if config.atlas_name is not None:
+            try:
+                from chmap.views.atlas import AtlasBrainView
+                ret.append(AtlasBrainView)
+            except ImportError:
+                pass
+
+        ret.extend(self.probe.extra_controls(config))
         return ret
 
     def start(self):
         self.reload_input_imro_list()
-        for view in self.right_views:
+        for view in self.right_panel_views:
             view.start()
 
     # ========= #
@@ -381,7 +386,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.load_policy(file)
 
         config = self.load_view_config(file, reset=True)
-        for view in self.right_views:
+        for view in self.right_panel_views:
             if isinstance(view, StateView):
                 try:
                     _config = config[type(view).__name__]
@@ -443,7 +448,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.probe_info.text = self.probe_view.channelmap_desp()
         self.probe_view.update_electrode()
 
-        for view in self.right_views:
+        for view in self.right_panel_views:
             if isinstance(view, DynamicView):
                 view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
 

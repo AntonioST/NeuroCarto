@@ -10,9 +10,6 @@ Then your default web-browser will popup (http://localhost:5006/) with the appli
 :warning:
     we tested application in Google Chrome.
 
-:important:
-    Do not refresh the web-page.
-
 
 Commandline options
 -------------------
