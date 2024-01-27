@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import logging
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement, Div, FileInput
@@ -18,6 +19,7 @@ __all__ = ['DataView', 'Data1DView', 'FileDataView']
 class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
     """electrode data view base class."""
 
+    logger: logging.Logger | None = None
     data_electrode: ColumnDataSource | None = None
     render_electrode: GlyphRenderer | None = None
 
@@ -35,20 +37,14 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
         """get Electrode data. A dict used by ColumnDataSource."""
         pass
 
-    # ================= #
-    # render components #
-    # ================= #
-
-    # noinspection PyUnusedLocal
-    def on_visible(self, visible: bool):
-        if (render := self.render_electrode) is not None:
-            render.visible = visible
-
     # ============= #
     # UI components #
     # ============= #
 
-    def setup(self, **kwargs) -> list[UIElement]:
+    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
+        if (logger := self.logger) is not None:
+            logger.debug('setup()')
+
         from bokeh.layouts import row
 
         ret = [
@@ -56,6 +52,11 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
         ]
 
         return ret
+
+    # noinspection PyUnusedLocal
+    def on_visible(self, visible: bool):
+        if (render := self.render_electrode) is not None:
+            render.visible = visible
 
     # ================ #
     # updating methods #
@@ -94,12 +95,13 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
         """
         pass
 
-    # ================= #
-    # render components #
-    # ================= #
+    # ============= #
+    # UI components #
+    # ============= #
 
-    def plot(self, f: Figure, **kwargs):
+    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
         self.render_electrode = f.multi_line('x', 'y', source=self.data_electrode, **kwargs)
+        return super().setup(f, **kwargs)
 
     # ========= #
     # utilities #
@@ -152,8 +154,8 @@ class FileDataView(DataView, metaclass=abc.ABCMeta):
 
     data_input: FileInput
 
-    def setup(self, **kwargs) -> list[UIElement]:
-        ret = super().setup(**kwargs)
+    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
+        ret = super().setup(f, **kwargs)
 
         self.data_input = FileInput(
             accept=self.accept_file_ext,

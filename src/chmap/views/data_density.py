@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 
 import numpy as np
@@ -22,6 +23,9 @@ __all__ = ['ElectrodeDensityDataView']
 class ElectrodeDensityDataView(Data1DView):
     """Show electrode (selected) density curve beside the shank."""
     def __init__(self, config: ChannelMapEditorConfig):
+        self.logger = logging.getLogger('chmap.view.density')
+        self.logger.debug('init()')
+
         super().__init__(config)
 
         self._data = None

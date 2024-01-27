@@ -160,12 +160,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
-    def extra_controls(self, config: ChannelMapEditorConfig) -> list[ViewBase | type[ViewBase]]:
+    def extra_controls(self, config: ChannelMapEditorConfig) -> list[type[ViewBase]]:
         """
         Probe specific controls.
 
         :param config: application configurations.
-        :return: list of ViewBase.
+        :return: list of ViewBase subtype.
         """
         return []
 

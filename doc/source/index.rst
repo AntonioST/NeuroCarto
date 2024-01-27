@@ -43,7 +43,7 @@ Support probes
 Neuropixels probe family
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-native file format: `*.imro`.
+file format: `*.imro`.
 
 ===== =============== =============== ======================= =================
 rw\\p Neuropixels 1.0 Neuropixels 2.0 4-shank Neuropixels 2.0 Neuropixels Ultra

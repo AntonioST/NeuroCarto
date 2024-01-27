@@ -1,5 +1,4 @@
 import logging
-import time
 from collections.abc import Iterable
 from typing import Any
 
@@ -7,6 +6,8 @@ from bokeh.models import ColumnDataSource, GlyphRenderer, tools
 from bokeh.plotting import figure as Figure
 
 from chmap.probe import ProbeDesp, E, M
+from chmap.util.bokeh_app import run_timeout
+from chmap.util.bokeh_util import as_callback
 
 __all__ = ['ProbeView']
 
@@ -44,7 +45,7 @@ class ProbeView:
         self.data_electrodes = {}
         for state in (ProbeDesp.STATE_UNUSED, ProbeDesp.STATE_USED, ProbeDesp.STATE_FORBIDDEN):
             self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[], c=[]))
-            self.data_electrodes[state].selected.on_change('indices', self.on_select(state))
+            self.data_electrodes[state].selected.on_change('indices', as_callback(self.on_select, state=state))
 
         self.data_highlight = ColumnDataSource(data=dict(x=[], y=[], e=[]))
         self.selecting_parameters = {}
@@ -112,8 +113,6 @@ class ProbeView:
             self._e2i[e] = i
 
     def _reset_electrode_state(self):
-        self.logger.debug('reset_electrode_state()')
-
         for e in self.electrodes:
             e.state = ProbeDesp.STATE_UNUSED
 
@@ -125,7 +124,6 @@ class ProbeView:
 
     def update_electrode(self):
         """Refresh channelmap"""
-        self.logger.debug('update_electrode_position()')
         for state, data in self.data_electrodes.items():
             self.update_electrode_position(data, self.get_electrodes(None, state=state))
         self.update_electrode_position(self.data_highlight, [])
@@ -187,19 +185,25 @@ class ProbeView:
             e = d.data['e']
             return set(self.get_electrodes([e[it] for it in selected_index]))
 
+    _on_select_electrode = []
+    _on_select_callback = None
+
     def on_select(self, state: int):
-        time_stamp = 0
+        selected = self.get_selected(self.data_electrodes[state])
+        self._on_select_electrode.extend(selected)
+        if self._on_select_callback is None:
+            self._on_select_callback = run_timeout(100, self._on_select)
 
-        # noinspection PyUnusedLocal
-        def on_select_callback(prop: str, old: list[int], selected: list[int]):
-            nonlocal time_stamp
-            now = time.time()
-            self.set_highlight(self.get_selected(self.data_electrodes[state]), append=now - time_stamp < 1)
-            time_stamp = now
+    def _on_select(self):
+        selected = self._on_select_electrode
+        self._on_select_electrode = []
+        self._on_select_callback = None
 
-        return on_select_callback
+        if len(selected):
+            self.logger.debug('select %d electrodes', len(selected))
+        self.set_highlight(selected)
 
-    def update_electrode_position(self, d: ColumnDataSource, e: Iterable[E], *, append=False):
+    def update_electrode_position(self, d: ColumnDataSource, e: Iterable[E]):
         """
         Show electrodes.
 
@@ -207,21 +211,20 @@ class ProbeView:
         :param e: new electrodes
         :param append: append *e*.
         """
-        x = [it.x for it in e]
-        y = [it.y for it in e]
-        i = [self._e2i[it] for it in e]
-        c = [str(it.channel) for it in e]
+        x = []
+        y = []
+        i = []
+        c = []
 
-        if append:
-            data = d.data
-            x.extend(data['x'])
-            y.extend(data['y'])
-            i.extend(data['e'])
-            c.extend(data['c'])
+        for it in e:
+            x.append(it.x)
+            y.append(it.y)
+            i.append(self._e2i[it])
+            c.append(str(it.channel))
 
         d.data = dict(x=x, y=y, e=i, c=c)
 
-    def set_highlight(self, s: Iterable[E], *, invalid=True, append=False):
+    def set_highlight(self, s: Iterable[E], *, invalid=True):
         """
         Highlight electrodes.
 
@@ -229,12 +232,10 @@ class ProbeView:
         :param invalid: extend the highlight set to include co-electrodes
         :param append: append the highlight set.
         """
-        h = list(s)
-
         if invalid:
-            h = self.probe.invalid_electrodes(self.channelmap, h, self.electrodes)
+            s = self.probe.invalid_electrodes(self.channelmap, s, self.electrodes)
 
-        self.update_electrode_position(self.data_highlight, h, append=append)
+        self.update_electrode_position(self.data_highlight, s)
 
     def set_state_for_selected(self, state: int):
         """
@@ -248,9 +249,14 @@ class ProbeView:
             for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
                 self.probe.add_electrode(self.channelmap, e, overwrite=True)
 
+            self.get_selected(self.data_electrodes[ProbeDesp.STATE_USED], reset=True)
+
         elif state == ProbeDesp.STATE_UNUSED:
-            for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
+            for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_USED], reset=True):
                 self.probe.del_electrode(self.channelmap, e)
+
+            self.get_selected(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True)
+            self.get_selected(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True)
 
         self._reset_electrode_state()
 

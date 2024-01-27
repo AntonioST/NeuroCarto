@@ -1,21 +1,15 @@
 import abc
 import functools
-import inspect
 import logging
-import sys
 from collections.abc import Callable
 
+import bokeh.io
 from bokeh.application.application import SessionContext
 from bokeh.document import Document
 from bokeh.model import Model
 from bokeh.plotting import figure as Figure
 from bokeh.server.callbacks import SessionCallback
 from bokeh.server.server import Server
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 __all__ = [
     'BokehApplication',
@@ -56,52 +50,6 @@ class BokehApplication(metaclass=abc.ABCMeta):
         """Invoked when session destroyed"""
         pass
 
-    @classmethod
-    def get_application(cls) -> Self:
-        for frame in inspect.stack():
-            if isinstance((app := frame.frame.f_locals.get('self', None)), BokehApplication):
-                return app
-        raise RuntimeError()
-
-    @classmethod
-    def get_server(cls) -> Server:
-        for frame in inspect.stack():
-            if frame.function == 'run_server' and isinstance((server := frame.frame.f_locals.get('server', None)), Server):
-                return server
-        raise RuntimeError()
-
-    def run_later(self, callback: Callable, *args, **kwargs) -> SessionCallback:
-        """
-        Run *callback* on next event loop.
-
-        :param callback: callable
-        :param args: *callback* arguments
-        :param kwargs: *callback* arguments
-        """
-        return self.document.add_next_tick_callback(functools.partial(callback, *args, **kwargs))
-
-    def run_timeout(self, delay: int, callback: Callable, *args, **kwargs) -> SessionCallback:
-        """
-        Run *callback* after the  given time.
-
-        :param delay: milliseconds
-        :param callback: callable
-        :param args: *callback* arguments
-        :param kwargs: *callback* arguments
-        """
-        return self.document.add_timeout_callback(functools.partial(callback, *args, **kwargs), delay)
-
-    def run_periodic(self, cycle: int, callback: Callable, *args, **kwargs) -> SessionCallback:
-        """
-        Run *callback* on every given time.
-
-        :param cycle: milliseconds
-        :param callback: callable
-        :param args: *callback* arguments
-        :param kwargs: *callback* arguments
-        """
-        return self.document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
-
 
 def run_later(callback: Callable, *args, **kwargs) -> SessionCallback:
     """
@@ -111,21 +59,20 @@ def run_later(callback: Callable, *args, **kwargs) -> SessionCallback:
     :param args: *callback* arguments
     :param kwargs: *callback* arguments
     """
-    # TODO bokeh.io.curdoc() ?
-    document = BokehApplication.get_application().document
+    document = bokeh.io.curdoc()
     return document.add_next_tick_callback(functools.partial(callback, *args, **kwargs))
 
 
 def run_timeout(delay: int, callback: Callable, *args, **kwargs) -> SessionCallback:
     """
-    Run *callback* after the  given time.
+    Run *callback* after the given time.
 
     :param delay: milliseconds
     :param callback: callable
     :param args: *callback* arguments
     :param kwargs: *callback* arguments
     """
-    document = BokehApplication.get_application().document
+    document = bokeh.io.curdoc()
     return document.add_timeout_callback(functools.partial(callback, *args, **kwargs), delay)
 
 
@@ -138,7 +85,7 @@ def run_periodic(cycle: int, callback: Callable, *args, **kwargs) -> SessionCall
     :param args: *callback* arguments
     :param kwargs: *callback* arguments
     """
-    document = BokehApplication.get_application().document
+    document = bokeh.io.curdoc()
     return document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
 
 

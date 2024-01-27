@@ -1,4 +1,5 @@
 import abc
+import logging
 import sys
 from typing import TypedDict
 
@@ -79,6 +80,9 @@ class ImageView(BoundView, StateView[list[ImageViewState]]):
     render_image: GlyphRenderer
 
     def __init__(self, config: ChannelMapEditorConfig, image: ImageHandler = None):
+        self.logger = logging.getLogger('chmap.view.image')
+        self.logger.debug('init()')
+
         super().__init__(config)
 
         self.image: ImageHandler | None = image
@@ -104,26 +108,6 @@ class ImageView(BoundView, StateView[list[ImageViewState]]):
         except TypeError:
             return 0
 
-    # ================= #
-    # render components #
-    # ================= #
-
-    def plot(self, f: Figure, palette: str = 'Greys256',
-             boundary_color: str = 'black',
-             boundary_desp: str = 'drag image',
-             **kwargs):
-        self.render_image = f.image(
-            'image', x='x', y='y', dw='dw', dh='dh', source=self.data_image,
-            palette=palette, level="image", global_alpha=0.5, syncable=False,
-        )
-
-        super().plot(f, boundary_color=boundary_color, boundary_desp=boundary_desp, **kwargs)
-
-    # noinspection PyUnusedLocal
-    def on_visible(self, visible: bool):
-        super().on_visible(visible)
-        self.render_image.visible = visible
-
     # ============= #
     # UI components #
     # ============= #
@@ -131,7 +115,27 @@ class ImageView(BoundView, StateView[list[ImageViewState]]):
     image_input: FileInput
     index_slider: Slider
 
-    def setup(self, slider_width: int = 300) -> list[UIElement]:
+    # noinspection PyUnusedLocal
+    def on_visible(self, visible: bool):
+        super().on_visible(visible)
+        self.render_image.visible = visible
+
+    def setup(self, f: Figure,
+              palette: str = 'Greys256',
+              boundary_color: str = 'black',
+              boundary_desp: str = 'drag image',
+              slider_width: int = 300) -> list[UIElement]:
+        self.logger.debug('setup()')
+
+        # renders
+        self.render_image = f.image(
+            'image', x='x', y='y', dw='dw', dh='dh', source=self.data_image,
+            palette=palette, level="image", global_alpha=0.5, syncable=False,
+        )
+
+        self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=boundary_desp)
+
+        # controls
         from bokeh.layouts import row
 
         label = 'Image'
@@ -162,6 +166,7 @@ class ImageView(BoundView, StateView[list[ImageViewState]]):
             if (state := self.save_current_state()) is not None:
                 self.image_config[state['filename']] = state
 
+        self.logger.debug('load(%s)', filename)
         self.image = ImageHandler.from_file(filename)
 
         if (n_image := len(self.image)) == 1:
@@ -184,12 +189,14 @@ class ImageView(BoundView, StateView[list[ImageViewState]]):
     # ========= #
 
     def save_state(self) -> list[ImageViewState]:
+        self.logger.debug('save()')
         return list(self.image_config.values())
 
     def save_current_state(self) -> ImageViewState | None:
         if (image := self.image) is None:
             return None
 
+        self.logger.debug('save(%s)', image.filename)
         boundary = self.get_boundary_state()
         return ImageViewState(
             filename=image.filename,
@@ -202,6 +209,7 @@ class ImageView(BoundView, StateView[list[ImageViewState]]):
         )
 
     def restore_state(self, state: list[ImageViewState]):
+        self.logger.debug('restore()')
         for _state in state:  # type:ImageViewState
             _state = ImageViewState(**_state)
             self.image_config[_state['filename']] = _state
@@ -210,8 +218,10 @@ class ImageView(BoundView, StateView[list[ImageViewState]]):
         try:
             state = self.image_config[self.image.filename]
         except KeyError:
+            self.logger.info('restore(%s) fail', self.image.filename)
             self.reset_boundary_transform()
         else:
+            self.logger.debug('restore(%s)', self.image.filename)
             self.update_boundary_transform(p=(state['image_dx'], state['image_dy']),
                                            s=(state['image_sx'], state['image_sx']),
                                            rt=state['image_rt'])

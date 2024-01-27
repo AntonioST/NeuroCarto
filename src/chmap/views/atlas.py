@@ -81,34 +81,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def brain_slice(self) -> SlicePlane | None:
         return self._brain_slice
 
-    # ================= #
-    # render components #
-    # ================= #
-
-    def plot(self, f: Figure, palette: str = 'Greys256',
-             boundary_color: str = 'black',
-             boundary_desp: str = 'drag atlas brain image',
-             **kwargs):
-        """
-        Setup brain plotting in figure.
-
-        :param f:
-        :param palette: image colormap.
-        :param boundary_color: boundary border color
-        :param boundary_desp: figure tool hint description.
-        :param kwargs:
-        """
-        self.logger.debug('setup(figure)')
-        self.render_brain = f.image(
-            'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
-            palette=palette, level="image", global_alpha=0.5, syncable=False,
-        )
-        super().plot(f, boundary_color=boundary_color, boundary_desp=boundary_desp, **kwargs)
-
-    def on_visible(self, visible: bool):
-        self.render_brain.visible = visible
-        super().on_visible(visible)
-
     # ============= #
     # UI components #
     # ============= #
@@ -118,8 +90,28 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     rotate_hor_slider: Slider
     rotate_ver_slider: Slider
 
-    def setup(self, slider_width: int = 300, rotate_steps=(-1000, 1000, 5), **kwargs) -> list[UIElement]:
-        self.logger.debug('setup(control)')
+    def on_visible(self, visible: bool):
+        self.render_brain.visible = visible
+        super().on_visible(visible)
+
+    def setup(self, f: Figure,
+              palette: str = 'Greys256',
+              boundary_color: str = 'black',
+              boundary_desp: str = 'drag atlas brain image',
+              slider_width: int = 300,
+              rotate_steps=(-1000, 1000, 5),
+              **kwargs) -> list[UIElement]:
+        self.logger.debug('setup()')
+
+        # renders
+        self.render_brain = f.image(
+            'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
+            palette=palette, level="image", global_alpha=0.5, syncable=False,
+        )
+
+        self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=boundary_desp)
+
+        # controls
         new_btn = ButtonFactory(min_width=100, width_policy='min')
         new_slider = SliderFactory(width=slider_width, align='end')
 
@@ -194,6 +186,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def save_state(self) -> AtlasBrainViewState:
         boundary = self.get_boundary_state()
 
+        self.logger.debug('save()')
         return AtlasBrainViewState(
             atlas_brain=self.brain.atlas_name,
             brain_slice=None if (p := self._brain_view) is None else p.name,
@@ -211,6 +204,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if self.brain.atlas_name != state['atlas_brain']:
             raise RuntimeError()
 
+        self.logger.debug('restore()')
         self.update_brain_view(state['brain_slice'], update_image=False)
 
         dp = state['slice_plane']
@@ -245,6 +239,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             view = SliceView(self.brain, view)
 
         self._brain_view = view
+        self.logger.debug('slice_view(%s)', self._brain_view.name)
 
         try:
             self.slice_select.value = view.name

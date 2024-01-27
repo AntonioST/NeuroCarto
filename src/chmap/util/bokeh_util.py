@@ -59,8 +59,12 @@ def as_callback(callback: Callable[..., None], *args, **kwargs) -> Callable[[str
         callback = functools.partial(callback, *args, **kwargs)
 
     s = inspect.signature(callback)
+    p = [
+        it for it in s.parameters.values()
+        if it.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD and it.default is inspect.Parameter.empty
+    ]
 
-    match len(s.parameters):
+    match len(p):
         case 0:
             # noinspection PyUnusedLocal
             def _callback(prop, old, value):
@@ -86,6 +90,7 @@ def col_layout(model: list[UIElement], n: int) -> list[UIElement]:
     for i in range(0, len(model), n):
         ret.append(row(model[i:i + n]))
     return ret
+
 
 def is_recursive_called(limit=100) -> bool:
     stack = inspect.stack()

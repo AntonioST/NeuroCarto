@@ -29,21 +29,13 @@ class ViewBase(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def setup(self, **kwargs) -> list[UIElement]:
+    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
         """
-        Setup controls.
+        Setup controls and plotting.
 
-        :param kwargs: control related parameters.
+        :param f: figure in middle panel
+        :param kwargs: control or plotting related parameters.
         :return: row list.
-        """
-        pass
-
-    def plot(self, f: Figure, **kwargs):
-        """
-        Setup plotting in figure.
-
-        :param f:
-        :param kwargs: drawing related parameters.
         """
         pass
 
@@ -170,40 +162,18 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         """Height of image"""
         pass
 
-    def get_boundary_state(self) -> BoundaryState:
-        """Get current boundary parameters."""
-        data = self.data_boundary.data
-        dx = float(data['x'][0])
-        dy = float(data['y'][0])
-        w = float(data['w'][0])
-        h = float(data['h'][0])
-        rt = float(data['r'][0])
-        ow = self.width
-        oh = self.height
+    def on_visible(self, visible: bool):
+        self.render_boundary.visible = visible
 
-        if ow == 0:
-            sx = 1
-        else:
-            sx = w / ow
-
-        if oh == 0:
-            sy = 1
-        else:
-            sy = h / oh
-
-        return BoundaryState(dx=dx, dy=dy, sx=sx, sy=sy, rt=rt)
-
-    def plot(self, f: Figure, *,
-             boundary_color: str = 'black',
-             boundary_desp: str = None,
-             **kwargs):
+    def setup_boundary(self, f: Figure, *,
+                       boundary_color: str = 'black',
+                       boundary_desp: str = None):
         """
         Setup boundary plotting in figure.
 
         :param f:
         :param boundary_color: boundary border color
         :param boundary_desp: figure tool hint description.
-        :param kwargs:
         """
         self.render_boundary = f.rect(
             'x', 'y', 'w', 'h', 'r', source=self.data_boundary,
@@ -217,9 +187,6 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
             renderers=[self.render_boundary],
             num_objects=1
         ))
-
-    def on_visible(self, visible: bool):
-        self.render_boundary.visible = visible
 
     boundary_rotate_slider: Slider
     boundary_scale_slider: Slider
@@ -285,6 +252,29 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         sy = h / self.height
 
         self.update_boundary_transform(p=(x, y), s=(sx, sy))
+
+    def get_boundary_state(self) -> BoundaryState:
+        """Get current boundary parameters."""
+        data = self.data_boundary.data
+        dx = float(data['x'][0])
+        dy = float(data['y'][0])
+        w = float(data['w'][0])
+        h = float(data['h'][0])
+        rt = float(data['r'][0])
+        ow = self.width
+        oh = self.height
+
+        if ow == 0:
+            sx = 1
+        else:
+            sx = w / ow
+
+        if oh == 0:
+            sy = 1
+        else:
+            sy = h / oh
+
+        return BoundaryState(dx=dx, dy=dy, sx=sx, sy=sy, rt=rt)
 
     def reset_boundary_transform(self):
         self.data_boundary.data = dict(x=[0], y=[0], w=[0], h=[0], r=[0], sx=[1], sy=[1])

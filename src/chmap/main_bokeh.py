@@ -326,7 +326,6 @@ class ChannelMapEditorApp(BokehApplication):
         self.logger.debug('index right')
         self.right_panel_views = []
 
-        ret = []
         for view_type in self.install_right_panel_views(self.config):
             if isinstance(view_type, type) and issubclass(view_type, ViewBase):
                 self.logger.debug('index right add %s', view_type.__name__)
@@ -343,17 +342,19 @@ class ChannelMapEditorApp(BokehApplication):
                     self.logger.warning('index right add fail: %s', type(view_type).__name__)
                 continue
 
-            view.plot(self.probe_fig)
-            ret.extend(view.setup())
             self.right_panel_views.append(view)
 
-        return ret
+        uis = []
+        for view in self.right_panel_views:
+            uis.extend(view.setup(self.probe_fig))
+
+        return uis
 
     def install_right_panel_views(self, config: ChannelMapEditorConfig) -> list[ViewBase | type[ViewBase]]:
         """
 
         :param config:
-        :return: list of ViewBase or ViewBase type
+        :return: list of ViewBase or ViewBase subtype
         """
         ret = []
         if config.atlas_name is not None:
@@ -491,14 +492,11 @@ class ChannelMapEditorApp(BokehApplication):
         self.on_probe_update()
 
     def on_probe_update(self):
-        self.logger.debug('on_probe_update()')
-
         self.probe_info.text = self.probe_view.channelmap_desp()
         self.probe_view.update_electrode()
 
         for view in self.right_panel_views:
             if isinstance(view, DynamicView):
-                self.logger.debug('on_probe_update %s', type(view).__name__)
                 view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
 
     def on_autoupdate(self, active: bool):
