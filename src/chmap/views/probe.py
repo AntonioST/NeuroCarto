@@ -1,3 +1,4 @@
+import logging
 import time
 from collections.abc import Iterable
 from typing import Any
@@ -32,6 +33,9 @@ class ProbeView:
     render_highlight: GlyphRenderer
 
     def __init__(self, desp: ProbeDesp[M, E]):
+        self.logger = logging.getLogger('chmap.view.probe')
+
+        self.logger.debug('init(%s)', type(desp).__name__)
         self.probe: ProbeDesp[M, E] = desp
         self.channelmap: M | None = None
         self.electrodes: list[E] | None = None
@@ -46,6 +50,7 @@ class ProbeView:
         self.selecting_parameters = {}
 
     def plot(self, f: Figure):
+        self.logger.debug('setup(figure)')
         self.render_highlight = f.scatter(
             x='x', y='y', source=self.data_highlight, **self.STYLES.get('highlight', {})
         )
@@ -58,6 +63,8 @@ class ProbeView:
         }
 
     def setup_tools(self) -> list[tools.Tool]:
+        self.logger.debug('setup(tool)')
+
         return [
             tools.BoxSelectTool(
                 description='select electrode',
@@ -87,10 +94,13 @@ class ProbeView:
         :param chmap: channelmap code
         """
         if chmap is None:
+            self.logger.debug('reset()')
             channelmap = self.probe.new_channelmap(self.channelmap)
         elif isinstance(chmap, int):
+            self.logger.debug('reset(%d)', chmap)
             channelmap = self.probe.new_channelmap(chmap)
         else:
+            self.logger.debug('reset(%s)', type(chmap).__name__)
             channelmap = self.probe.copy_channelmap(chmap)
 
         self.channelmap = channelmap
@@ -102,6 +112,8 @@ class ProbeView:
             self._e2i[e] = i
 
     def _reset_electrode_state(self):
+        self.logger.debug('reset_electrode_state()')
+
         for e in self.electrodes:
             e.state = ProbeDesp.STATE_UNUSED
 
@@ -113,12 +125,14 @@ class ProbeView:
 
     def update_electrode(self):
         """Refresh channelmap"""
+        self.logger.debug('update_electrode_position()')
         for state, data in self.data_electrodes.items():
             self.update_electrode_position(data, self.get_electrodes(None, state=state))
         self.update_electrode_position(self.data_highlight, [])
 
     def refresh_selection(self):
         """Rerun electrode selection and refresh channelmap"""
+        self.logger.debug('refresh_selection()')
         self.channelmap = self.probe.select_electrodes(self.channelmap, self.electrodes, **self.selecting_parameters)
         self._reset_electrode_state()
 

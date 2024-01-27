@@ -1,6 +1,7 @@
 import abc
 import functools
 import inspect
+import logging
 import sys
 from collections.abc import Callable
 
@@ -24,6 +25,12 @@ __all__ = [
     'run_server',
     'Figure'
 ]
+
+logging.basicConfig(
+    level=logging.CRITICAL,
+    format='[%(levelname)s] %(name)s - %(message)s'
+)
+logging.getLogger('chmap').setLevel(logging.DEBUG)
 
 
 class BokehApplication(metaclass=abc.ABCMeta):
@@ -143,31 +150,48 @@ def run_server(handlers: BokehApplication | dict[str, BokehApplication], *,
     :param no_open_browser:
     :return: Never return, except a KeyboardInterrupt is raised
     """
+    logger = logging.getLogger('chmap.server')
+
     if isinstance(handlers, BokehApplication):
         handlers = {'/': handlers}
 
     if '/' not in handlers:
         raise RuntimeError("no '/' handler")
 
+    if logger.isEnabledFor(logging.DEBUG):
+        for path, app in handlers.items():
+            logger.debug('service map %s -> %s', path, type(app).__name__)
+
     server = Server({
-        p: _setup_application(h)
+        p: _setup_application(p, h)
         for p, h in handlers.items()
     }, num_procs=1)
+
+    logger.debug('starting service')
     server.start()
+    logger.debug('started service')
 
     if not no_open_browser:
+        logger.debug('open page')
         server.io_loop.add_callback(server.show, "/")
 
     server.run_until_shutdown()
+    logger.debug('stop service')
 
 
-def _setup_application(handler: BokehApplication):
+def _setup_application(path: str, handler: BokehApplication):
+    logger = logging.getLogger(f'chmap.server[{path}]')
+
     def setup(document: Document):
+        logger.debug('setup')
         handler.document = document
         document.title = handler.title
 
+        logger.debug('index')
         document.add_root(handler.index())
         document.on_session_destroyed(handler.cleanup)
+
+        logger.debug('start')
         document.add_next_tick_callback(handler.start)
 
     return setup

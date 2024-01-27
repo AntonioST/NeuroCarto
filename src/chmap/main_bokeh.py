@@ -1,4 +1,5 @@
 import functools
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -36,8 +37,14 @@ class ChannelMapEditorApp(BokehApplication):
     """view configuration"""
 
     def __init__(self, config: ChannelMapEditorConfig):
+        self.logger = logging.getLogger('chmap.editor')
+
+        self.logger.debug('init')
         self.config = config
+
+        self.logger.debug('get get_probe_desp(%s)', config.probe_family)
         self.probe = get_probe_desp(config.probe_family)()
+        self.logger.debug('get get_probe_desp() -> %s', type(self.probe).__name__)
 
     @property
     def title(self) -> str:
@@ -199,6 +206,7 @@ class ChannelMapEditorApp(BokehApplication):
         if not direct:
             for view in self.right_panel_views:
                 if isinstance(view, StateView):
+                    self.logger.debug('on_save() config %s', type(view).__name__)
                     self.right_panel_views_config[type(view).__name__] = view.save_state()
 
         import json
@@ -224,13 +232,17 @@ class ChannelMapEditorApp(BokehApplication):
     auto_btn: Toggle
 
     def index(self):
+        self.logger.debug('index')
+
         # index_middle_panel
+        self.logger.debug('index figure')
         self.probe_info = Div(text="<b>Probe</b>")
         self.probe_fig = Figure(width=600, height=800, tools='', toolbar_location='above')
         self.probe_view = ProbeView(self.probe)
         self.probe_view.plot(self.probe_fig)
 
         # figure toolbar
+        self.logger.debug('index figure toolbar')
         self.probe_fig.tools.clear()
         self.probe_fig.add_tools(
             tools.ResetTool(),
@@ -250,6 +262,7 @@ class ChannelMapEditorApp(BokehApplication):
         )
 
     def _index_left_panel(self) -> list[UIElement]:
+        self.logger.debug('index left')
         new_btn = ButtonFactory(min_width=150, width_policy='min')
 
         #
@@ -310,18 +323,25 @@ class ChannelMapEditorApp(BokehApplication):
         ]
 
     def _index_right_panel(self) -> list[UIElement]:
+        self.logger.debug('index right')
         self.right_panel_views = []
 
         ret = []
         for view_type in self.install_right_panel_views(self.config):
             if isinstance(view_type, type) and issubclass(view_type, ViewBase):
+                self.logger.debug('index right add %s', view_type.__name__)
                 view = view_type(self.config)
 
             elif isinstance(view_type, ViewBase):
+                self.logger.debug('index right add %s', type(view_type).__name__)
                 view = view_type
 
             else:
-                raise TypeError()
+                if isinstance(view_type, type):
+                    self.logger.warning('index right add fail: %s', view_type.__name__)
+                else:
+                    self.logger.warning('index right add fail: %s', type(view_type).__name__)
+                continue
 
             view.plot(self.probe_fig)
             ret.extend(view.setup())
@@ -340,15 +360,18 @@ class ChannelMapEditorApp(BokehApplication):
             try:
                 from chmap.views.atlas import AtlasBrainView
                 ret.append(AtlasBrainView)
-            except ImportError:
+            except ImportError as e:
+                self.logger.warning('index right install AtlasBrainView : %s', repr(e))
                 pass
 
         ret.extend(self.probe.extra_controls(config))
         return ret
 
     def start(self):
+        self.logger.debug('start')
         self.reload_input_imro_list()
         for view in self.right_panel_views:
+            self.logger.debug('start %s', type(view).__name__)
             view.start()
 
     # ========= #
@@ -357,9 +380,11 @@ class ChannelMapEditorApp(BokehApplication):
 
     def on_new(self, e: MenuItemClick):
         if (item := e.item) is None:
+            self.logger.debug('on_new()')
             return
 
         probe_type = self.probe.supported_type[item]
+        self.logger.debug('on_new(%d)=%s', probe_type, item)
 
         self.probe_view.reset(probe_type)
 
@@ -371,8 +396,10 @@ class ChannelMapEditorApp(BokehApplication):
     def on_load(self):
         name: str
         if len(name := self.input_imro.value) == 0:
+            self.logger.debug('on_load()')
             return
 
+        self.logger.debug('on_load(%s)', name)
         try:
             file = self.get_chmap_file(name)
             chmap = self.load_chmap(name)
@@ -393,6 +420,7 @@ class ChannelMapEditorApp(BokehApplication):
                 except KeyError:
                     pass
                 else:
+                    self.logger.debug('on_load() config %s', type(view).__name__)
                     try:
                         view.restore_state(_config)
                     except RuntimeError as e:
@@ -417,9 +445,11 @@ class ChannelMapEditorApp(BokehApplication):
     def on_save(self):
         name = self.output_imro.value_input
         if len(name) == 0:
+            self.logger.debug('on_save()')
             self.log_message('empty output filename')
             return
 
+        self.logger.debug('on_save(%s)', name)
         chmap = self.probe_view.channelmap
         if not self.probe.is_valid(chmap):
             self.log_message(f'incomplete channelmap')
@@ -433,10 +463,26 @@ class ChannelMapEditorApp(BokehApplication):
         self.reload_input_imro_list(path.stem)
 
     def on_state_change(self, state: int):
+        if self.logger.isEnabledFor(logging.DEBUG):
+            for desp, code in self.probe.possible_states.items():
+                if code == state:
+                    self.logger.debug('on_state_change(%d)=%s', state, desp)
+                    break
+            else:
+                self.logger.debug('on_state_change(%d)', state)
+
         self.probe_view.set_state_for_selected(state)
         self.on_probe_update()
 
     def on_policy_change(self, policy: int):
+        if self.logger.isEnabledFor(logging.DEBUG):
+            for desp, code in self.probe.possible_policies.items():
+                if code == policy:
+                    self.logger.debug('on_policy_change(%d)=%s', policy, desp)
+                    break
+            else:
+                self.logger.debug('on_policy_change(%d)', policy)
+
         self.probe_view.set_policy_for_selected(policy)
 
         if self.auto_btn.active:
@@ -445,14 +491,18 @@ class ChannelMapEditorApp(BokehApplication):
         self.on_probe_update()
 
     def on_probe_update(self):
+        self.logger.debug('on_probe_update()')
+
         self.probe_info.text = self.probe_view.channelmap_desp()
         self.probe_view.update_electrode()
 
         for view in self.right_panel_views:
             if isinstance(view, DynamicView):
+                self.logger.debug('on_probe_update %s', type(view).__name__)
                 view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
 
     def on_autoupdate(self, active: bool):
+        self.logger.debug('on_autoupdate(active=%s)', active)
         if active:
             self.on_refresh()
 
@@ -464,6 +514,7 @@ class ChannelMapEditorApp(BokehApplication):
     def log_message(self, *message, reset=False):
         area = self.message_area
         message = '\n'.join(message)
+        self.logger.info(message)
         area.disabled = False
         try:
             if reset:

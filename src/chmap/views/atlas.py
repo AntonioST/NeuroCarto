@@ -1,3 +1,4 @@
+import logging
 from typing import get_args, TypedDict, Final
 
 import numpy as np
@@ -42,6 +43,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     render_brain: GlyphRenderer
 
     def __init__(self, config: ChannelMapEditorConfig):
+        self.logger = logging.getLogger('chmap.view.atlas')
+
+        self.logger.debug('init(%s)', config.atlas_name)
         self.brain = get_atlas_brain(config.atlas_name, config.atlas_root)
 
         super().__init__(config)
@@ -94,6 +98,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         :param boundary_desp: figure tool hint description.
         :param kwargs:
         """
+        self.logger.debug('setup(figure)')
         self.render_brain = f.image(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
             palette=palette, level="image", global_alpha=0.5, syncable=False,
@@ -114,6 +119,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     rotate_ver_slider: Slider
 
     def setup(self, slider_width: int = 300, rotate_steps=(-1000, 1000, 5), **kwargs) -> list[UIElement]:
+        self.logger.debug('setup(control)')
         new_btn = ButtonFactory(min_width=100, width_policy='min')
         new_slider = SliderFactory(width=slider_width, align='end')
 
