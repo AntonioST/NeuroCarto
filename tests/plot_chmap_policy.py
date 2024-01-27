@@ -26,11 +26,11 @@ def get_electrode_under_policy(*policies: int) -> NDArray[np.int_]:
         if e.policy in policies:
             ret.append(e.electrode)
 
-    return np.atleast_2d(np.array(ret))
+    return np.array(ret).reshape(-1, 3)
 
 
 fg, ax = plt.subplots()
-height = 3.2
+height = 6
 
 if len(e := get_electrode_under_policy(NpxProbeDesp.POLICY_SET, NpxProbeDesp.POLICY_D1)) > 0:
     plot_electrode_block(ax, chmap.probe_type, e, height=height, color='green', shank_width_scale=2)

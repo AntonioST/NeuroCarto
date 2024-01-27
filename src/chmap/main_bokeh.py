@@ -443,7 +443,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.output_imro.completions = imro_list
 
     def on_save(self):
-        name = self.output_imro.value_input
+        name = self.output_imro.value
         if len(name) == 0:
             self.logger.debug('on_save()')
             self.log_message('empty output filename')
