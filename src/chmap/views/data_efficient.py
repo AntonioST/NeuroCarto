@@ -17,7 +17,8 @@ class ElectrodeEfficientStat(NamedTuple):
     used_channel: int
     used_channel_on_shanks: list[int]
 
-    require_channel: float
+    require_electrodes: float
+    channel_efficiency: float
     remain_channel: int  # number of electrode selected in remainder policy
     remain_electrode: int  # number of electrode set in remainder policy
 
@@ -28,7 +29,8 @@ def make_stat_div(text: str):
 
 class ElectrodeEfficientData(ViewBase, InvisibleView, DynamicView):
     label_used_channel: Div = make_stat_div('used channels')
-    label_require_channel: Div = make_stat_div('require channels')
+    label_require_electrodes: Div = make_stat_div('require electrodes')
+    label_channel_efficiency: Div = make_stat_div('channel efficiency')
     label_remain_channel: Div = make_stat_div('remain channels')
     label_remain_electrode: Div = make_stat_div('remain electrode')
 
@@ -96,7 +98,8 @@ class ElectrodeEfficientData(ViewBase, InvisibleView, DynamicView):
             ucs = ', '.join(map(lambda it: f's{it[0]}={it[1]}', enumerate(stat.used_channel_on_shanks)))
             self.label_used_channel.text = f'{stat.used_channel}, total={stat.total_channel}, ({ucs})'
 
-            self.label_require_channel.text = f'{stat.require_channel}'
+            self.label_require_electrodes.text = f'{stat.require_electrodes}'
+            self.label_channel_efficiency.text = f'{100 * stat.channel_efficiency:.2f}%'
             self.label_remain_channel.text = f'{stat.remain_channel}'
             self.label_remain_electrode.text = f'{stat.remain_electrode}'
 
@@ -108,20 +111,30 @@ def electrode_efficient_npx(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxE
         for s in range(chmap.probe_type.n_shank)
     ]
 
-    pp = len([it for it in e if it.policy == NpxProbeDesp.POLICY_SET])
-    pf = len([it for it in e if it.policy == NpxProbeDesp.POLICY_D1])
-    ph = len([it for it in e if it.policy == NpxProbeDesp.POLICY_D2])
-    pq = len([it for it in e if it.policy == NpxProbeDesp.POLICY_D4])
-    require_channels = pp + pf + ph / 2 + pq / 4
-
-    pr = [it for it in e if it.policy in (NpxProbeDesp.POLICY_REMAINDER, NpxProbeDesp.POLICY_UNSET)]
-    remain_channel = len([it for it in pr if it.state == NpxProbeDesp.STATE_USED])
+    p, c = _electrode_efficient_npx_require_electrodes(e)
+    re, rc = _get_electrode(e, [NpxProbeDesp.POLICY_REMAINDER, NpxProbeDesp.POLICY_UNSET])
 
     return ElectrodeEfficientStat(
         chmap.probe_type.n_channels,
         used_channel,
         used_channel_on_shanks,
-        require_channels,
-        remain_channel,
-        len(pr)
+        require_electrodes=p,
+        channel_efficiency=c / p,
+        remain_electrode=re,
+        remain_channel=rc
     )
+
+
+def _electrode_efficient_npx_require_electrodes(e: list[NpxElectrodeDesp]) -> tuple[float, int]:
+    p0, s0 = _get_electrode(e, [NpxProbeDesp.POLICY_SET, NpxProbeDesp.POLICY_D1])
+    p2, s2 = _get_electrode(e, [NpxProbeDesp.POLICY_D2])
+    p4, s4 = _get_electrode(e, [NpxProbeDesp.POLICY_D4])
+    p = p0 + p2 / 2 + p4 / 4
+    s = s0 + s2 + s4
+    return p, s
+
+
+def _get_electrode(e: list[NpxElectrodeDesp], policies: list[int]) -> tuple[int, int]:
+    e1 = [it for it in e if it.policy in policies]
+    e2 = [it for it in e1 if it.state == NpxProbeDesp.STATE_USED]
+    return len(e1), len(e2)
