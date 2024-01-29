@@ -139,7 +139,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             row(self.slice_select, self.plane_slider),
             row(reset_rth, self.rotate_hor_slider),
             row(reset_rtv, self.rotate_ver_slider),
-            *self.setup_slider(slider_width=slider_width)
+            row(*self.setup_rotate_slider(slider_width=slider_width)),
+            row(*self.setup_scale_slider(slider_width=slider_width)),
         ]
 
     def on_slice_selected(self, s: str):

@@ -3,7 +3,8 @@ from __future__ import annotations
 import abc
 import logging
 import math
-from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING
+from pathlib import Path
+from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast
 
 import numpy as np
 from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch
@@ -11,7 +12,7 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called
+from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, is_image
 
 if TYPE_CHECKING:
     from chmap.probe import ProbeDesp, M, E
@@ -56,7 +57,10 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
     * `None` skip
     * `ViewBase` or `type[ViewBase]`
     * `ImageHandler`, wrap with ImageView.
+    * literal 'file' for FileImageView
+    * image filepath
     * `str` in pattern: `module.path:attribute` in type listed above.
+
 
     :param config:
     :param view_type:
@@ -73,6 +77,14 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
 
         elif isinstance(view_type, ImageHandler):
             return ImageView(config, view_type)
+
+        elif view_type == 'file':
+            from chmap.views.image import FileImageView
+            return FileImageView(config)
+
+        elif isinstance(view_type, str) and is_image(image_file := Path(view_type)):
+            from chmap.views.image import ImageView, ImageHandler
+            return ImageView(config, ImageHandler.from_file(image_file))
 
         elif isinstance(view_type, str):
             return import_view(config, view_type)
@@ -127,7 +139,8 @@ class InvisibleView:
 
         :param visible: new visible state
         """
-        pass
+        if (logger := getattr(self, 'logger', None)) is not None:
+            cast(logging.Logger, logger).debug(f'visible({visible})')
 
 
 S = TypeVar('S')
@@ -214,6 +227,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         pass
 
     def on_visible(self, visible: bool):
+        super().on_visible(visible)  # logging
         self.render_boundary.visible = visible
 
     def setup_boundary(self, f: Figure, *,
@@ -263,6 +277,40 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
             row(reset_imr, self.boundary_rotate_slider),
             row(reset_ims, self.boundary_scale_slider),
         ]
+
+    def setup_rotate_slider(self, slider_width: int = 300) -> list[UIElement]:
+        """
+        Setup image rotating controls.
+
+        :param slider_width:
+        :return: row list.
+        """
+        new_btn = ButtonFactory(min_width=100, width_policy='min')
+        new_slider = SliderFactory(width=slider_width, align='end')
+
+        self.boundary_rotate_slider = new_slider('image rotation (deg)', (-25, 25, 1, 0), self.on_boundary_rotate)
+
+        reset_imr = new_btn('reset', self.on_reset_boundary_rotate)
+
+        return [
+            reset_imr, self.boundary_rotate_slider
+        ]
+
+    def setup_scale_slider(self, slider_width: int = 300) -> list[UIElement]:
+        """
+        Setup image scaling controls.
+
+        :param slider_width:
+        :return: row list.
+        """
+        new_btn = ButtonFactory(min_width=100, width_policy='min')
+        new_slider = SliderFactory(width=slider_width, align='end')
+
+        self.boundary_scale_slider = new_slider('image scale (log)', (-1, 1, 0.01, 0), self.on_boundary_scale)
+
+        reset_ims = new_btn('reset', self.on_reset_boundary_scale)
+
+        return [reset_ims, self.boundary_scale_slider]
 
     def on_boundary_rotate(self, s: int):
         if not is_recursive_called():
@@ -334,7 +382,8 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
 
     def reset_boundary_transform(self):
         self.data_boundary.data = dict(x=[0], y=[0], w=[0], h=[0], r=[0], sx=[1], sy=[1])
-        self._update_boundary_transform(self.get_boundary_state())
+        # data -> update_boundary_transform
+        #   -> _update_boundary_transform
 
     def update_boundary_transform(self, *,
                                   p: tuple[float, float] = None,

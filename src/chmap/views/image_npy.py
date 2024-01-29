@@ -7,13 +7,11 @@ __all__ = ['NumpyImageHandler']
 
 
 class NumpyImageHandler(ImageHandler):
-    def __init__(self, filename: str, image: NDArray[np.uint] = None, *,
-                 resolution: tuple[float, float] = (1, 1)):
+    def __init__(self, filename: str, image: NDArray[np.uint] = None):
         """
 
         :param filename:
         :param image: Array[uint, [N,], H, W]
-        :param resolution: (x, y)
         """
         self.filename = filename
         if image is None:
@@ -23,9 +21,8 @@ class NumpyImageHandler(ImageHandler):
             raise RuntimeError()
 
         self.image = image
-        self.resolution = resolution
+        self._resolution = (1, 1)
 
-    @property
     def __len__(self) -> int:
         if self.image.ndim == 3:
             return len(self.image)
@@ -33,7 +30,21 @@ class NumpyImageHandler(ImageHandler):
             return 1
 
     def __getitem__(self, index: int) -> NDArray[np.uint]:
-        pass
+        if self.image.ndim == 3:
+            return self.image[index]
+        else:
+            return self.image
+
+    @property
+    def resolution(self) -> tuple[float, float]:
+        return self._resolution
+
+    @resolution.setter
+    def resolution(self, resolution: float | tuple[float, float]):
+        if not isinstance(resolution, tuple):
+            resolution = float(resolution)
+            resolution = (resolution, resolution)
+        self._resolution = resolution
 
     @property
     def width(self) -> float:

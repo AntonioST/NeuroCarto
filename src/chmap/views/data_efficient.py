@@ -87,7 +87,7 @@ class ElectrodeEfficientData(ViewBase, InvisibleView, DynamicView):
 
             try:
                 self._stat = electrode_efficient_npx(probe, chmap, e)
-            except RuntimeError as e:
+            except BaseException as e:
                 self.logger.warning(repr(e), exc_info=e)
                 self._stat = None
 

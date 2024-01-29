@@ -1,17 +1,20 @@
 import functools
 import inspect
 from collections.abc import Callable
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 
 from bokeh.layouts import row
-from bokeh.models import Button, UIElement, Slider
+from bokeh.models import Button, UIElement, Slider, AutocompleteInput
 
 __all__ = [
     'ButtonFactory',
     'SliderFactory',
+    'PathAutocompleteInput',
     'as_callback',
     'col_layout',
     'is_recursive_called',
+    'is_image',
 ]
 
 
@@ -100,3 +103,159 @@ def is_recursive_called(limit=100) -> bool:
         if i < limit and frame.filename == caller.filename and frame.function == caller.function:
             return True
     return False
+
+
+class PathAutocompleteInput:
+    input: AutocompleteInput
+
+    def __init__(self, root: Path,
+                 callback: Callable[[Path], None] = None,
+                 mode: Literal['path', 'dir', 'file'] = 'path',
+                 accept: list[str] = None,
+                 min_characters=0,
+                 max_completions=10,
+                 case_sensitive=False,
+                 restrict=False,
+                 **kwarg):
+        """
+
+        :param root:
+        :param callback:
+        :param mode:
+        :param accept: accept file suffix ('.*') or mime type ('*/*') when mode == 'file'
+        :param min_characters:
+        :param max_completions:
+        :param case_sensitive:
+        :param restrict:
+        :param kwarg:
+        """
+        if not root.is_dir():
+            raise NotADirectoryError()
+
+        self.input = AutocompleteInput(
+            min_characters=min_characters,
+            max_completions=max_completions,
+            case_sensitive=case_sensitive,
+            restrict=restrict,
+            **kwarg
+        )
+
+        self.input.on_change('value_input', as_callback(self._on_typing))
+        self.input.on_change('value', as_callback(self._on_enter))
+
+        self._root = root.absolute()
+        self._mode = mode
+        self._accept = accept
+        self._path: Path = None
+        self._complete_root = None
+        self._callback: Callable[[Path], None] = callback
+
+        self._set_complete(self._root)
+
+    @property
+    def root(self) -> Path:
+        return self._root
+
+    @property
+    def mode(self) -> Literal['path', 'dir', 'file']:
+        return self._mode
+
+    @property
+    def value(self) -> str:
+        return self.input.value
+
+    @value.setter
+    def value(self, value: str):
+        self.input.value = value
+
+    @property
+    def path(self) -> Path | None:
+        return self._path
+
+    @path.setter
+    def path(self, path: Path):
+        self.input.value = str(path.relative_to(self._root))
+
+        if path.is_dir():
+            self._set_complete(path)
+        elif (d := path.parent).exists():
+            self._set_complete(d)
+
+    def _on_typing(self, value: str):
+        f = self._root / value
+
+        if f.is_dir():
+            self._set_complete(f)
+        elif (d := f.parent).exists():
+            self._set_complete(d)
+
+    def _set_complete(self, d: Path):
+        if self._complete_root == d:
+            return
+
+        self._complete_root = d
+
+        # remove hidden
+        fs = [it for it in d.iterdir() if not it.name.startswith('.')]
+
+        match self._mode:
+            case 'path':
+                pass
+            case 'file':
+                fs = [
+                    it for it in fs
+                    if it.is_dir() or (it.is_file() and self._is_accepted(it))
+                ]
+            case 'dir':
+                fs = [it for it in fs if it.is_dir()]
+            case _:
+                fs = []
+
+        try:
+            self.input.completions = [str(it.relative_to(self._root)) + ('/' if it.is_dir() else '') for it in fs]
+        except ValueError:
+            self.input.completions = []
+
+    def _on_enter(self, value: str):
+        f = self._root / value
+        self._path = f
+
+        if f.exists() and self._callback is not None:
+            from chmap.util.bokeh_app import run_later
+
+            match self._mode:
+                case 'path':
+                    run_later(self._callback, f)
+                case 'file' if f.is_file() and self._is_accepted(f):
+                    run_later(self._callback, f)
+                case 'dir' if f.is_dir():
+                    run_later(self._callback, f)
+
+    def _is_accepted(self, f: Path) -> bool:
+        if self._accept is None:
+            return True
+
+        import mimetypes
+        mt, _ = mimetypes.guess_type(f)
+
+        for accept in self._accept:
+            if accept.startswith('.'):
+                if f.suffix == accept:
+                    return True
+            elif accept.endswith('/*'):
+                if mt is not None and mt.startswith(accept[:-1]):
+                    return True
+            elif '/' in accept:
+                if mt is not None and accept == mt:
+                    return True
+
+        return False
+
+
+def is_image(path: Path) -> bool:
+    if not path.is_file():
+        return False
+
+    import mimetypes
+    mt, _ = mimetypes.guess_type(path)
+    return mt is not None and mt.startswith('image/')
