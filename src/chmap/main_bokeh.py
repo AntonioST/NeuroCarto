@@ -11,7 +11,7 @@ from bokeh.plotting import figure as Figure
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
-from chmap.util.bokeh_app import BokehApplication, run_server
+from chmap.util.bokeh_app import BokehApplication, run_server, run_later
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback
 from chmap.views.base import ViewBase, StateView, DynamicView
 from chmap.views.probe import ProbeView
@@ -493,11 +493,11 @@ class ChannelMapEditorApp(BokehApplication):
 
     def on_probe_update(self):
         self.probe_info.text = self.probe_view.channelmap_desp()
-        self.probe_view.update_electrode()
+        run_later(self.probe_view.update_electrode)
 
         for view in self.right_panel_views:
             if isinstance(view, DynamicView):
-                view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
+                run_later(view.on_probe_update, self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
 
     def on_autoupdate(self, active: bool):
         self.logger.debug('on_autoupdate(active=%s)', active)

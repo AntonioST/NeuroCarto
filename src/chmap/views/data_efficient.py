@@ -83,7 +83,13 @@ class ElectrodeEfficientData(ViewBase, InvisibleView, DynamicView):
         if chmap is None:
             self._stat = None
         elif isinstance(probe, NpxProbeDesp):
-            self._stat = electrode_efficient_npx(probe, chmap, e)
+            # self.logger.debug('on_probe_update()')
+
+            try:
+                self._stat = electrode_efficient_npx(probe, chmap, e)
+            except RuntimeError as e:
+                self.logger.warning(repr(e), exc_info=e)
+                self._stat = None
 
         self.update()
 

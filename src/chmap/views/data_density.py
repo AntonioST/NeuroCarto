@@ -39,6 +39,8 @@ class ElectrodeDensityDataView(Data1DView):
         if chmap is None:
             self._data = None
         elif isinstance(probe, NpxProbeDesp):
+            # self.logger.debug('on_probe_update()')
+
             try:
                 self._data = self.arr_to_dict(electrode_density_npx(probe, chmap))
             except RuntimeError as ex:
