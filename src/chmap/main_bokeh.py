@@ -13,7 +13,7 @@ from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server, run_later
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback
-from chmap.views.base import ViewBase, StateView, DynamicView
+from chmap.views.base import ViewBase, StateView, DynamicView, init_view
 from chmap.views.probe import ProbeView
 
 __all__ = ['ChannelMapEditorApp', 'main']
@@ -327,22 +327,8 @@ class ChannelMapEditorApp(BokehApplication):
         self.right_panel_views = []
 
         for view_type in self.install_right_panel_views(self.config):
-            if isinstance(view_type, type) and issubclass(view_type, ViewBase):
-                self.logger.debug('index right add %s', view_type.__name__)
-                view = view_type(self.config)
-
-            elif isinstance(view_type, ViewBase):
-                self.logger.debug('index right add %s', type(view_type).__name__)
-                view = view_type
-
-            else:
-                if isinstance(view_type, type):
-                    self.logger.warning('index right add fail: %s', view_type.__name__)
-                else:
-                    self.logger.warning('index right add fail: %s', type(view_type).__name__)
-                continue
-
-            self.right_panel_views.append(view)
+            if (view := init_view(self.config, view_type)) is not None:
+                self.right_panel_views.append(view)
 
         uis = []
         for view in self.right_panel_views:
@@ -350,22 +336,14 @@ class ChannelMapEditorApp(BokehApplication):
 
         return uis
 
-    def install_right_panel_views(self, config: ChannelMapEditorConfig) -> list[ViewBase | type[ViewBase]]:
+    def install_right_panel_views(self, config: ChannelMapEditorConfig) -> list:
         """
-
         :param config:
-        :return: list of ViewBase or ViewBase subtype
+        :return: list of item that recognised by `init_view`
         """
-        ret = []
-        if config.atlas_name is not None:
-            try:
-                from chmap.views.atlas import AtlasBrainView
-                ret.append(AtlasBrainView)
-            except ImportError as e:
-                self.logger.warning('index right install AtlasBrainView : %s', repr(e))
-                pass
-
+        ret = ['chmap.views.atlas:AtlasBrainView']
         ret.extend(self.probe.extra_controls(config))
+        ret.extend(config.extra_view)
         return ret
 
     def start(self):

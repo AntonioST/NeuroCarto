@@ -174,8 +174,8 @@ class FileDataView(DataView, metaclass=abc.ABCMeta):
         try:
             self.load_data(filename)
         except RuntimeError as e:
-            from chmap.main_bokeh import ChannelMapEditorApp
-            ChannelMapEditorApp.get_application().log_message(repr(e))
+            if (logger := self.logger) is not None:
+                logger.warning('load_data() fail', exc_info=e)
         else:
             if (probe := self._cache_probe) is not None:
                 self.on_probe_update(probe, self._cache_channelmap, self._cache_electrodes)

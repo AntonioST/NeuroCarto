@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import logging
 import math
 from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING
 
@@ -24,9 +25,12 @@ class ViewBase(metaclass=abc.ABCMeta):
 
     """
 
+    logger: logging.Logger = None
+
     # noinspection PyUnusedLocal
     def __init__(self, config: ChannelMapEditorConfig):
-        pass
+        if (logger := self.logger) is not None:
+            logger.debug('init()')
 
     @abc.abstractmethod
     def setup(self, f: Figure, **kwargs) -> list[UIElement]:
@@ -42,6 +46,53 @@ class ViewBase(metaclass=abc.ABCMeta):
     def start(self):
         """Invoked when figure is ready."""
         pass
+
+
+def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
+    """
+
+    Recognised type:
+
+    * `None` skip
+    * `ViewBase` or `type[ViewBase]`
+    * `ImageHandler`, wrap with ImageView.
+    * `str` in pattern: `module.path:attribute` in type listed above.
+
+    :param config:
+    :param view_type:
+    :return:
+    """
+    from chmap.views.image import ImageView, ImageHandler
+
+    try:
+        if isinstance(view_type, type) and issubclass(view_type, ViewBase):
+            return view_type(config)
+
+        elif isinstance(view_type, ViewBase):
+            return view_type
+
+        elif isinstance(view_type, ImageHandler):
+            return ImageView(config, view_type)
+
+        elif isinstance(view_type, str):
+            return import_view(config, view_type)
+
+    except BaseException as e:
+        logging.getLogger('chmap.view').warning('init view fail', exc_info=e)
+        pass
+
+    return None
+
+
+def import_view(config: ChannelMapEditorConfig, module_path: str) -> ViewBase | None:
+    module, _, name = module_path.partition(':')
+    if len(name) == 0:
+        raise ValueError(f'not a module_path pattern "module_path:name" : {module_path}')
+
+    import importlib
+    module = importlib.import_module(module)
+
+    return init_view(config, getattr(module, name))
 
 
 class InvisibleView:
@@ -240,6 +291,11 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         if is_recursive_called():
             return
 
+        iw = self.width
+        ih = self.height
+        if (iw <= 0) or (ih <= 0):
+            return
+
         try:
             x = float(value['x'][0])
         except IndexError:
@@ -248,8 +304,8 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         y = float(value['y'][0])
         w = float(value['w'][0])
         h = float(value['h'][0])
-        sx = w / self.width
-        sy = h / self.height
+        sx = w / iw
+        sy = h / ih
 
         self.update_boundary_transform(p=(x, y), s=(sx, sy))
 

@@ -17,6 +17,7 @@ class ChannelMapEditorConfig:
 
     probe_family: str
     chmap_root: Path
+    extra_view: list[str]
 
     atlas_name: int | str
     atlas_root: Path | None
@@ -38,6 +39,11 @@ def new_parser() -> argparse.ArgumentParser:
     gp = ap.add_argument_group('Source')
     gp.add_argument('-C', '--chmap-dir', metavar='PATH', type=Path, default=Path('.'), dest='chmap_root',
                     help='channel saving directory')
+
+    #
+    gp = ap.add_argument_group('View')
+    gp.add_argument('--extra', metavar='MODULE:NAME,...', type=_list_type, default=tuple(), dest='extra_view',
+                    help='install extra views in right panel')
 
     #
     gp = ap.add_argument_group('Atlas')
@@ -69,3 +75,7 @@ def _try_int(a: str) -> int | str:
         return int(a)
     except ValueError:
         return a
+
+
+def _list_type(a: str) -> list[str]:
+    return a.split(',')
