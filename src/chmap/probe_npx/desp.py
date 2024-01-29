@@ -14,7 +14,6 @@ from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, Cha
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
 
-
 K: TypeAlias = tuple[int, int, int]
 
 
@@ -59,7 +58,8 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
     def extra_controls(self, config: ChannelMapEditorConfig):
         from chmap.views.data_density import ElectrodeDensityDataView
-        return [ElectrodeDensityDataView]
+        from chmap.views.data_efficient import ElectrodeEfficientData
+        return [ElectrodeDensityDataView, ElectrodeEfficientData]
 
     @property
     def channelmap_file_suffix(self) -> str:

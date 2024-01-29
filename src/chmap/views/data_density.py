@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.probe import ProbeDesp, M, E
+from chmap.probe import ProbeDesp
 from chmap.probe_npx import NpxProbeDesp
 from chmap.probe_npx.npx import ChannelMap
 from chmap.views.data import Data1DView
@@ -22,6 +22,7 @@ __all__ = ['ElectrodeDensityDataView']
 
 class ElectrodeDensityDataView(Data1DView):
     """Show electrode (selected) density curve beside the shank."""
+
     def __init__(self, config: ChannelMapEditorConfig):
         self.logger = logging.getLogger('chmap.view.density')
         self.logger.debug('init()')
@@ -34,12 +35,14 @@ class ElectrodeDensityDataView(Data1DView):
     def name(self) -> str:
         return 'Electrode Density Curve'
 
-    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
-        if isinstance(probe, NpxProbeDesp):
+    def on_probe_update(self, probe: ProbeDesp, chmap, e):
+        if chmap is None:
+            self._data = None
+        elif isinstance(probe, NpxProbeDesp):
             try:
                 self._data = self.arr_to_dict(electrode_density_npx(probe, chmap))
-            except RuntimeError as e:
-                print(repr(e))
+            except RuntimeError as ex:
+                self.logger.warning(repr(ex), exc_info=ex)
                 self._data = None
 
         self.update()
