@@ -22,6 +22,7 @@ class ChannelMapEditorConfig:
     atlas_root: Path | None
 
     no_open_browser: bool
+    debug: bool
 
 
 def new_parser() -> argparse.ArgumentParser:
@@ -31,6 +32,8 @@ def new_parser() -> argparse.ArgumentParser:
     ap.add_argument('-P', '--probe', metavar='NAME', default='npx', dest='probe_family',
                     help='use probe family. default use "npx" (Neuropixels probe family).')
 
+    ap.add_argument('--debug', action='store_true', dest='debug',
+                    help=argparse.SUPPRESS)
     #
     gp = ap.add_argument_group('Source')
     gp.add_argument('-C', '--chmap-dir', metavar='PATH', type=Path, default=Path('.'), dest='chmap_root',

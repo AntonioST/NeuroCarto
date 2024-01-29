@@ -20,12 +20,6 @@ __all__ = [
     'Figure'
 ]
 
-logging.basicConfig(
-    level=logging.CRITICAL,
-    format='[%(levelname)s] %(name)s - %(message)s'
-)
-logging.getLogger('chmap').setLevel(logging.DEBUG)
-
 
 class BokehApplication(metaclass=abc.ABCMeta):
     """Bokeh Application of a single page"""

@@ -537,6 +537,13 @@ def main(config: ChannelMapEditorConfig = None):
     if config is None:
         config = parse_cli()
 
+    logging.basicConfig(
+        format='[%(levelname)s] %(name)s - %(message)s'
+    )
+
+    if config.debug:
+        logging.getLogger('chmap').setLevel(logging.DEBUG)
+
     run_server(ChannelMapEditorApp(config),
                no_open_browser=config.no_open_browser)
 
