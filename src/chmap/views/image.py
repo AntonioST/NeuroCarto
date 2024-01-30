@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TypedDict
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div, TextInput
+from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div, TextInput, Tooltip
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -105,6 +105,10 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         self._image = image
         self._index: int = 0
 
+    @property
+    def name(self) -> str:
+        return 'Image'
+
     # ================ #
     # image properties #
     # ================ #
@@ -131,7 +135,7 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         self._image = image
 
         if (slider := self.index_slider) is not None:
-            if (n_image := len(image)) == 1:
+            if image is None or (n_image := len(image)) == 1:
                 slider.end = 1
                 slider.disabled = True
             else:
@@ -141,27 +145,42 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
             if self.visible:
                 slider.visible = not slider.disabled
 
+    def save_current_state(self) -> ImageViewState | None:
+        if (image := self.image) is None:
+            return None
+
+        self.logger.debug('save(%s)', image.filename)
+        boundary = self.get_boundary_state()
+        resolution = image.resolution
+
+        return ImageViewState(
+            filename=image.filename,
+            index=self._index,
+            resolution_w=resolution[0],
+            resolution_h=resolution[1],
+            image_dx=boundary['dx'],
+            image_dy=boundary['dy'],
+            image_rt=boundary['rt'],
+        )
+
+    def restore_current_state(self, state: ImageViewState):
+        if (image := self.image) is None:
+            return
+
+        image.resolution = (state['resolution_w'], state['resolution_h'])
+        self.update_boundary_transform(p=(state['image_dx'], state['image_dy']), rt=state['image_rt'])
+        self.update_image(state['index'])
+
     # ============= #
     # UI components #
     # ============= #
 
-    image_label: Div
     resolution_input: TextInput
-    image_controls: UIElement
 
-    # noinspection PyUnusedLocal
-    def on_visible(self, visible: bool):
-        super().on_visible(visible)
-        self.render_image.visible = visible
-        self.image_controls.visible = visible
-        self.index_slider.visible = not self.index_slider.disabled
-
-    def setup(self, f: Figure,
-              boundary_color: str = 'black',
-              boundary_desp: str = 'drag image',
-              **kwargs) -> list[UIElement]:
-        self.logger.debug('setup()')
-
+    def _setup_render(self, f: Figure,
+                      boundary_color: str = 'black',
+                      boundary_desp: str = 'drag image',
+                      **kwargs):
         # renders
         self.render_image = f.image_rgba(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_image,
@@ -170,28 +189,25 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
         self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=boundary_desp)
 
-        # controls
-        from bokeh.layouts import row, column
+    def _setup_title(self, **kwargs) -> list[UIElement]:
+        ret = super()._setup_title(**kwargs)
 
-        self.image_label = Div(text='<b>Image<b/>')
         if (image := self.image) is not None:
-            self.image_label.text = f'<b>Image</b> {image.filename}'
+            self.view_title.text = f'<b>Image</b> {image.filename}'
 
-        self.resolution_input = TextInput(max_width=100)
+        ret.append(Div(text='resolution:'))
+
+        self.resolution_input = TextInput(max_width=100, description=Tooltip(content='image resolution. format "10" or "10,10"'))
         self.resolution_input.on_change('value', as_callback(self.on_resolution_changed))
-
-        self.image_controls = column(self.setup_image_controls(**kwargs))
-
-        ret = [
-            row(self.setup_visible_switch(), self.image_label, self.resolution_input),
-            self.image_controls
-        ]
+        ret.append(self.resolution_input)
 
         return ret
 
     index_slider: Slider = None
 
-    def setup_image_controls(self, slider_width: int = 300, **kwargs) -> list[UIElement]:
+    def _setup_content(self, slider_width: int = 300,
+                       **kwargs) -> list[UIElement]:
+
         from bokeh.layouts import row
 
         ret = []
@@ -199,7 +215,7 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         self.index_slider = new_slider('Index', (0, 1, 1, 0), self.on_index_changed)
         self.index_slider.visible = False
         ret.append(self.index_slider)
-        ret.append(row(*self.setup_rotate_slider(slider_width=slider_width)))
+        ret.append(row(*self.setup_rotate_slider(new_slider=new_slider)))
         return ret
 
     def on_index_changed(self, s: int):
@@ -208,19 +224,34 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
         self.update_image(s)
 
+    def get_resolution_value(self, r: str = None) -> tuple[float, float] | None:
+        if r is None:
+            r = self.resolution_input.value
+
+        if r == '':
+            return None
+
+        try:
+            if ',' in r:
+                f = r.partition(',')
+                return float(f[0].strip()), float(f[2].strip())
+            else:
+                f = float(r)
+                return f, f
+        except ValueError:
+            return None
+
     def on_resolution_changed(self, r: str | float):
         if is_recursive_called() or r == '':
             return
 
-        try:
-            if isinstance(r, str) and ',' in r:
-                f = r.partition(',')
-                f = float(f[0]), float(f[2])
-            else:
-                f = float(r)
-                f = (f, f)
+        if isinstance(r, str):
+            f = self.get_resolution_value(r)
+        else:
+            f = float(r)
+            f = (f, f)
 
-        except ValueError:
+        if f is None:
             if (image := self.image) is None:
                 self.resolution_input.value = ''
             else:
@@ -293,14 +324,12 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
     # UI components #
     # ============= #
 
-    # FileInput doesn't provide full path because of browser's security reasons,
-    # so we use AutocompleteInput provide plain text input with auto complete.
     image_input: PathAutocompleteInput
 
-    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
-        ret = super().setup(f, **kwargs)
+    def _setup_title(self, **kwargs) -> list[UIElement]:
+        ret = super()._setup_title(**kwargs)
 
-        from bokeh.layouts import row
+        self.view_title.text = '<b>Image Path</b>'
         self.image_input = PathAutocompleteInput(
             self.image_root,
             self.on_image_selected,
@@ -309,13 +338,11 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
             # title='Image filepath',
             width=300,
         )
-
-        self.image_label.text = '<b>Image Path</b>'
-        ret[0] = row(self.visible_btn, self.image_label, self.image_input.input, self.resolution_input)
+        ret.insert(2, self.image_input.input)
 
         return ret
 
-    def on_image_selected(self, filename: Path):
+    def on_image_selected(self, filename: Path | None):
         if is_recursive_called():
             return
 
@@ -323,9 +350,13 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
             if (state := self.save_current_state()) is not None:
                 self.image_config[state['filename']] = state
 
-        self.logger.debug('load(%s)', filename)
-        self.set_image_handler(ImageHandler.from_file(filename))
-        self.visible = True
+        if filename is None:
+            self.set_image_handler(None)
+            self.visible = False
+        else:
+            self.logger.debug('load(%s)', filename)
+            self.set_image_handler(ImageHandler.from_file(filename))
+            self.visible = True
 
         run_later(self.restore_current_state)
 
@@ -337,38 +368,28 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
         self.logger.debug('save()')
         return list(self.image_config.values())
 
-    def save_current_state(self) -> ImageViewState | None:
-        if (image := self.image) is None:
-            return None
-
-        self.logger.debug('save(%s)', image.filename)
-        boundary = self.get_boundary_state()
-        resolution = image.resolution
-
-        return ImageViewState(
-            filename=image.filename,
-            index=self._index,
-            resolution_w=resolution[0],
-            resolution_h=resolution[1],
-            image_dx=boundary['dx'],
-            image_dy=boundary['dy'],
-            image_rt=boundary['rt'],
-        )
-
     def restore_state(self, state: list[ImageViewState]):
         self.logger.debug('restore()')
         for _state in state:  # type:ImageViewState
             _state = ImageViewState(**_state)
             self.image_config[_state['filename']] = _state
 
-    def restore_current_state(self):
-        try:
-            state = self.image_config[self.image.filename]
-        except KeyError:
-            self.logger.info('fail restore(%s) ', self.image.filename)
-            self.reset_boundary_transform()
-        else:
-            self.logger.debug('restore(%s)', self.image.filename)
-            self.image.resolution = (state['resolution_w'], state['resolution_h'])
-            self.update_boundary_transform(p=(state['image_dx'], state['image_dy']), rt=state['image_rt'])
-            self.update_image(state['index'])
+    def restore_current_state(self, state: ImageViewState = None):
+        if (image := self.image) is None:
+            return
+
+        if state is None:
+            try:
+                state = self.image_config[image.filename]
+                self.logger.debug('restore(%s)', image.filename)
+            except KeyError:
+                self.logger.info('fail restore(%s) ', image.filename)
+                f = self.get_resolution_value()
+                if f is None:
+                    self.reset_boundary_transform()
+                else:
+                    image.resolution = f
+                    self.update_boundary_transform(s=1)
+                return
+
+        super().restore_current_state(state)

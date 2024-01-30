@@ -2,7 +2,7 @@ import logging
 from typing import get_args, TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, Div
+from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -55,6 +55,10 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         self._brain_view: SliceView | None = None
         self._brain_slice: SlicePlane | None = None
 
+    @property
+    def name(self) -> str:
+        return 'Atlas brain'
+
     # ========== #
     # properties #
     # ========== #
@@ -90,20 +94,11 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     rotate_hor_slider: Slider
     rotate_ver_slider: Slider
 
-    def on_visible(self, visible: bool):
-        self.render_brain.visible = visible
-        super().on_visible(visible)
-
-    def setup(self, f: Figure,
-              palette: str = 'Greys256',
-              boundary_color: str = 'black',
-              boundary_desp: str = 'drag atlas brain image',
-              slider_width: int = 300,
-              rotate_steps=(-1000, 1000, 5),
-              **kwargs) -> list[UIElement]:
-        self.logger.debug('setup()')
-
-        # renders
+    def _setup_render(self, f: Figure,
+                      palette: str = 'Greys256',
+                      boundary_color: str = 'black',
+                      boundary_desp: str = 'drag atlas brain image',
+                      **kwargs):
         self.render_brain = f.image(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
             palette=palette, level="image", global_alpha=0.5, syncable=False,
@@ -111,17 +106,18 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=boundary_desp)
 
-        # controls
-        new_btn = ButtonFactory(min_width=100, width_policy='min')
+    def _setup_content(self, slider_width: int = 300,
+                       rotate_steps=(-1000, 1000, 5),
+                       **kwargs) -> list[UIElement]:
+        new_btn = ButtonFactory(min_width=100, min_height=30, width_policy='min', height_policy='min')
         new_slider = SliderFactory(width=slider_width, align='end')
 
         #
         slice_view_options = list(get_args(SLICE))
         self.slice_select = Select(
-            title='Slice view',
             value=slice_view_options[0],
             options=slice_view_options,
-            width=100
+            width=100,
         )
         self.slice_select.on_change('value', as_callback(self.on_slice_selected))
 
@@ -135,12 +131,11 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         from bokeh.layouts import row
         return [
-            row(self.setup_visible_switch(), Div(text='<b>Atlas Brain</b>')),
             row(self.slice_select, self.plane_slider),
             row(reset_rth, self.rotate_hor_slider),
             row(reset_rtv, self.rotate_ver_slider),
-            row(*self.setup_rotate_slider(slider_width=slider_width)),
-            row(*self.setup_scale_slider(slider_width=slider_width)),
+            row(*self.setup_rotate_slider(new_btn=new_btn, new_slider=new_slider)),
+            row(*self.setup_scale_slider(new_btn=new_btn, new_slider=new_slider)),
         ]
 
     def on_slice_selected(self, s: str):

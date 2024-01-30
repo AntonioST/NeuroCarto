@@ -10,6 +10,7 @@ from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp
 from chmap.probe_npx import NpxProbeDesp
 from chmap.probe_npx.npx import ChannelMap
+from chmap.util.bokeh_app import run_later
 from chmap.views.data import Data1DView
 
 if sys.version_info >= (3, 11):
@@ -35,6 +36,10 @@ class ElectrodeDensityDataView(Data1DView):
     def name(self) -> str:
         return 'Electrode Density Curve'
 
+    @property
+    def description(self) -> str | None:
+        return 'show electrode density curve along the shanks'
+
     def on_probe_update(self, probe: ProbeDesp, chmap, e):
         if chmap is None:
             self._data = None
@@ -47,7 +52,7 @@ class ElectrodeDensityDataView(Data1DView):
                 self.logger.warning(repr(ex), exc_info=ex)
                 self._data = None
 
-        self.update()
+        run_later(self.update)
 
     def data(self):
         return self._data

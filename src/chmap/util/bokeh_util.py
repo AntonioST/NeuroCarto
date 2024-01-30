@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from bokeh.layouts import row
-from bokeh.models import Button, UIElement, Slider, AutocompleteInput
+from bokeh.models import Button, UIElement, Slider, AutocompleteInput, Tooltip, HelpButton
 
 __all__ = [
     'ButtonFactory',
@@ -15,6 +15,7 @@ __all__ = [
     'col_layout',
     'is_recursive_called',
     'is_image',
+    'new_help_button'
 ]
 
 
@@ -106,10 +107,17 @@ def is_recursive_called(limit=100) -> bool:
 
 
 class PathAutocompleteInput:
+    """
+    An alternative of FileInput that allow access full filepath from user's computer.
+
+    Due to FileInput doesn't provide full path because of browser's security reasons,
+    so we use AutocompleteInput provide plain text input with auto complete.
+
+    """
     input: AutocompleteInput
 
     def __init__(self, root: Path,
-                 callback: Callable[[Path], None] = None,
+                 callback: Callable[[Path | None], None] = None,
                  mode: Literal['path', 'dir', 'file'] = 'path',
                  accept: list[str] = None,
                  min_characters=0,
@@ -217,19 +225,22 @@ class PathAutocompleteInput:
             self.input.completions = []
 
     def _on_enter(self, value: str):
-        f = self._root / value
-        self._path = f
+        from chmap.util.bokeh_app import run_later
+        if value == '':
+            self._path = None
+            run_later(self._callback, None)
+        else:
+            f = self._root / value
+            self._path = f
 
-        if f.exists() and self._callback is not None:
-            from chmap.util.bokeh_app import run_later
-
-            match self._mode:
-                case 'path':
-                    run_later(self._callback, f)
-                case 'file' if f.is_file() and self._is_accepted(f):
-                    run_later(self._callback, f)
-                case 'dir' if f.is_dir():
-                    run_later(self._callback, f)
+            if f.exists() and self._callback is not None:
+                match self._mode:
+                    case 'path':
+                        run_later(self._callback, f)
+                    case 'file' if f.is_file() and self._is_accepted(f):
+                        run_later(self._callback, f)
+                    case 'dir' if f.is_dir():
+                        run_later(self._callback, f)
 
     def _is_accepted(self, f: Path) -> bool:
         if self._accept is None:
@@ -259,3 +270,10 @@ def is_image(path: Path) -> bool:
     import mimetypes
     mt, _ = mimetypes.guess_type(path)
     return mt is not None and mt.startswith('image/')
+
+
+def new_help_button(content: str) -> HelpButton:
+    return HelpButton(
+        tooltip=Tooltip(content=content, position='right'),
+        stylesheets=['button.bk-btn {padding:0;}']
+    )

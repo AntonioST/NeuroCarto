@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import abc
 import logging
+from pathlib import Path
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement, Div, FileInput
+from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
-from chmap.util.bokeh_util import is_recursive_called
+from chmap.util.bokeh_app import run_later
+from chmap.util.bokeh_util import is_recursive_called, PathAutocompleteInput
 from chmap.views.base import ViewBase, DynamicView, InvisibleView
 
 __all__ = ['DataView', 'Data1DView', 'FileDataView']
@@ -26,44 +28,21 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config)
 
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """data name"""
-        pass
-
     @abc.abstractmethod
     def data(self) -> dict | None:
         """get Electrode data. A dict used by ColumnDataSource."""
         pass
 
-    # ============= #
-    # UI components #
-    # ============= #
-
-    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
-        if (logger := self.logger) is not None:
-            logger.debug('setup()')
-
-        from bokeh.layouts import row
-
-        ret = [
-            row(self.setup_visible_switch(), Div(text=f"<b>{self.name}</b>"))
-        ]
-
-        return ret
-
-    # noinspection PyUnusedLocal
-    def on_visible(self, visible: bool):
-        if (render := self.render_electrode) is not None:
-            render.visible = visible
+    # reset abstract method
+    def _setup_content(self, **kwargs) -> UIElement | list[UIElement]:
+        return []
 
     # ================ #
     # updating methods #
     # ================ #
 
     def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
-        self.update()
+        run_later(self.update)
 
     def start(self):
         self.update()
@@ -99,9 +78,8 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
     # UI components #
     # ============= #
 
-    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
+    def _setup_render(self, f: Figure, **kwargs):
         self.render_electrode = f.multi_line('x', 'y', source=self.data_electrode, **kwargs)
-        return super().setup(f, **kwargs)
 
     # ========= #
     # utilities #
@@ -132,19 +110,8 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
 class FileDataView(DataView, metaclass=abc.ABCMeta):
     """Electrode data from a file."""
 
-    @property
     @abc.abstractmethod
-    def accept_file_ext(self) -> str:
-        """
-
-        https://docs.bokeh.org/en/latest/docs/reference/models/widgets/inputs.html#bokeh.models.FileInput.accept
-
-        :return:
-        """
-        pass
-
-    @abc.abstractmethod
-    def load_data(self, filename: str):
+    def load_data(self, filename: Path):
         """Load electrode data from *filename*"""
         pass
 
@@ -152,22 +119,36 @@ class FileDataView(DataView, metaclass=abc.ABCMeta):
     # UI components #
     # ============= #
 
-    data_input: FileInput
+    data_input: PathAutocompleteInput
 
-    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
-        ret = super().setup(f, **kwargs)
+    def setup_data_input(self, root: Path = None,
+                         accept: list[str] = None,
+                         width=300,
+                         **kwargs) -> PathAutocompleteInput:
+        if root is None:
+            root = Path('.')
 
-        self.data_input = FileInput(
-            accept=self.accept_file_ext,
+        self.data_input = PathAutocompleteInput(
+            root,
+            self.on_data_selected,
+            mode='file',
+            accept=accept,
+            width=width,
+            **kwargs
         )
-        self.data_input.on_change('filename', self.on_data_selected)
+        return self.data_input
 
-        ret.append(self.data_input)
+    def _setup_title(self, **kwargs) -> list[UIElement]:
+        ret = super()._setup_title(**kwargs)
+
+        self.view_title.text = '<b>Data Path</b>'
+        data_input = self.setup_data_input()
+        ret.insert(2, data_input.input)
 
         return ret
 
     # noinspection PyUnusedLocal
-    def on_data_selected(self, prop: str, old: str, filename: str):
+    def on_data_selected(self, filename: Path):
         if is_recursive_called():
             return
 
@@ -177,22 +158,4 @@ class FileDataView(DataView, metaclass=abc.ABCMeta):
             if (logger := self.logger) is not None:
                 logger.warning('load_data() fail', exc_info=e)
         else:
-            if (probe := self._cache_probe) is not None:
-                self.on_probe_update(probe, self._cache_channelmap, self._cache_electrodes)
-            else:
-                self.update()
-
-    # ================ #
-    # updating methods #
-    # ================ #
-
-    _cache_probe: ProbeDesp = None
-    _cache_channelmap: M = None
-    _cache_electrodes: list[E] = None
-
-    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
-        self._cache_probe = probe
-        self._cache_channelmap = chmap
-        self._cache_electrodes = e
-
-        self.update()
+            run_later(self.update)

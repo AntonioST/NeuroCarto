@@ -58,8 +58,8 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
     def extra_controls(self, config: ChannelMapEditorConfig):
         from chmap.views.data_density import ElectrodeDensityDataView
-        from chmap.views.data_efficient import ElectrodeEfficientData
-        return [ElectrodeDensityDataView, ElectrodeEfficientData]
+        from chmap.views.data_efficient import ElectrodeEfficiencyData
+        return [ElectrodeDensityDataView, ElectrodeEfficiencyData]
 
     @property
     def channelmap_file_suffix(self) -> str:

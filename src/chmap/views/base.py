@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast
 
 import numpy as np
-from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch
+from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch, Div
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, is_image
+from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, is_image, new_help_button
 
 if TYPE_CHECKING:
     from chmap.probe import ProbeDesp, M, E
@@ -33,7 +33,20 @@ class ViewBase(metaclass=abc.ABCMeta):
         if (logger := self.logger) is not None:
             logger.debug('init()')
 
+    @property
     @abc.abstractmethod
+    def name(self) -> str:
+        """view name"""
+        pass
+
+    @property
+    def description(self) -> str | None:
+        """view description. show in help button."""
+        return None
+
+    view_title: Div
+    view_content: UIElement
+
     def setup(self, f: Figure, **kwargs) -> list[UIElement]:
         """
         Setup controls and plotting.
@@ -42,6 +55,36 @@ class ViewBase(metaclass=abc.ABCMeta):
         :param kwargs: control or plotting related parameters.
         :return: row list.
         """
+        if (logger := self.logger) is not None:
+            logger.debug('setup()')
+
+        self._setup_render(f, **kwargs)
+
+        from bokeh.layouts import row, column
+        title = row(self._setup_title(**kwargs))
+        content = self._setup_content(**kwargs)
+        if isinstance(content, list):
+            content = column(content)
+        self.view_content = content
+
+        return [title, self.view_content]
+
+    def _setup_render(self, f: Figure, **kwargs):
+        pass
+
+    def _setup_title(self, **kwargs) -> list[UIElement]:
+        ret = []
+        if isinstance(self, InvisibleView):
+            ret.append(self.setup_visible_switch())
+
+        self.view_title = Div(text=f'<b>{self.name}</b>')
+        ret.append(self.view_title)
+        if (desp := self.description) is not None:
+            ret.append(new_help_button(desp))
+        return ret
+
+    @abc.abstractmethod
+    def _setup_content(self, **kwargs) -> UIElement | list[UIElement]:
         pass
 
     def start(self):
@@ -142,6 +185,15 @@ class InvisibleView:
         if (logger := getattr(self, 'logger', None)) is not None:
             cast(logging.Logger, logger).debug(f'visible({visible})')
 
+        try:
+            self.view_content.visible = visible
+        except AttributeError:
+            pass
+
+        for attr in dir(self):
+            if attr.startswith('render_') and isinstance(render := getattr(self, attr, None), GlyphRenderer):
+                render.visible = visible
+
 
 S = TypeVar('S')
 
@@ -226,10 +278,6 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         """Height of image"""
         pass
 
-    def on_visible(self, visible: bool):
-        super().on_visible(visible)  # logging
-        self.render_boundary.visible = visible
-
     def setup_boundary(self, f: Figure, *,
                        boundary_color: str = 'black',
                        boundary_desp: str = None):
@@ -256,37 +304,20 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     boundary_rotate_slider: Slider
     boundary_scale_slider: Slider
 
-    def setup_slider(self, slider_width: int = 300) -> list[UIElement]:
-        """
-        Setup image transforming controls.
-
-        :param slider_width:
-        :return: row list.
-        """
-        new_btn = ButtonFactory(min_width=100, width_policy='min')
-        new_slider = SliderFactory(width=slider_width, align='end')
-
-        self.boundary_rotate_slider = new_slider('image rotation (deg)', (-25, 25, 1, 0), self.on_boundary_rotate)
-        self.boundary_scale_slider = new_slider('image scale (log)', (-1, 1, 0.01, 0), self.on_boundary_scale)
-
-        reset_imr = new_btn('reset', self.on_reset_boundary_rotate)
-        reset_ims = new_btn('reset', self.on_reset_boundary_scale)
-
-        from bokeh.layouts import row
-        return [
-            row(reset_imr, self.boundary_rotate_slider),
-            row(reset_ims, self.boundary_scale_slider),
-        ]
-
-    def setup_rotate_slider(self, slider_width: int = 300) -> list[UIElement]:
+    def setup_rotate_slider(self, *,
+                            new_btn: ButtonFactory = None,
+                            new_slider: SliderFactory = None) -> list[UIElement]:
         """
         Setup image rotating controls.
 
-        :param slider_width:
+        :param new_btn: ButtonFactory
+        :param new_slider: SliderFactory
         :return: row list.
         """
-        new_btn = ButtonFactory(min_width=100, width_policy='min')
-        new_slider = SliderFactory(width=slider_width, align='end')
+        if new_btn is None:
+            new_btn = ButtonFactory(min_width=100, width_policy='min')
+        if new_slider is None:
+            new_slider = SliderFactory(width=300, align='end')
 
         self.boundary_rotate_slider = new_slider('image rotation (deg)', (-25, 25, 1, 0), self.on_boundary_rotate)
 
@@ -296,15 +327,20 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
             reset_imr, self.boundary_rotate_slider
         ]
 
-    def setup_scale_slider(self, slider_width: int = 300) -> list[UIElement]:
+    def setup_scale_slider(self, *,
+                           new_btn: ButtonFactory = None,
+                           new_slider: SliderFactory = None) -> list[UIElement]:
         """
         Setup image scaling controls.
 
-        :param slider_width:
+        :param new_btn: ButtonFactory
+        :param new_slider: SliderFactory
         :return: row list.
         """
-        new_btn = ButtonFactory(min_width=100, width_policy='min')
-        new_slider = SliderFactory(width=slider_width, align='end')
+        if new_btn is None:
+            new_btn = ButtonFactory(min_width=100, width_policy='min')
+        if new_slider is None:
+            new_slider = SliderFactory(width=300, align='end')
 
         self.boundary_scale_slider = new_slider('image scale (log)', (-1, 1, 0.01, 0), self.on_boundary_scale)
 

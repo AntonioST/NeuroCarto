@@ -2,14 +2,13 @@ import logging
 from typing import NamedTuple
 
 from bokeh.models import UIElement, Div
-from bokeh.plotting import figure as Figure
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp
 from chmap.probe_npx import NpxProbeDesp, ChannelMap, NpxElectrodeDesp
 from chmap.views.base import ViewBase, DynamicView, InvisibleView
 
-__all__ = ['ElectrodeEfficientData']
+__all__ = ['ElectrodeEfficiencyData']
 
 
 class ElectrodeEfficientStat(NamedTuple):
@@ -27,7 +26,7 @@ def make_stat_div(text: str):
     return Div(text=text, margin=2)
 
 
-class ElectrodeEfficientData(ViewBase, InvisibleView, DynamicView):
+class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
     label_used_channel: Div = make_stat_div('used channels')
     label_require_electrodes: Div = make_stat_div('require electrodes')
     label_channel_efficiency: Div = make_stat_div('channel efficiency')
@@ -44,40 +43,33 @@ class ElectrodeEfficientData(ViewBase, InvisibleView, DynamicView):
 
     @property
     def name(self) -> str:
-        return 'Electrode Efficient'
+        return 'Electrode Efficiency'
+
+    @property
+    def description(self) -> str | None:
+        return "statistics on channelmap and blueprint"
 
     _label_columns: list[Div]
     _value_columns: list[Div]
-    _content: UIElement
 
-    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
-        self.logger.debug('setup()')
-
+    def _setup_content(self, **kwargs) -> UIElement:
         from bokeh.layouts import row, column
 
         self._label_columns = []
         self._value_columns = []
 
-        for attr in ElectrodeEfficientData.__annotations__:
-            if attr.startswith('label_') and (div := getattr(ElectrodeEfficientData, attr, None), Div):
+        for attr in ElectrodeEfficiencyData.__annotations__:
+            if attr.startswith('label_') and (div := getattr(ElectrodeEfficiencyData, attr, None), Div):
                 self._label_columns.append(div)
                 self._value_columns.append(value := make_stat_div(''))
                 setattr(self, attr, value)
 
-        self._content = row(
+        return row(
             # margin 5 is default
             column(self._label_columns, margin=(5, 5, 5, 5)),
             column(self._value_columns, margin=(5, 5, 5, 20)),
             margin=(5, 5, 5, 40)
         )
-
-        return [
-            row(self.setup_visible_switch(), Div(text=f'<b>{self.name}</b>')),
-            self._content
-        ]
-
-    def on_visible(self, visible: bool):
-        self._content.visible = visible
 
     def on_probe_update(self, probe: ProbeDesp, chmap, e):
         if chmap is None:
@@ -118,6 +110,7 @@ def electrode_efficient_npx(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxE
     ]
 
     p, c = _electrode_efficient_npx_require_electrodes(e)
+    cp = 0 if p == 0 else c / p
     re, rc = _get_electrode(e, [NpxProbeDesp.POLICY_REMAINDER, NpxProbeDesp.POLICY_UNSET])
 
     return ElectrodeEfficientStat(
@@ -125,7 +118,7 @@ def electrode_efficient_npx(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxE
         used_channel,
         used_channel_on_shanks,
         require_electrodes=p,
-        channel_efficiency=c / p,
+        channel_efficiency=cp,
         remain_electrode=re,
         remain_channel=rc
     )
