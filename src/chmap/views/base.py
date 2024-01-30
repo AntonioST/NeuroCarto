@@ -61,13 +61,18 @@ class ViewBase(metaclass=abc.ABCMeta):
         self._setup_render(f, **kwargs)
 
         from bokeh.layouts import row, column
+        ret = []
         title = row(self._setup_title(**kwargs))
-        content = self._setup_content(**kwargs)
-        if isinstance(content, list):
-            content = column(content)
-        self.view_content = content
+        ret.append(title)
 
-        return [title, self.view_content]
+        content = self._setup_content(**kwargs)
+        if content is not None:
+            if isinstance(content, list):
+                content = column(content)
+            self.view_content = content
+            ret.append(content)
+
+        return ret
 
     def _setup_render(self, f: Figure, **kwargs):
         pass
@@ -84,7 +89,7 @@ class ViewBase(metaclass=abc.ABCMeta):
         return ret
 
     @abc.abstractmethod
-    def _setup_content(self, **kwargs) -> UIElement | list[UIElement]:
+    def _setup_content(self, **kwargs) -> UIElement | list[UIElement] | None:
         pass
 
     def start(self):

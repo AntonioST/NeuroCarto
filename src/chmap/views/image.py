@@ -207,7 +207,6 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
     def _setup_content(self, slider_width: int = 300,
                        **kwargs) -> list[UIElement]:
-
         from bokeh.layouts import row
 
         ret = []

@@ -34,8 +34,8 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
         pass
 
     # reset abstract method
-    def _setup_content(self, **kwargs) -> UIElement | list[UIElement]:
-        return []
+    def _setup_content(self, **kwargs):
+        return None
 
     # ================ #
     # updating methods #
