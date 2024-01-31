@@ -444,36 +444,50 @@ class ChannelMapEditorApp(BokehApplication):
         self.reload_input_imro_list(path.stem)
 
     def on_state_change(self, state: int):
-        if self.logger.isEnabledFor(logging.DEBUG):
-            for desp, code in self.probe.possible_states.items():
-                if code == state:
-                    self.logger.debug('on_state_change(%d)=%s', state, desp)
-                    break
-            else:
-                self.logger.debug('on_state_change(%d)', state)
+        for desp, code in self.probe.possible_states.items():
+            if code == state:
+                break
+        else:
+            desp = None
 
-        self.probe_view.set_state_for_selected(state)
-        self.on_probe_update()
+        if desp is not None:
+            self.logger.debug('on_state_change(%d)=%s', state, desp)
+        else:
+            self.logger.debug('on_state_change(%d)', state)
+
+        try:
+            self.probe_view.set_state_for_selected(state)
+        except BaseException:
+            self.log_message(f'set state {desp} fail')
+        else:
+            self.on_probe_update()
 
     def on_policy_change(self, policy: int):
-        if self.logger.isEnabledFor(logging.DEBUG):
-            for desp, code in self.probe.possible_policies.items():
-                if code == policy:
-                    self.logger.debug('on_policy_change(%d)=%s', policy, desp)
-                    break
-            else:
-                self.logger.debug('on_policy_change(%d)', policy)
+        for desp, code in self.probe.possible_policies.items():
+            if code == policy:
+                break
+        else:
+            desp = None
 
-        self.probe_view.set_policy_for_selected(policy)
+        if desp is not None:
+            self.logger.debug('on_policy_change(%d)=%s', policy, desp)
+        else:
+            self.logger.debug('on_policy_change(%d)', policy)
+
+        try:
+            self.probe_view.set_policy_for_selected(policy)
+        except BaseException:
+            self.log_message(f'set policy {desp} fail')
+            return
 
         if self.auto_btn.active:
             self.on_refresh()
-
-        self.on_probe_update()
+        else:
+            self.on_probe_update()
 
     def on_probe_update(self):
         self.probe_info.text = self.probe_view.channelmap_desp()
-        run_later(self.probe_view.update_electrode)
+        self.probe_view.update_electrode()
 
         for view in self.right_panel_views:
             if isinstance(view, DynamicView):
@@ -485,9 +499,13 @@ class ChannelMapEditorApp(BokehApplication):
             self.on_refresh()
 
     def on_refresh(self):
-        self.probe_view.refresh_selection()
-        self.probe_view.update_electrode()
-        self.on_probe_update()
+        try:
+            self.probe_view.refresh_selection()
+        except BaseException:
+            self.log_message('refresh fail')
+        else:
+            self.probe_view.update_electrode()
+            self.on_probe_update()
 
     def log_message(self, *message, reset=False):
         area = self.message_area

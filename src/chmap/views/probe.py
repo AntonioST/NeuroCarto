@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import Iterable
 from typing import Any
 
@@ -131,8 +132,17 @@ class ProbeView:
     def refresh_selection(self):
         """Rerun electrode selection and refresh channelmap"""
         self.logger.debug('refresh_selection()')
-        self.channelmap = self.probe.select_electrodes(self.channelmap, self.electrodes, **self.selecting_parameters)
-        self._reset_electrode_state()
+        t = time.time()
+        try:
+            self.channelmap = self.probe.select_electrodes(self.channelmap, self.electrodes, **self.selecting_parameters)
+
+            t = time.time() - t
+            self.logger.debug('refresh_selection() used %.2f sec', t)
+        except BaseException as e:
+            self.logger.warning('refresh_selection() fail', exc_info=e)
+            raise  # raise error to ChannelMapEditorApp for logging message in message_area
+        else:
+            self._reset_electrode_state()
 
     def get_electrodes(self, s: None | int | list[int] | ColumnDataSource, *, state: int = None) -> list[E]:
         """
