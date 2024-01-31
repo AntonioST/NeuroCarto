@@ -8,6 +8,7 @@ from numpy.typing import NDArray
 
 from chmap.probe_npx import NpxProbeDesp, NpxElectrodeDesp
 from chmap.probe_npx.npx import ChannelMap
+from chmap.probe_npx.select import ElectrodeSelector, load_select
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -17,7 +18,8 @@ else:
 __all__ = [
     'ElectrodeEfficientStat',
     'npx_electrode_density',
-    'npx_channel_efficient'
+    'npx_channel_efficient',
+    'npx_electrode_probability'
 ]
 
 
@@ -140,3 +142,20 @@ def _get_electrode(e: list[NpxElectrodeDesp], policies: list[int]) -> tuple[int,
     e1 = [it for it in e if it.policy in policies]
     e2 = [it for it in e1 if it.state == NpxProbeDesp.STATE_USED]
     return len(e1), len(e2)
+
+
+def npx_electrode_probability(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxElectrodeDesp],
+                              selector: str | ElectrodeSelector = 'default',
+                              sample_times: int = 1000) -> NDArray[np.float_]:
+    if isinstance(selector, str):
+        selector = load_select(selector)
+
+    pt = chmap.probe_type
+    mat = np.zeros((pt.n_shank, pt.n_col_shank, pt.n_row_shank))
+
+    for _ in range(sample_times):
+        chmap = selector(probe, chmap, e)
+        for t in chmap.electrodes:
+            mat[t.shank, t.column, t.row] += 1
+
+    return mat / sample_times
