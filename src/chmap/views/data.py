@@ -25,17 +25,10 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
     data_electrode: ColumnDataSource | None = None
     render_electrode: GlyphRenderer | None = None
 
-    def __init__(self, config: ChannelMapEditorConfig):
-        super().__init__(config)
-
     @abc.abstractmethod
     def data(self) -> dict | None:
         """get Electrode data. A dict used by ColumnDataSource."""
         pass
-
-    # reset abstract method
-    def _setup_content(self, **kwargs):
-        return None
 
     # ================ #
     # updating methods #
@@ -61,8 +54,8 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
     1D electrode data, represented in multi_line.
     """
 
-    def __init__(self, config: ChannelMapEditorConfig):
-        super().__init__(config)
+    def __init__(self, config: ChannelMapEditorConfig, **kwargs):
+        super().__init__(config, **kwargs)
 
         self.data_electrode = ColumnDataSource(data=dict(x=[], y=[]))
 

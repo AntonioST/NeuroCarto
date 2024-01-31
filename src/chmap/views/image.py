@@ -94,11 +94,9 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
     data_image: ColumnDataSource
     render_image: GlyphRenderer
 
-    def __init__(self, config: ChannelMapEditorConfig, image: ImageHandler = None):
-        if self.logger is None:
-            self.logger = logging.getLogger('chmap.view.image')
-
-        super().__init__(config)
+    def __init__(self, config: ChannelMapEditorConfig, image: ImageHandler = None, *,
+                 logger: str | logging.Logger = 'chmap.view.image'):
+        super().__init__(config, logger=logger)
 
         self.data_image = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
 
@@ -311,11 +309,9 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 class FileImageView(ImageView, StateView[list[ImageViewState]]):
     image_config: dict[str, ImageViewState]
 
-    def __init__(self, config: ChannelMapEditorConfig):
-        if self.logger is None:
-            self.logger = logging.getLogger('chmap.view.file')
-
-        super().__init__(config)
+    def __init__(self, config: ChannelMapEditorConfig, *,
+                 logger: str | logging.Logger = 'chmap.view.file'):
+        super().__init__(config, logger=logger)
         self.image_root = Path('.')
         self.image_config = {}
 

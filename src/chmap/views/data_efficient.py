@@ -1,4 +1,3 @@
-import logging
 from typing import NamedTuple
 
 from bokeh.models import UIElement, Div
@@ -34,10 +33,7 @@ class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
     label_remain_electrode: Div = make_stat_div('remain electrode')
 
     def __init__(self, config: ChannelMapEditorConfig):
-        self.logger = logging.getLogger('chmap.view.efficient')
-        self.logger.debug('init()')
-
-        super().__init__(config)
+        super().__init__(config, logger='chmap.view.efficient')
 
         self._stat: ElectrodeEfficientStat | None = None
 

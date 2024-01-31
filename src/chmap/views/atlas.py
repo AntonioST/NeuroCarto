@@ -1,4 +1,3 @@
-import logging
 from typing import get_args, TypedDict, Final
 
 import numpy as np
@@ -43,12 +42,10 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     render_brain: GlyphRenderer
 
     def __init__(self, config: ChannelMapEditorConfig):
-        self.logger = logging.getLogger('chmap.view.atlas')
+        super().__init__(config, logger='chmap.view.atlas')
 
         self.logger.debug('init(%s)', config.atlas_name)
         self.brain = get_atlas_brain(config.atlas_name, config.atlas_root)
-
-        super().__init__(config)
 
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
 
@@ -97,14 +94,13 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def _setup_render(self, f: Figure,
                       palette: str = 'Greys256',
                       boundary_color: str = 'black',
-                      boundary_desp: str = 'drag atlas brain image',
                       **kwargs):
         self.render_brain = f.image(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
             palette=palette, level="image", global_alpha=0.5, syncable=False,
         )
 
-        self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=boundary_desp)
+        self.setup_boundary(f, boundary_color=boundary_color, boundary_desp='drag atlas brain image')
 
     def _setup_content(self, slider_width: int = 300,
                        rotate_steps=(-1000, 1000, 5),

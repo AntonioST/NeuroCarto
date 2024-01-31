@@ -341,9 +341,10 @@ class ChannelMapEditorApp(BokehApplication):
         :param config:
         :return: list of item that recognised by `init_view`
         """
-        ret = ['chmap.views.atlas:AtlasBrainView']
+        ret = []
         ret.extend(self.probe.extra_controls(config))
         ret.extend(config.extra_view)
+        ret.append('chmap.views.atlas:AtlasBrainView')
         return ret
 
     def start(self):

@@ -188,6 +188,7 @@ class Electrode:
 
 
 class ReferenceInfo(NamedTuple):
+    code: int
     type: Literal['ext', 'tip', 'on-shank']
     shank: int  # 0 if reference_type is 'ext'
     channel: int  # 0 if reference_type is 'ext' or 'tip'
@@ -209,18 +210,18 @@ class ReferenceInfo(NamedTuple):
         :return:
         """
         if reference == 0:
-            return ReferenceInfo('ext', 0, 0)
+            return ReferenceInfo(0, 'ext', 0, 0)
 
         n_shank = probe_type.n_shank
         ref_shank = probe_type.reference
 
         if reference < n_shank + 1:
-            return ReferenceInfo('tip', reference - n_shank, 0)
+            return ReferenceInfo(reference, 'tip', reference - 1, 0)
 
         x = reference - n_shank - 1
         s, i = divmod(x, len(ref_shank))
         c = ref_shank[i]
-        return ReferenceInfo('on-shank', s, c)
+        return ReferenceInfo(reference, 'on-shank', s, c)
 
 
 E = int | tuple[int, int] | tuple[int, int, int] | Electrode

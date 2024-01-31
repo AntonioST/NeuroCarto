@@ -29,7 +29,14 @@ class ViewBase(metaclass=abc.ABCMeta):
     logger: logging.Logger = None
 
     # noinspection PyUnusedLocal
-    def __init__(self, config: ChannelMapEditorConfig):
+    def __init__(self, config: ChannelMapEditorConfig, *, logger: str | logging.Logger = None):
+        if isinstance(logger, str):
+            self.logger = logging.getLogger(logger)
+        elif isinstance(logger, logging.Logger):
+            self.logger = logger
+        else:
+            raise TypeError()
+
         if (logger := self.logger) is not None:
             logger.debug('init()')
 
@@ -88,9 +95,8 @@ class ViewBase(metaclass=abc.ABCMeta):
             ret.append(new_help_button(desp))
         return ret
 
-    @abc.abstractmethod
     def _setup_content(self, **kwargs) -> UIElement | list[UIElement] | None:
-        pass
+        return None
 
     def start(self):
         """Invoked when figure is ready."""
@@ -266,8 +272,9 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     data_boundary: ColumnDataSource  # boundary data
     render_boundary: GlyphRenderer  # boundary drawing
 
-    def __init__(self, config: ChannelMapEditorConfig):
-        super().__init__(config)
+    def __init__(self, config: ChannelMapEditorConfig, *,
+                 logger: str | logging.Logger = None):
+        super().__init__(config, logger=logger)
 
         self.data_boundary = ColumnDataSource(data=dict(x=[0], y=[0], w=[0], h=[0], r=[0], sx=[1], sy=[1]))
 
