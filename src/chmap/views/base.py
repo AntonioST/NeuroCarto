@@ -26,7 +26,7 @@ class ViewBase(metaclass=abc.ABCMeta):
 
     """
 
-    logger: logging.Logger = None
+    logger: logging.Logger | None = None
 
     # noinspection PyUnusedLocal
     def __init__(self, config: ChannelMapEditorConfig, *, logger: str | logging.Logger = None):
@@ -34,8 +34,6 @@ class ViewBase(metaclass=abc.ABCMeta):
             self.logger = logging.getLogger(logger)
         elif isinstance(logger, logging.Logger):
             self.logger = logger
-        else:
-            raise TypeError()
 
         if (logger := self.logger) is not None:
             logger.debug('init()')

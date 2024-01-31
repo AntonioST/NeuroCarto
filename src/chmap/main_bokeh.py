@@ -37,9 +37,7 @@ class ChannelMapEditorApp(BokehApplication):
     """view configuration"""
 
     def __init__(self, config: ChannelMapEditorConfig):
-        self.logger = logging.getLogger('chmap.editor')
-
-        self.logger.debug('init')
+        super().__init__(logger='chmap.editor')
         self.config = config
 
         self.logger.debug('get get_probe_desp(%s)', config.probe_family)
@@ -132,7 +130,8 @@ class ChannelMapEditorApp(BokehApplication):
         try:
             data = np.load(file)
         except FileNotFoundError as e:
-            self.log_message(repr(e))
+            self.log_message(f'File not found : {file}')
+            self.logger.warning(f'policy file not found : %s', file, exc_info=e)
             return False
         else:
             self.log_message(f'load policy : {file.name}')
@@ -182,6 +181,7 @@ class ChannelMapEditorApp(BokehApplication):
         """
         file = self.get_view_config_file(chmap)
         if not file.exists():
+            self.log_message(f'File not found : {file}')
             return self.right_panel_views_config
 
         import json
@@ -380,11 +380,12 @@ class ChannelMapEditorApp(BokehApplication):
             return
 
         self.logger.debug('on_load(%s)', name)
+        file = self.get_chmap_file(name)
         try:
-            file = self.get_chmap_file(name)
             chmap = self.load_chmap(name)
         except FileNotFoundError as x:
-            self.log_message(repr(x))
+            self.log_message(f'File not found : {file}')
+            self.logger.warning(f'channelmap file not found : %s', file, exc_info=x)
             return
 
         self.output_imro.value = file.stem

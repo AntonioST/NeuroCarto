@@ -24,7 +24,17 @@ __all__ = [
 class BokehApplication(metaclass=abc.ABCMeta):
     """Bokeh Application of a single page"""
 
+    logger: logging.Logger | None = None
     document: Document
+
+    def __init__(self, *, logger: str | logging.Logger = None):
+        if isinstance(logger, str):
+            self.logger = logging.getLogger(logger)
+        elif isinstance(logger, logging.Logger):
+            self.logger = logger
+
+        if (logger := self.logger) is not None:
+            logger.debug('init()')
 
     @property
     def title(self) -> str:
@@ -38,11 +48,13 @@ class BokehApplication(metaclass=abc.ABCMeta):
 
     def start(self):
         """Invoked when session set"""
-        pass
+        if (logger := self.logger) is not None:
+            logger.debug('start()')
 
     def cleanup(self, context: SessionContext):
         """Invoked when session destroyed"""
-        pass
+        if (logger := self.logger) is not None:
+            logger.debug('cleanup()')
 
 
 def run_later(callback: Callable, *args, **kwargs) -> SessionCallback:
