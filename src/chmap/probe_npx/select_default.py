@@ -28,17 +28,14 @@ def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrode
     return select_loop(desp, ret, cand, **kwargs)
 
 
-def select_loop(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], *,
-                limit: int = 1000,
+def select_loop(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp],
                 **kwargs) -> ChannelMap:
-    count = 0
-    while len(cand) and count < limit:
+    while len(cand):
         p, e = pick_electrode(cand)
         if p == NpxProbeDesp.POLICY_FORBIDDEN:
             break
         elif e is not None:
             update(desp, chmap, cand, e, p)
-            count += 1
         else:
             break
 

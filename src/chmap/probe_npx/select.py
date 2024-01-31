@@ -1,3 +1,5 @@
+from typing import Protocol
+
 from .desp import NpxProbeDesp, NpxElectrodeDesp
 from .npx import ChannelMap
 
@@ -5,8 +7,24 @@ __all__ = ['electrode_select']
 
 BUILTIN_SELECTOR = {
     'default': 'chmap.probe_npx.select_default:electrode_select',
-    'weaker': 'chmap.probe_npx.select_weaker_arrangement:electrode_select',
+    'weaker': 'chmap.probe_npx.select_weaker:electrode_select',
 }
+
+
+class ElectrodeSelector(Protocol):
+    def __call__(self, desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrodeDesp], **kwargs) -> ChannelMap:
+        pass
+
+
+def load_select(selector: str) -> ElectrodeSelector:
+    module, _, name = selector.partition(':')
+    if len(name) == 0:
+        raise ValueError(f'not a selector pattern "module_path:name" : {selector}')
+
+    import importlib
+    module = importlib.import_module(module)
+
+    return getattr(module, name)
 
 
 def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrodeDesp], *,
@@ -16,14 +34,3 @@ def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrode
     selector = load_select(selector)
 
     return selector(desp, chmap, s, **kwargs)
-
-
-def load_select(selector: str):
-    module, _, name = selector.partition(':')
-    if len(name) == 0:
-        raise ValueError(f'not a selector pattern "module_path:name" : {selector}')
-
-    import importlib
-    module = importlib.import_module(module)
-
-    return getattr(module, name)
