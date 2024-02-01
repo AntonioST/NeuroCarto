@@ -9,6 +9,7 @@ from matplotlib.cm import ScalarMappable
 from numpy.typing import NDArray
 
 from chmap.util.util_numpy import index_of, closest_point_index, same_index
+from .desp import NpxProbeDesp, NpxElectrodeDesp
 from .npx import ChannelMap, ProbeType
 
 if sys.version_info >= (3, 11):
@@ -24,6 +25,7 @@ __all__ = [
     'plot_electrode_block',
     'plot_electrode_grid',
     'plot_electrode_matrix',
+    'plot_policy_area'
 ]
 
 ELECTRODE_UNIT = Literal['cr', 'xy']
@@ -896,3 +898,39 @@ def plot_electrode_matrix(ax: Axes,
     ax.set_ylabel('Distance from Tip (mm)')
 
     return im
+
+
+def plot_policy_area(ax: Axes,
+                     probe: ProbeType,
+                     electrode: NDArray[np.int_] | list[NpxElectrodeDesp], *,
+                     color: dict[int, str] = None,
+                     **kwargs):
+    """
+
+    :param ax:
+    :param probe:
+    :param electrode: Array[int, N, (S, C, R, policy)] or list of NpxElectrodeDesp
+    :param color:
+    :param kwargs:
+    :return:
+    """
+    if isinstance(electrode, list):
+        _electrode = np.zeros((len(electrode), 4))
+        for i, t in enumerate(electrode):  # type: int, NpxElectrodeDesp
+            _electrode[i] = [*t.electrode, t.policy]
+        electrode = _electrode
+
+    if color is None:
+        color = {
+            NpxProbeDesp.POLICY_SET: 'green',
+            NpxProbeDesp.POLICY_D1: 'green',
+            NpxProbeDesp.POLICY_D2: 'orange',
+            NpxProbeDesp.POLICY_D4: 'blue',
+            NpxProbeDesp.POLICY_FORBIDDEN: 'pink',
+        }
+
+    policies = np.unique(electrode[:, 3])
+    for policy in policies:
+        if (c := color.get(int(policy), None)) is not None:
+            _electrode = electrode[electrode[:, 3] == policy]
+            plot_electrode_block(ax, probe, _electrode, color=c, **kwargs)
