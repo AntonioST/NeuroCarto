@@ -27,13 +27,13 @@ class ElectrodeSelector(Protocol):
 
 
 def load_select(selector: str) -> ElectrodeSelector:
+    selector = BUILTIN_SELECTOR.get(selector, selector)
     return import_func('selector', selector)
 
 
 def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], *,
                      selector: str = 'default',
                      **kwargs) -> ChannelMap:
-    selector = BUILTIN_SELECTOR.get(selector, selector)
     selector = load_select(selector)
 
     return selector(desp, chmap, blueprint, **kwargs)

@@ -28,7 +28,7 @@ __all__ = [
     'plot_policy_area'
 ]
 
-ELECTRODE_UNIT = Literal['cr', 'xy']
+ELECTRODE_UNIT = Literal['cr', 'xy', 'raw']
 
 
 def channel_coordinate(chmap: ChannelMap,
@@ -265,8 +265,10 @@ class ElectrodeMatData(NamedTuple):
         Convert electrode array data into matrix data.
 
         :param probe: probe profile
-        :param electrode: Array[int, E, (S, C, R, V)] or Array[int, E, (X, Y, V)]
-        :param electrode_unit: 'xy'=(X,Y,V), 'cr'=(S,C,R,V)
+        :param electrode: Array[float, E, (S, C, R, V?)] (electrode_unit='cr'),
+                          Array[float, E, (X, Y, V?)] (electrode_unit='xy'), or
+                          Array[V:float, S, C, R] (electrode_unit='raw')
+        :param electrode_unit:
         :param reduce: function (Array[V, ?]) -> V used when data has same (s, x, y) position
         :param kernel: interpolate missing data (NaN) between channels.
             It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
@@ -277,48 +279,58 @@ class ElectrodeMatData(NamedTuple):
         h_step = probe.c_space
         v_step = probe.r_space
 
-        if electrode_unit == 'cr':
-            s = electrode[:, 0].astype(int)  # Array[s, E]
-            c = electrode[:, 1].astype(int)  # Array[c, E]
-            r = electrode[:, 2].astype(int)  # Array[r, E]
-            v = electrode[:, 3]  # Array[float, E]
-        elif electrode_unit == 'xy':
-            x = electrode[:, 0]
-            y = electrode[:, 1]
-            v = electrode[:, 2]
-
-            if np.max(y) < 10:  # mm:
-                x = (x * 1000)
-                y = (y * 1000)
-
-            x = x.astype(int)
-            y = y.astype(int)
-
-            s = x // s_step
-            c = (x % s_step) // h_step
-            r = y // v_step
-
+        if electrode_unit == 'raw':
+            s, c, r = electrode.shape
+            vmap = electrode.transpose(2, 0, 1).reshape(r, -1)  # Array[V:float, R, S*C]
+            row = np.arange(r)
+            col = np.tile(np.arange(c), s)  # [0,1,0,1, ...]
+            shk = np.repeat(np.arange(s), c)  # [0,0,1,1,...]
+            ret = ElectrodeMatData(probe, vmap, col=col, row=row, shank=shk)
         else:
-            raise ValueError(f'unsupported electrode unit : {electrode_unit}')
+            if electrode_unit == 'cr':
+                s = electrode[:, 0].astype(int)  # Array[s, E]
+                c = electrode[:, 1].astype(int)  # Array[c, E]
+                r = electrode[:, 2].astype(int)  # Array[r, E]
+                v = electrode[:, 3]  # Array[float, E]
 
-        sc = c + s * nc  # Array[sc, E]
+            elif electrode_unit == 'xy':
+                x = electrode[:, 0]
+                y = electrode[:, 1]
+                v = electrode[:, 2]
 
-        c0 = int(np.min(sc))
-        c1 = int(np.max(sc))
-        r0 = int(np.min(r))
-        r1 = int(np.max(r))
-        dc = c1 - c0
-        dr = r1 - r0
+                if np.max(y) < 10:  # mm:
+                    x = (x * 1000)
+                    y = (y * 1000)
 
-        vmap = np.full((dr + 1, dc + 1), np.nan)
-        vmap[r - r0, sc - c0] = v
-        for i in same_index(np.vstack([c, r]).T):
-            i0 = i[0]
-            vmap[r[i0] - r0, sc[i0] - c0] = reduce(v[i])
+                x = x.astype(int)
+                y = y.astype(int)
 
-        rr = np.arange(r0, r1 + 1)
-        cc = np.arange(c0, c1 + 1)
-        ret = ElectrodeMatData(probe, vmap, col=cc % nc, row=rr, shank=cc // nc)
+                s = x // s_step
+                c = (x % s_step) // h_step
+                r = y // v_step
+
+            else:
+                raise ValueError(f'unsupported electrode unit : {electrode_unit}')
+
+            sc = c + s * nc  # Array[sc, E]
+
+            c0 = int(np.min(sc))
+            c1 = int(np.max(sc))
+            r0 = int(np.min(r))
+            r1 = int(np.max(r))
+            dc = c1 - c0
+            dr = r1 - r0
+
+            vmap = np.full((dr + 1, dc + 1), np.nan)
+            vmap[r - r0, sc - c0] = v
+            for i in same_index(np.vstack([c, r]).T):
+                i0 = i[0]
+                vmap[r[i0] - r0, sc[i0] - c0] = reduce(v[i])
+
+            rr = np.arange(r0, r1 + 1)
+            cc = np.arange(c0, c1 + 1)
+            ret = ElectrodeMatData(probe, vmap, col=cc % nc, row=rr, shank=cc // nc)
+
         if kernel is not None:
             ret = ret.interpolate_nan(kernel)
         return ret
@@ -338,10 +350,6 @@ class ElectrodeMatData(NamedTuple):
         """len(unique(S)) """
         return len(np.unique(self.shank))
 
-    # @property
-    # def n_sample(self) -> int:
-    #     return 1 if self.mat.shape == 2 else self.shank[2]
-
     @property
     def total_columns(self) -> int:
         """C """
@@ -350,6 +358,11 @@ class ElectrodeMatData(NamedTuple):
     @property
     def shank_list(self) -> NDArray[np.int_]:
         return np.unique(self.shank)
+
+    @property
+    def x(self) -> NDArray[np.int_]:
+        """Array[um, C]"""
+        return self.col * self.probe.c_space + self.shank * self.probe.s_space
 
     @property
     def y(self) -> NDArray[np.int_]:
@@ -593,6 +606,9 @@ def plot_probe_shape(ax: Axes,
         ax.set_yticks(y_ticks, minor=True)
         ax.set_ylabel('Distance from Tip (mm)')
 
+    ax.set_xlim(-w, (probe.n_shank - 1) * s_step + probe.n_col_shank * w)
+    ax.set_ylim(-0.3, height + 0.3)
+
 
 def plot_channelmap_block(ax: Axes,
                           chmap: ChannelMap,
@@ -640,7 +656,7 @@ def plot_channelmap_block(ax: Axes,
 
 def plot_electrode_block(ax: Axes,
                          probe: ProbeType,
-                         electrode: NDArray[np.int_],
+                         electrode: NDArray[np.float_] | ElectrodeMatData,
                          electrode_unit: ELECTRODE_UNIT = 'cr', *,
                          height: float | None = None,
                          shank_width_scale: float = 1,
@@ -650,12 +666,14 @@ def plot_electrode_block(ax: Axes,
 
     :param ax:
     :param probe: probe profile
-    :param electrode: Array[int, E, (S, C, R)|(X, Y)]
-    :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
+    :param electrode: Array[float, E, (S, C, R, V?)] (electrode_unit='cr'),
+                      Array[float, E, (X, Y, V?)] (electrode_unit='xy'),
+                      Array[V:float, S, C, r] (electrode_unit='raw'), or ElectrodeMatData
+    :param electrode_unit:
     :param height: max height (mm) of probe need to plot
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param fill: fill rectangle
-    :param kwargs: pass to Rectangle(**kwargs)
+    :param kwargs: pass to Rectangle(**kwargs) or ax.imshow(**kwargs).
     """
     from matplotlib.patches import Rectangle
 
@@ -670,7 +688,13 @@ def plot_electrode_block(ax: Axes,
         w = int(h_step * 0.8)
         h = int(v_step * 0.8)
 
-    if electrode_unit == 'cr':
+    x = y = data = None
+    if isinstance(electrode, ElectrodeMatData):
+        data = electrode
+        electrode_unit = 'raw'
+    elif electrode_unit == 'raw':
+        data = ElectrodeMatData.of(probe, electrode, electrode_unit)
+    elif electrode_unit == 'cr':
         s = electrode[:, 0]
         x = electrode[:, 1] * h_step + s * s_step
         y = electrode[:, 2] * v_step
@@ -680,19 +704,49 @@ def plot_electrode_block(ax: Axes,
     else:
         raise ValueError(f'unsupported electrode unit : {electrode_unit}')
 
-    if np.max(y, initial=0) > 10:  # um
-        x /= 1000
-        y /= 1000
+    if x is not None:
+        if np.max(y, initial=0) > 10:  # um
+            x /= 1000
+            y /= 1000
 
-    if height is not None:
-        yx = y <= height
-        x = x[yx]
-        y = y[yx]
+        if height is not None:
+            yx = y <= height
+            x = x[yx]
+            y = y[yx]
+    else:
+        if height is not None:
+            data = data.with_row(data.row[data.y <= height * 1000])
 
-    for i, j in zip(x - w / 2, y - h / 2):
-        r = Rectangle((float(i), float(j)), w, h, **kwargs)
-        ax.add_artist(r)
+    if electrode_unit in ('cr', 'xy'):
+        ret = []
+        for i, j in zip(x - w / 2, y - h / 2):
+            r = Rectangle((float(i), float(j)), w, h, **kwargs)
+            ret.append(e)
+            ax.add_artist(r)
+        return ret
 
+    elif electrode_unit == 'raw':
+        vmin = kwargs.pop('vmin', np.min(data.mat))
+        vmax = kwargs.pop('vmax', np.max(data.mat))
+
+        ret = []
+        for s in data.shank_list:
+            extent = [s * s_step - w / 2, s * s_step + h_step * (probe.n_col_shank - 1) + w / 2,
+                      *data.y_range / 1000.0]
+
+            im = ax.imshow(
+                data.with_shank(s).mat,  # Array[V:float, R, C]
+                origin='lower',
+                extent=extent,
+                aspect='auto',
+                vmin=vmin,
+                vmax=vmax,
+                **kwargs
+            )
+            ret.append(im)
+        return ret
+    else:
+        raise ValueError()
 
 def plot_channelmap_grid(ax: Axes, chmap: ChannelMap, *,
                          height: float,
@@ -844,7 +898,7 @@ def plot_channelmap_matrix(ax: Axes,
 
 def plot_electrode_matrix(ax: Axes,
                           probe: ProbeType,
-                          electrode: NDArray[np.float_],
+                          electrode: NDArray[np.float_] | ElectrodeMatData,
                           electrode_unit: ELECTRODE_UNIT = 'cr', *,
                           shank_list: list[int] = None,
                           kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]] | None = None,
@@ -856,8 +910,10 @@ def plot_electrode_matrix(ax: Axes,
 
     :param ax:
     :param probe: probe type
-    :param electrode: Array[int, E, (S, C, R, V)] or Array[int, E, (X, Y, V)]
-    :param electrode_unit: 'xy'=(X,Y,V), 'cr'=(S,C,R,V)
+    :param electrode: Array[float, E, (S, C, R, V)] (electrode_unit='cr'),
+                      Array[float, E, (X, Y, V)] (electrode_unit='xy'),
+                      Array[V:float, S, C, r] (electrode_unit='raw'), or ElectrodeMatData
+    :param electrode_unit:
     :param shank_list: show shank in order
     :param kernel: interpolate missing data (NaN) between channels.
         It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
@@ -867,7 +923,11 @@ def plot_electrode_matrix(ax: Axes,
     :param shank_gap_color: color of shank gao line. Use None to disable plotting.
     :param kwargs: pass to ax.imshow(**kwargs)
     """
-    data = ElectrodeMatData.of(probe, electrode, electrode_unit, reduce, kernel)
+    if isinstance(electrode, ElectrodeMatData):
+        data = electrode
+    else:
+        data = ElectrodeMatData.of(probe, electrode, electrode_unit, reduce, kernel)
+
     nc = probe.n_col_shank
 
     if shank_list is not None:

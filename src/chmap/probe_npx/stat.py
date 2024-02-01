@@ -147,6 +147,15 @@ def _get_electrode(e: list[NpxElectrodeDesp], policies: list[int]) -> tuple[int,
 def npx_electrode_probability(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxElectrodeDesp],
                               selector: str | ElectrodeSelector = 'default',
                               sample_times: int = 1000) -> NDArray[np.float_]:
+    """
+
+    :param probe:
+    :param chmap:
+    :param e:
+    :param selector:
+    :param sample_times:
+    :return: probability matrix Array[prob:float, S, C, R]
+    """
     if isinstance(selector, str):
         selector = load_select(selector)
 
