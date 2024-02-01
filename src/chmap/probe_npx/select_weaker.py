@@ -88,7 +88,7 @@ def policy_mapping_priority(p: int) -> float:
         case NpxProbeDesp.POLICY_D2:
             return 0.8  # 0.4, 0.2
         case NpxProbeDesp.POLICY_D4:
-            return 0.7  # 0.35, 0.125
+            return 0.7  # 0.35, 0.175
         case NpxProbeDesp.POLICY_REMAINDER:
             return 0.6
         case NpxProbeDesp.POLICY_FORBIDDEN:
