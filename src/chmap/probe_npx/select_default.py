@@ -6,14 +6,14 @@ from .npx import ChannelMap, ProbeType
 __all__ = ['electrode_select']
 
 
-def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrodeDesp], **kwargs) -> ChannelMap:
+def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], **kwargs) -> ChannelMap:
     ret = desp.new_channelmap(chmap)
 
     cand: dict[K, NpxElectrodeDesp] = {it.electrode: it for it in desp.all_electrodes(ret)}
-    for e in s:
+    for e in blueprint:
         cand[e.electrode].policy = e.policy
 
-    for e in s:
+    for e in blueprint:
         # add pre-selected
         if e.policy == NpxProbeDesp.POLICY_SET:
             _add(desp, ret, cand, e)

@@ -7,25 +7,22 @@ from .npx import ChannelMap, ProbeType
 
 __all__ = ['electrode_select']
 
-DEBUG = False
-
 
 class E(NpxElectrodeDesp):
     prob: float
 
 
-def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrodeDesp],
+def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp],
                      **kwargs) -> ChannelMap:
     probe_type = chmap.probe_type
-    ret = desp.new_channelmap(chmap)
 
     cand: dict[K, E] = {
         it.electrode:
             E().copy(it, prob=0)
-        for it in desp.all_electrodes(ret)
+        for it in desp.all_electrodes(chmap)
     }
 
-    for e in s:
+    for e in blueprint:
         cand[e.electrode].policy = e.policy
 
     for e in cand.values():
@@ -41,42 +38,12 @@ def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrode
     return build_channelmap(desp, chmap, cand)
 
 
-if not DEBUG:
-    def _select_loop(desp: NpxProbeDesp, probe_type: ProbeType, cand: dict[K, E]):
-        while selected_electrode(cand) < probe_type.n_channels:
-            if (e := pick_electrode(cand)) is not None:
-                update(desp, probe_type, cand, e)
-            else:
-                break
-else:
-    def _select_loop(desp: NpxProbeDesp, probe_type: ProbeType, cand: dict[K, E]):
-        data = []
-        count = 0
-        try:
-            while (n := selected_electrode(cand)) < probe_type.n_channels:
-                if (e := pick_electrode(cand)) is not None:
-                    p = e.prob
-                    update(desp, probe_type, cand, e)
-                    count += 1
-                    data.append((n, policy_mapping_priority(e.policy), p, information_entropy(cand)))
-                else:
-                    break
-        except KeyboardInterrupt:
-            pass
-
-        import numpy as np
-        import matplotlib.pyplot as plt
-
-        fg, ax = plt.subplots()
-        data = np.array(data)
-        data[:, 0] /= probe_type.n_channels
-        data[:, 3] /= np.max(data[:, 3])
-        ax.plot(data[:, 0], label='N')
-        ax.plot(data[:, 1], label='Q')
-        ax.plot(data[:, 2], label='P')
-        ax.plot(data[:, 3], label='H')
-        ax.legend()
-        plt.show()
+def _select_loop(desp: NpxProbeDesp, probe_type: ProbeType, cand: dict[K, E]):
+    while selected_electrode(cand) < probe_type.n_channels:
+        if (e := pick_electrode(cand)) is not None:
+            update_prob(desp, cand, e)
+        else:
+            break
 
 
 def policy_mapping_priority(p: int) -> float:
@@ -130,36 +97,40 @@ def pick_electrode(cand: dict[K, E]) -> E | None:
     return random.choice(sub)
 
 
-def update(desp: NpxProbeDesp, probe_type: ProbeType, cand: dict[K, E], e: E):
+def update_prob(desp: NpxProbeDesp, cand: dict[K, E], e: E):
     _add(desp, cand, e)
 
-    for t in surr(probe_type, cand, e):
+    for t in surr(cand, e):
         if t is not None and t.prob < 1:
             t.prob /= 2.0
 
 
-def surr(probe_type: ProbeType, cand: dict[K, E], e: E) -> Iterator[E | None]:
+def surr(cand: dict[K, E], e: E) -> Iterator[E | None]:
     match e.policy:
         case NpxProbeDesp.POLICY_D2:
-            # x o
-            # e x
-            # x o
-            yield _get(probe_type, cand, e, 1, 0)
-            yield _get(probe_type, cand, e, 0, 1)
-            yield _get(probe_type, cand, e, 0, -1)
+            # o x o
+            # x e x
+            # o x o
+            yield _get(cand, e, -1, 0)
+            yield _get(cand, e, 1, 0)
+            yield _get(cand, e, 0, 1)
+            yield _get(cand, e, 0, -1)
         case NpxProbeDesp.POLICY_D4:
-            # x o
-            # x x
-            # e x
-            # x x
-            # x o
-            yield _get(probe_type, cand, e, 1, 0)
-            yield _get(probe_type, cand, e, 0, 1)
-            yield _get(probe_type, cand, e, 1, 1)
-            yield _get(probe_type, cand, e, 0, -1)
-            yield _get(probe_type, cand, e, 1, -1)
-            yield _get(probe_type, cand, e, 0, 2)
-            yield _get(probe_type, cand, e, 0, -2)
+            # ? x ?
+            # x x x
+            # x e x
+            # x x x
+            # ? x ?
+            yield _get(cand, e, -1, 0)
+            yield _get(cand, e, 1, 0)
+            yield _get(cand, e, -1, -1)
+            yield _get(cand, e, 0, -1)
+            yield _get(cand, e, 1, -1)
+            yield _get(cand, e, -1, 1)
+            yield _get(cand, e, 0, 1)
+            yield _get(cand, e, 1, 1)
+            yield _get(cand, e, 0, 2)
+            yield _get(cand, e, 0, -2)
         case _:
             return
 
@@ -172,12 +143,6 @@ def _add(desp: NpxProbeDesp, cand: dict[K, E], e: E):
             k.prob = 0
 
 
-def _get(probe_type: ProbeType, cand: dict[K, E], e: E, c: int, r: int) -> E | None:
-    ret = cand.get(_move(probe_type, e, c, r), None)
-    return ret if ret is not None and ret.policy == e.policy else None
-
-
-def _move(probe_type: ProbeType, e: E, c: int, r: int) -> K:
+def _get(cand: dict[K, E], e: E, c: int, r: int) -> E | None:
     eh, ec, er = e.electrode
-    nc = probe_type.n_col_shank
-    return eh, (ec + c) % nc, (er + r)
+    return cand.get((eh, ec + c, er + r), None)

@@ -13,7 +13,16 @@ BUILTIN_SELECTOR = {
 
 
 class ElectrodeSelector(Protocol):
-    def __call__(self, desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrodeDesp], **kwargs) -> ChannelMap:
+    def __call__(self, desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], **kwargs) -> ChannelMap:
+        """
+        Selecting electrodes based on the electrode blueprint.
+
+        :param desp:
+        :param chmap: channelmap type. It is a reference.
+        :param blueprint: channelmap blueprint
+        :param kwargs: other parameters.
+        :return: generated channelmap
+        """
         pass
 
 
@@ -21,10 +30,10 @@ def load_select(selector: str) -> ElectrodeSelector:
     return import_func('selector', selector)
 
 
-def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrodeDesp], *,
+def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], *,
                      selector: str = 'default',
                      **kwargs) -> ChannelMap:
     selector = BUILTIN_SELECTOR.get(selector, selector)
     selector = load_select(selector)
 
-    return selector(desp, chmap, s, **kwargs)
+    return selector(desp, chmap, blueprint, **kwargs)
