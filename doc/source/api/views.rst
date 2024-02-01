@@ -13,6 +13,7 @@ modules
     views.base
     views.data
     views.data_density
+    views.data_efficient
     views.image
     views.image_npy
     views.probe
