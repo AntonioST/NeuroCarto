@@ -177,7 +177,6 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
     def _setup_render(self, f: Figure,
                       boundary_color: str = 'black',
-                      boundary_desp: str = 'drag image',
                       **kwargs):
         # renders
         self.render_image = f.image_rgba(
@@ -185,7 +184,10 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
             global_alpha=0.5, syncable=False,
         )
 
-        self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=boundary_desp)
+        desp = 'drag image'
+        if (image := self._image) is not None:
+            desp = f'drag {image.filename}'
+        self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=desp)
 
     def _setup_title(self, **kwargs) -> list[UIElement]:
         ret = super()._setup_title(**kwargs)

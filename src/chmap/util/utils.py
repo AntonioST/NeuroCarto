@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import inspect
-
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ['all_int', 'align_arr', 'as_set']
+__all__ = ['all_int', 'align_arr', 'as_set', 'import_func']
 
 
 def all_int(*x) -> bool:
@@ -45,3 +43,14 @@ def as_set(x, n: int) -> set[int]:
         return ret
     else:
         return set(map(int, x))
+
+
+def import_func(desp: str, module_path: str):
+    module, _, name = module_path.partition(':')
+    if len(name) == 0:
+        raise ValueError(f'not a {desp} pattern "module_path:name" : {module_path}')
+
+    import importlib
+    module = importlib.import_module(module)
+
+    return getattr(module, name)

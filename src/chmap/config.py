@@ -16,6 +16,7 @@ class ChannelMapEditorConfig:
     """
 
     probe_family: str
+    selector: str | None
     chmap_root: Path
     extra_view: list[str]
 
@@ -32,6 +33,8 @@ def new_parser() -> argparse.ArgumentParser:
 
     ap.add_argument('-P', '--probe', metavar='NAME', default='npx', dest='probe_family',
                     help='use probe family. default use "npx" (Neuropixels probe family).')
+    ap.add_argument('--selector', metavar='MODULE:NAME', default='default', dest='selector',
+                    help='use which electrode selection method')
 
     ap.add_argument('--debug', action='store_true', dest='debug',
                     help=argparse.SUPPRESS)
@@ -42,7 +45,7 @@ def new_parser() -> argparse.ArgumentParser:
 
     #
     gp = ap.add_argument_group('View')
-    gp.add_argument('--extra', metavar='MODULE:NAME,...', type=_list_type, default=tuple(), dest='extra_view',
+    gp.add_argument('--view', metavar='MODULE:NAME,...', type=str, default=list(), action='append', dest='extra_view',
                     help='install extra views in right panel')
 
     #

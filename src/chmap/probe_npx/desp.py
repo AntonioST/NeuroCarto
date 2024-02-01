@@ -169,7 +169,8 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     # electrode selections #
     # ==================== #
 
-    def select_electrodes(self, chmap: ChannelMap, s: list[NpxElectrodeDesp], **kwargs) -> ChannelMap:
+    def select_electrodes(self, chmap: ChannelMap, s: list[NpxElectrodeDesp], *,
+                          selector='default',
+                          **kwargs) -> ChannelMap:
         from .select import electrode_select
-        selector = 'weaker'
         return electrode_select(self, chmap, s, selector=selector, **kwargs)

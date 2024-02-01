@@ -1,5 +1,6 @@
 from typing import Protocol
 
+from chmap.util.utils import import_func
 from .desp import NpxProbeDesp, NpxElectrodeDesp
 from .npx import ChannelMap
 
@@ -17,14 +18,7 @@ class ElectrodeSelector(Protocol):
 
 
 def load_select(selector: str) -> ElectrodeSelector:
-    module, _, name = selector.partition(':')
-    if len(name) == 0:
-        raise ValueError(f'not a selector pattern "module_path:name" : {selector}')
-
-    import importlib
-    module = importlib.import_module(module)
-
-    return getattr(module, name)
+    return import_func('selector', selector)
 
 
 def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, s: list[NpxElectrodeDesp], *,

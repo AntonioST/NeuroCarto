@@ -343,13 +343,17 @@ class ChannelMapEditorApp(BokehApplication):
         """
         ret = []
         ret.extend(self.probe.extra_controls(config))
-        ret.extend(config.extra_view)
         ret.append('chmap.views.atlas:AtlasBrainView')
+        ret.extend(config.extra_view)
         return ret
 
     def start(self):
         self.logger.debug('start')
         self.reload_input_imro_list()
+
+        self.logger.debug('use selector(%s)', self.config.selector)
+        self.probe_view.selecting_parameters['selector'] = self.config.selector
+
         for view in self.right_panel_views:
             self.logger.debug('start %s', type(view).__name__)
             view.start()

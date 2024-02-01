@@ -8,11 +8,13 @@ from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast
 
 import numpy as np
 from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch, Div
+from bokeh.models import tools
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, is_image, new_help_button
+from chmap.util.utils import import_func
 
 if TYPE_CHECKING:
     from chmap.probe import ProbeDesp, M, E
@@ -149,14 +151,7 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
 
 
 def import_view(config: ChannelMapEditorConfig, module_path: str) -> ViewBase | None:
-    module, _, name = module_path.partition(':')
-    if len(name) == 0:
-        raise ValueError(f'not a module_path pattern "module_path:name" : {module_path}')
-
-    import importlib
-    module = importlib.import_module(module)
-
-    return init_view(config, getattr(module, name))
+    return init_view(config, import_func('view base', module_path))
 
 
 class InvisibleView:
@@ -268,6 +263,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     """
 
     data_boundary: ColumnDataSource  # boundary data
+    tool_boundary: tools.BoxEditTool
     render_boundary: GlyphRenderer  # boundary drawing
 
     def __init__(self, config: ChannelMapEditorConfig, *,
@@ -304,12 +300,8 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         )
         self.data_boundary.on_change('data', as_callback(self.on_boundary_change))
 
-        from bokeh.models import tools
-        f.tools.append(tools.BoxEditTool(
-            description=boundary_desp,
-            renderers=[self.render_boundary],
-            num_objects=1
-        ))
+        self.tool_boundary = tools.BoxEditTool(description=boundary_desp, renderers=[self.render_boundary], num_objects=1)
+        f.tools.append(self.tool_boundary)
 
     boundary_rotate_slider: Slider
     boundary_scale_slider: Slider
