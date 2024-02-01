@@ -45,7 +45,7 @@ def new_parser() -> argparse.ArgumentParser:
 
     #
     gp = ap.add_argument_group('View')
-    gp.add_argument('--view', metavar='MODULE:NAME,...', type=str, default=list(), action='append', dest='extra_view',
+    gp.add_argument('--view', metavar='MODULE:NAME', type=str, default=list(), action='append', dest='extra_view',
                     help='install extra views in right panel')
 
     #

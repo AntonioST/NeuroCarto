@@ -16,16 +16,22 @@ Commandline options
 
 ::
 
-    usage: chmap [-h] [-P NAME] [-C PATH] [--atlas NAME] [--atlas-root PATH] [--no-open-browser]
+    usage: chmap [-h] [-P NAME] [--selector MODULE:NAME] [-C PATH] [--view MODULE:NAME,...] [--atlas NAME] [--atlas-root PATH] [--no-open-browser]
 
     options:
       -h, --help            show this help message and exit
       -P NAME, --probe NAME
                             use probe family. default use "npx" (Neuropixels probe family).
+      --selector MODULE:NAME
+                            use which electrode selection method
 
     Source:
       -C PATH, --chmap-dir PATH
                             channel saving directory
+
+    View:
+      --view MODULE:NAME
+                            install extra views in right panel
 
     Atlas:
       --atlas NAME          atlas mouse brain name

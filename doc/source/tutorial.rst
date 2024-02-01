@@ -7,3 +7,5 @@ Tutorials
 
    notebooks/Example
    notebooks/Extending
+   notebooks/Selecting
+   notebooks/Statistics
