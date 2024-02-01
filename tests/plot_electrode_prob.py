@@ -21,7 +21,7 @@ policy = np.load(file.with_suffix('.policy.npy'))
 electrodes = desp.electrode_from_numpy(desp.all_electrodes(chmap), policy)
 
 t = time.time()
-prob = npx_electrode_probability(desp, chmap, electrodes, selector='default', sample_times=1000)
+prob = npx_electrode_probability(desp, chmap, electrodes, selector='default', sample_times=1000, n_worker=4)
 t = time.time() - t
 print(f'use {t:.2f} sec')
 

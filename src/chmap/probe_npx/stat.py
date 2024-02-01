@@ -146,7 +146,8 @@ def _get_electrode(e: list[NpxElectrodeDesp], policies: list[int]) -> tuple[int,
 
 def npx_electrode_probability(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxElectrodeDesp],
                               selector: str | ElectrodeSelector = 'default',
-                              sample_times: int = 1000) -> NDArray[np.float_]:
+                              sample_times: int = 1000,
+                              n_worker: int = 1) -> NDArray[np.float_]:
     """
 
     :param probe:
@@ -154,11 +155,21 @@ def npx_electrode_probability(probe: NpxProbeDesp, chmap: ChannelMap, e: list[Np
     :param e:
     :param selector:
     :param sample_times:
+    :param n_worker:
     :return: probability matrix Array[prob:float, S, C, R]
     """
     if isinstance(selector, str):
         selector = load_select(selector)
 
+    if n_worker == 1:
+        return _npx_electrode_probability_0(probe, chmap, e, selector, sample_times) / sample_times
+    else:
+        return _npx_electrode_probability_1(probe, chmap, e, selector, sample_times, n_worker=n_worker) / sample_times
+
+
+def _npx_electrode_probability_0(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxElectrodeDesp],
+                                 selector: ElectrodeSelector,
+                                 sample_times: int = 1000) -> NDArray[np.float_]:
     pt = chmap.probe_type
     mat = np.zeros((pt.n_shank, pt.n_col_shank, pt.n_row_shank))
 
@@ -167,4 +178,27 @@ def npx_electrode_probability(probe: NpxProbeDesp, chmap: ChannelMap, e: list[Np
         for t in chmap.electrodes:
             mat[t.shank, t.column, t.row] += 1
 
-    return mat / sample_times
+    return mat
+
+
+def _npx_electrode_probability_1(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxElectrodeDesp],
+                                 selector: ElectrodeSelector,
+                                 sample_times: int = 1000,
+                                 n_worker: int = 1) -> NDArray[np.float_]:
+    if n_worker <= 1:
+        raise ValueError()
+
+    sample_times_per_worker = sample_times // n_worker
+    sample_times_list = [sample_times_per_worker] * n_worker
+    sample_times_list[-1] += sample_times - sum(sample_times_list)
+    assert sum(sample_times_list) == sample_times
+
+    import multiprocessing
+    pool = multiprocessing.Pool(n_worker)
+    jobs = []
+    for _sample_times in sample_times_list:
+        jobs.append(pool.apply_async(_npx_electrode_probability_0, (probe, chmap, e, selector, _sample_times)))
+    pool.close()
+    pool.join()
+    results = [it.get() for it in jobs]
+    return np.sum(results, axis=0)
