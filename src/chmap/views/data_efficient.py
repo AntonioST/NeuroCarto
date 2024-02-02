@@ -8,7 +8,7 @@ from chmap.probe_npx import NpxProbeDesp
 from chmap.views.base import ViewBase, DynamicView, InvisibleView
 
 if TYPE_CHECKING:
-    from chmap.probe_npx.stat import ElectrodeEfficientStat
+    from chmap.probe_npx.stat import ElectrodeEfficiencyStat
 
 __all__ = ['ElectrodeEfficiencyData']
 
@@ -27,7 +27,7 @@ class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.efficient')
 
-        self._stat: ElectrodeEfficientStat | None = None
+        self._stat: ElectrodeEfficiencyStat | None = None
 
     @property
     def name(self) -> str:
@@ -66,8 +66,8 @@ class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
             # self.logger.debug('on_probe_update()')
 
             try:
-                from chmap.probe_npx.stat import npx_channel_efficient
-                self._stat = npx_channel_efficient(chmap, e)
+                from chmap.probe_npx.stat import npx_channel_efficiency
+                self._stat = npx_channel_efficiency(chmap, e)
             except BaseException as e:
                 self.logger.warning(repr(e), exc_info=e)
                 self._stat = None

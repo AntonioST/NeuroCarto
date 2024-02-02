@@ -4,7 +4,7 @@ from chmap.util.utils import import_func
 from .desp import NpxProbeDesp, NpxElectrodeDesp
 from .npx import ChannelMap
 
-__all__ = ['electrode_select', 'load_select']
+__all__ = ['electrode_select', 'load_select', 'ElectrodeSelector']
 
 BUILTIN_SELECTOR = {
     'default': 'chmap.probe_npx.select_default:electrode_select',

@@ -20,16 +20,22 @@ chmap = ChannelMap.from_imro(file)
 policy = np.load(file.with_suffix('.policy.npy'))
 electrodes = desp.electrode_from_numpy(desp.all_electrodes(chmap), policy)
 
+selector = ['default', 'weaker'][0]
+print(f'use selector {selector}')
+
 t = time.time()
-prob = npx_electrode_probability(desp, chmap, electrodes, selector='default', sample_times=1000, n_worker=4)
+prob = npx_electrode_probability(desp, chmap, electrodes, selector=selector, sample_times=1000, n_worker=6)
 t = time.time() - t
 print(f'use {t:.2f} sec')
+print(f'complete rate : {100 * prob.complete_rate:.2f}%')
+print(f'Ceff : {100 * prob.channel_efficiency:.2f}%')
 
 fg, ax = plt.subplots(gridspec_kw=dict(top=0.9))
 height = 6
 
 # plot.plot_electrode_matrix(ax, chmap.probe_type, prob, electrode_unit='raw', cmap='YlOrBr', vmin=0, vmax=1)
-ims = plot.plot_electrode_block(ax, chmap.probe_type, prob, electrode_unit='raw', height=height, cmap='YlOrBr', vmin=0, vmax=1, shank_width_scale=2)
+ims = plot.plot_electrode_block(ax, chmap.probe_type, prob.probability, electrode_unit='raw', height=height,
+                                cmap='YlOrBr', vmin=0, vmax=1, shank_width_scale=2)
 plot.plot_probe_shape(ax, chmap.probe_type, height=height, color='gray', label_axis=True, shank_width_scale=2)
 
 cax = ax.inset_axes([0, 1.1, 1, 0.02])  # [x0, y0, width, height]
