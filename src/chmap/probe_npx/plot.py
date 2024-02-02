@@ -259,8 +259,7 @@ class ElectrodeMatData(NamedTuple):
     def of(cls, probe: ProbeType,
            electrode: NDArray[np.float_],
            electrode_unit: ELECTRODE_UNIT = 'cr',
-           reduce: Callable[[NDArray[np.float_]], float] = np.mean,
-           kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]] | None = None) -> Self:
+           reduce: Callable[[NDArray[np.float_]], float] = np.mean) -> Self:
         """
         Convert electrode array data into matrix data.
 
@@ -274,66 +273,74 @@ class ElectrodeMatData(NamedTuple):
             It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
         :return: ElectrodeMatData
         """
+        if electrode_unit == 'raw':
+            return cls._of_raw(probe, electrode)
+        else:
+            return cls._of(probe, electrode, electrode_unit, reduce)
+
+    @classmethod
+    def _of_raw(cls, probe: ProbeType,
+                electrode: NDArray[np.float_]) -> Self:
+        s, c, r = electrode.shape
+        vmap = electrode.transpose(2, 0, 1).reshape(r, -1)  # Array[V:float, R, S*C]
+        row = np.arange(r)
+        col = np.tile(np.arange(c), s)  # [0,1,0,1, ...]
+        shk = np.repeat(np.arange(s), c)  # [0,0,1,1,...]
+        return ElectrodeMatData(probe, vmap, col=col, row=row, shank=shk)
+
+    @classmethod
+    def _of(cls, probe: ProbeType,
+            electrode: NDArray[np.float_],
+            electrode_unit: ELECTRODE_UNIT = 'cr',
+            reduce: Callable[[NDArray[np.float_]], float] = np.mean) -> Self:
         nc = probe.n_col_shank
         s_step = probe.s_space
         h_step = probe.c_space
         v_step = probe.r_space
 
-        if electrode_unit == 'raw':
-            s, c, r = electrode.shape
-            vmap = electrode.transpose(2, 0, 1).reshape(r, -1)  # Array[V:float, R, S*C]
-            row = np.arange(r)
-            col = np.tile(np.arange(c), s)  # [0,1,0,1, ...]
-            shk = np.repeat(np.arange(s), c)  # [0,0,1,1,...]
-            ret = ElectrodeMatData(probe, vmap, col=col, row=row, shank=shk)
+        if electrode_unit == 'cr':
+            s = electrode[:, 0].astype(int)  # Array[s, E]
+            c = electrode[:, 1].astype(int)  # Array[c, E]
+            r = electrode[:, 2].astype(int)  # Array[r, E]
+            v = electrode[:, 3]  # Array[float, E]
+
+        elif electrode_unit == 'xy':
+            x = electrode[:, 0]
+            y = electrode[:, 1]
+            v = electrode[:, 2]
+
+            if np.max(y) < 10:  # mm:
+                x = (x * 1000)
+                y = (y * 1000)
+
+            x = x.astype(int)
+            y = y.astype(int)
+
+            s = x // s_step
+            c = (x % s_step) // h_step
+            r = y // v_step
+
         else:
-            if electrode_unit == 'cr':
-                s = electrode[:, 0].astype(int)  # Array[s, E]
-                c = electrode[:, 1].astype(int)  # Array[c, E]
-                r = electrode[:, 2].astype(int)  # Array[r, E]
-                v = electrode[:, 3]  # Array[float, E]
+            raise ValueError(f'unsupported electrode unit : {electrode_unit}')
 
-            elif electrode_unit == 'xy':
-                x = electrode[:, 0]
-                y = electrode[:, 1]
-                v = electrode[:, 2]
+        sc = c + s * nc  # Array[sc, E]
 
-                if np.max(y) < 10:  # mm:
-                    x = (x * 1000)
-                    y = (y * 1000)
+        c0 = int(np.min(sc))
+        c1 = int(np.max(sc))
+        r0 = int(np.min(r))
+        r1 = int(np.max(r))
+        dc = c1 - c0
+        dr = r1 - r0
 
-                x = x.astype(int)
-                y = y.astype(int)
+        vmap = np.full((dr + 1, dc + 1), np.nan)
+        vmap[r - r0, sc - c0] = v
+        for i in same_index(np.vstack([c, r]).T):
+            i0 = i[0]
+            vmap[r[i0] - r0, sc[i0] - c0] = reduce(v[i])
 
-                s = x // s_step
-                c = (x % s_step) // h_step
-                r = y // v_step
-
-            else:
-                raise ValueError(f'unsupported electrode unit : {electrode_unit}')
-
-            sc = c + s * nc  # Array[sc, E]
-
-            c0 = int(np.min(sc))
-            c1 = int(np.max(sc))
-            r0 = int(np.min(r))
-            r1 = int(np.max(r))
-            dc = c1 - c0
-            dr = r1 - r0
-
-            vmap = np.full((dr + 1, dc + 1), np.nan)
-            vmap[r - r0, sc - c0] = v
-            for i in same_index(np.vstack([c, r]).T):
-                i0 = i[0]
-                vmap[r[i0] - r0, sc[i0] - c0] = reduce(v[i])
-
-            rr = np.arange(r0, r1 + 1)
-            cc = np.arange(c0, c1 + 1)
-            ret = ElectrodeMatData(probe, vmap, col=cc % nc, row=rr, shank=cc // nc)
-
-        if kernel is not None:
-            ret = ret.interpolate_nan(kernel)
-        return ret
+        rr = np.arange(r0, r1 + 1)
+        cc = np.arange(c0, c1 + 1)
+        return ElectrodeMatData(probe, vmap, col=cc % nc, row=rr, shank=cc // nc)
 
     @property
     def n_row(self) -> int:
@@ -430,6 +437,28 @@ class ElectrodeMatData(NamedTuple):
         ri = index_of(self.row, row, missing=-1)
         mat = self.mat[ri].copy()
         mat[ri == -1] = np.nan
+
+        return self._replace(mat=mat, row=row)
+
+    def with_height(self, height: float | tuple[float, float]) -> Self:
+        """
+
+        :param height: max height in um or a range.
+        :return:
+        """
+        y = self.y
+        if isinstance(height, (int, float)):
+            ri = y <= height
+        elif isinstance(height, tuple):
+            ri = np.logical_and(height[0] <= y, y <= height[1])
+        else:
+            raise TypeError()
+
+        if np.all(ri):
+            return self
+
+        mat = self.mat[ri]
+        row = self.row[ri]
 
         return self._replace(mat=mat, row=row)
 
@@ -715,13 +744,13 @@ def plot_electrode_block(ax: Axes,
             y = y[yx]
     else:
         if height is not None:
-            data = data.with_row(data.row[data.y <= height * 1000])
+            data = data.with_height(height * 1000)
 
     if electrode_unit in ('cr', 'xy'):
         ret = []
         for i, j in zip(x - w / 2, y - h / 2):
             r = Rectangle((float(i), float(j)), w, h, **kwargs)
-            ret.append(e)
+            ret.append(r)
             ax.add_artist(r)
         return ret
 
@@ -747,6 +776,7 @@ def plot_electrode_block(ax: Axes,
         return ret
     else:
         raise ValueError()
+
 
 def plot_channelmap_grid(ax: Axes, chmap: ChannelMap, *,
                          height: float,
@@ -926,7 +956,10 @@ def plot_electrode_matrix(ax: Axes,
     if isinstance(electrode, ElectrodeMatData):
         data = electrode
     else:
-        data = ElectrodeMatData.of(probe, electrode, electrode_unit, reduce, kernel)
+        data = ElectrodeMatData.of(probe, electrode, electrode_unit, reduce)
+
+    if kernel is not None:
+        data = data.interpolate_nan(kernel)
 
     nc = probe.n_col_shank
 

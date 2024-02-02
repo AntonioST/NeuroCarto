@@ -24,7 +24,7 @@ selector = ['default', 'weaker'][0]
 print(f'use selector {selector}')
 
 t = time.time()
-prob = npx_electrode_probability(desp, chmap, electrodes, selector=selector, sample_times=1000, n_worker=6)
+prob = npx_electrode_probability(desp, chmap, electrodes, selector=selector, sample_times=10, n_worker=1)
 t = time.time() - t
 print(f'use {t:.2f} sec')
 print(f'complete rate : {100 * prob.complete_rate:.2f}%')
