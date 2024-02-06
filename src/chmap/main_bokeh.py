@@ -341,10 +341,16 @@ class ChannelMapEditorApp(BokehApplication):
         :param config:
         :return: list of item that recognised by `init_view`
         """
-        ret = []
-        ret.extend(self.probe.extra_controls(config))
-        ret.append('chmap.views.atlas:AtlasBrainView')
-        ret.extend(config.extra_view)
+        ret: list = self.probe.extra_controls(config)
+
+        ext = []
+        ext.append('chmap.views.atlas:AtlasBrainView')
+        ext.extend(config.extra_view)
+
+        if '-' in ext:
+            ext = ext[ext.index('-') + 1:]
+
+        ret.extend(ext)
         return ret
 
     def start(self):

@@ -140,6 +140,10 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
             from chmap.views.image import FileImageView
             return FileImageView(config)
 
+        elif view_type == 'atlas':
+            from chmap.views.atlas import AtlasBrainView
+            return AtlasBrainView(config)
+
         elif isinstance(view_type, str) and is_image(image_file := Path(view_type)):
             from chmap.views.image import ImageView, ImageHandler
             return ImageView(config, ImageHandler.from_file(image_file))

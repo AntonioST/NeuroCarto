@@ -22,3 +22,17 @@ class PlotChannelMap(PltImageHandler):
         with self.plot_figure() as ax:
             plot.plot_channelmap_block(ax, chmap=m)
             plot.plot_probe_shape(ax, m, color='k')
+
+
+if __name__ == '__main__':
+    import sys
+    from chmap.config import parse_cli
+    from chmap.main_bokeh import main
+
+    main(parse_cli([
+        *sys.argv[1:],
+        '-C', 'res',
+        '--debug',
+        '--view=-',
+        '--view=test:main_image_plt_plot_channelmap.py:PlotChannelMap',
+    ]))
