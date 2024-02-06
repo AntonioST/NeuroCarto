@@ -1,20 +1,23 @@
+from __future__ import annotations
+
 from typing import get_args, TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement
+from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
-from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called
+from chmap.util.atlas_struct import Structures
+from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
 from chmap.views.base import StateView, BoundView, BoundaryState
 
 __all__ = ['AtlasBrainView', 'AtlasBrainViewState']
 
 
-class AtlasBrainViewState(TypedDict):
+class AtlasBrainViewState(TypedDict, total=False):
     atlas_brain: str
     brain_slice: SLICE | None
     slice_plane: int | None
@@ -25,6 +28,7 @@ class AtlasBrainViewState(TypedDict):
     image_sx: float
     image_sy: float
     image_rt: float
+    regions: list[str]
 
 
 class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
@@ -34,6 +38,30 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     Used command-line arguments:
     * '--atlas' : brain name.
     * '--atlas-root' : data saving directory.
+
+    Event Call chain
+    ----------------
+
+    (boundary UI components)
+    -/-> (event callback)
+        -> update_boundary_transform()
+            -> on_boundary_transform()
+
+    (atlas UI components)
+    (slice_select) -/-> (event callback)
+        -> update_brain_view()
+            -> update_brain_slice(update_image=False)
+            -> update_boundary_transform()
+                -> on_boundary_transform()
+                    -> update_image()
+                        -> update_region_image()
+    (region_choose) -/-> (event callback)
+        -> update_region_image()
+    (other) -/-> (event callback)
+        -> update_brain_slice()
+            -> update_image()
+                -> update_region_image()
+
     """
 
     brain: Final[BrainGlobeAtlas]
@@ -41,16 +69,22 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     data_brain: ColumnDataSource
     render_brain: GlyphRenderer
 
-    def __init__(self, config: ChannelMapEditorConfig):
-        super().__init__(config, logger='chmap.view.atlas')
+    data_region: ColumnDataSource
+    render_region: GlyphRenderer
+
+    def __init__(self, config: ChannelMapEditorConfig, *, logger: str = 'chmap.view.atlas'):
+        super().__init__(config, logger=logger)
 
         self.logger.debug('init(%s)', config.atlas_name)
         self.brain = get_atlas_brain(config.atlas_name, config.atlas_root)
+        self._structure = Structures.of(self.brain)
 
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
+        self.data_region = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
 
         self._brain_view: SliceView | None = None
         self._brain_slice: SlicePlane | None = None
+        self._regions: dict[str, int] = {}
 
     @property
     def name(self) -> str:
@@ -64,14 +98,14 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def width(self) -> float:
         try:
             return self._brain_slice.width
-        except TypeError:
+        except (TypeError, AttributeError):
             return 0
 
     @property
     def height(self) -> float:
         try:
             return self._brain_slice.height
-        except TypeError:
+        except (TypeError, AttributeError):
             return 0
 
     @property
@@ -90,14 +124,21 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     plane_slider: Slider
     rotate_hor_slider: Slider
     rotate_ver_slider: Slider
+    region_choose: MultiChoice
 
     def _setup_render(self, f: Figure,
                       palette: str = 'Greys256',
+                      palette_region: str = 'Turbo256',
                       boundary_color: str = 'black',
                       **kwargs):
         self.render_brain = f.image(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
             palette=palette, level="image", global_alpha=0.5, syncable=False,
+        )
+
+        self.render_region = f.image(
+            'image', x='x', y='y', dw='dw', dh='dh', source=self.data_region,
+            palette=palette_region, level="image", global_alpha=0.3, syncable=False,
         )
 
         self.setup_boundary(f, boundary_color=boundary_color, boundary_desp='drag atlas brain image')
@@ -115,15 +156,21 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             options=slice_view_options,
             width=100,
         )
-        self.slice_select.on_change('value', as_callback(self.on_slice_selected))
+        self.slice_select.on_change('value', as_callback(self._on_slice_selected))
 
         #
-        self.plane_slider = new_slider('Slice Plane', (0, 1, 1, 0), self.on_slice_changed)
-        self.rotate_hor_slider = new_slider('horizontal rotation (um)', rotate_steps, self.on_rotate_changed)
-        self.rotate_ver_slider = new_slider('vertical rotation (um)', rotate_steps, self.on_rotate_changed)
+        self.plane_slider = new_slider('Slice Plane', (0, 1, 1, 0), self._on_slice_changed)
+        self.rotate_hor_slider = new_slider('horizontal rotation (um)', rotate_steps, self._on_rotate_changed)
+        self.rotate_ver_slider = new_slider('vertical rotation (um)', rotate_steps, self._on_rotate_changed)
 
-        reset_rth = new_btn('reset', self.on_reset_rotate_horizontal)
-        reset_rtv = new_btn('reset', self.on_reset_rotate_vertical)
+        reset_rth = new_btn('reset', self._on_reset_rotate_horizontal)
+        reset_rtv = new_btn('reset', self._on_reset_rotate_vertical)
+
+        self.region_choose = MultiChoice(
+            options=list(sorted(self._structure.regions)),
+            width=400,
+        )
+        self.region_choose.on_change('value', as_callback(self._on_region_choose))
 
         from bokeh.layouts import row
         return [
@@ -132,15 +179,16 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             row(reset_rtv, self.rotate_ver_slider),
             row(*self.setup_rotate_slider(new_btn=new_btn, new_slider=new_slider)),
             row(*self.setup_scale_slider(new_btn=new_btn, new_slider=new_slider)),
+            row(self.region_choose, new_help_button('mask region'))
         ]
 
-    def on_slice_selected(self, s: str):
+    def _on_slice_selected(self, s: str):
         if is_recursive_called():
             return
 
         self.update_brain_view(s)
 
-    def on_slice_changed(self, s: int):
+    def _on_slice_changed(self, s: int):
         if is_recursive_called():
             return
 
@@ -148,7 +196,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             q = p.slice.plane_at(int(s)).with_offset(p.dw, p.dh)
             self.update_brain_slice(q)
 
-    def on_rotate_changed(self):
+    def _on_rotate_changed(self):
         if is_recursive_called():
             return
 
@@ -159,17 +207,27 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             q = p.with_offset(x, y)
             self.update_brain_slice(q)
 
-    def on_reset_rotate_horizontal(self):
+    def _on_reset_rotate_horizontal(self):
         try:
             self.rotate_hor_slider.value = 0
         except AttributeError:
             pass
 
-    def on_reset_rotate_vertical(self):
+    def _on_reset_rotate_vertical(self):
         try:
             self.rotate_ver_slider.value = 0
         except AttributeError:
             pass
+
+    def _on_region_choose(self, value: list[str]):
+        self.logger.debug('choose(%s)', value)
+
+        self._regions = {
+            region: i + 1
+            for i, region in enumerate(value)
+        }
+
+        self.update_region_image()
 
     # ========= #
     # load/save #
@@ -190,6 +248,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             image_sx=boundary['sx'],
             image_sy=boundary['sy'],
             image_rt=boundary['rt'],
+            regions=list(self._regions)
         )
 
     def restore_state(self, state: AtlasBrainViewState):
@@ -197,7 +256,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             raise RuntimeError()
 
         self.logger.debug('restore()')
-        self.update_brain_view(state['brain_slice'], update_image=False)
+        self.update_brain_view(state['brain_slice'])
 
         dp = state['slice_plane']
         dw = state['slice_rot_w']
@@ -206,6 +265,11 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         self.update_brain_slice(brain_slice, update_image=False)
 
         self.update_boundary_transform(p=(state['image_dx'], state['image_dy']), s=(state['image_sx'], state['image_sx']), rt=state['image_rt'])
+
+        try:
+            self.region_choose.value = state['regions']
+        except (AttributeError, KeyError):
+            pass
 
     # ================ #
     # updating methods #
@@ -222,16 +286,23 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         elif (plane := self._brain_slice) is not None:
             self.update_image(plane.image)
 
-    def update_brain_view(self, view: SLICE | SliceView, *,
-                          update_image=True):
+    # ================== #
+    # SliceView updating #
+    # ================== #
+
+    def update_brain_view(self, view: SLICE | SliceView | str):
         if is_recursive_called():
             return
 
         if isinstance(view, str):
-            view = SliceView(self.brain, view)
+            try:
+                view = SliceView(self.brain, view)
+            except ValueError as e:
+                self.logger.warning('slice_view(%s)', view, exc_info=e)
+                view = SliceView(self.brain, 'coronal')
 
         self._brain_view = view
-        self.logger.debug('slice_view(%s)', self._brain_view.name)
+        self.logger.debug('slice_view(%s)', view.name)
 
         try:
             self.slice_select.value = view.name
@@ -254,8 +325,12 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             self._brain_slice = None  # avoid self.plane_slider.value invoke updating methods
             p = view.plane_at(view.n_plane // 2)
 
-        self.update_brain_slice(p, update_image=update_image)
+        self.update_brain_slice(p, update_image=False)
         self.update_boundary_transform()
+
+    # =================== #
+    # SlicePlane updating #
+    # =================== #
 
     def update_brain_slice(self, plane: int | SlicePlane | None, *,
                            update_image=True):
@@ -265,14 +340,16 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if isinstance(plane, int):
             plane = self.brain_view.plane(plane)
 
-        self._brain_slice = plane
+        self._brain_slice: SlicePlane = plane
+        # self.logger.debug('slice_plane(%d)', plane.plane)
 
-        try:
-            self.plane_slider.value = plane.plane
-            self.rotate_hor_slider.value = plane.dw * plane.resolution
-            self.rotate_ver_slider.value = plane.dh * plane.resolution
-        except AttributeError:
-            pass
+        if plane is not None:
+            try:
+                self.plane_slider.value = plane.plane
+                self.rotate_hor_slider.value = plane.dw * plane.resolution
+                self.rotate_ver_slider.value = plane.dh * plane.resolution
+            except AttributeError:
+                pass
 
         if update_image:
             if plane is None:
@@ -280,10 +357,18 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             else:
                 self.update_image(plane.image)
 
-    def _update_boundary_transform(self, state: BoundaryState):
-        super()._update_boundary_transform(state)
+    # ================= #
+    # boundary updating #
+    # ================= #
+
+    def on_boundary_transform(self, state: BoundaryState):
+        super().on_boundary_transform(state)
         if (plane := self._brain_slice) is not None:
             self.update_image(plane.image)
+
+    # ============== #
+    # image updating #
+    # ============== #
 
     def update_image(self, image_data: NDArray[np.uint] | None):
         if image_data is None:
@@ -291,3 +376,16 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             self.data_brain.data = dict(image=[], dw=[], dh=[], x=[], y=[])
         else:
             self.data_brain.data = self.transform_image_data(np.flipud(image_data))
+
+        self.update_region_image()
+
+    def update_region_image(self):
+        if len(self._regions) == 0 or (plane := self._brain_slice) is None:
+            self.data_region.data = dict(image=[], dw=[], dh=[], x=[], y=[])
+        else:
+            view = SliceView(self.brain, plane.slice.name, self.brain.annotation)
+            plane = view.plane_at(plane)
+            self.data_region.data = self.transform_image_data(self.process_image_data(np.flipud(plane.image)))
+
+    def process_image_data(self, image: NDArray[np.uint]) -> NDArray[np.uint]:
+        return self._structure.image_annotation(image, self._regions, 0)

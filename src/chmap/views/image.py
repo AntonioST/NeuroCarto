@@ -270,12 +270,12 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         if self.image is not None:
             self.visible = True
             self.set_image_handler(self.image)  # trigger setter
-            self.on_reset_boundary()
+            self.reset_boundary()
         else:
             self.visible = False
 
-    def _update_boundary_transform(self, state: BoundaryState):
-        super()._update_boundary_transform(state)
+    def on_boundary_transform(self, state: BoundaryState):
+        super().on_boundary_transform(state)
 
         try:
             image = self.image[self._index]
@@ -383,7 +383,7 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
                 self.logger.info('fail restore(%s) ', image.filename)
                 f = self.get_resolution_value()
                 if f is None:
-                    self.reset_boundary_transform()
+                    self.reset_boundary()
                 else:
                     image.resolution = f
                     self.update_boundary_transform(s=1)

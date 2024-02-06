@@ -260,6 +260,14 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     supporting image transforming.
 
     This class handle a rectangle as boundary. The image should follow the boundary updating.
+
+    Event Call chain
+    ----------------
+
+    (UI component)
+        -/-> (event callback)
+            -> update_boundary_transform()
+                -> on_boundary_transform()
     """
 
     data_boundary: ColumnDataSource  # boundary data
@@ -298,7 +306,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
             'x', 'y', 'w', 'h', 'r', source=self.data_boundary,
             color=boundary_color, fill_alpha=0, angle_units='deg',
         )
-        self.data_boundary.on_change('data', as_callback(self.on_boundary_change))
+        self.data_boundary.on_change('data', as_callback(self._on_boundary_change))
 
         self.tool_boundary = tools.BoxEditTool(description=boundary_desp, renderers=[self.render_boundary], num_objects=1)
         f.tools.append(self.tool_boundary)
@@ -321,9 +329,9 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         if new_slider is None:
             new_slider = SliderFactory(width=300, align='end')
 
-        self.boundary_rotate_slider = new_slider('image rotation (deg)', (-25, 25, 1, 0), self.on_boundary_rotate)
+        self.boundary_rotate_slider = new_slider('image rotation (deg)', (-25, 25, 1, 0), self._on_boundary_rotate)
 
-        reset_imr = new_btn('reset', self.on_reset_boundary_rotate)
+        reset_imr = new_btn('reset', self._on_reset_boundary_rotate)
 
         return [
             reset_imr, self.boundary_rotate_slider
@@ -344,36 +352,33 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         if new_slider is None:
             new_slider = SliderFactory(width=300, align='end')
 
-        self.boundary_scale_slider = new_slider('image scale (log)', (-1, 1, 0.01, 0), self.on_boundary_scale)
+        self.boundary_scale_slider = new_slider('image scale (log)', (-1, 1, 0.01, 0), self._on_boundary_scale)
 
-        reset_ims = new_btn('reset', self.on_reset_boundary_scale)
+        reset_ims = new_btn('reset', self._on_reset_boundary_scale)
 
         return [reset_ims, self.boundary_scale_slider]
 
-    def on_boundary_rotate(self, s: int):
+    def _on_boundary_rotate(self, s: int):
         if not is_recursive_called():
             self.update_boundary_transform(rt=s)
 
-    def on_boundary_scale(self, s: float):
+    def _on_boundary_scale(self, s: float):
         if not is_recursive_called():
             self.update_boundary_transform(s=math.pow(10, s))
 
-    def on_reset_boundary_rotate(self):
+    def _on_reset_boundary_rotate(self):
         try:
             self.boundary_rotate_slider.value = 0
         except AttributeError:
             self.update_boundary_transform(rt=0)
 
-    def on_reset_boundary_scale(self):
+    def _on_reset_boundary_scale(self):
         try:
             self.boundary_scale_slider.value = 0
         except AttributeError:
             self.update_boundary_transform(s=1)
 
-    def on_reset_boundary(self):
-        self.update_boundary_transform(p=(0, 0), s=1, rt=0)
-
-    def on_boundary_change(self, value: dict[str, list[float]]):
+    def _on_boundary_change(self, value: dict[str, list[float]]):
         if is_recursive_called():
             return
 
@@ -418,10 +423,8 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
 
         return BoundaryState(dx=dx, dy=dy, sx=sx, sy=sy, rt=rt)
 
-    def reset_boundary_transform(self):
-        self.data_boundary.data = dict(x=[0], y=[0], w=[0], h=[0], r=[0], sx=[1], sy=[1])
-        # data -> update_boundary_transform
-        #   -> _update_boundary_transform
+    def reset_boundary(self):
+        self.update_boundary_transform(p=(0, 0), s=1, rt=0)
 
     def update_boundary_transform(self, *,
                                   p: tuple[float, float] = None,
@@ -469,14 +472,18 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
             x=[x], y=[y], w=[w], h=[h], r=[rt], sx=[sx], sy=[sy]
         )
 
-        self._update_boundary_transform(self.get_boundary_state())
+        state = self.get_boundary_state()
+        self.on_boundary_transform(state)
 
-    def _update_boundary_transform(self, state: BoundaryState):
+    def on_boundary_transform(self, state: BoundaryState):
         """
         Image transforming updating callback.
 
         :param state: updated boundary parameters.
         """
+        if is_recursive_called():
+            return
+
         try:
             sx = state['sx']
             sy = state['sy']
@@ -495,18 +502,12 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         except AttributeError:
             pass
 
-    def transform_image_data(self, image: NDArray[np.uint], boundary: BoundaryState = None, *,
-                             field_image='image', field_x='x', field_y='y', field_w='dw', field_h='dh') -> dict[str, Any]:
+    def transform_image_data(self, image: NDArray[np.uint], boundary: BoundaryState = None) -> dict[str, Any]:
         """
         A helper method for transforming an image data.
 
         :param image: image data
         :param boundary: boundary parameters
-        :param field_image: field name of image in ColumnDataSource
-        :param field_x: field name of x
-        :param field_y: field name of y
-        :param field_w: field name of w
-        :param field_h: field name of h
         :return: a dict which is ready for updating ColumnDataSource.
         """
         if boundary is None:
@@ -521,4 +522,4 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
             from scipy.ndimage import rotate
             image = rotate(image, -rt, reshape=False)
 
-        return {field_image: [image], field_w: [w], field_h: [h], field_x: [x], field_y: [y]}
+        return dict(image=[image], dw=[w], dh=[h], x=[x], y=[y])

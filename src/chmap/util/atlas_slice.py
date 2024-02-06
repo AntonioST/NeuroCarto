@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import abc
 import math
 from typing import Literal, TypeVar, Final, overload, NamedTuple, get_args
@@ -237,32 +239,36 @@ class SliceView(metaclass=abc.ABCMeta):
         """
         raise RuntimeError()
 
-    def plane_at(self, c: int | COOR | NDArray[np.int_], um=False) -> 'SlicePlane':
+    def plane_at(self, c: int | COOR | NDArray[np.int_] | SlicePlane, um=False) -> SlicePlane:
         """
 
         :param c: plane index (int) or volume point (ap, dv, ml)
         :param um: does the unit of the values used in *c* are um?
         :return: correspond slice view.
         """
+        dw = dh = 0
         match c:
+            case SlicePlane(plane, ax, ay, dw, dh, _):
+                pass
             case c if all_int(c):
                 if um:
                     c = int(c / self.resolution)
                 plane = int(c)
-                coor = int(self.width // 2), int(self.height // 2)
+                ax = int(self.width // 2)
+                ay = int(self.height // 2)
             case (ap, dv, ml):
                 c = np.array(c)
                 if um:
                     c = np.round(c / self.resolution).astype(int)
-                plane, *coor = self.project(tuple(c))
+                plane, ax, ay = self.project(tuple(c))
             case _ if isinstance(c, np.ndarray):
                 if um:
                     c = np.round(c / self.resolution).astype(int)
-                plane, *coor = self.project(tuple(c))
+                plane, ax, ay = self.project(tuple(c))
             case _:
                 raise TypeError()
 
-        return SlicePlane(plane, coor[0], coor[1], 0, 0, self)
+        return SlicePlane(plane, ax, ay, dw, dh, self)
 
 
 class CoronalView(SliceView):

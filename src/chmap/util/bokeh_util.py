@@ -97,6 +97,18 @@ def col_layout(model: list[UIElement], n: int) -> list[UIElement]:
 
 
 def is_recursive_called(limit=100) -> bool:
+    """
+
+    Limitation:
+
+    * check recursive on override methods in same file.
+
+    XXX: does it work?
+    https://docs.bokeh.org/en/latest/docs/reference/models/callbacks.html#bokeh.models.Callback.set_from_json
+
+    :param limit:
+    :return:
+    """
     stack = inspect.stack()
     caller = stack[1]
 
