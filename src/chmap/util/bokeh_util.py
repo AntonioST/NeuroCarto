@@ -284,8 +284,8 @@ def is_image(path: Path) -> bool:
     return mt is not None and mt.startswith('image/')
 
 
-def new_help_button(content: str) -> HelpButton:
+def new_help_button(content: str, *, position: str = 'right') -> HelpButton:
     return HelpButton(
-        tooltip=Tooltip(content=content, position='right'),
+        tooltip=Tooltip(content=content, position=position),
         stylesheets=['button.bk-btn {padding:0;}']
     )

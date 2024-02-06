@@ -1,96 +1,46 @@
 from __future__ import annotations
 
+import abc
 import contextlib
 import io
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import ContextManager, overload, Literal, Any
+from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
-from numpy.typing import NDArray
+from numpy._typing import NDArray
 
 from chmap.views.base import DynamicView
-from chmap.views.image import ImageHandler
+from chmap.views.image_npy import NumpyImageHandler
+
+if TYPE_CHECKING:
+    from chmap.probe import ProbeDesp, M, E
 
 __all__ = ['PltImageHandler']
 
 
-class PltImageHandler(ImageHandler, DynamicView):
-    logger: logging.Logger
+class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
 
-    def __init__(self, *, logger: str = 'chmap.view.plt'):
-        if isinstance(logger, str):
-            self.logger = logging.getLogger(logger)
-        elif isinstance(logger, logging.Logger):
-            self.logger = logger
+    def __init__(self, *, logger: str | logging.Logger = 'chmap.view.plt'):
+        super().__init__(type(self).__name__, logger=logger)
 
-        if (logger := self.logger) is not None:
-            logger.debug('init()')
-
-        self.filename = type(self).__name__
-        self._image: NDArray[np.uint] | None = None
-        self._resolution = (5, 5)
+        # pre-set resolution for image_plt.matplotlibrc.
+        self.resolution = (5, 5)
 
     @property
     def title(self) -> str | None:
         return f'<b>{type(self).__name__}</b>'
 
-    def __len__(self) -> int:
-        if (image := self._image) is not None and image.ndim == 3:
-            return len(image)
-        else:
-            return 1
-
-    def __getitem__(self, index: int) -> NDArray[np.uint] | None:
-        if (image := self._image) is None:
-            return None
-        elif image.ndim == 3:
-            return image[index]
-        else:
-            return image
-
-    @property
-    def resolution(self) -> tuple[float, float]:
-        return self._resolution
-
-    @resolution.setter
-    def resolution(self, resolution: float | tuple[float, float]):
-        if not isinstance(resolution, tuple):
-            resolution = float(resolution)
-            resolution = (resolution, resolution)
-        self._resolution = resolution
-
-    @property
-    def width(self) -> float:
-        if (image := self._image) is None:
-            return 0
-
-        r = self.resolution[0]
-        if image.ndim == 3:
-            return image.shape[2] * r
-        else:
-            return image.shape[1] * r
-
-    @property
-    def height(self) -> float:
-        if (image := self._image) is None:
-            return 0
-
-        r = self.resolution[1]
-        if image.ndim == 3:
-            return image.shape[1] * r
-        else:
-            return image.shape[0] * r
-
-    @property
-    def image(self) -> NDArray[np.uint] | None:
-        return self._image
+    @abc.abstractmethod
+    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
+        pass
 
     def set_image(self, image: NDArray[np.uint] | None):
-        self._image = image
+        super().set_image(image)
+        self.update_boundary_transform()
 
     @overload
     def plot_figure(self,

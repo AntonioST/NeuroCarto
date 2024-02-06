@@ -631,7 +631,7 @@ def plot_channelmap_block(ax: Axes,
     probe = chmap.probe_type
     if selection in ('channel', 'used', 'disconnected'):
         electrode = channel_coordinate(chmap, 'cr', include_unused=True)
-        u = np.array([it.in_used for it in chmap.electrodes])
+        u = np.array([it.in_used for it in chmap.electrodes], dtype=bool)
         if selection == 'disconnected':
             electrode = electrode[~u]
         else:

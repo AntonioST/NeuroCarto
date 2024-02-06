@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import abc
 import logging
 import sys
@@ -12,7 +14,7 @@ from numpy.typing import NDArray
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.bokeh_app import run_later
-from chmap.util.bokeh_util import SliderFactory, is_recursive_called, PathAutocompleteInput, as_callback
+from chmap.util.bokeh_util import SliderFactory, is_recursive_called, PathAutocompleteInput, as_callback, new_help_button
 from chmap.views.base import BoundView, StateView, BoundaryState, DynamicView
 
 if sys.version_info >= (3, 11):
@@ -34,9 +36,25 @@ class ImageViewState(TypedDict):
 
 
 class ImageHandler(metaclass=abc.ABCMeta):
-    filename: str
     width: float
     height: float
+
+    logger: logging.Logger | None
+    view: ImageView = None
+
+    def __init__(self, filename: str, *, logger: str | logging.Logger = 'chmap.view.image'):
+        if isinstance(logger, str):
+            self.logger = logging.getLogger(logger)
+        elif isinstance(logger, logging.Logger):
+            self.logger = logger
+        else:
+            self.logger = None
+
+        if (logger := self.logger) is not None:
+            logger.debug('init()')
+
+        self.filename = filename
+        self._resolution = (1, 1)
 
     @property
     def title(self) -> str | None:
@@ -51,14 +69,28 @@ class ImageHandler(metaclass=abc.ABCMeta):
         pass
 
     @property
-    @abc.abstractmethod
     def resolution(self) -> tuple[float, float]:
-        pass
+        return self._resolution
 
     @resolution.setter
-    @abc.abstractmethod
-    def resolution(self, value: float | tuple[float, float]):
-        pass
+    def resolution(self, resolution: float | tuple[float, float]):
+        if not isinstance(resolution, tuple):
+            resolution = float(resolution)
+            resolution = (resolution, resolution)
+
+        self._resolution = resolution
+        if (view := self.view) is not None:
+            view.update_boundary_transform()
+
+    def reset_boundary(self):
+        self.update_boundary_transform(p=(0, 0), s=1, rt=0)
+
+    def update_boundary_transform(self, *,
+                                  p: tuple[float, float] = None,
+                                  s: float | tuple[float, float] = None,
+                                  rt: float = None):
+        if (view := self.view) is not None:
+            view.update_boundary_transform(p=p, s=s, rt=rt)
 
     @classmethod
     def from_numpy(cls, filename: str | Path, image: NDArray[np.uint] = None) -> Self:
@@ -138,6 +170,7 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
 
     def set_image_handler(self, image: ImageHandler | None):
         self._image = image
+        image.view = self
 
         if (slider := self.index_slider) is not None:
             if image is None or (n_image := len(image)) == 1:
@@ -210,6 +243,7 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
 
         self.resolution_input = TextInput(max_width=100, description=Tooltip(content='image resolution. format "10" or "10,10"'))
         self.resolution_input.on_change('value', as_callback(self._on_resolution_changed))
+        ret.append(new_help_button('change image resolution. Need a value or "W,H"', position='top'))
         ret.append(self.resolution_input)
 
         return ret
@@ -300,7 +334,6 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
     def _on_probe_update(self):
         if self._cache_probe is not None and isinstance(image := self._image, DynamicView):
             cast(DynamicView, image).on_probe_update(self._cache_probe, self._cache_chmap, self._cache_blueprint)
-            self.update_boundary_transform()
 
     def on_visible(self, visible: bool):
         super().on_visible(visible)
@@ -362,7 +395,8 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
             # title='Image filepath',
             width=300,
         )
-        ret.insert(2, self.image_input.input)
+        ret.insert(2, new_help_button('show image file', position='top'))
+        ret.insert(3, self.image_input.input)
 
         return ret
 

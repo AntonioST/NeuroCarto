@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -7,57 +9,59 @@ __all__ = ['NumpyImageHandler']
 
 
 class NumpyImageHandler(ImageHandler):
-    def __init__(self, filename: str, image: NDArray[np.uint] = None):
+    def __init__(self, filename: str, image: NDArray[np.uint] = None, *,
+                 logger: str | logging.Logger = None):
         """
 
         :param filename:
         :param image: Array[uint, [N,], H, W]
         """
-        self.filename = filename
-        if image is None:
-            image = np.load(self.filename)
+        super().__init__(filename, logger=logger)
 
-        if image.ndim not in (2, 3):
+        if image is not None and image.ndim not in (2, 3):
             raise RuntimeError()
 
-        self.image = image
-        self._resolution = (1, 1)
+        self._image: NDArray[np.uint] | None = image
 
     def __len__(self) -> int:
-        if self.image.ndim == 3:
-            return len(self.image)
+        if (image := self._image) is not None and image.ndim == 3:
+            return len(image)
         else:
             return 1
 
-    def __getitem__(self, index: int) -> NDArray[np.uint]:
-        if self.image.ndim == 3:
-            return self.image[index]
+    def __getitem__(self, index: int) -> NDArray[np.uint] | None:
+        if (image := self._image) is None:
+            return None
+        elif image.ndim == 3:
+            return image[index]
         else:
-            return self.image
-
-    @property
-    def resolution(self) -> tuple[float, float]:
-        return self._resolution
-
-    @resolution.setter
-    def resolution(self, resolution: float | tuple[float, float]):
-        if not isinstance(resolution, tuple):
-            resolution = float(resolution)
-            resolution = (resolution, resolution)
-        self._resolution = resolution
+            return image
 
     @property
     def width(self) -> float:
+        if (image := self._image) is None:
+            return 0
+
         r = self.resolution[0]
-        if self.image.ndim == 3:
-            return self.image.shape[2] * r
+        if image.ndim == 3:
+            return image.shape[2] * r
         else:
-            return self.image.shape[1] * r
+            return image.shape[1] * r
 
     @property
     def height(self) -> float:
+        if (image := self._image) is None:
+            return 0
+
         r = self.resolution[1]
-        if self.image.ndim == 3:
-            return self.image.shape[1] * r
+        if image.ndim == 3:
+            return image.shape[1] * r
         else:
-            return self.image.shape[0] * r
+            return image.shape[0] * r
+
+    @property
+    def image(self) -> NDArray[np.uint] | None:
+        return self._image
+
+    def set_image(self, image: NDArray[np.uint] | None):
+        self._image = image
