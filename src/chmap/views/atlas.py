@@ -294,6 +294,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if is_recursive_called():
             return
 
+        old_state = self.get_boundary_state()
+
         if isinstance(view, str):
             try:
                 view = SliceView(self.brain, view)
@@ -313,7 +315,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         except AttributeError:
             pass
 
-        # TODO width/height not keep
         if (p := self._brain_slice) is not None:
             self._brain_slice = None  # avoid self.plane_slider.value invoke updating methods
             p = view.plane_at(p.coor_on())
@@ -327,7 +328,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             p = view.plane_at(view.n_plane // 2)
 
         self.update_brain_slice(p, update_image=False)
-        self.update_boundary_transform()
+        self.update_boundary_transform(s=(old_state['sx'], old_state['sy']))
 
     # =================== #
     # SlicePlane updating #
