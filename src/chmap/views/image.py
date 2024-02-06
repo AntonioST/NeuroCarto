@@ -36,9 +36,6 @@ class ImageViewState(TypedDict):
 
 
 class ImageHandler(metaclass=abc.ABCMeta):
-    width: float
-    height: float
-
     logger: logging.Logger | None
     view: ImageView = None
 
@@ -69,7 +66,20 @@ class ImageHandler(metaclass=abc.ABCMeta):
         pass
 
     @property
+    @abc.abstractmethod
+    def width(self) -> float:
+        """image width in um."""
+        pass
+
+    @property
+    @abc.abstractmethod
+    def height(self) -> float:
+        """image height in um."""
+        pass
+
+    @property
     def resolution(self) -> tuple[float, float]:
+        """resolution (width, height) in unit um/pixel."""
         return self._resolution
 
     @resolution.setter

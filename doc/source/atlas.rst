@@ -35,5 +35,6 @@ Controls
 * scaling:
 * rotating:
 * change slice:
+* add masks:
 
 .. |bk-tool-icon-box-edit| image:: _static/bk-tool-icon-box-edit.png

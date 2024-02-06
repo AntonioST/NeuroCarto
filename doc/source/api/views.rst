@@ -16,4 +16,5 @@ modules
     views.data_efficient
     views.image
     views.image_npy
+    views.image_plt
     views.probe

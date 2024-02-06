@@ -9,6 +9,11 @@ __all__ = ['NumpyImageHandler']
 
 
 class NumpyImageHandler(ImageHandler):
+    """
+    Load image file as numpy array.
+
+    """
+
     def __init__(self, filename: str, image: NDArray[np.uint] = None, *,
                  logger: str | logging.Logger = None):
         """

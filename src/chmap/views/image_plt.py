@@ -23,6 +23,27 @@ __all__ = ['PltImageHandler']
 
 
 class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
+    """
+    Use matplotlib to generate image.
+
+    Example:
+
+    .. code-block ::
+
+        class PlotChannelMap(PltImageHandler):
+            def on_probe_update(self, probe, chmap, e):
+                if chmap is not None:
+                    self.plot_channelmap(chmap)
+                else:
+                    self.set_image(None)
+
+            def plot_channelmap(self, m):
+                from chmap.probe_npx import plot
+
+                with self.plot_figure() as ax:
+                    plot.plot_channelmap_block(ax, chmap=m)
+                    plot.plot_probe_shape(ax, m, color='k')
+    """
 
     def __init__(self, *, logger: str | logging.Logger = 'chmap.view.plt'):
         super().__init__(type(self).__name__, logger=logger)
@@ -60,6 +81,18 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
 
     @contextlib.contextmanager
     def plot_figure(self, **kwargs) -> ContextManager[Axes]:
+        """
+        A context manager of matplotlib axes.
+
+        >>> with self.plot_figure() as ax:
+        ...     ax.plot(...)
+
+        :param dpi: fig.savefig(dpi)
+        :param transparent: fig.savefig(transparent)
+        :param rc: default is read from image_plt.matplotlibrc.
+        :param kwargs: plt.subplots(**kwargs)
+        :return:
+        """
         rc_file = kwargs.pop('rc', 'image_plt.matplotlibrc')
         if '/' in rc_file:
             rc_file = Path(rc_file)
