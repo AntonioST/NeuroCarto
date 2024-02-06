@@ -557,7 +557,7 @@ class ElectrodeMatData(NamedTuple):
 
 def plot_probe_shape(ax: Axes,
                      probe: ProbeType | ChannelMap,
-                     height: float,
+                     height: float = 10,
                      label_axis=False,
                      shank_width_scale: float = 1,
                      **kwargs):
@@ -612,7 +612,7 @@ def plot_probe_shape(ax: Axes,
 
 def plot_channelmap_block(ax: Axes,
                           chmap: ChannelMap,
-                          height: float,
+                          height: float = 10,
                           selection: Literal['used', 'unused', 'channel', 'disconnected', 'electrode'] = 'channel',
                           shank_width_scale: float = 1,
                           fill=True,
@@ -658,7 +658,7 @@ def plot_electrode_block(ax: Axes,
                          probe: ProbeType,
                          electrode: NDArray[np.float_] | ElectrodeMatData,
                          electrode_unit: ELECTRODE_UNIT = 'cr', *,
-                         height: float | None = None,
+                         height: float | None = 10,
                          shank_width_scale: float = 1,
                          fill=True,
                          **kwargs):
@@ -721,7 +721,7 @@ def plot_electrode_block(ax: Axes,
         ret = []
         for i, j in zip(x - w / 2, y - h / 2):
             r = Rectangle((float(i), float(j)), w, h, **kwargs)
-            ret.append(e)
+            ret.append(r)
             ax.add_artist(r)
         return ret
 
@@ -748,8 +748,9 @@ def plot_electrode_block(ax: Axes,
     else:
         raise ValueError()
 
+
 def plot_channelmap_grid(ax: Axes, chmap: ChannelMap, *,
-                         height: float,
+                         height: float = 10,
                          shank_list: list[int] = None,
                          unit_column: bool = False,
                          unused=True,
@@ -805,7 +806,7 @@ def plot_electrode_grid(ax: Axes,
                         electrode: NDArray[np.int_],
                         electrode_unit: ELECTRODE_UNIT = 'cr', *,
                         shank_list: list[int] = None,
-                        height: float | None = None,
+                        height: float | None = 10,
                         unit_column: bool | tuple[float, ...] = False,
                         shank_width_scale: float = 1,
                         color: str = 'g',

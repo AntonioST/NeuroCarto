@@ -14,7 +14,7 @@ from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, is_image, new_help_button
-from chmap.util.utils import import_func
+from chmap.util.utils import import_name
 
 if TYPE_CHECKING:
     from chmap.probe import ProbeDesp, M, E
@@ -110,11 +110,10 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
 
     * `None` skip
     * `ViewBase` or `type[ViewBase]`
-    * `ImageHandler`, wrap with ImageView.
+    * `ImageHandler` or `type[ImageHandler]`, wrap with ImageView.
     * literal 'file' for FileImageView
     * image filepath
     * `str` in pattern: `module.path:attribute` in type listed above.
-
 
     :param config:
     :param view_type:
@@ -129,6 +128,9 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
         elif isinstance(view_type, ViewBase):
             return view_type
 
+        elif isinstance(view_type, type) and issubclass(view_type, ImageHandler):
+            return ImageView(config, view_type())
+
         elif isinstance(view_type, ImageHandler):
             return ImageView(config, view_type)
 
@@ -142,6 +144,8 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
 
         elif isinstance(view_type, str):
             return import_view(config, view_type)
+        else:
+            raise RuntimeError(f'unknown view_type : {view_type}')
 
     except BaseException as e:
         logging.getLogger('chmap.view').warning('init view fail', exc_info=e)
@@ -151,7 +155,8 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
 
 
 def import_view(config: ChannelMapEditorConfig, module_path: str) -> ViewBase | None:
-    return init_view(config, import_func('view base', module_path))
+    logging.getLogger('chmap.view').debug('import %s', module_path)
+    return init_view(config, import_name('view base', module_path))
 
 
 class InvisibleView:

@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from chmap.util.utils import import_func
+from chmap.util.utils import import_name
 from .desp import NpxProbeDesp, NpxElectrodeDesp
 from .npx import ChannelMap
 
@@ -28,7 +28,7 @@ class ElectrodeSelector(Protocol):
 
 def load_select(selector: str) -> ElectrodeSelector:
     selector = BUILTIN_SELECTOR.get(selector, selector)
-    return import_func('selector', selector)
+    return import_name('selector', selector)
 
 
 def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], *,

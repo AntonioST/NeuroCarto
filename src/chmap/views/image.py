@@ -2,7 +2,7 @@ import abc
 import logging
 import sys
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div, TextInput, Tooltip
@@ -10,9 +10,10 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
+from chmap.probe import ProbeDesp, M, E
 from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import SliderFactory, is_recursive_called, PathAutocompleteInput, as_callback
-from chmap.views.base import BoundView, StateView, BoundaryState
+from chmap.views.base import BoundView, StateView, BoundaryState, DynamicView
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -37,12 +38,16 @@ class ImageHandler(metaclass=abc.ABCMeta):
     width: float
     height: float
 
+    @property
+    def title(self) -> str | None:
+        return f'<b>Image</b>: {self.filename}'
+
     @abc.abstractmethod
     def __len__(self) -> int:
         pass
 
     @abc.abstractmethod
-    def __getitem__(self, index: int) -> NDArray[np.uint]:
+    def __getitem__(self, index: int) -> NDArray[np.uint] | None:
         pass
 
     @property
@@ -90,7 +95,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         return NumpyImageHandler(filename, image)
 
 
-class ImageView(BoundView, metaclass=abc.ABCMeta):
+class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
     data_image: ColumnDataSource
     render_image: GlyphRenderer
 
@@ -99,6 +104,8 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         super().__init__(config, logger=logger)
 
         self.data_image = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
+        if image is not None:
+            self.logger.debug('init(%s)', type(image).__name__)
 
         self._image = image
         self._index: int = 0
@@ -118,14 +125,14 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
     @property
     def width(self) -> float:
         try:
-            return self.image.width
+            return self._image.width
         except (TypeError, AttributeError):
             return 0
 
     @property
     def height(self) -> float:
         try:
-            return self.image.height
+            return self._image.height
         except (TypeError, AttributeError):
             return 0
 
@@ -142,6 +149,10 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
             if self.visible:
                 slider.visible = not slider.disabled
+
+        if image is not None:
+            resolution = image.resolution
+            self.resolution_input.value = f'{resolution[0]},{resolution[1]}'
 
     def save_current_state(self) -> ImageViewState | None:
         if (image := self.image) is None:
@@ -181,7 +192,7 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         # renders
         self.render_image = f.image_rgba(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_image,
-            global_alpha=0.5, syncable=False,
+            global_alpha=1, syncable=False,
         )
 
         desp = 'drag image'
@@ -193,12 +204,12 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         ret = super()._setup_title(**kwargs)
 
         if (image := self.image) is not None:
-            self.view_title.text = f'<b>Image</b> {image.filename}'
+            self.view_title.text = image.title
 
         ret.append(Div(text='resolution:'))
 
         self.resolution_input = TextInput(max_width=100, description=Tooltip(content='image resolution. format "10" or "10,10"'))
-        self.resolution_input.on_change('value', as_callback(self.on_resolution_changed))
+        self.resolution_input.on_change('value', as_callback(self._on_resolution_changed))
         ret.append(self.resolution_input)
 
         return ret
@@ -211,13 +222,13 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
         ret = []
         new_slider = SliderFactory(width=slider_width, align='end')
-        self.index_slider = new_slider('Index', (0, 1, 1, 0), self.on_index_changed)
+        self.index_slider = new_slider('Index', (0, 1, 1, 0), self._on_index_changed)
         self.index_slider.visible = False
         ret.append(self.index_slider)
         ret.append(row(*self.setup_rotate_slider(new_slider=new_slider)))
         return ret
 
-    def on_index_changed(self, s: int):
+    def _on_index_changed(self, s: int):
         if is_recursive_called():
             return
 
@@ -240,7 +251,7 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         except ValueError:
             return None
 
-    def on_resolution_changed(self, r: str | float):
+    def _on_resolution_changed(self, r: str | float):
         if is_recursive_called() or r == '':
             return
 
@@ -274,15 +285,31 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         else:
             self.visible = False
 
+    _cache_probe = None
+    _cache_chmap = None
+    _cache_blueprint = None
+
+    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
+        self._cache_probe = probe
+        self._cache_chmap = chmap
+        self._cache_blueprint = e
+
+        if self.visible:
+            run_later(self._on_probe_update)
+
+    def _on_probe_update(self):
+        if self._cache_probe is not None and isinstance(image := self._image, DynamicView):
+            cast(DynamicView, image).on_probe_update(self._cache_probe, self._cache_chmap, self._cache_blueprint)
+            self.update_boundary_transform()
+
+    def on_visible(self, visible: bool):
+        super().on_visible(visible)
+        if visible and self._cache_probe is not None:
+            run_later(self._on_probe_update)
+
     def on_boundary_transform(self, state: BoundaryState):
         super().on_boundary_transform(state)
-
-        try:
-            image = self.image[self._index]
-        except (IndexError, TypeError):
-            pass
-        else:
-            self.update_image(image)
+        self.update_image(self._index)
 
     def update_image(self, image_data: int | NDArray[np.uint] | None):
         if is_recursive_called():
@@ -293,12 +320,12 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
             try:
                 image_data = self.image[index]
-            except TypeError:
+            except (IndexError, TypeError) as e:
                 return
 
             try:
                 self.index_slider.value = index
-            except (AttributeError, TypeError):
+            except (AttributeError, TypeError) as e:
                 pass
 
         if image_data is None:

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ['all_int', 'align_arr', 'as_set', 'import_func']
+__all__ = ['all_int', 'align_arr', 'as_set', 'import_name']
 
 
 def all_int(*x) -> bool:
@@ -45,12 +47,30 @@ def as_set(x, n: int) -> set[int]:
         return set(map(int, x))
 
 
-def import_func(desp: str, module_path: str):
+def import_name(desp: str, module_path: str, root: str = None):
+    """
+
+    :param desp:
+    :param module_path: '[ROOT:]MODULE:NAME'
+    :param root: PYTHONPATH
+    :return:
+    """
+    if module_path.count(':') > 1:
+        root, _, module_path = module_path.partition(':')
+        return import_name(desp, module_path, root)
+
     module, _, name = module_path.partition(':')
     if len(name) == 0:
         raise ValueError(f'not a {desp} pattern "module_path:name" : {module_path}')
 
     import importlib
-    module = importlib.import_module(module)
+    try:
+        if root is not None:
+            sys.path.insert(0, root)
+
+        module = importlib.import_module(module)
+    finally:
+        if root is not None:
+            sys.path.pop()
 
     return getattr(module, name)
