@@ -313,6 +313,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         except AttributeError:
             pass
 
+        # TODO width/height not keep
         if (p := self._brain_slice) is not None:
             self._brain_slice = None  # avoid self.plane_slider.value invoke updating methods
             p = view.plane_at(p.coor_on())

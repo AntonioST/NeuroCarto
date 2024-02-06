@@ -34,5 +34,5 @@ if __name__ == '__main__':
         '-C', 'res',
         '--debug',
         '--view=-',
-        '--view=test:main_image_plt_plot_channelmap.py:PlotChannelMap',
+        '--view=test:main_image_plt_plot_channelmap:PlotChannelMap',
     ]))

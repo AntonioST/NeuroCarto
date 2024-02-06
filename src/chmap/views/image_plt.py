@@ -19,7 +19,7 @@ from chmap.views.image_npy import NumpyImageHandler
 if TYPE_CHECKING:
     from chmap.probe import ProbeDesp, M, E
 
-__all__ = ['PltImageHandler']
+__all__ = ['PltImageHandler', 'get_current_plt_image']
 
 
 class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
@@ -110,15 +110,24 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
                 yield ax
             except BaseException as e:
                 self.logger.warning('plot fail', exc_info=e)
-                self.set_image(None)
-                return
+                image = None
             else:
-                # https://stackoverflow.com/a/67823421
-                with io.BytesIO() as buff:
-                    fg.savefig(buff, format='raw', **savefig_kw)
-                    buff.seek(0)
-                    image = np.frombuffer(buff.getvalue(), dtype=np.uint8)
+                image = get_current_plt_image(fg, **savefig_kw)
+            finally:
+                plt.close(fg)
 
-                w, h = fg.canvas.get_width_height()
-                image = image.view(dtype=np.uint32).reshape((int(h), int(w)))
-                self.set_image(np.flipud(image))
+        self.set_image(image)
+
+
+def get_current_plt_image(fg=None, **kwargs) -> NDArray[np.uint]:
+    if fg is None:
+        fg = plt.gcf()
+
+    # https://stackoverflow.com/a/67823421
+    with io.BytesIO() as buff:
+        fg.savefig(buff, format='raw', **kwargs)
+        buff.seek(0)
+        image = np.frombuffer(buff.getvalue(), dtype=np.uint8)
+
+    w, h = fg.canvas.get_width_height()
+    return np.flipud(image.view(dtype=np.uint32).reshape((int(h), int(w))))
