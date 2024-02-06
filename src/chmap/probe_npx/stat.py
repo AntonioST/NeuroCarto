@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import sys
 from typing import NamedTuple
 
@@ -16,9 +17,9 @@ else:
     from typing_extensions import Self
 
 __all__ = [
-    'ElectrodeEfficientStat',
+    'ElectrodeEfficiencyStat',
     'npx_electrode_density',
-    'npx_channel_efficient',
+    'npx_channel_efficiency',
     'npx_electrode_probability'
 ]
 
@@ -96,18 +97,20 @@ def npx_electrode_density(probe: NpxProbeDesp, chmap: ChannelMap) -> NDArray[np.
     return np.array(ret)
 
 
-class ElectrodeEfficientStat(NamedTuple):
+class ElectrodeEfficiencyStat(NamedTuple):
     total_channel: int
     used_channel: int
     used_channel_on_shanks: list[int]
 
     request_electrodes: float
+    selected_electrodes: int
+    area_efficiency: float
     channel_efficiency: float
     remain_channel: int  # number of electrode selected in remainder policy
     remain_electrode: int  # number of electrode set in remainder policy
 
 
-def npx_channel_efficient(chmap: ChannelMap, e: list[NpxElectrodeDesp]) -> ElectrodeEfficientStat:
+def npx_channel_efficiency(chmap: ChannelMap, e: list[NpxElectrodeDesp]) -> ElectrodeEfficiencyStat:
     used_channel = len(chmap)
     used_channel_on_shanks = [
         len([it for it in chmap.electrodes if it.shank == s])
@@ -115,15 +118,18 @@ def npx_channel_efficient(chmap: ChannelMap, e: list[NpxElectrodeDesp]) -> Elect
     ]
 
     p, c = _npx_request_electrodes(e)
-    cp = 0 if p == 0 else c / p
+    ae = 0 if p == 0 else c / p
+    ce = 0 if ae == 0 else min(ae, 1 / ae)
     re, rc = _get_electrode(e, [NpxProbeDesp.POLICY_REMAINDER, NpxProbeDesp.POLICY_UNSET])
 
-    return ElectrodeEfficientStat(
+    return ElectrodeEfficiencyStat(
         chmap.probe_type.n_channels,
         used_channel,
         used_channel_on_shanks,
         request_electrodes=p,
-        channel_efficiency=cp,
+        selected_electrodes=c,
+        area_efficiency=ae,
+        channel_efficiency=ce,
         remain_electrode=re,
         remain_channel=rc
     )
@@ -144,10 +150,34 @@ def _get_electrode(e: list[NpxElectrodeDesp], policies: list[int]) -> tuple[int,
     return len(e1), len(e2)
 
 
+class ElectrodeProbability(NamedTuple):
+    sample_times: int
+    summation: NDArray[np.int_]  # summation matrix Array[count:int, S, C, R]
+    complete: int
+    channel_efficiency: float
+
+    @property
+    def probability(self) -> NDArray[np.float_]:
+        """probability matrix Array[prob:float, S, C, R]"""
+        return self.summation.astype(float) / self.sample_times
+
+    @property
+    def complete_rate(self) -> float:
+        return self.complete / self.sample_times
+
+    def __add__(self, other: ElectrodeProbability) -> ElectrodeProbability:
+        return ElectrodeProbability(
+            self.sample_times + other.sample_times,
+            self.summation + other.summation,
+            self.complete + other.complete,
+            max(self.channel_efficiency, other.channel_efficiency)
+        )
+
+
 def npx_electrode_probability(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxElectrodeDesp],
                               selector: str | ElectrodeSelector = 'default',
                               sample_times: int = 1000,
-                              n_worker: int = 1) -> NDArray[np.float_]:
+                              n_worker: int = 1) -> ElectrodeProbability:
     """
 
     :param probe:
@@ -156,35 +186,43 @@ def npx_electrode_probability(probe: NpxProbeDesp, chmap: ChannelMap, e: list[Np
     :param selector:
     :param sample_times:
     :param n_worker:
-    :return: probability matrix Array[prob:float, S, C, R]
+    :return: ElectrodeProbability
     """
     if isinstance(selector, str):
         selector = load_select(selector)
 
     if n_worker == 1:
-        return _npx_electrode_probability_0(probe, chmap, e, selector, sample_times) / sample_times
+        return _npx_electrode_probability_0(probe, chmap, e, selector, sample_times)
     else:
-        return _npx_electrode_probability_1(probe, chmap, e, selector, sample_times, n_worker=n_worker) / sample_times
+        return _npx_electrode_probability_n(probe, chmap, e, selector, sample_times, n_worker=n_worker)
 
 
 def _npx_electrode_probability_0(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxElectrodeDesp],
                                  selector: ElectrodeSelector,
-                                 sample_times: int = 1000) -> NDArray[np.float_]:
+                                 sample_times: int) -> ElectrodeProbability:
     pt = chmap.probe_type
     mat = np.zeros((pt.n_shank, pt.n_col_shank, pt.n_row_shank))
+    complete = 0
+    channel_efficiency = 0.0
 
     for _ in range(sample_times):
         chmap = selector(probe, chmap, e)
+
         for t in chmap.electrodes:
             mat[t.shank, t.column, t.row] += 1
 
-    return mat
+        if probe.is_valid(chmap):
+            complete += 1
+
+        channel_efficiency = max(channel_efficiency, npx_channel_efficiency(chmap, e).channel_efficiency)
+
+    return ElectrodeProbability(sample_times, mat, complete, channel_efficiency)
 
 
-def _npx_electrode_probability_1(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxElectrodeDesp],
+def _npx_electrode_probability_n(probe: NpxProbeDesp, chmap: ChannelMap, e: list[NpxElectrodeDesp],
                                  selector: ElectrodeSelector,
-                                 sample_times: int = 1000,
-                                 n_worker: int = 1) -> NDArray[np.float_]:
+                                 sample_times: int,
+                                 n_worker: int) -> ElectrodeProbability:
     if n_worker <= 1:
         raise ValueError()
 
@@ -194,11 +232,11 @@ def _npx_electrode_probability_1(probe: NpxProbeDesp, chmap: ChannelMap, e: list
     assert sum(sample_times_list) == sample_times
 
     import multiprocessing
-    pool = multiprocessing.Pool(n_worker)
-    jobs = []
-    for _sample_times in sample_times_list:
-        jobs.append(pool.apply_async(_npx_electrode_probability_0, (probe, chmap, e, selector, _sample_times)))
-    pool.close()
-    pool.join()
-    results = [it.get() for it in jobs]
-    return np.sum(results, axis=0)
+    with multiprocessing.Pool(n_worker) as pool:
+        jobs = []
+        for _sample_times in sample_times_list:
+            jobs.append(pool.apply_async(_npx_electrode_probability_0, (probe, chmap, e, selector, _sample_times)))
+        pool.close()
+        pool.join()
+
+    return functools.reduce(ElectrodeProbability.__add__, [it.get() for it in jobs])

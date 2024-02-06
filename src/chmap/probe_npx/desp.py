@@ -145,7 +145,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def del_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp):
         chmap.del_electrode(e.electrode)
 
-    def probe_rule(self, chmap: M | None, e1: E, e2: E) -> bool:
+    def probe_rule(self, chmap: ChannelMap | None, e1: NpxElectrodeDesp, e2: NpxElectrodeDesp) -> bool:
         return e1.channel != e2.channel
 
     def electrode_to_numpy(self, s: list[NpxElectrodeDesp]) -> NDArray[np.int_]:
