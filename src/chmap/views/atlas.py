@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import get_args, TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice
+from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -179,7 +179,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             row(reset_rtv, self.rotate_ver_slider),
             row(*self.setup_rotate_slider(new_btn=new_btn, new_slider=new_slider)),
             row(*self.setup_scale_slider(new_btn=new_btn, new_slider=new_slider)),
-            row(self.region_choose, new_help_button('mask region'))
+            row(Div(text='mask'), self.region_choose, new_help_button('type region names to color label the corresponding areas.'))
         ]
 
     def _on_slice_selected(self, s: str):
