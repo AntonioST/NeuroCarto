@@ -28,7 +28,7 @@ class ViewBase(metaclass=abc.ABCMeta):
 
     """
 
-    logger: logging.Logger | None
+    logger: logging.Logger
 
     # noinspection PyUnusedLocal
     def __init__(self, config: ChannelMapEditorConfig, *, logger: str | logging.Logger = None):
@@ -37,10 +37,9 @@ class ViewBase(metaclass=abc.ABCMeta):
         elif isinstance(logger, logging.Logger):
             self.logger = logger
         else:
-            self.logger = None
+            self.logger = logging.getLogger('chmap.view.' + type(self).__name__)
 
-        if (logger := self.logger) is not None:
-            logger.debug('init()')
+        self.logger.debug('init()')
 
     @property
     @abc.abstractmethod
@@ -69,8 +68,7 @@ class ViewBase(metaclass=abc.ABCMeta):
         :param kwargs: control or plotting related parameters.
         :return: row list.
         """
-        if (logger := self.logger) is not None:
-            logger.debug('setup()')
+        self.logger.debug('setup()')
 
         self._setup_render(f, **kwargs)
 
@@ -142,14 +140,15 @@ class ViewBase(metaclass=abc.ABCMeta):
     # GUI methods #
     # =========== #
 
+    # noinspection PyUnusedLocal
     @final
     def log_message(self, *message, reset=False):
         """
         log message in GUI.
 
-         Implement note:
-            do not overwrite this function, because this method will be
-            replaced by GUI.
+        Implement note:
+           do not overwrite this function, because this method will be
+           replaced by GUI.
 
         :param message: message in lines.
         :param reset: reset message area.

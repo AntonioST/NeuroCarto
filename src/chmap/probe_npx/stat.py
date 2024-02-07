@@ -136,9 +136,9 @@ def npx_channel_efficiency(chmap: ChannelMap, e: list[NpxElectrodeDesp]) -> Elec
 
 
 def _npx_request_electrodes(e: list[NpxElectrodeDesp]) -> tuple[float, int]:
-    p0, s0 = _get_electrode(e, [NpxProbeDesp.POLICY_SET, NpxProbeDesp.POLICY_D1])
-    p2, s2 = _get_electrode(e, [NpxProbeDesp.POLICY_D2])
-    p4, s4 = _get_electrode(e, [NpxProbeDesp.POLICY_D4])
+    p0, s0 = _get_electrode(e, [NpxProbeDesp.POLICY_SET, NpxProbeDesp.POLICY_FULL])
+    p2, s2 = _get_electrode(e, [NpxProbeDesp.POLICY_HALF])
+    p4, s4 = _get_electrode(e, [NpxProbeDesp.POLICY_QUARTER])
     p = p0 + p2 / 2 + p4 / 4
     s = s0 + s2 + s4
     return p, s

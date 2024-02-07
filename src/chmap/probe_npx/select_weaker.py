@@ -50,11 +50,11 @@ def policy_mapping_priority(p: int) -> float:
     match p:
         case NpxProbeDesp.POLICY_SET:
             return 1.0
-        case NpxProbeDesp.POLICY_D1:
+        case NpxProbeDesp.POLICY_FULL:
             return 0.9
-        case NpxProbeDesp.POLICY_D2:
+        case NpxProbeDesp.POLICY_HALF:
             return 0.8  # 0.4, 0.2
-        case NpxProbeDesp.POLICY_D4:
+        case NpxProbeDesp.POLICY_QUARTER:
             return 0.7  # 0.35, 0.175
         case NpxProbeDesp.POLICY_LOW:
             return 0.6
@@ -107,7 +107,7 @@ def update_prob(desp: NpxProbeDesp, cand: dict[K, E], e: E):
 
 def surr(cand: dict[K, E], e: E) -> Iterator[E | None]:
     match e.policy:
-        case NpxProbeDesp.POLICY_D2:
+        case NpxProbeDesp.POLICY_HALF:
             # o x o
             # x e x
             # o x o
@@ -115,7 +115,7 @@ def surr(cand: dict[K, E], e: E) -> Iterator[E | None]:
             yield _get(cand, e, 1, 0)
             yield _get(cand, e, 0, 1)
             yield _get(cand, e, 0, -1)
-        case NpxProbeDesp.POLICY_D4:
+        case NpxProbeDesp.POLICY_QUARTER:
             # ? x ?
             # x x x
             # x e x

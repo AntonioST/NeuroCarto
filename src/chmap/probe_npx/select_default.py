@@ -46,14 +46,14 @@ def pick_electrode(cand: dict[K, NpxElectrodeDesp]) -> tuple[int, NpxElectrodeDe
     if len(cand) == 0:
         return NpxProbeDesp.POLICY_FORBIDDEN, None
 
-    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_D1]) > 0:
-        return NpxProbeDesp.POLICY_D1, random.choice(ret)
+    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_FULL]) > 0:
+        return NpxProbeDesp.POLICY_FULL, random.choice(ret)
 
-    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_D2]) > 0:
-        return NpxProbeDesp.POLICY_D2, random.choice(ret)
+    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_HALF]) > 0:
+        return NpxProbeDesp.POLICY_HALF, random.choice(ret)
 
-    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_D4]) > 0:
-        return NpxProbeDesp.POLICY_D4, random.choice(ret)
+    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_QUARTER]) > 0:
+        return NpxProbeDesp.POLICY_QUARTER, random.choice(ret)
 
     if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_LOW]) > 0:
         return NpxProbeDesp.POLICY_LOW, random.choice(ret)
@@ -66,11 +66,11 @@ def pick_electrode(cand: dict[K, NpxElectrodeDesp]) -> tuple[int, NpxElectrodeDe
 
 def update(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp, policy: int):
     match policy:
-        case NpxProbeDesp.POLICY_D1:
+        case NpxProbeDesp.POLICY_FULL:
             return update_d1(desp, chmap, cand, e)
-        case NpxProbeDesp.POLICY_D2:
+        case NpxProbeDesp.POLICY_HALF:
             return update_d2(desp, chmap, cand, e)
-        case NpxProbeDesp.POLICY_D4:
+        case NpxProbeDesp.POLICY_QUARTER:
             return update_d4(desp, chmap, cand, e)
         case NpxProbeDesp.POLICY_LOW | NpxProbeDesp.POLICY_UNSET:
             return _add(desp, chmap, cand, e)

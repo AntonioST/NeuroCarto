@@ -1018,9 +1018,9 @@ def plot_policy_area(ax: Axes,
     if color is None:
         color = {
             NpxProbeDesp.POLICY_SET: 'green',
-            NpxProbeDesp.POLICY_D1: 'green',
-            NpxProbeDesp.POLICY_D2: 'orange',
-            NpxProbeDesp.POLICY_D4: 'blue',
+            NpxProbeDesp.POLICY_FULL: 'green',
+            NpxProbeDesp.POLICY_HALF: 'orange',
+            NpxProbeDesp.POLICY_QUARTER: 'blue',
             NpxProbeDesp.POLICY_FORBIDDEN: 'pink',
         }
 

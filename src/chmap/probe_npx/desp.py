@@ -22,9 +22,9 @@ class NpxElectrodeDesp(ElectrodeDesp):
 
 
 class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
-    POLICY_D1: ClassVar = 11
-    POLICY_D2: ClassVar = 12
-    POLICY_D4: ClassVar = 13
+    POLICY_FULL: ClassVar = 11
+    POLICY_HALF: ClassVar = 12
+    POLICY_QUARTER: ClassVar = 13
 
     @property
     def supported_type(self) -> dict[str, int]:
@@ -47,10 +47,10 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             'Unset': self.POLICY_UNSET,
             'Set': self.POLICY_SET,
             #
-            'Full Density': self.POLICY_D1,
-            'Half Density': self.POLICY_D2,
+            'Full Density': self.POLICY_FULL,
+            'Half Density': self.POLICY_HALF,
             #
-            'Quarter Density': self.POLICY_D4,
+            'Quarter Density': self.POLICY_QUARTER,
             'Low priority': self.POLICY_LOW,
             'Forbidden': self.POLICY_FORBIDDEN,
         }
@@ -102,6 +102,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                 for c in range(probe_type.n_col_shank):
                     d = NpxElectrodeDesp()
 
+                    d.s = s
                     d.electrode = (s, c, r)
                     d.x, d.y = e2p(probe_type, d.electrode)
                     d.channel, _ = e2cb(probe_type, d.electrode)
@@ -117,6 +118,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                 if s is None:
                     d = NpxElectrodeDesp()
 
+                    d.s = s
                     d.electrode = (e.shank, e.column, e.row)
                     d.x, d.y = e2p(probe_type, e)
                     d.channel = c

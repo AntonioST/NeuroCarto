@@ -59,6 +59,7 @@ def get_probe_desp(name: str, package: str = 'chmap', describer: str = None) -> 
 class ElectrodeDesp:
     """An electrode interface for GUI interaction between different electrode implementations."""
 
+    s: int  # shank
     x: float  # x position in um
     y: float  # y position in um
     electrode: Hashable  # for identify
@@ -235,6 +236,9 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     def all_electrodes(self, chmap: int | M) -> list[E]:
         """
         Get all possible electrode set for the given channelmap kind.
+
+        Implement Node:
+            make sure the result is consistent in its ordering.
 
         :param chmap: a channelmap instance or a code from supported_type.
         :return: a list of ElectrodeDesp
