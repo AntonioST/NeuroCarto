@@ -54,6 +54,7 @@ class ViewBase(metaclass=abc.ABCMeta):
         return None
 
     view_title: Div
+    view_status: Div
     view_content: UIElement
 
     def setup(self, f: Figure, **kwargs) -> list[UIElement]:
@@ -91,10 +92,18 @@ class ViewBase(metaclass=abc.ABCMeta):
         if isinstance(self, InvisibleView):
             ret.append(self.setup_visible_switch())
 
-        self.view_title = Div(text=f'<b>{self.name}</b>')
+        name = self.name
+        if not name.startswith('<b>'):
+            name = f'<b>{name}</b>'
+        self.view_title = Div(text=name)
         ret.append(self.view_title)
+
         if (desp := self.description) is not None:
             ret.append(new_help_button(desp))
+
+        self.status_div = Div(text='')
+        ret.append(self.status_div)
+
         return ret
 
     def _setup_content(self, **kwargs) -> UIElement | list[UIElement] | None:
@@ -103,6 +112,13 @@ class ViewBase(metaclass=abc.ABCMeta):
     def start(self):
         """Invoked when figure is ready."""
         pass
+
+    def set_status(self, text: str | None):
+        if text is None:
+            self.status_div.text = ''
+        else:
+            self.status_div.text = text
+            self.logger.info('status : %s', text)
 
 
 def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
@@ -145,8 +161,8 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
             return AtlasBrainView(config)
 
         elif view_type == 'blueprint':
-            from .image_blueprint import PlotBlueprint
-            return ImageView(config, PlotBlueprint())
+            from .image_blueprint import BlueprintView
+            return BlueprintView(config)
 
         elif isinstance(view_type, str) and is_image(image_file := Path(view_type)):
             from chmap.views.image import ImageView, ImageHandler
@@ -208,6 +224,12 @@ class InvisibleView:
             self.view_content.visible = visible
         except AttributeError:
             pass
+
+        if not visible:
+            try:
+                self.status_div.text = ''
+            except AttributeError:
+                pass
 
         for attr in dir(self):
             if attr.startswith('render_') and isinstance(render := getattr(self, attr, None), GlyphRenderer):
@@ -308,7 +330,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         pass
 
     def setup_boundary(self, f: Figure, *,
-                       boundary_color: str | None = 'black',
+                       boundary_color: str = 'black',
                        boundary_desp: str = None):
         """
         Setup boundary plotting in figure.
@@ -317,9 +339,6 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         :param boundary_color: boundary border color
         :param boundary_desp: figure tool hint description.
         """
-        if boundary_color is None:
-            return
-
         self.render_boundary = f.rect(
             'x', 'y', 'w', 'h', 'r', source=self.data_boundary,
             color=boundary_color, fill_alpha=0, angle_units='deg',

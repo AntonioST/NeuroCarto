@@ -4,7 +4,7 @@ import abc
 import logging
 import sys
 from pathlib import Path
-from typing import TypedDict, cast, ClassVar
+from typing import TypedDict
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div, TextInput, Tooltip
@@ -12,10 +12,9 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.probe import ProbeDesp, M, E
 from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import SliderFactory, is_recursive_called, PathAutocompleteInput, as_callback, new_help_button
-from chmap.views.base import BoundView, StateView, BoundaryState, DynamicView
+from chmap.views.base import BoundView, StateView, BoundaryState
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -36,35 +35,9 @@ class ImageViewState(TypedDict):
 
 
 class ImageHandler(metaclass=abc.ABCMeta):
-    SUPPORT_TRANSFORM: ClassVar = True
-    SUPPORT_ROTATION: ClassVar = True
-    SUPPORT_SCALING: ClassVar = True
-    SUPPORT_RESOLUTION: ClassVar = True
-
-    logger: logging.Logger | None
-    view: ImageView = None
-
-    def __init__(self, filename: str, *, logger: str | logging.Logger = 'chmap.view.image'):
-        if isinstance(logger, str):
-            self.logger = logging.getLogger(logger)
-        elif isinstance(logger, logging.Logger):
-            self.logger = logger
-        else:
-            self.logger = None
-
-        if (logger := self.logger) is not None:
-            logger.debug('init()')
-
-        self.filename = filename
+    def __init__(self, filename: str | None):
+        self.filename: str | None = filename
         self._resolution = (1, 1)
-
-    @property
-    def name(self) -> str | None:
-        return f'<b>Image</b>: {self.filename}'
-
-    @property
-    def description(self) -> str | None:
-        return None
 
     @abc.abstractmethod
     def __len__(self) -> int:
@@ -98,25 +71,13 @@ class ImageHandler(metaclass=abc.ABCMeta):
             resolution = (resolution, resolution)
 
         self._resolution = resolution
-        if (view := self.view) is not None:
-            view.update_boundary_transform()
-
-    def reset_boundary(self):
-        self.update_boundary_transform(p=(0, 0), s=1, rt=0)
-
-    def update_boundary_transform(self, *,
-                                  p: tuple[float, float] = None,
-                                  s: float | tuple[float, float] = None,
-                                  rt: float = None):
-        if (view := self.view) is not None:
-            view.update_boundary_transform(p=p, s=s, rt=rt)
 
     @classmethod
     def from_numpy(cls, filename: str | Path, image: NDArray[np.uint] = None) -> Self:
         logger = logging.getLogger('chmap.image')
         from .image_npy import NumpyImageHandler
         logger.debug('from numpy %s', image.shape)
-        return NumpyImageHandler(filename, image)
+        return NumpyImageHandler(image, filename)
 
     @classmethod
     def from_file(cls, filename: str | Path) -> Self:
@@ -133,7 +94,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         w, h, _ = image.shape
         image = np.flipud(image.view(dtype=np.uint32).reshape((w, h)))
         logger.debug('as image %s', image.shape)
-        return NumpyImageHandler(filename, image)
+        return NumpyImageHandler(image, filename)
 
     @classmethod
     def from_tiff(cls, filename: str | Path) -> Self:
@@ -143,10 +104,10 @@ class ImageHandler(metaclass=abc.ABCMeta):
         logger.debug('from file %s', filename)
         image = tifffile.TiffFile(filename, mode='r').asarray()  # TODO memmap?
         logger.debug('as image %s', image.shape)
-        return NumpyImageHandler(filename, image)
+        return NumpyImageHandler(image, filename)
 
 
-class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
+class ImageView(BoundView, metaclass=abc.ABCMeta):
     data_image: ColumnDataSource
     render_image: GlyphRenderer
 
@@ -163,11 +124,10 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
 
     @property
     def name(self) -> str:
-        return 'Image' if self._image is None else self._image.name
-
-    @property
-    def description(self) -> str | None:
-        return None if self._image is None else self._image.description
+        if (image := self._image) is None or image.filename is None:
+            return '<b>Image</b>'
+        else:
+            return f'<b>Image</b> {image.filename}'
 
     # ================ #
     # image properties #
@@ -193,7 +153,6 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
 
     def set_image_handler(self, image: ImageHandler | None):
         self._image = image
-        image.view = self
 
         if (slider := self.index_slider) is not None:
             if image is None or (n_image := len(image)) == 1:
@@ -206,7 +165,7 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
             if self.visible:
                 slider.visible = not slider.disabled
 
-        if image is not None and image.SUPPORT_RESOLUTION:
+        if image is not None:
             resolution = image.resolution
             self.resolution_input.value = f'{resolution[0]},{resolution[1]}'
 
@@ -240,36 +199,33 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
     # UI components #
     # ============= #
 
-    resolution_input: TextInput
-
     def _setup_render(self, f: Figure,
-                      boundary_color: str = 'black',
+                      boundary_color: str | None = 'black',
                       **kwargs):
-        # renders
+        self.setup_image(f)
+
+        desp = 'drag image'
+        if (image := self._image) is not None:
+            desp = f'drag {image.filename}'
+        self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=desp)
+
+    def setup_image(self, f: Figure):
         self.render_image = f.image_rgba(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_image,
             global_alpha=1, syncable=False,
         )
 
-        if (image := self._image) is None or image.SUPPORT_TRANSFORM:
-            desp = 'drag image'
-            if image is not None:
-                desp = f'drag {image.filename}'
-            self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=desp)
+    resolution_input: TextInput
 
     def _setup_title(self, **kwargs) -> list[UIElement]:
         ret = super()._setup_title(**kwargs)
 
-        if (image := self.image) is not None:
-            self.view_title.text = image.name
+        ret.append(Div(text='resolution:'))
+        ret.append(new_help_button('change image resolution. Need a value or "W,H"', position='top'))
 
-        if (image := self._image) is None or image.SUPPORT_RESOLUTION:
-            ret.append(Div(text='resolution:'))
-            ret.append(new_help_button('change image resolution. Need a value or "W,H"', position='top'))
-
-            self.resolution_input = TextInput(max_width=100, description=Tooltip(content='image resolution. format "10" or "10,10"'))
-            self.resolution_input.on_change('value', as_callback(self._on_resolution_changed))
-            ret.append(self.resolution_input)
+        self.resolution_input = TextInput(max_width=100, description=Tooltip(content='image resolution. format "10" or "10,10"'))
+        self.resolution_input.on_change('value', as_callback(self._on_resolution_changed))
+        ret.append(self.resolution_input)
 
         return ret
 
@@ -279,18 +235,23 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
                        **kwargs) -> list[UIElement]:
         from bokeh.layouts import row
 
-        ret = []
         new_slider = SliderFactory(width=slider_width, align='end')
+
+        return [
+            row(*self.setup_index_slider(new_slider=new_slider)),
+            row(*self.setup_rotate_slider(new_slider=new_slider)),
+            row(*self.setup_scale_slider(new_slider=new_slider))
+        ]
+
+    def setup_index_slider(self, *,
+                           new_slider: SliderFactory = None) -> list[UIElement]:
+        if new_slider is None:
+            new_slider = SliderFactory(width=300, align='end')
+
         self.index_slider = new_slider('Index', (0, 1, 1, 0), self._on_index_changed)
         self.index_slider.visible = False
-        ret.append(self.index_slider)
 
-        if (image := self._image) is None or image.SUPPORT_ROTATION:
-            ret.append(row(*self.setup_rotate_slider(new_slider=new_slider)))
-        if (image := self._image) is None or image.SUPPORT_SCALING:
-            ret.append(row(*self.setup_scale_slider(new_slider=new_slider)))
-
-        return ret
+        return [self.index_slider]
 
     def _on_index_changed(self, s: int):
         if is_recursive_called():
@@ -335,7 +296,7 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
                 r = image.resolution
                 self.resolution_input.value = f'{r[0]},{r[1]}'
         else:
-            if (image := self.image) is not None and image.SUPPORT_RESOLUTION:
+            if (image := self.image) is not None:
                 image.resolution = f
 
             self.update_boundary_transform(s=1)
@@ -351,27 +312,6 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
             self.reset_boundary()
         else:
             self.visible = False
-
-    _cache_probe = None
-    _cache_chmap = None
-    _cache_blueprint = None
-
-    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
-        self._cache_probe = probe
-        self._cache_chmap = chmap
-        self._cache_blueprint = e
-
-        if self.visible:
-            run_later(self._on_probe_update)
-
-    def _on_probe_update(self):
-        if self._cache_probe is not None and isinstance(image := self._image, DynamicView):
-            cast(DynamicView, image).on_probe_update(self._cache_probe, self._cache_chmap, self._cache_blueprint)
-
-    def on_visible(self, visible: bool):
-        super().on_visible(visible)
-        if visible and self._cache_probe is not None:
-            run_later(self._on_probe_update)
 
     def on_boundary_transform(self, state: BoundaryState):
         super().on_boundary_transform(state)

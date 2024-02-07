@@ -10,18 +10,22 @@ from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING, NamedT
 
 import matplotlib.pyplot as plt
 import numpy as np
+from bokeh.models import UIElement
+from bokeh.plotting import figure as Figure
 from numpy._typing import NDArray
 
-from chmap.views.base import DynamicView
+from chmap.config import ChannelMapEditorConfig
+from chmap.util.bokeh_app import run_timeout
+from chmap.views.base import DynamicView, ViewBase
+from chmap.views.image import ImageView, ImageHandler
 from chmap.views.image_npy import NumpyImageHandler
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.transforms import BboxBase
-    from chmap.probe import ProbeDesp, M, E
 
 __all__ = [
-    'PltImageHandler',
+    'PltImageView',
     'Boundary',
     'get_current_plt_image',
     'get_current_plt_boundary'
@@ -176,7 +180,7 @@ class Boundary(NamedTuple):
         return self.fg_height / self.fg_height_px
 
 
-class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
+class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
     """
     Use matplotlib to generate image.
 
@@ -199,19 +203,22 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
                     plot.plot_probe_shape(ax, m, color='k')
     """
 
-    def __init__(self, *, logger: str | logging.Logger = 'chmap.view.plt'):
-        super().__init__(type(self).__name__, logger=logger)
-
-        # pre-set resolution for image_plt.matplotlibrc.
-        self.resolution = (1, 1)
+    def __init__(self, config: ChannelMapEditorConfig, *,
+                 logger: str | logging.Logger = 'chmap.view.plt'):
+        super().__init__(config, logger=logger)
 
     @property
-    def name(self) -> str | None:
-        return f'<b>{type(self).__name__}</b>'
+    def name(self) -> str:
+        return type(self).__name__
 
-    @abc.abstractmethod
-    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
-        pass
+    # ================ #
+    # image properties #
+    # ================ #
+
+    def set_image_handler(self, image: ImageHandler | None):
+        self._image = image
+        if image is None:
+            self.set_status(None)
 
     def set_image(self, image: NDArray[np.uint] | None,
                   boundary: Boundary = None,
@@ -224,7 +231,8 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
         :param boundary: image boundary
         :param offset: x or (x, y) offset. Once you don't want figure 100% aligned.
         """
-        super().set_image(image)
+        self.set_status('update image ...')
+        self.set_image_handler(NumpyImageHandler(image))
 
         if boundary is None:
             self.update_boundary_transform()
@@ -236,6 +244,29 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
             else:
                 center = (center[0] + offset, center[1])
             self.update_boundary_transform(p=center, s=boundary.scale)
+
+        self.set_status('updated')
+        run_timeout(3000, self.set_status, None)
+
+    # ============= #
+    # UI components #
+    # ============= #
+
+    def _setup_render(self, f: Figure, **kwargs):
+        self.setup_image(f)
+
+    def _setup_title(self, **kwargs) -> list[UIElement]:
+        return ViewBase._setup_title(self, **kwargs)
+
+    def _setup_content(self, **kwargs) -> list[UIElement]:
+        return []
+
+    # ================ #
+    # updating methods #
+    # ================ #
+
+    def start(self):
+        self.visible = False
 
     @overload
     def plot_figure(self,
@@ -267,6 +298,8 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
         :param kwargs: plt.subplots(**kwargs)
         :return: a context manger of Axes
         """
+        self.set_status('computing...')
+
         rc_file = kwargs.pop('rc', 'image_plt.matplotlibrc')
         if '/' in rc_file:
             rc_file = Path(rc_file)
@@ -283,10 +316,12 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
             try:
                 yield ax
             except BaseException as e:
+                self.set_status('computing failed')
                 self.logger.warning('plot fail', exc_info=e)
                 image = None
                 boundary = None
             else:
+                self.set_status('computing done')
                 boundary = get_current_plt_boundary(ax)
                 image = get_current_plt_image(fg, **savefig_kw)
             finally:

@@ -1,20 +1,16 @@
-from chmap.views.image_plt import PltImageHandler
+from chmap.config import parse_cli, ChannelMapEditorConfig
+from chmap.views.image_plt import PltImageView
 
-__all__ = ['PlotBlueprint']
+__all__ = ['BlueprintView']
 
 
-class PlotBlueprint(PltImageHandler):
-    SUPPORT_TRANSFORM = False
-    SUPPORT_ROTATION = False
-    SUPPORT_SCALING = False
-    SUPPORT_RESOLUTION = False
-
-    def __init__(self):
-        super().__init__(logger='chmap.view.plt.plot_blueprint')
+class BlueprintView(PltImageView):
+    def __init__(self, config: ChannelMapEditorConfig):
+        super().__init__(config, logger='chmap.view.plot_blueprint')
 
     @property
     def name(self) -> str | None:
-        return "<b>Blueprint</b>"
+        return "Blueprint"
 
     @property
     def description(self) -> str | None:
@@ -31,7 +27,7 @@ class PlotBlueprint(PltImageHandler):
         self.logger.debug('plot_channelmap')
         from chmap.probe_npx import plot
 
-        with self.plot_figure(gridspec_kw=dict(top=1, bottom=0, left=0, right=1)) as ax:
+        with self.plot_figure(gridspec_kw=dict(top=0.98, bottom=0.02, left=0, right=1)) as ax:
             plot.plot_policy_area(ax, probe_type, e, shank_width_scale=0.5)
             plot.plot_probe_shape(ax, probe_type, color=None, label_axis=False, shank_width_scale=0.5)
 
@@ -41,7 +37,7 @@ class PlotBlueprint(PltImageHandler):
 
 if __name__ == '__main__':
     import sys
-    from chmap.config import parse_cli
+
     from chmap.main_bokeh import main
 
     main(parse_cli([
@@ -49,5 +45,5 @@ if __name__ == '__main__':
         '-C', 'res',
         '--debug',
         '--view=-',
-        '--view=chmap.views.image_blueprint:PlotBlueprint',
+        '--view=chmap.views.image_blueprint:BlueprintView',
     ]))

@@ -1,5 +1,3 @@
-import logging
-
 import numpy as np
 from numpy.typing import NDArray
 
@@ -14,28 +12,27 @@ class NumpyImageHandler(ImageHandler):
 
     """
 
-    def __init__(self, filename: str, image: NDArray[np.uint] = None, *,
-                 logger: str | logging.Logger = None):
+    def __init__(self, image: NDArray[np.uint], filename: str | None = None):
         """
 
         :param filename:
         :param image: Array[uint, [N,], H, W]
         """
-        super().__init__(filename, logger=logger)
+        super().__init__(filename)
 
         if image is not None and image.ndim not in (2, 3):
             raise RuntimeError()
 
-        self._image: NDArray[np.uint] | None = image
+        self.image: NDArray[np.uint] | None = image
 
     def __len__(self) -> int:
-        if (image := self._image) is not None and image.ndim == 3:
+        if (image := self.image) is not None and image.ndim == 3:
             return len(image)
         else:
             return 1
 
     def __getitem__(self, index: int) -> NDArray[np.uint] | None:
-        if (image := self._image) is None:
+        if (image := self.image) is None:
             return None
         elif image.ndim == 3:
             return image[index]
@@ -44,7 +41,7 @@ class NumpyImageHandler(ImageHandler):
 
     @property
     def width(self) -> float:
-        if (image := self._image) is None:
+        if (image := self.image) is None:
             return 0
 
         r = self.resolution[0]
@@ -55,7 +52,7 @@ class NumpyImageHandler(ImageHandler):
 
     @property
     def height(self) -> float:
-        if (image := self._image) is None:
+        if (image := self.image) is None:
             return 0
 
         r = self.resolution[1]
@@ -63,10 +60,3 @@ class NumpyImageHandler(ImageHandler):
             return image.shape[1] * r
         else:
             return image.shape[0] * r
-
-    @property
-    def image(self) -> NDArray[np.uint] | None:
-        return self._image
-
-    def set_image(self, image: NDArray[np.uint] | None):
-        self._image = image

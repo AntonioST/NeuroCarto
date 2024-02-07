@@ -1,16 +1,12 @@
+from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import ChannelMap
-from chmap.views.image_plt import PltImageHandler
+from chmap.views.image_plt import PltImageView
 
 
-class PlotChannelMap(PltImageHandler):
-    SUPPORT_TRANSFORM = False
-    SUPPORT_ROTATION = False
-    SUPPORT_SCALING = False
-    SUPPORT_RESOLUTION = False
-
-    def __init__(self):
-        super().__init__(logger='chmap.view.plt.plot_channel')
+class PlotChannelMap(PltImageView):
+    def __init__(self, config: ChannelMapEditorConfig):
+        super().__init__(config, logger='chmap.view.plot_channelmap')
 
     def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
         from chmap.probe_npx import ChannelMap
@@ -33,7 +29,7 @@ class PlotChannelMap(PltImageHandler):
 
 if __name__ == '__main__':
     import sys
-    from chmap.config import parse_cli
+
     from chmap.main_bokeh import main
 
     main(parse_cli([
