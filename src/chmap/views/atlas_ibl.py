@@ -38,6 +38,7 @@ class IblAtlasBrainView(BoundView, StateView[IblAtlasBrainViewState]):
 
     def __init__(self, config: ChannelMapEditorConfig, *, logger: str = 'chmap.view.ibl'):
         super().__init__(config, logger=logger)
+        self.logger.warning('It is experimental feature.')
 
         self._brain_name: str = str(config.atlas_name)
         self.brain = self._init_allen_atlas(config)

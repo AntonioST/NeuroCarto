@@ -6,11 +6,12 @@ import io
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING
+from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING, NamedTuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
+from matplotlib.transforms import BboxBase
 from numpy._typing import NDArray
 
 from chmap.views.base import DynamicView
@@ -20,6 +21,154 @@ if TYPE_CHECKING:
     from chmap.probe import ProbeDesp, M, E
 
 __all__ = ['PltImageHandler', 'get_current_plt_image']
+
+
+class Boundary(NamedTuple):
+    shape: tuple[int, int]
+    bbox: tuple[float, float, float, float]  # boundary (left, bottom, right, top) in ratio.
+    xlim: tuple[float, float]
+    ylim: tuple[float, float]
+
+    def as_um(self) -> Boundary:
+        xlim = self.xlim
+        if xlim[1] - xlim[0] < 50:
+            xlim = (xlim[0] * 1000, xlim[1] * 1000)
+
+        ylim = self.ylim
+        if ylim[1] - ylim[0] < 50:
+            ylim = (ylim[0] * 1000, ylim[1] * 1000)
+
+        return self._replace(xlim=xlim, ylim=ylim)
+
+    @property
+    def fg_width_px(self) -> int:
+        return self.shape[1]
+
+    @property
+    def fg_height_px(self) -> int:
+        return self.shape[0]
+
+    @property
+    def ax_width(self) -> float:
+        return self.xlim[1] - self.xlim[0]
+
+    @property
+    def ax_height(self) -> float:
+        return self.ylim[1] - self.ylim[0]
+
+    @property
+    def origin_px(self) -> tuple[int, int]:
+        """
+        origin point position in figure.
+        :return: (x, y) pixel
+        """
+        return self.point_px(0, 0)
+
+    def point_px(self, x: float, y: float) -> tuple[int, int]:
+        """
+        point position in figure.
+
+        :param x: x coordinate in axes
+        :param y: y coordinate in axes
+        :return: (x, y) pixel
+        """
+        h, w = self.shape
+        x0, x1 = self.xlim
+        y0, y1 = self.ylim
+        a, b, c, d = self.bbox
+        rx = (x - x0) * (c - a) / (x1 - x0) + a
+        ry = (y - y0) * (d - b) / (y1 - y0) + c
+        return int(rx * w), int(ry * h)
+
+    @property
+    def center(self) -> tuple[float, float]:
+        """
+        the position of the figure's center point.
+        :return: (x, y)
+        """
+        h, w = self.shape
+        return self.point(w // 2, h // 2)
+
+    def point(self, x: int, y: int) -> tuple[float, float]:
+        """
+
+        :param x: x coordinate on figure in pixels.
+        :param y: y coordinate on figure in pixels.
+        :return: (x, y) in axis
+        """
+        h, w = self.shape
+        x0, x1 = self.xlim
+        y0, y1 = self.ylim
+        a, b, c, d = self.bbox
+        rx = (x / w - a) * (x1 - x0) / (c - a) + x0
+        ry = (y / h - b) * (y1 - y0) / (d - b) + y0
+        return rx, ry
+
+    def _point_x(self, x: float) -> float:
+        x0, x1 = self.xlim
+        a, _, c, _ = self.bbox
+        return (x - a) * (x1 - x0) / (c - a) + x0
+
+    def _point_y(self, y: float) -> float:
+        y0, y1 = self.ylim
+        _, b, _, d = self.bbox
+        return (y - b) * (y1 - y0) / (d - b) + y0
+
+    @property
+    def ax_extent(self) -> tuple[float, float, float, float]:
+        """
+
+        :return: (left, bottom, right, top)
+        """
+        return self.xlim[0], self.ylim[0], self.xlim[1], self.ylim[1]
+
+    @property
+    def ax_extent_px(self) -> tuple[int, int, int, int]:
+        """
+
+        :return: (left, bottom, right, top) in pixels
+        """
+        w = self.fg_width_px
+        h = self.fg_height_px
+        l, b, r, t = self.bbox
+        return int(w * l), int(h * b), int(w * r), int(t * h)
+
+    @property
+    def fg_extent(self) -> tuple[float, float, float, float]:
+        h, w = self.shape
+        a, b = self.point(0, 0)
+        c, d = self.point(w, h)
+        return a, b, c, d
+
+    @property
+    def fg_width(self) -> float:
+        a, _, c, _ = self.bbox
+        return self.ax_width / (c - a)
+
+    @property
+    def fg_height(self) -> float:
+        _, b, _, d = self.bbox
+        return self.ax_height / (d - b)
+
+    @property
+    def fg_xlim(self) -> tuple[float, float]:
+        return self._point_x(0), self._point_x(1)
+
+    @property
+    def fg_ylim(self) -> tuple[float, float]:
+        return self._point_y(0), self._point_y(1)
+
+    @property
+    def scale(self) -> tuple[float, float]:
+        return self.scale_x, self.scale_y
+
+    @property
+    def scale_x(self) -> float:
+        return self.fg_width / self.fg_width_px
+
+    @property
+    def scale_y(self) -> float:
+        return self.fg_height / self.fg_height_px
 
 
 class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
@@ -49,7 +198,7 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
         super().__init__(type(self).__name__, logger=logger)
 
         # pre-set resolution for image_plt.matplotlibrc.
-        self.resolution = (5, 5)
+        self.resolution = (1, 1)
 
     @property
     def title(self) -> str | None:
@@ -59,9 +208,19 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
     def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
         pass
 
-    def set_image(self, image: NDArray[np.uint] | None):
+    def set_image(self, image: NDArray[np.uint] | None, boundary: Boundary = None):
+        """
+
+        :param image: image array
+        :param boundary: boundary
+        :return:
+        """
         super().set_image(image)
-        self.update_boundary_transform()
+        if boundary is None:
+            self.update_boundary_transform()
+        else:
+            boundary = boundary.as_um()
+            self.update_boundary_transform(p=boundary.center, s=boundary.scale)
 
     @overload
     def plot_figure(self,
@@ -104,6 +263,7 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
             transparent=kwargs.pop('transparent', True),
         )
 
+        ax: Axes
         with plt.rc_context(fname=rc_file):
             fg, ax = plt.subplots(**kwargs)
             try:
@@ -111,12 +271,17 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
             except BaseException as e:
                 self.logger.warning('plot fail', exc_info=e)
                 image = None
+                boundary = None
             else:
+                bbox: BboxBase = ax.get_position()
+                xlim = ax.get_xlim()
+                ylim = ax.get_ylim()
                 image = get_current_plt_image(fg, **savefig_kw)
+                boundary = Boundary(image.shape, tuple(bbox.extents), xlim, ylim)
             finally:
                 plt.close(fg)
 
-        self.set_image(image)
+        self.set_image(image, boundary)
 
 
 def get_current_plt_image(fg=None, **kwargs) -> NDArray[np.uint]:
