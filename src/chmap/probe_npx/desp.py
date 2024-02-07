@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.probe import ProbeDesp, ElectrodeDesp, M, E
+from chmap.probe import ProbeDesp, ElectrodeDesp
 from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError, PROBE_TYPE
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
@@ -57,7 +57,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
     def extra_controls(self, config: ChannelMapEditorConfig):
         from chmap.views.data_density import ElectrodeDensityDataView
-        from chmap.views.data_efficient import ElectrodeEfficiencyData
+        from chmap.views.view_efficient import ElectrodeEfficiencyData
         from .views import NpxReferenceControl
         return [NpxReferenceControl, ElectrodeDensityDataView, ElectrodeEfficiencyData]
 

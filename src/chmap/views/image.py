@@ -4,7 +4,7 @@ import abc
 import logging
 import sys
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import TypedDict, cast, ClassVar
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div, TextInput, Tooltip
@@ -36,6 +36,11 @@ class ImageViewState(TypedDict):
 
 
 class ImageHandler(metaclass=abc.ABCMeta):
+    SUPPORT_TRANSFORM: ClassVar = True
+    SUPPORT_ROTATION: ClassVar = True
+    SUPPORT_SCALING: ClassVar = True
+    SUPPORT_RESOLUTION: ClassVar = True
+
     logger: logging.Logger | None
     view: ImageView = None
 
@@ -54,8 +59,12 @@ class ImageHandler(metaclass=abc.ABCMeta):
         self._resolution = (1, 1)
 
     @property
-    def title(self) -> str | None:
+    def name(self) -> str | None:
         return f'<b>Image</b>: {self.filename}'
+
+    @property
+    def description(self) -> str | None:
+        return None
 
     @abc.abstractmethod
     def __len__(self) -> int:
@@ -154,7 +163,11 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
 
     @property
     def name(self) -> str:
-        return 'Image'
+        return 'Image' if self._image is None else self._image.name
+
+    @property
+    def description(self) -> str | None:
+        return None if self._image is None else self._image.description
 
     # ================ #
     # image properties #
@@ -193,7 +206,7 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
             if self.visible:
                 slider.visible = not slider.disabled
 
-        if image is not None:
+        if image is not None and image.SUPPORT_RESOLUTION:
             resolution = image.resolution
             self.resolution_input.value = f'{resolution[0]},{resolution[1]}'
 
@@ -238,23 +251,25 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
             global_alpha=1, syncable=False,
         )
 
-        desp = 'drag image'
-        if (image := self._image) is not None:
-            desp = f'drag {image.filename}'
-        self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=desp)
+        if (image := self._image) is None or image.SUPPORT_TRANSFORM:
+            desp = 'drag image'
+            if image is not None:
+                desp = f'drag {image.filename}'
+            self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=desp)
 
     def _setup_title(self, **kwargs) -> list[UIElement]:
         ret = super()._setup_title(**kwargs)
 
         if (image := self.image) is not None:
-            self.view_title.text = image.title
+            self.view_title.text = image.name
 
-        ret.append(Div(text='resolution:'))
+        if (image := self._image) is None or image.SUPPORT_RESOLUTION:
+            ret.append(Div(text='resolution:'))
+            ret.append(new_help_button('change image resolution. Need a value or "W,H"', position='top'))
 
-        self.resolution_input = TextInput(max_width=100, description=Tooltip(content='image resolution. format "10" or "10,10"'))
-        self.resolution_input.on_change('value', as_callback(self._on_resolution_changed))
-        ret.append(new_help_button('change image resolution. Need a value or "W,H"', position='top'))
-        ret.append(self.resolution_input)
+            self.resolution_input = TextInput(max_width=100, description=Tooltip(content='image resolution. format "10" or "10,10"'))
+            self.resolution_input.on_change('value', as_callback(self._on_resolution_changed))
+            ret.append(self.resolution_input)
 
         return ret
 
@@ -269,7 +284,12 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
         self.index_slider = new_slider('Index', (0, 1, 1, 0), self._on_index_changed)
         self.index_slider.visible = False
         ret.append(self.index_slider)
-        ret.append(row(*self.setup_rotate_slider(new_slider=new_slider)))
+
+        if (image := self._image) is None or image.SUPPORT_ROTATION:
+            ret.append(row(*self.setup_rotate_slider(new_slider=new_slider)))
+        if (image := self._image) is None or image.SUPPORT_SCALING:
+            ret.append(row(*self.setup_scale_slider(new_slider=new_slider)))
+
         return ret
 
     def _on_index_changed(self, s: int):
@@ -280,7 +300,10 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
 
     def get_resolution_value(self, r: str = None) -> tuple[float, float] | None:
         if r is None:
-            r = self.resolution_input.value
+            try:
+                r = self.resolution_input.value
+            except AttributeError:
+                return None
 
         if r == '':
             return None
@@ -312,7 +335,7 @@ class ImageView(BoundView, DynamicView, metaclass=abc.ABCMeta):
                 r = image.resolution
                 self.resolution_input.value = f'{r[0]},{r[1]}'
         else:
-            if (image := self.image) is not None:
+            if (image := self.image) is not None and image.SUPPORT_RESOLUTION:
                 image.resolution = f
 
             self.update_boundary_transform(s=1)

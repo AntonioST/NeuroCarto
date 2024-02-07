@@ -589,6 +589,7 @@ def plot_probe_shape(ax: Axes,
                      height: float = 10,
                      label_axis=False,
                      shank_width_scale: float = 1,
+                     color: str | None = 'k',
                      **kwargs):
     """
     Plot the probe shape.
@@ -611,16 +612,17 @@ def plot_probe_shape(ax: Axes,
     y1 = -2 * v_step  # tip length
     w = h_step * shank_width_scale
 
-    for sh in range(probe.n_shank):
-        x0 = sh * s_step - w / 2
-        x2 = x0 + probe.n_col_shank * w
-        x1 = (x0 + x2) / 2
+    if color is not None:
+        for sh in range(probe.n_shank):
+            x0 = sh * s_step - w / 2
+            x2 = x0 + probe.n_col_shank * w
+            x1 = (x0 + x2) / 2
 
-        ax.plot(
-            [x0, x0, x1, x2, x2],
-            [height, y0, y1, y0, height],
-            **kwargs
-        )
+            ax.plot(
+                [x0, x0, x1, x2, x2],
+                [height, y0, y1, y0, height],
+                **kwargs
+            )
 
     if label_axis:
         ax.set_xticks(

@@ -206,7 +206,7 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
         self.resolution = (1, 1)
 
     @property
-    def title(self) -> str | None:
+    def name(self) -> str | None:
         return f'<b>{type(self).__name__}</b>'
 
     @abc.abstractmethod
@@ -215,8 +215,7 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
 
     def set_image(self, image: NDArray[np.uint] | None,
                   boundary: Boundary = None,
-                  offset: float | tuple[float, float] = 0,
-                  show_boundary: bool = None):
+                  offset: float | tuple[float, float] = 0):
         """
         Set image. Due to the figure origin point usually not the origin point in axes,
         you need to provide *boundary* to tell program how to align the image.
@@ -224,8 +223,6 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
         :param image: image array
         :param boundary: image boundary
         :param offset: x or (x, y) offset. Once you don't want figure 100% aligned.
-        :param show_boundary: show boundary line for manipulating.
-            By default, it depends on whether *boundary* present or not.
         """
         super().set_image(image)
 
@@ -239,14 +236,6 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
             else:
                 center = (center[0] + offset, center[1])
             self.update_boundary_transform(p=center, s=boundary.scale)
-
-        if show_boundary is None:
-            show_boundary = boundary is None
-
-        try:
-            self.view.render_boundary.visible = show_boundary
-        except AttributeError:
-            pass
 
     @overload
     def plot_figure(self,

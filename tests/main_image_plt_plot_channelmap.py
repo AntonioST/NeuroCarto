@@ -1,12 +1,13 @@
-import numpy as np
-from numpy._typing import NDArray
-
 from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import ChannelMap
-from chmap.views.image_plt import PltImageHandler, Boundary
+from chmap.views.image_plt import PltImageHandler
 
 
 class PlotChannelMap(PltImageHandler):
+    SUPPORT_TRANSFORM = False
+    SUPPORT_ROTATION = False
+    SUPPORT_SCALING = False
+    SUPPORT_RESOLUTION = False
 
     def __init__(self):
         super().__init__(logger='chmap.view.plt.plot_channel')
@@ -26,10 +27,7 @@ class PlotChannelMap(PltImageHandler):
             plot.plot_channelmap_block(ax, chmap=m)
             plot.plot_probe_shape(ax, m, color='k')
 
-    def set_image(self, image: NDArray[np.uint] | None,
-                  boundary: Boundary = None,
-                  offset: float | tuple[float, float] = -80,
-                  show_boundary: bool = None):
+    def set_image(self, image, boundary=None, offset=-80):
         super().set_image(image, boundary, offset)
 
 
