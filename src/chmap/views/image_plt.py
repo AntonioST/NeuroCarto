@@ -10,17 +10,22 @@ from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING, NamedT
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.axes import Axes
-from matplotlib.transforms import BboxBase
 from numpy._typing import NDArray
 
 from chmap.views.base import DynamicView
 from chmap.views.image_npy import NumpyImageHandler
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from matplotlib.transforms import BboxBase
     from chmap.probe import ProbeDesp, M, E
 
-__all__ = ['PltImageHandler', 'get_current_plt_image']
+__all__ = [
+    'PltImageHandler',
+    'Boundary',
+    'get_current_plt_image',
+    'get_current_plt_boundary'
+]
 
 
 class Boundary(NamedTuple):
@@ -208,19 +213,40 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
     def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
         pass
 
-    def set_image(self, image: NDArray[np.uint] | None, boundary: Boundary = None):
+    def set_image(self, image: NDArray[np.uint] | None,
+                  boundary: Boundary = None,
+                  offset: float | tuple[float, float] = 0,
+                  show_boundary: bool = None):
         """
+        Set image. Due to the figure origin point usually not the origin point in axes,
+        you need to provide *boundary* to tell program how to align the image.
 
         :param image: image array
-        :param boundary: boundary
-        :return:
+        :param boundary: image boundary
+        :param offset: x or (x, y) offset. Once you don't want figure 100% aligned.
+        :param show_boundary: show boundary line for manipulating.
+            By default, it depends on whether *boundary* present or not.
         """
         super().set_image(image)
+
         if boundary is None:
             self.update_boundary_transform()
         else:
             boundary = boundary.as_um()
-            self.update_boundary_transform(p=boundary.center, s=boundary.scale)
+            center = boundary.center
+            if isinstance(offset, tuple):
+                center = (center[0] + offset[0], center[1] + offset[1])
+            else:
+                center = (center[0] + offset, center[1])
+            self.update_boundary_transform(p=center, s=boundary.scale)
+
+        if show_boundary is None:
+            show_boundary = boundary is None
+
+        try:
+            self.view.render_boundary.visible = show_boundary
+        except AttributeError:
+            pass
 
     @overload
     def plot_figure(self,
@@ -232,7 +258,6 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
                     height_ratios: Sequence[float] | None = None,
                     subplot_kw: dict[str, Any] | None = None,
                     gridspec_kw: dict[str, Any] | None = None,
-                    dpi: float | Literal['figure'] = 'figure',
                     transparent: bool = True,
                     rc: str = None,
                     **kwargs) -> ContextManager[Axes]:
@@ -246,11 +271,12 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
         >>> with self.plot_figure() as ax:
         ...     ax.plot(...)
 
-        :param dpi: fig.savefig(dpi)
+        Once context closed, call `set_image()` with parameters *image* and *boundary* filled.
+
         :param transparent: fig.savefig(transparent)
         :param rc: default is read from image_plt.matplotlibrc.
         :param kwargs: plt.subplots(**kwargs)
-        :return:
+        :return: a context manger of Axes
         """
         rc_file = kwargs.pop('rc', 'image_plt.matplotlibrc')
         if '/' in rc_file:
@@ -259,7 +285,6 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
             rc_file = Path(__file__).with_name(rc_file)
 
         savefig_kw = dict(
-            dpi=kwargs.pop('dpi', 'figure'),
             transparent=kwargs.pop('transparent', True),
         )
 
@@ -273,11 +298,8 @@ class PltImageHandler(NumpyImageHandler, DynamicView, metaclass=abc.ABCMeta):
                 image = None
                 boundary = None
             else:
-                bbox: BboxBase = ax.get_position()
-                xlim = ax.get_xlim()
-                ylim = ax.get_ylim()
+                boundary = get_current_plt_boundary(ax)
                 image = get_current_plt_image(fg, **savefig_kw)
-                boundary = Boundary(image.shape, tuple(bbox.extents), xlim, ylim)
             finally:
                 plt.close(fg)
 
@@ -290,9 +312,21 @@ def get_current_plt_image(fg=None, **kwargs) -> NDArray[np.uint]:
 
     # https://stackoverflow.com/a/67823421
     with io.BytesIO() as buff:
-        fg.savefig(buff, format='raw', **kwargs)
+        # force dpi as 'figure'. Otherwise, we will get wrong w and h.
+        fg.savefig(buff, format='raw', dpi='figure', **kwargs)
         buff.seek(0)
         image = np.frombuffer(buff.getvalue(), dtype=np.uint8)
 
     w, h = fg.canvas.get_width_height()
     return np.flipud(image.view(dtype=np.uint32).reshape((int(h), int(w))))
+
+
+def get_current_plt_boundary(ax: Axes = None) -> Boundary:
+    if ax is None:
+        ax = plt.gca()
+
+    bbox: BboxBase = ax.get_position()
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    w, h = ax.figure.canvas.get_width_height()
+    return Boundary((h, w), tuple(bbox.extents), xlim, ylim)

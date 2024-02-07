@@ -304,7 +304,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         pass
 
     def setup_boundary(self, f: Figure, *,
-                       boundary_color: str = 'black',
+                       boundary_color: str | None = 'black',
                        boundary_desp: str = None):
         """
         Setup boundary plotting in figure.
@@ -313,6 +313,9 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         :param boundary_color: boundary border color
         :param boundary_desp: figure tool hint description.
         """
+        if boundary_color is None:
+            return
+
         self.render_boundary = f.rect(
             'x', 'y', 'w', 'h', 'r', source=self.data_boundary,
             color=boundary_color, fill_alpha=0, angle_units='deg',
