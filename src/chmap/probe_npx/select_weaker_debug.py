@@ -36,10 +36,11 @@ def _select_loop(desp, probe_type, cand):
     data = np.array(data)
     data[:, 0] /= probe_type.n_channels
     data[:, 3] /= np.max(data[:, 3])
-    ax.plot(data[:, 0], label='N')
-    ax.plot(data[:, 1], label='Q')
-    ax.plot(data[:, 2], label='P')
-    ax.plot(data[:, 3], label='H')
+    ax.plot(data[:, 0], label='Number of selected electrodes')
+    ax.plot(data[:, 1], label='Initial probability of selected electrode')
+    ax.plot(data[:, 2], label='Actual probability of selected electrode')
+    ax.plot(data[:, 3], label='Normalized information entropy')
+    ax.set_xlabel('Iteration number')
     ax.legend()
 
 
