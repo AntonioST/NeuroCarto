@@ -344,7 +344,8 @@ class ChannelMapEditorApp(BokehApplication):
         ret: list = self.probe.extra_controls(config)
 
         ext = []
-        ext.append('chmap.views.atlas:AtlasBrainView')
+        ext.append('blueprint')
+        ext.append('atlas')
         ext.extend(config.extra_view)
 
         if '-' in ext:

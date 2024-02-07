@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TypedDict
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, Div, TextInput, Tooltip
+from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, TextInput, Tooltip
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -153,6 +153,8 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
     def set_image_handler(self, image: ImageHandler | None):
         self._image = image
+        if (filename := image.filename) is not None:
+            self.set_status(filename)
 
         if (slider := self.index_slider) is not None:
             if image is None or (n_image := len(image)) == 1:
@@ -220,28 +222,35 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
     def _setup_title(self, **kwargs) -> list[UIElement]:
         ret = super()._setup_title(**kwargs)
 
-        ret.append(Div(text='resolution:'))
-        ret.append(new_help_button('change image resolution. Need a value or "W,H"', position='top'))
-
         self.resolution_input = TextInput(max_width=100, description=Tooltip(content='image resolution. format "10" or "10,10"'))
         self.resolution_input.on_change('value', as_callback(self._on_resolution_changed))
-        ret.append(self.resolution_input)
+
+        # visible_btn?, view_title, help?, resolution_input, help, status_div
+        ret.insert(-1, self.resolution_input)
+        ret.insert(-1, new_help_button('change image resolution. Need a value or "W,H"', position='right'))
 
         return ret
 
     index_slider: Slider = None
 
     def _setup_content(self, slider_width: int = 300,
+                       support_index=True,
+                       support_rotate=True,
+                       support_scale=True,
                        **kwargs) -> list[UIElement]:
         from bokeh.layouts import row
 
         new_slider = SliderFactory(width=slider_width, align='end')
 
-        return [
-            row(*self.setup_index_slider(new_slider=new_slider)),
-            row(*self.setup_rotate_slider(new_slider=new_slider)),
-            row(*self.setup_scale_slider(new_slider=new_slider))
-        ]
+        ret = []
+        if support_index:
+            ret.append(row(*self.setup_index_slider(new_slider=new_slider)))
+        if support_rotate:
+            ret.append(row(*self.setup_rotate_slider(new_slider=new_slider)))
+        if support_scale:
+            ret.append(row(*self.setup_scale_slider(new_slider=new_slider)))
+
+        return ret
 
     def setup_index_slider(self, *,
                            new_slider: SliderFactory = None) -> list[UIElement]:
@@ -350,6 +359,10 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
         self.image_root = Path('.')
         self.image_config = {}
 
+    @property
+    def name(self) -> str:
+        return 'Image Path'
+
     # ============= #
     # UI components #
     # ============= #
@@ -359,7 +372,6 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
     def _setup_title(self, **kwargs) -> list[UIElement]:
         ret = super()._setup_title(**kwargs)
 
-        self.view_title.text = '<b>Image Path</b>'
         self.image_input = PathAutocompleteInput(
             self.image_root,
             self.on_image_selected,
@@ -368,10 +380,17 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
             # title='Image filepath',
             width=300,
         )
-        ret.insert(2, new_help_button('show image file', position='top'))
-        ret.insert(3, self.image_input.input)
+
+        # visible_btn?, view_title, help?, image_input, help, resolution_input, help, status_div
+        ret.insert(-3, self.image_input.input)
+        ret.insert(-3, new_help_button('show image file', position='top'))
 
         return ret
+
+    def _setup_content(self,
+                       support_rotate=False,
+                       **kwargs) -> list[UIElement]:
+        return super()._setup_content(support_rotate=support_rotate, **kwargs)
 
     def on_image_selected(self, filename: Path | None):
         if is_recursive_called():

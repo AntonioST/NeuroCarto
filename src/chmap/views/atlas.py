@@ -171,6 +171,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             width=400,
         )
         self.region_choose.on_change('value', as_callback(self._on_region_choose))
+        mask_help = new_help_button('type region names to color label the corresponding areas.')
 
         from bokeh.layouts import row
         return [
@@ -179,7 +180,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             row(reset_rtv, self.rotate_ver_slider),
             row(*self.setup_rotate_slider(new_btn=new_btn, new_slider=new_slider)),
             row(*self.setup_scale_slider(new_btn=new_btn, new_slider=new_slider)),
-            row(Div(text='mask'), self.region_choose, new_help_button('type region names to color label the corresponding areas.'))
+            row(Div(text='mask'), mask_help, self.region_choose)
         ]
 
     def _on_slice_selected(self, s: str):

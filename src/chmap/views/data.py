@@ -103,6 +103,10 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
 class FileDataView(DataView, metaclass=abc.ABCMeta):
     """Electrode data from a file."""
 
+    @property
+    def name(self) -> str:
+        return 'Data Path'
+
     @abc.abstractmethod
     def load_data(self, filename: Path):
         """Load electrode data from *filename*"""
@@ -136,7 +140,7 @@ class FileDataView(DataView, metaclass=abc.ABCMeta):
 
         self.view_title.text = '<b>Data Path</b>'
         data_input = self.setup_data_input()
-        ret.insert(2, data_input.input)
+        ret.insert(-1, data_input.input)
 
         return ret
 

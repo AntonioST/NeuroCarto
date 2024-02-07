@@ -88,6 +88,16 @@ class ViewBase(metaclass=abc.ABCMeta):
         pass
 
     def _setup_title(self, **kwargs) -> list[UIElement]:
+        """
+
+        components in title::
+
+            visible_btn?, view_title, help?, status_div
+
+        :param component:
+        :param kwargs:
+        :return:
+        """
         ret = []
         if isinstance(self, InvisibleView):
             ret.append(self.setup_visible_switch())
@@ -99,7 +109,7 @@ class ViewBase(metaclass=abc.ABCMeta):
         ret.append(self.view_title)
 
         if (desp := self.description) is not None:
-            ret.append(new_help_button(desp))
+            ret.append(new_help_button(desp, position='bottom'))
 
         self.status_div = Div(text='')
         ret.append(self.status_div)
