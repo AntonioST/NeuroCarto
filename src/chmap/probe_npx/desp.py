@@ -51,7 +51,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             'Half Density': self.POLICY_D2,
             #
             'Quarter Density': self.POLICY_D4,
-            'Remainder': self.POLICY_REMAINDER,
+            'Low priority': self.POLICY_LOW,
             'Forbidden': self.POLICY_FORBIDDEN,
         }
 

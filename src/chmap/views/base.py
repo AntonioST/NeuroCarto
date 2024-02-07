@@ -4,7 +4,7 @@ import abc
 import logging
 import math
 from pathlib import Path
-from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast
+from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast, final
 
 import numpy as np
 from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch, Div
@@ -19,7 +19,7 @@ from chmap.util.utils import import_name
 if TYPE_CHECKING:
     from chmap.probe import ProbeDesp, M, E
 
-__all__ = ['ViewBase', 'StateView', 'DynamicView', 'InvisibleView', 'BoundaryState', 'BoundView']
+__all__ = ['ViewBase', 'StateView', 'DynamicView', 'EditorView', 'InvisibleView', 'BoundaryState', 'BoundView']
 
 
 class ViewBase(metaclass=abc.ABCMeta):
@@ -52,6 +52,10 @@ class ViewBase(metaclass=abc.ABCMeta):
     def description(self) -> str | None:
         """view description. show in help button."""
         return None
+
+    # ============= #
+    # UI components #
+    # ============= #
 
     view_title: Div
     view_status: Div
@@ -119,6 +123,10 @@ class ViewBase(metaclass=abc.ABCMeta):
     def _setup_content(self, **kwargs) -> UIElement | list[UIElement] | None:
         return None
 
+    # ================ #
+    # updating methods #
+    # ================ #
+
     def start(self):
         """Invoked when figure is ready."""
         pass
@@ -129,6 +137,24 @@ class ViewBase(metaclass=abc.ABCMeta):
         else:
             self.status_div.text = text
             self.logger.info('status : %s', text)
+
+    # =========== #
+    # GUI methods #
+    # =========== #
+
+    @final
+    def log_message(self, *message, reset=False):
+        """
+        log message in GUI.
+
+         Implement note:
+            do not overwrite this function, because this method will be
+            replaced by GUI.
+
+        :param message: message in lines.
+        :param reset: reset message area.
+        """
+        self.logger.info(' '.join(message))
 
 
 def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
@@ -289,6 +315,26 @@ class DynamicView:
         :param e: all electrodes.
         """
         pass
+
+
+class EditorView(DynamicView):
+    """
+    This view provider the editing function on channelmap or blueprint.
+    """
+
+    @final
+    def update_probe(self):
+        """
+        notify GUI probe has updated.
+
+        Implement note:
+            do not call this method in `on_probe_update`. It may cause
+            recursive call.
+        Implement note:
+            do not overwrite this function, because this method will be
+            replaced by GUI.
+        """
+        raise RuntimeError()
 
 
 class BoundaryState(TypedDict):

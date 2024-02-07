@@ -120,7 +120,7 @@ def npx_channel_efficiency(chmap: ChannelMap, e: list[NpxElectrodeDesp]) -> Elec
     p, c = _npx_request_electrodes(e)
     ae = 0 if p == 0 else c / p
     ce = 0 if ae == 0 else min(ae, 1 / ae)
-    re, rc = _get_electrode(e, [NpxProbeDesp.POLICY_REMAINDER, NpxProbeDesp.POLICY_UNSET])
+    re, rc = _get_electrode(e, [NpxProbeDesp.POLICY_LOW, NpxProbeDesp.POLICY_UNSET])
 
     return ElectrodeEfficiencyStat(
         chmap.probe_type.n_channels,

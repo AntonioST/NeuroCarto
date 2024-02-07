@@ -69,7 +69,7 @@ class NpxReferenceControl(ViewBase, DynamicView):
             return
 
         if (chmap := self._chmap) is not None:
-            self.logger.debug('set reference(%s)', item)
+            self.log_message(f'set reference({item})')
             chmap.reference = ref.code
 
     def update_reference_select_options(self):

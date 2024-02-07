@@ -122,7 +122,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     POLICY_UNSET: ClassVar = 0  # initial value
     POLICY_SET: ClassVar = 1  # pre-selected
     POLICY_FORBIDDEN: ClassVar = 2  # never be selected
-    POLICY_REMAINDER: ClassVar = 3  # random selected, less priority
+    POLICY_LOW: ClassVar = 3  # random selected, low priority
 
     @property
     @abc.abstractmethod

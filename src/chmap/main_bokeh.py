@@ -1,5 +1,6 @@
 import functools
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +12,9 @@ from bokeh.plotting import figure as Figure
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
-from chmap.util.bokeh_app import BokehApplication, run_server, run_later
+from chmap.util.bokeh_app import BokehApplication, run_server
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback
-from chmap.views.base import ViewBase, StateView, DynamicView, init_view
+from chmap.views.base import ViewBase, StateView, DynamicView, init_view, EditorView
 from chmap.views.probe import ProbeView
 
 __all__ = ['ChannelMapEditorApp', 'main']
@@ -328,13 +329,37 @@ class ChannelMapEditorApp(BokehApplication):
 
         for view_type in self.install_right_panel_views(self.config):
             if (view := init_view(self.config, view_type)) is not None:
-                self.right_panel_views.append(view)
+                self.right_panel_views.append(self.install_view(view))
 
         uis = []
         for view in self.right_panel_views:
             uis.extend(view.setup(self.probe_fig))
 
         return uis
+
+    def install_view(self, view: ViewBase) -> ViewBase:
+        """
+        Replace some methods in ViewBase. They are
+
+        * ViewBase.log_message
+        * EditorView.update_probe
+
+        :param view:
+        :return:
+        """
+
+        def log_message(*message, reset=False):
+            self.log_message(*message, reset=reset)
+
+        def update_probe():
+            self.logger.debug('update_probe(%s)', type(view).__name__)
+            self.on_probe_update(view)
+
+        setattr(view, 'log_message', log_message)
+        if isinstance(view, EditorView):
+            setattr(view, 'update_probe', update_probe)
+
+        return view
 
     def install_right_panel_views(self, config: ChannelMapEditorConfig) -> list:
         """
@@ -496,13 +521,17 @@ class ChannelMapEditorApp(BokehApplication):
         else:
             self.on_probe_update()
 
-    def on_probe_update(self):
+    def on_probe_update(self, source: ViewBase = None):
         self.probe_info.text = self.probe_view.channelmap_desp()
         self.probe_view.update_electrode()
 
         for view in self.right_panel_views:
-            if isinstance(view, DynamicView):
-                run_later(view.on_probe_update, self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
+            if isinstance(view, DynamicView) and view is not source:
+                view_class = type(view).__name__
+                t = time.time()
+                view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
+                t = time.time() - t
+                self.logger.debug('on_probe_update(%s) used %.2f sec', view_class, t)
 
     def on_autoupdate(self, active: bool):
         self.logger.debug('on_autoupdate(active=%s)', active)
@@ -515,7 +544,6 @@ class ChannelMapEditorApp(BokehApplication):
         except BaseException:
             self.log_message('refresh fail')
         else:
-            self.probe_view.update_electrode()
             self.on_probe_update()
 
     def log_message(self, *message, reset=False):

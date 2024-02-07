@@ -55,8 +55,8 @@ def pick_electrode(cand: dict[K, NpxElectrodeDesp]) -> tuple[int, NpxElectrodeDe
     if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_D4]) > 0:
         return NpxProbeDesp.POLICY_D4, random.choice(ret)
 
-    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_REMAINDER]) > 0:
-        return NpxProbeDesp.POLICY_REMAINDER, random.choice(ret)
+    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_LOW]) > 0:
+        return NpxProbeDesp.POLICY_LOW, random.choice(ret)
 
     if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_UNSET]) > 0:
         return NpxProbeDesp.POLICY_UNSET, random.choice(ret)
@@ -72,7 +72,7 @@ def update(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp
             return update_d2(desp, chmap, cand, e)
         case NpxProbeDesp.POLICY_D4:
             return update_d4(desp, chmap, cand, e)
-        case NpxProbeDesp.POLICY_REMAINDER | NpxProbeDesp.POLICY_UNSET:
+        case NpxProbeDesp.POLICY_LOW | NpxProbeDesp.POLICY_UNSET:
             return _add(desp, chmap, cand, e)
         case _:
             raise ValueError()
