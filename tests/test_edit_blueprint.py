@@ -344,6 +344,18 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=k
         """)
 
+        self.assertIn('k', self.parser.variables)
+        self.assertListEqual(['policy', 'FORBIDDEN', 'k'], self.parser.message)
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_FORBIDDEN))
+
+    def test_func_var(self):
+        self.parser.parse_content("""
+        file=None
+        var(k)=1
+        FORBIDDEN=k
+        """)
+
+        self.assertNotIn('k', self.parser.variables)
         self.assertListEqual(['policy', 'FORBIDDEN', 'k'], self.parser.message)
         self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_FORBIDDEN))
 
@@ -404,6 +416,48 @@ class EditBlueprintTest(unittest.TestCase):
 
         assert_array_equal(p0, p1)
         m('assert_array_equal')
+
+    def test_policy_setting(self):
+        self.parser.parse_content("""
+        file=None
+        FORBIDDEN=(y>6000)
+        LOW=1
+        """)
+
+        self.assertFalse(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_LOW))
+
+        self.setUp()
+
+        self.parser.parse_content("""
+        file=None
+        LOW=1
+        FORBIDDEN=(y>6000)
+        """)
+
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_LOW))
+
+    def test_block_setting(self):
+        self.parser.parse_content("""
+        file=None
+        FORBIDDEN=(y>6000)
+        
+        file=None
+        LOW=1
+        """)
+
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_LOW))
+
+        self.setUp()
+
+        self.parser.parse_content("""
+        file=None
+        LOW=1
+        
+        file=None
+        FORBIDDEN=(y>6000)
+        """)
+
+        self.assertFalse(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_LOW))
 
 
 if __name__ == '__main__':
