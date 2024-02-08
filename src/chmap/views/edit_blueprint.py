@@ -492,7 +492,7 @@ class CriteriaParser(Generic[M, E]):
         match args:
             case ['warn' | 'w']:
                 self.warning(expression)
-            case ['info' | 'i']:
+            case [] | ['info' | 'i']:
                 self.info(expression)
             case _:
                 self.warning(f'unknown level {args}')

@@ -293,7 +293,11 @@ class ChannelMapEditorApp(BokehApplication):
         # index_middle_panel
         self.logger.debug('index figure')
         self.probe_info = Div(text="<b>Probe</b>")
-        self.probe_fig = Figure(width=600, height=800, tools='', toolbar_location='above')
+        self.probe_fig = Figure(
+            width=600, height=800,
+            x_axis_label='(um)', y_axis_label='(um)',
+            tools='', toolbar_location='above'
+        )
         self.probe_view = ProbeView(self.probe)
         self.probe_view.plot(self.probe_fig)
 
