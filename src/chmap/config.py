@@ -15,6 +15,8 @@ class ChannelMapEditorConfig:
     It is a protocol class that wrap for argparse.Namespace.
     """
 
+    config_file: Path
+
     probe_family: str
     selector: str | None
     chmap_root: Path
@@ -31,6 +33,8 @@ def new_parser() -> argparse.ArgumentParser:
     """Create a cli parse for ChannelMapEditorConfig."""
     ap = argparse.ArgumentParser(prog='chmap')
 
+    ap.add_argument('--config-file', metavar='FILE', type=Path, default=None, dest='config_file',
+                    help='global config file.')
     ap.add_argument('-P', '--probe', metavar='NAME', default='npx', dest='probe_family',
                     help='use probe family. default use "npx" (Neuropixels probe family).')
     ap.add_argument('--selector', metavar='MODULE:NAME', default='default', dest='selector',

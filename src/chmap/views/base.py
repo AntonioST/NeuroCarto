@@ -19,7 +19,14 @@ from chmap.util.utils import import_name
 if TYPE_CHECKING:
     from chmap.probe import ProbeDesp, M, E
 
-__all__ = ['ViewBase', 'StateView', 'DynamicView', 'EditorView', 'InvisibleView', 'BoundaryState', 'BoundView']
+__all__ = [
+    'ViewBase',
+    'StateView', 'GlobalStateView',
+    'DynamicView', 'EditorView',
+    'InvisibleView',
+    'BoundaryState',
+    'BoundView'
+]
 
 
 class ViewBase(metaclass=abc.ABCMeta):
@@ -296,6 +303,35 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
         Restore state from *state*.
 
         :param state: json-deserialize instance.
+        """
+        pass
+
+
+class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
+
+    @final
+    def save_global_state(self, *, sync=False):
+        """
+        save state into global config.
+
+        Implement note:
+            do not overwrite this function, because this method will be
+            replaced by GUI.
+
+        :param sync: save all GlobalStateView.
+        """
+        pass
+
+    @final
+    def restore_global_state(self, *, reload=False):
+        """
+        read global config and invoke `restore_state`
+
+        Implement note:
+            do not overwrite this function, because this method will be
+            replaced by GUI.
+
+        :param reload: reload config from disk
         """
         pass
 

@@ -9,7 +9,7 @@ from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.bokeh_util import ButtonFactory
 from chmap.util.utils import import_name
-from chmap.views.base import ViewBase, EditorView, StateView
+from chmap.views.base import ViewBase, EditorView, GlobalStateView
 
 __all__ = ['InitializeBlueprintView']
 
@@ -37,10 +37,10 @@ def default_loader(filepath: Path, probe: ProbeDesp[M, E], chmap: M) -> NDArray[
 
 
 class InitializeBlueprintState(TypedDict):
-    pass
+    content: str
 
 
-class InitializeBlueprintView(ViewBase, EditorView, StateView[InitializeBlueprintState]):
+class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBlueprintState]):
     """
 
     For given a ProbeDesp[M, E].
@@ -150,21 +150,22 @@ class InitializeBlueprintView(ViewBase, EditorView, StateView[InitializeBlueprin
             ),
         ]
 
-    def save_state(self) -> InitializeBlueprintState:
-        pass
-
-    def restore_state(self, state: InitializeBlueprintState):
-        pass
-
     # ========= #
     # load/save #
     # ========= #
 
+    def save_state(self) -> InitializeBlueprintState:
+        return InitializeBlueprintState(content=self.criteria_area.value)
 
+    def restore_state(self, state: InitializeBlueprintState):
+        self.criteria_area.value = state['content']
 
     # ================ #
     # updating methods #
     # ================ #
+
+    def start(self):
+        self.restore_global_state()
 
     cache_probe: ProbeDesp[M, E] = None
     cache_chmap: M | None
@@ -190,6 +191,7 @@ class InitializeBlueprintView(ViewBase, EditorView, StateView[InitializeBlueprin
     def clear_input(self):
         self.logger.debug('clear input')
         self.criteria_area.value = ''
+        self.save_global_state()
 
     def eval_blueprint(self):
         if (probe := self.cache_probe) is None:
@@ -202,6 +204,7 @@ class InitializeBlueprintView(ViewBase, EditorView, StateView[InitializeBlueprin
             return
 
         self.logger.debug('eval\n%s', content)
+        self.save_global_state()
 
         if (policies := self.parse_criteria(content, probe, chmap)) is None:
             return
@@ -328,10 +331,11 @@ class InitializeBlueprintView(ViewBase, EditorView, StateView[InitializeBlueprin
     def parse_expression(self, policy: int, expression: str, q: NDArray[np.int_] | None, s, x, y, v, p) -> NDArray[np.int_]:
         if q is None:
             q = np.full_like(s, ProbeDesp.POLICY_UNSET)
+
         result = np.asarray(eval(expression, dict(np=np), dict(s=s, x=x, y=y, v=v, p=p)), dtype=bool)
         if result.ndim == 0:
             result = np.full_like(q, result)
-        print(result.shape)
+
         return np.where((q == ProbeDesp.POLICY_UNSET) & result, policy, q)
 
     def merge_policy(self, p: NDArray[np.int_], q: NDArray[np.int_]) -> NDArray[np.int_]:

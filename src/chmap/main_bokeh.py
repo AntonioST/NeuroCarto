@@ -2,7 +2,7 @@ import functools
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from bokeh.events import MenuItemClick
@@ -14,7 +14,7 @@ from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback
-from chmap.views.base import ViewBase, StateView, DynamicView, init_view, EditorView
+from chmap.views.base import ViewBase, StateView, DynamicView, init_view, EditorView, GlobalStateView
 from chmap.views.probe import ProbeView
 
 __all__ = ['ChannelMapEditorApp', 'main']
@@ -34,8 +34,11 @@ class ChannelMapEditorApp(BokehApplication):
     probe: ProbeDesp[M, Any]
     """probe describer"""
 
-    right_panel_views_config: dict[str, Any] = {}
+    global_views_config: dict[str, Any] = {}
     """view configuration"""
+
+    right_panel_views_config: dict[str, Any] = {}
+    """view configuration, channelmap depended"""
 
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(logger='chmap.editor')
@@ -53,6 +56,49 @@ class ChannelMapEditorApp(BokehApplication):
     # ==================== #
     # load/save imro files #
     # ==================== #
+
+    def global_config_file(self) -> Path:
+        if (ret := self.config.config_file) is not None:
+            if ret.is_dir():
+                ret = ret / '.chmap.config.json'
+            return ret
+
+        if self.config.debug:
+            return Path('.') / '.chmap.config.json'
+        else:
+            return Path.home() / '.config/chmap/chmap.config.json'
+
+    def load_global_config(self, *, reset=False) -> dict[str, Any]:
+        file = self.global_config_file()
+        if not file.exists():
+            self.logger.debug('global config not found: %s', file)
+            return self.global_views_config
+
+        import json
+        with file.open('r') as f:
+            data = dict(json.load(f))
+            self.logger.debug('load global config : %s', file)
+
+        if reset:
+            self.global_views_config.update(data)
+        else:
+            self.global_views_config = data
+
+        return self.global_views_config
+
+    def save_global_config(self, direct=False):
+        if not direct:
+            for view in self.right_panel_views:
+                if isinstance(view, GlobalStateView):
+                    self.logger.debug('on_save() config %s', type(view).__name__)
+                    self.global_views_config[type(view).__name__] = view.save_state()
+
+        import json
+        file = self.global_config_file()
+        file.parent.mkdir(parents=True, exist_ok=True)
+        with file.open('w') as f:
+            json.dump(self.global_views_config, f, indent=2)
+            self.logger.debug(f'save global config : %s', file)
 
     def list_chmap_files(self) -> list[Path]:
         """
@@ -188,7 +234,7 @@ class ChannelMapEditorApp(BokehApplication):
         import json
         with file.open('r') as f:
             data = dict(json.load(f))
-            self.log_message(f'load image config : {file.name}')
+            self.log_message(f'load config : {file.name}')
 
         if reset:
             self.right_panel_views_config.update(data)
@@ -214,7 +260,7 @@ class ChannelMapEditorApp(BokehApplication):
         file = self.get_view_config_file(chmap)
         with file.open('w') as f:
             json.dump(self.right_panel_views_config, f, indent=2)
-            self.log_message(f'save image config : {file.name}')
+            self.log_message(f'save config : {file.name}')
 
     # ============= #
     # UI components #
@@ -234,6 +280,7 @@ class ChannelMapEditorApp(BokehApplication):
 
     def index(self):
         self.logger.debug('index')
+        self.load_global_config(reset=True)
 
         # index_middle_panel
         self.logger.debug('index figure')
@@ -343,6 +390,7 @@ class ChannelMapEditorApp(BokehApplication):
 
         * ViewBase.log_message
         * EditorView.update_probe
+        * GlobalStateView.restore_global_state
 
         :param view:
         :return:
@@ -355,9 +403,35 @@ class ChannelMapEditorApp(BokehApplication):
             self.logger.debug('update_probe(%s)', type(view).__name__)
             self.on_probe_update(view)
 
+        def save_global_state(*, sync=False):
+            self.logger.debug('save_global_state(%s)', type(view).__name__)
+            if sync:
+                self.save_global_config(direct=False)
+            else:
+                self.global_views_config[type(view).__name__] = cast(StateView, view, ).save_state()
+                self.save_global_config(direct=True)
+
+        def restore_global_state(*, reload=False):
+            self.logger.debug('restore_global_state(%s)', type(view).__name__)
+
+            if reload:
+                self.load_global_config(reset=False)
+
+            try:
+                config = self.global_views_config[type(view).__name__]
+            except KeyError:
+                pass
+            else:
+                cast(StateView, view).restore_state(config)
+
         setattr(view, 'log_message', log_message)
+
         if isinstance(view, EditorView):
             setattr(view, 'update_probe', update_probe)
+
+        if isinstance(view, GlobalStateView):
+            setattr(view, 'save_global_state', save_global_state)
+            setattr(view, 'restore_global_state', restore_global_state)
 
         return view
 
