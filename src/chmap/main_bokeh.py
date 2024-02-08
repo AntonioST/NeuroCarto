@@ -2,7 +2,7 @@ import functools
 import logging
 import time
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, TypedDict
 
 import numpy as np
 from bokeh.events import MenuItemClick
@@ -12,12 +12,16 @@ from bokeh.plotting import figure as Figure
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
-from chmap.util.bokeh_app import BokehApplication, run_server
+from chmap.util.bokeh_app import BokehApplication, run_server, run_later
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback
 from chmap.views.base import ViewBase, StateView, DynamicView, init_view, EditorView, GlobalStateView
 from chmap.views.probe import ProbeView
 
 __all__ = ['ChannelMapEditorApp', 'main']
+
+
+class ChannelMapEditorAppConfig(TypedDict):
+    views: list[str]
 
 
 class ChannelMapEditorApp(BokehApplication):
@@ -124,14 +128,18 @@ class ChannelMapEditorApp(BokehApplication):
 
         return p.with_suffix(self.probe.channelmap_file_suffix)
 
-    def load_chmap(self, name: str) -> M:
+    def load_chmap(self, name: str | Path) -> M:
         """
         Load channelmap from file with *name*.
 
         :param name: filename. See get_chmap_file(filename) for more details.
         :return: channelmap instance.
         """
-        file = self.get_chmap_file(name)
+        if isinstance(name, str):
+            file = self.get_chmap_file(name)
+        else:
+            file = name
+
         ret = self.probe.load_from_file(file)
         self.log_message(f'load channelmap : {file.name}')
         return ret
@@ -443,8 +451,15 @@ class ChannelMapEditorApp(BokehApplication):
         ret: list = self.probe.extra_controls(config)
 
         ext = []
-        ext.append('blueprint')
-        ext.append('atlas')
+
+        try:
+            app_config: ChannelMapEditorAppConfig = self.global_views_config[type(self).__name__]
+        except KeyError:
+            ext.append('blueprint')
+            ext.append('atlas')
+        else:
+            ext.extend(app_config['views'])
+
         ext.extend(config.extra_view)
 
         if '-' in ext:
@@ -463,6 +478,9 @@ class ChannelMapEditorApp(BokehApplication):
         for view in self.right_panel_views:
             self.logger.debug('start %s', type(view).__name__)
             view.start()
+
+        if (open_file := self.config.open_file) is not None:
+            run_later(self.load_file, open_file)
 
     # ========= #
     # callbacks #
@@ -484,15 +502,23 @@ class ChannelMapEditorApp(BokehApplication):
         self.on_probe_update()
 
     def on_load(self):
-        name: str
         if len(name := self.input_imro.value) == 0:
             self.logger.debug('on_load()')
             return
 
+        self.load_file(name)
+
+    def load_file(self, name: str | Path):
         self.logger.debug('on_load(%s)', name)
-        file = self.get_chmap_file(name)
+
+        file = name
+
         try:
-            chmap = self.load_chmap(name)
+            if isinstance(name, str):
+                file = self.get_chmap_file(name)
+                chmap = self.load_chmap(name)
+            else:
+                chmap = self.load_chmap(file)
         except FileNotFoundError as x:
             self.log_message(f'File not found : {file}')
             self.logger.warning(f'channelmap file not found : %s', file, exc_info=x)

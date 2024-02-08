@@ -18,6 +18,9 @@ class BlueprintView(PltImageView):
 
     def on_probe_update(self, probe, chmap, e):
         from chmap.probe_npx import ChannelMap
+        if not self.visible:
+            return
+
         if isinstance(chmap, ChannelMap):
             self.plot_channelmap(chmap.probe_type, e)
         else:

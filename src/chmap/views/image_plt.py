@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from bokeh.models import UIElement
 from bokeh.plotting import figure as Figure
-from numpy._typing import NDArray
+from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.bokeh_app import run_timeout
