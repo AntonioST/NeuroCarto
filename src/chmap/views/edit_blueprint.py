@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Protocol, Literal, TypedDict
+from typing import Protocol, TypedDict, Generic
 
 import numpy as np
 from bokeh.models import TextAreaInput
@@ -12,6 +14,8 @@ from chmap.util.utils import import_name
 from chmap.views.base import ViewBase, EditorView, GlobalStateView
 
 __all__ = ['InitializeBlueprintView']
+
+missing = object()
 
 
 # noinspection PyUnusedLocal
@@ -79,12 +83,18 @@ class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBl
         block =
             'file=' FILE comment? '\n'
             ('loader=' LOADER comment? '\n')?
-            (POLICY '=' EXPRESSION comment? '\n')*
+            assign_expression*
+        assign_expression = POLICY '=' EXPRESSION comment? '\n'
+                          | FUNC(args) ('=' EXPRESSION)? comment? '\n'
+        args = VAR (',' VAR)*
 
     *   `FILE` is a file path. Could be 'None'.
     *   `LOADER` is a str match `import_name`'s required.
     *   `POLICY` is a str defined in ProbeDesp[M, E] or an int which work as a tmp policy.
-    *   `EXPRESSION` is a python expression with variables.
+
+        it is short for `policy(POLICY)=expression`
+
+    *   `EXPRESSION` is a python expression with variables VAR.
 
         The expression variables are Array[float, E] and named in
 
@@ -93,9 +103,16 @@ class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBl
         * y : y pos in um
         * v : data value. use zero array when `file=None`.
         * p : previous block's sum result
+        * other variables set by oper 'var(VAR)'
 
         The expression evaluated result should be an Array[bool, E].
         The latter expression does not overwrite the previous expression.
+
+    *   `FUNC` is function call
+
+        * `policy(POLICY)=EXPRESSION`
+        * `var(NAME)=EXPRESSION`
+        * `alias(NAME)=POLICY`
 
     The latter block overwrite previous blocks.
 
@@ -206,140 +223,261 @@ class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBl
         self.logger.debug('eval\n%s', content)
         self.save_global_state()
 
-        if (policies := self.parse_criteria(content, probe, chmap)) is None:
+        parser = CriteriaParser(self, probe, chmap)
+        if not parser.parse_content(content):
             return
 
-        valid_policies = set([getattr(probe, it) for it in dir(type(probe)) if it.startswith('POLICY_')])
+        policies = parser.get_result()
         for e, p in zip(probe.all_electrodes(chmap), policies):
-            if (p := int(p)) in valid_policies:
-                if (t := probe.get_electrode(blueprint, e.electrode)) is not None:
-                    t.policy = p
+            if (t := probe.get_electrode(blueprint, e.electrode)) is not None:
+                t.policy = int(p)
 
         self.update_probe()
 
-    def parse_criteria(self, content: str, probe: ProbeDesp, chmap: M) -> NDArray[np.int_] | None:
-        policies = [it[len('POLICY_'):] for it in dir(type(probe)) if it.startswith('POLICY_')]
 
-        current_file: Path | Literal['None'] | None = None
-        current_loader: str | DataLoader | None = None
-        current_data: NDArray[np.float_] | None = None
-        e = probe.all_electrodes(chmap)
-        s = np.array([it.s for it in e])
-        x = np.array([it.x for it in e])
-        y = np.array([it.y for it in e])
-        p = np.full_like(s, ProbeDesp.POLICY_UNSET)
-        q: NDArray[np.int_] | None = None
+class CriteriaParser(Generic[M, E]):
+    def __init__(self, view: InitializeBlueprintView, probe: ProbeDesp[M, E], chmap: M):
+        self.view = view
+        self.probe = probe
+        self.chmap = chmap
+        self.policies = {
+            it[len('POLICY_'):]: int(getattr(probe, it))  # make sure policies are int?
+            for it in dir(type(probe))
+            if it.startswith('POLICY_')
+        }
 
-        for i, raw_line in enumerate(content.split('\n'), start=1):
-            line = raw_line.strip()
-            if '#' in line:
-                line = line[:line.index('#')].strip()
-            if len(line) == 0:
-                continue
+        self.electrodes = probe.all_electrodes(chmap)
+        self.constant_variables = ['s', 'x', 'y', 'p']
+        self.variables = dict(
+            s=np.array([it.s for it in self.electrodes]),
+            x=np.array([it.x for it in self.electrodes]),
+            y=np.array([it.y for it in self.electrodes]),
+        )
 
-            match line.partition('='):
-                case ('file', '=', expression):
-                    if q is not None:
-                        p = self.merge_policy(p, q)
-                        q = None
+        self.context: CriteriaContext | None = None
 
-                    if expression == 'None':
-                        current_file = 'None'
-                    else:
-                        current_file = Path(expression)
+        self.current_line: int = 0
+        self.current_content: str = ''
 
-                    current_loader = None
-                    current_data = None
-                case ('loader', '=', expression):
-                    if current_data is not None:
-                        self.log_message(f'missing file @{i}:', raw_line)
-                        current_file = None
-                        current_loader = None
-                    else:
-                        current_loader = expression
+    def warning(self, message: str, exc: BaseException = None):
+        self.view.logger.warning('%s line:%d  %s', message, self.current_line, self.current_content, exc_info=exc)
+        self.view.log_message(f'{message} @{self.current_line}', self.current_content)
 
-                    current_data = None
+    def get_result(self) -> NDArray[np.int_]:
+        if (context := self.context) is None:
+            return CriteriaContext(self, None).result
 
-                case (left, '=', expression):
-                    left = left.upper()
-                    if left in policies:
-                        policy = getattr(probe, f'POLICY_{left}')
-                    else:
-                        try:
-                            policy = int(left)
-                        except ValueError:
-                            self.log_message(f'unknown policy {left} line @{i}:', raw_line)
-                            continue
+        ret = context.merge_result().copy()
+        mask = np.zeros_like(ret, dtype=bool)
 
-                    if current_data is None and current_file is not None:
-                        try:
-                            current_file, current_data = self.load_data(current_file, current_loader, probe, chmap, len(s))
-                        except BaseException as e:
-                            self.log_message(f'load fail:', raw_line)
-                            self.logger.warning(f'load fail, line @%d: %s', i - 1, current_loader, exc_info=e)
-                            current_file = None
-                            current_data = None
+        # mask valid policy value
+        for v in self.policies.values():
+            np.logical_or(mask, ret == v, out=mask)
 
-                    if current_data is not None:
-                        try:
-                            q = self.parse_expression(policy, expression, q, s, x, y, current_data, p)
-                        except BaseException as e:
-                            self.log_message(f'eval fail:', raw_line)
-                            self.logger.warning(f'eval fail, line @%d: %s', i, raw_line, exc_info=e)
-                case _:
-                    self.log_message(f'unknown line @{i}:', raw_line)
-                    return None
+        ret[~mask] = ProbeDesp.POLICY_UNSET
+        return ret
 
-        if q is not None:
-            p = self.merge_policy(p, q)
+    def parse_content(self, content: str) -> bool:
+        try:
+            for i, line in enumerate(content.split('\n'), start=1):
+                self.current_line = i
+                self.current_content = line
 
-        return p
+                line = line.strip()
+                if '#' in line:
+                    line = line[:line.index('#')].strip()
 
-    def load_data(self, file: Path | Literal['None'],
-                  loader: str | None,
-                  probe: ProbeDesp,
-                  chmap: M,
-                  n: int) -> tuple[Path | Literal['None'] | None, NDArray[np.float_] | None]:
-        if file is None:
-            self.log_message(f'file not exist')
-            return None, None
-        elif file == 'None':
+                if len(line) == 0:
+                    continue
+
+                self.parse_line(line)
+
+        except KeyboardInterrupt:
             pass
-        elif not file.exists():
-            self.log_message(f'file not exist:', str(file))
-            return None, None
+        except BaseException as e:
+            self.warning('un-captured error', exc=e)
+            return False
 
-        if loader is None:
-            loader = default_loader
+        return True
+
+    def parse_line(self, line: str):
+        left, eq, expression = line.partition('=')
+
+        if len(eq) == 0:
+            if '(' in left and left.endswith(')'):
+                func, _, args = left[:-1].partition('(')
+                return self.parse_call(func, self.parse_args(args), None)
+            else:
+                self.warning('unknown content')
+                raise KeyboardInterrupt
+
+        if '(' in left and left.endswith(')'):
+            func, _, args = left[:-1].partition('(')
+            self.parse_call(func, self.parse_args(args), expression)
         else:
-            loader_path = loader
-            loader = import_name('data loader', loader_path)
+            match left:
+                case 'file':
+                    self.context = CriteriaContext(self, self.context)
+                    self.context.set_file(expression)
+                case 'loader':
+                    if self.context is not None:
+                        self.context.set_loader(expression)
+                    else:
+                        self.warning('missing file=')
+                case _:
+                    if self.context is not None and self.context.data is not None:
+                        self.parse_call('policy', [left], expression)
+
+    def parse_args(self, args: str) -> list[str]:
+        if args.startswith('(') and args.endswith(')'):
+            args = args[1:-1].strip()
+        return [it.strip() for it in args.split(',')]
+
+    def parse_call(self, oper: str, args: list[str], expression: str | None) -> bool:
+        try:
+            f = getattr(self, f'func_{oper}')
+        except AttributeError:
+            self.warning(f'unknown func {oper}')
+            return False
+        else:
+            return f(args, expression)
+
+    def func_alias(self, args: list[str], expression: str | None):
+        if expression is None:
+            self.warning(f'missing expression')
+            return
+
+        match args:
+            case [str(name)] if name.isalpha():
+                try:
+                    policy = self.policies[expression.upper()]
+                except KeyError:
+                    try:
+                        policy = int(expression)
+                    except ValueError:
+                        self.warning('unknown policy')
+                        return
+
+                self.policies[name.upper()] = policy
+            case _:
+                self.warning(f'unknown args {args}')
+                return
+
+    def func_policy(self, args: list[str], expression: str | None):
+        match args:
+            case [str(policy)]:
+                try:
+                    policy = self.policies[policy.upper()]
+                except KeyError:
+                    try:
+                        policy = int(policy)
+                    except ValueError:
+                        self.warning('unknown policy')
+                        return
+            case _:
+                self.warning(f'unknown args {args}')
+                return
+
+        if (context := self.context) is None:
+            return
+
+        result = np.asarray(eval(expression, dict(np=np), context.variables), dtype=bool)
+        context.update_result(policy, result)
+
+
+class CriteriaContext:
+    def __init__(self, parser: CriteriaParser, previous: CriteriaContext | None):
+        self._parser = parser
+
+        self._file: Path | None = missing
+        self._loader_path: str | None = None
+        self._loader: DataLoader | BaseException | None = None
+
+        self.variables = dict(parser.variables)
+        if previous is None:
+            self.variables['p'] = np.full((len(parser.electrodes),), ProbeDesp.POLICY_UNSET)
+        else:
+            self.variables['p'] = previous.merge_result()
+
+        self.result: NDArray[np.int_] = np.full((len(parser.electrodes),), ProbeDesp.POLICY_UNSET)
+
+        self._data: NDArray[np.float_] | None = missing
+
+    def set_file(self, file: str):
+        if file == 'None':
+            self._file = None
+        else:
+            self._file = Path(file)
+
+    def set_loader(self, loader: str):
+        self._loader_path = loader
+
+        try:
+            loader = import_name('data loader', loader)
             if loader is None:
                 raise TypeError('NoneType loader')
             if not callable(loader):
                 raise TypeError('loader not callable')
+        except BaseException as e:
+            self._parser.warning(f'import loader fail', exc=e)
+            loader = e
 
-        if file == 'None':
-            data = np.zeros((n,), dtype=float)
-        else:
-            data = loader(file, probe, chmap)
-            if data is not None and data.shape != (n,):
-                return None, None
+        self._loader = loader
 
-        return file, data
+    @property
+    def loader(self) -> DataLoader | BaseException:
+        if self._loader is None:
+            self._loader = default_loader
+        return self._loader
 
-    def parse_expression(self, policy: int, expression: str, q: NDArray[np.int_] | None, s, x, y, v, p) -> NDArray[np.int_]:
-        if q is None:
-            q = np.full_like(s, ProbeDesp.POLICY_UNSET)
+    @property
+    def data(self) -> NDArray[np.float_] | None:
+        if self._data is missing:
+            file = self._file
+            data = None
+            if file is missing:
+                self._parser.warning('missing file=')
 
-        result = np.asarray(eval(expression, dict(np=np), dict(s=s, x=x, y=y, v=v, p=p)), dtype=bool)
+            elif file is None:
+                data = np.zeros_like(self.result, dtype=float)
+
+            elif isinstance(self.loader, BaseException):
+                pass
+
+            elif isinstance(file, Path):
+                if not file.exists():
+                    self._parser.warning(f'file not found. {file}')
+
+                try:
+                    data = self.loader(file, self._parser.probe, self._parser.chmap)
+                except BaseException as e:
+                    self._parser.warning('load data fail', exc=e)
+                    data = None
+                else:
+                    if data is None or data.shape != self.result.shape:
+                        self._parser.warning('incorrect data')
+                        data = None
+
+            else:
+                self._parser.warning(f'TypeError file={file}')
+
+            self._data = data
+
+        return self._data
+
+    def update_result(self, policy: int, result: NDArray[np.bool_]):
         if result.ndim == 0:
-            result = np.full_like(q, result)
+            result = np.full_like(self.result, result, dtype=bool)
 
-        return np.where((q == ProbeDesp.POLICY_UNSET) & result, policy, q)
+        # The latter does not overwrite the previous.
+        previous = self.result
+        self.result = np.where((previous == ProbeDesp.POLICY_UNSET) & result, policy, previous)
 
-    def merge_policy(self, p: NDArray[np.int_], q: NDArray[np.int_]) -> NDArray[np.int_]:
-        return np.where(q == ProbeDesp.POLICY_UNSET, p, q)
+    def merge_result(self) -> NDArray[np.int_]:
+        previous = self.variables['p']
+        result = self.result
+        # The latter result overwrite previous result.
+        return np.where(result == ProbeDesp.POLICY_UNSET, previous, result)
 
 
 if __name__ == '__main__':
