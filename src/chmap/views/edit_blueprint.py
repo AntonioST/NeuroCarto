@@ -162,7 +162,7 @@ class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBl
         if not parser.parse_content(content):
             return
 
-        parser.set_blueprint(blueprint)
+        parser.get_blueprint(blueprint)
         self.update_probe()
 
 
@@ -242,6 +242,9 @@ class CriteriaParser(Generic[M, E]):
         * `var(NAME)=EXPRESSION` set temp variable NAME
         * `alias(NAME)=POLICY` give POLICY an alias NAME
         * `save()=FILE` save current result to file
+        * `move(SHANK,...)=VALUE` move the blueprint up/down
+        * `print(LEVEL)=MESSAGE`
+        * `abort()`
 
     The latter block overwrite previous blocks.
 
@@ -331,7 +334,7 @@ class CriteriaParser(Generic[M, E]):
         except ValueError:
             return None
 
-    def set_blueprint(self, blueprint: list[E] = None, policies: NDArray[np.int_] = None) -> list[E]:
+    def get_blueprint(self, blueprint: list[E] = None, policies: NDArray[np.int_] = None) -> list[E]:
         if blueprint is None:
             blueprint = self.probe.all_electrodes(self.chmap)
 
@@ -344,6 +347,19 @@ class CriteriaParser(Generic[M, E]):
                 t.policy = int(p)
 
         return blueprint
+
+    def set_blueprint(self, blueprint: list[E], policies: list[int] = tuple(), inherit=True):
+        data = np.array([it.policy for it in blueprint])
+
+        if len(policies) > 0:
+            mask = np.zeros_like(data, dtype=bool)
+            for p in policies:
+                np.logical_or(mask, data == p, out=mask)
+            data[~mask] = ProbeDesp.POLICY_UNSET
+
+        context = CriteriaContext(self, self.context if inherit else None)
+        context.result[:] = data
+        self.context = context
 
     # ======= #
     # parsing #
@@ -453,18 +469,50 @@ class CriteriaParser(Generic[M, E]):
     # functions #
     # ========= #
 
+    def func_abort(self, args: list[str], expression: str = None):
+        """
+
+        :param args: ignore
+        :param expression: ignore
+        :raise: KeyboardInterrupt
+        """
+        raise KeyboardInterrupt
+
+    def func_print(self, args: list[str], expression: str):
+        """
+
+        level:
+
+        * 'i', 'info'
+        * 'w', 'warn'
+
+        :param args: [LEVEL]
+        :param expression: message
+        """
+        match args:
+            case ['warn' | 'w']:
+                self.warning(expression)
+            case ['info' | 'i']:
+                self.info(expression)
+            case _:
+                self.warning(f'unknown level {args}')
+                self.warning(expression)
+
     def func_use(self, args: list[str]):
         """
         check use probe type.
 
-        :param args: [PROBE,...], class name of `ProbeDesp`
+        :param args: [PROBE,...], class name of `ProbeDesp`. If empty, print current probe type.
         :return:
         """
         probe = type(self.probe).__name__
 
-        if probe not in args:
-            self.warning(f'fail probe check : {probe}')
-            raise KeyboardInterrupt
+        if len(args) == 0:
+            self.info(f'use({probe})')
+        else:
+            if probe not in args:
+                self.warning(f'fail probe check : {probe}')
+                raise KeyboardInterrupt
 
     def func_run(self, args: list[str], expression: str):
         """
@@ -672,16 +720,7 @@ class CriteriaParser(Generic[M, E]):
             self.warning(f'load policy fail. {file}', exc=e)
             return
 
-        data = np.array([it.policy for it in data])
-        if len(policies) > 0:
-            mask = np.zeros_like(data, dtype=bool)
-            for p in policies:
-                np.logical_or(mask, data == p, out=mask)
-            data[~mask] = ProbeDesp.POLICY_UNSET
-
-        context = CriteriaContext(self, self.context)
-        context.result[:] = data
-        self.context = context
+        self.set_blueprint(data, policies, inherit=True)
 
     def func_save(self, args: list[str], expression: str):
         """
@@ -696,7 +735,7 @@ class CriteriaParser(Generic[M, E]):
 
         file = Path(expression).with_suffix('.policy.npy')
         blueprint = self.probe.all_electrodes(self.chmap)
-        self.set_blueprint(blueprint)
+        self.get_blueprint(blueprint)
         data = self.probe.electrode_to_numpy(blueprint)
         np.save(file, data)
         self.info(f'save {file}')
@@ -722,6 +761,49 @@ class CriteriaParser(Generic[M, E]):
 
         result = np.asarray(eval(expression, dict(np=np), context.variables), dtype=bool)
         context.update_result(value, result)
+
+    def func_move(self, args: list[str], expression: str):
+        """
+        collect and generate a blueprint, modify it by move area, store in new context.
+
+        :param args: [shank,...], empty for all shanks.
+        :param expression: y movement in um. or 'x,y' 2d movement.
+        """
+        shanks = [int(it) for it in args]
+
+        if ',' in expression:
+            mx, _, my = expression.partition(',')
+            mx = int(mx)
+            my = int(my)
+        else:
+            mx = 0
+            my = int(expression)
+
+        blueprint = self.get_blueprint()
+        dx = np.min(np.diff(np.unique([it.x for it in blueprint])))
+        dy = np.min(np.diff(np.unique([it.y for it in blueprint])))
+
+        if mx != 0 and abs(mx) < dx:
+            self.info(f'x movement {mx} smaller than the dx {dx}')
+        if my != 0 and abs(my) < dy:
+            self.info(f'y movement {my} smaller than the dx {dy}')
+
+        new_blueprint = self.probe.all_electrodes(self.chmap)
+        i_position = {
+            (it.s, int(it.x / dx), int(it.y / dy)): it
+            for it in new_blueprint
+        }
+
+        for e in blueprint:
+            if len(shanks) == 0 or e.s in shanks:
+                i = e.s, int((e.x + mx) / dx), int((e.y + my) / dy)
+            else:
+                i = e.s, int(e.x / dx), int(e.y / dy)
+
+            if (t := i_position.get(i, None)) is not None:
+                t.policy = e.policy
+
+        self.set_blueprint(new_blueprint, inherit=False)
 
 
 class CriteriaContext:

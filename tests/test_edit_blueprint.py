@@ -94,6 +94,12 @@ class EditBlueprintTest(unittest.TestCase):
     def setUp(self):
         self.parser = CriteriaParserTester()
 
+    def assert_blueprint_equal(self, a: list[NpxElectrodeDesp], b: list[NpxElectrodeDesp]):
+        p0 = np.array([it.policy for it in a])
+        p1 = np.array([it.policy for it in b])
+
+        assert_array_equal(p0, p1)
+
     def test_file(self):
         self.parser.parse_content("""
         file=test.npy
@@ -372,7 +378,7 @@ class EditBlueprintTest(unittest.TestCase):
                              self.parser.message)
         m('assertListEqual')
 
-        blueprint = self.parser.set_blueprint()
+        blueprint = self.parser.get_blueprint()
         m('set_blueprint')
 
         file = Path('.') / 'test-save.policy.npy'
@@ -384,11 +390,8 @@ class EditBlueprintTest(unittest.TestCase):
         test = probe.electrode_from_numpy(probe.all_electrodes(chmap), np.load(file))
         m('electrode_from_numpy')
 
-        p0 = np.array([it.policy for it in blueprint])
-        p1 = np.array([it.policy for it in test])
-        m('array')
-        assert_array_equal(p0, p1)
-        m('assert_array_equal')
+        self.assert_blueprint_equal(blueprint, test)
+        m('assert_blueprint_equal')
 
     @unittest.skipIf(condition=not Path('test-save.policy.npy').exists(),
                      reason='test_func_save() need to run first')
@@ -402,7 +405,7 @@ class EditBlueprintTest(unittest.TestCase):
         self.assertListEqual(['load test-save.policy.npy'], self.parser.message)
         m('assertListEqual')
 
-        blueprint = self.parser.set_blueprint()
+        blueprint = self.parser.get_blueprint()
         m('set_blueprint')
 
         probe = self.parser.probe
@@ -410,12 +413,8 @@ class EditBlueprintTest(unittest.TestCase):
         test = probe.electrode_from_numpy(probe.all_electrodes(chmap), np.load('test-save.policy.npy'))
         m('electrode_from_numpy')
 
-        p0 = np.array([it.policy for it in blueprint])
-        p1 = np.array([it.policy for it in test])
-        m('array')
-
-        assert_array_equal(p0, p1)
-        m('assert_array_equal')
+        self.assert_blueprint_equal(blueprint, test)
+        m('assert_blueprint_equal')
 
     def test_policy_setting(self):
         self.parser.parse_content("""
@@ -458,6 +457,29 @@ class EditBlueprintTest(unittest.TestCase):
         """)
 
         self.assertFalse(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_LOW))
+
+    def test_func_move(self):
+        self.parser.parse_content("""
+        file=None
+        FORBIDDEN=(s==0)&(y>6000)
+        FORBIDDEN=(s==1)&(y>6000)
+        FORBIDDEN=(s==2)&(y>7000)
+        FORBIDDEN=(s==3)&(y>7000)
+        """)
+
+        expected_blueprint = self.parser.get_blueprint()
+
+        self.setUp()
+
+        self.parser.parse_content("""
+        file=None
+        FORBIDDEN=(y>6000)
+        
+        move(2,3)=1000
+        """)
+
+        blueprint = self.parser.get_blueprint()
+        self.assert_blueprint_equal(expected_blueprint, blueprint)
 
 
 if __name__ == '__main__':
