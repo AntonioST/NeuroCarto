@@ -45,95 +45,6 @@ class InitializeBlueprintState(TypedDict):
 
 
 class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBlueprintState]):
-    """
-
-    For given a ProbeDesp[M, E].
-
-    Require data
-    ------------
-
-    a numpy array that can be parsed by `ProbeDesp.electrode_from_numpy`.
-    The data value is read from `ElectrodeDesp.policy` for electrodes.
-
-    Because E's policy is expected as an int, this view also take it as an int by default.
-
-    For the Neuropixels, `NpxProbeDesp` use the numpy array in this form:
-
-        Array[int, E, (shank, col, row, state, policy)]
-
-    Data loader
-    -----------
-
-    If a data loader is given, it is imported by `import_name`.
-    A loader should follow the signature `DataLoader`.
-
-    There is a default loader `default_loader` which just convert the electrode policy value
-    to float number.
-
-    criteria_area
-    -------------
-
-    grammar::
-
-        root = statement*
-
-        statement = comment
-                  | block
-        comment =  '#' .* '\n'
-        block =
-            'file=' FILE comment? '\n'
-            ('loader=' LOADER comment? '\n')?
-            assign_expression*
-        assign_expression = POLICY '=' EXPRESSION comment? '\n'
-                          | FUNC(args) ('=' EXPRESSION)? comment? '\n'
-        args = VAR (',' VAR)*
-
-    *   `FILE` is a file path. Could be 'None'.
-    *   `LOADER` is a str match `import_name`'s required.
-    *   `POLICY` is a str defined in ProbeDesp[M, E] or an int which work as a tmp policy.
-
-        it is short for `policy(POLICY)=expression`
-
-    *   `EXPRESSION` is a python expression with variables VAR.
-
-        The expression variables are Array[float, E] and named in
-
-        * s : shank
-        * x : x pos in um
-        * y : y pos in um
-        * v : data value. use zero array when `file=None`.
-        * p : previous block's sum result
-        * other variables set by oper 'var(VAR)'
-
-        The expression evaluated result should be an Array[bool, E].
-        The latter expression does not overwrite the previous expression.
-
-    *   `FUNC` is function call
-
-        * `policy(POLICY)=EXPRESSION`
-        * `var(NAME)=EXPRESSION`
-        * `alias(NAME)=POLICY`
-
-    The latter block overwrite previous blocks.
-
-    Example::
-
-        # It is a comment
-        file=data.npy
-        loader=default_loader
-        FORBIDDEN=(y>6000)  # set all electrodes over 6mm to FORBIDDEN policy
-        FORBIDDEN=(s==0)    # set all electrodes in shank 0 to FORBIDDEN policy
-        FULL=v>1            # set all electrodes which value over 1 to FULL policy
-        LOW=np.one_like(s)  # set remained electrodes to LOW policy
-
-    Debug Example::
-
-        file=None
-        loader=another_loader # import test
-        FORBIDDEN=(y>6000)
-        LOW=1
-
-    """
 
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.edit.blueprint')
@@ -227,15 +138,105 @@ class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBl
         if not parser.parse_content(content):
             return
 
-        policies = parser.get_result()
-        for e, p in zip(probe.all_electrodes(chmap), policies):
-            if (t := probe.get_electrode(blueprint, e.electrode)) is not None:
-                t.policy = int(p)
-
+        parser.set_blueprint(blueprint)
         self.update_probe()
 
 
 class CriteriaParser(Generic[M, E]):
+    """
+
+    For given a ProbeDesp[M, E].
+
+    Require data
+    ------------
+
+    a numpy array that can be parsed by `ProbeDesp.electrode_from_numpy`.
+    The data value is read from `ElectrodeDesp.policy` for electrodes.
+
+    Because E's policy is expected as an int, this view also take it as an int by default.
+
+    For the Neuropixels, `NpxProbeDesp` use the numpy array in this form:
+
+       Array[int, E, (shank, col, row, state, policy)]
+
+    Data loader
+    -----------
+
+    If a data loader is given, it is imported by `import_name`.
+    A loader should follow the signature `DataLoader`.
+
+    There is a default loader `default_loader` which just convert the electrode policy value
+    to float number.
+
+    criteria_area
+    -------------
+
+    grammar::
+
+        root = statement*
+
+        statement = comment
+                 | block
+        comment =  '#' .* '\n'
+        block =
+           'file=' FILE comment? '\n'
+           ('loader=' LOADER comment? '\n')?
+           assign_expression*
+        assign_expression = POLICY '=' EXPRESSION comment? '\n'
+                         | FUNC(args) ('=' EXPRESSION)? comment? '\n'
+        args = VAR (',' VAR)*
+
+    *   `FILE` is a file path. Could be 'None'.
+    *   `LOADER` is a str match `import_name`'s required.
+    *   `POLICY` is a str defined in ProbeDesp[M, E] or an int which work as a tmp policy.
+
+        it is short for `policy(POLICY)=expression`
+
+    *   `EXPRESSION` is a python expression with variables VAR.
+
+        The expression variables are Array[float, E] and named in
+
+        * s : shank
+        * x : x pos in um
+        * y : y pos in um
+        * v : data value. use zero array when `file=None`.
+        * p : previous block's sum result
+        * other variables set by oper 'var(VAR)'
+
+        The expression evaluated result should be an Array[bool, E].
+        The latter expression does not overwrite the previous expression.
+
+    *   `FUNC` is function call
+
+        * `blueprint(*POLICY)=FILE` load blueprint file (npy or channelmap file), with POLICY ONLY
+        * `check(POLICY,...)=ACTION?` check POLICY existed. ACTION could be: (omitted), 'info', 'warn', 'error'
+        * `policy(POLICY)=EXPRESSION` set POLICY
+        * `val(NAME)=EXPRESSION` set variable NAME
+        * `var(NAME)=EXPRESSION` set temp variable NAME
+        * `alias(NAME)=POLICY` give POLICY an alias NAME
+        * `save()=FILE` save current result to file
+
+    The latter block overwrite previous blocks.
+
+    Example::
+
+        # It is a comment
+        file=data.npy
+        loader=default_loader
+        FORBIDDEN=(y>6000)  # set all electrodes over 6mm to FORBIDDEN policy
+        FORBIDDEN=(s==0)    # set all electrodes in shank 0 to FORBIDDEN policy
+        FULL=v>1            # set all electrodes which value over 1 to FULL policy
+        LOW=np.one_like(s)  # set remained electrodes to LOW policy
+
+    Debug Example::
+
+        file=None
+        loader=another_loader # import test
+        FORBIDDEN=(y>6000)
+        LOW=1
+
+    """
+
     def __init__(self, view: InitializeBlueprintView, probe: ProbeDesp[M, E], chmap: M):
         self.view = view
         self.probe = probe
@@ -259,6 +260,9 @@ class CriteriaParser(Generic[M, E]):
         self.current_line: int = 0
         self.current_content: str = ''
 
+    def info(self, message: str):
+        self.view.log_message(message)
+
     def warning(self, message: str, exc: BaseException = None):
         self.view.logger.warning('%s line:%d  %s', message, self.current_line, self.current_content, exc_info=exc)
         self.view.log_message(f'{message} @{self.current_line}', self.current_content)
@@ -276,6 +280,28 @@ class CriteriaParser(Generic[M, E]):
 
         ret[~mask] = ProbeDesp.POLICY_UNSET
         return ret
+
+    def get_policy_value(self, policy: str) -> int | None:
+        if policy.isalpha():
+            try:
+                return self.policies[policy.upper()]
+            except KeyError:
+                pass
+
+        try:
+            return int(policy)
+        except ValueError:
+            return None
+
+    def set_blueprint(self, blueprint: list[E]):
+        policies = self.get_result()
+        for e, p in zip(self.probe.all_electrodes(self.chmap), policies):
+            if (t := self.probe.get_electrode(blueprint, e.electrode)) is not None:
+                t.policy = int(p)
+
+    # ======= #
+    # parsing #
+    # ======= #
 
     def parse_content(self, content: str) -> bool:
         try:
@@ -306,7 +332,7 @@ class CriteriaParser(Generic[M, E]):
         if len(eq) == 0:
             if '(' in left and left.endswith(')'):
                 func, _, args = left[:-1].partition('(')
-                return self.parse_call(func, self.parse_args(args), None)
+                return self.parse_call(func, self.parse_args(args))
             else:
                 self.warning('unknown content')
                 raise KeyboardInterrupt
@@ -333,47 +359,138 @@ class CriteriaParser(Generic[M, E]):
             args = args[1:-1].strip()
         return [it.strip() for it in args.split(',')]
 
-    def parse_call(self, oper: str, args: list[str], expression: str | None) -> bool:
+    def parse_call(self, oper: str, args: list[str], expression: str | None = missing) -> bool:
         try:
             f = getattr(self, f'func_{oper}')
         except AttributeError:
             self.warning(f'unknown func {oper}')
             return False
         else:
-            return f(args, expression)
+            if expression is missing:
+                return f(args)
+            else:
+                return f(args, expression)
 
-    def func_alias(self, args: list[str], expression: str | None):
-        if expression is None:
-            self.warning(f'missing expression')
-            return
+    # ========= #
+    # functions #
+    # ========= #
 
+    def func_check(self, args: list[str], expression: str | None = None):
+        for policy in args:
+            if self.get_policy_value(policy) is None:
+                match expression:
+                    case None | 'info':
+                        self.info(f'unknown policy {policy}')
+                    case 'warn':
+                        self.warning(f'unknown policy {policy}')
+                    case 'error':
+                        self.warning(f'unknown policy {policy}')
+                        raise KeyboardInterrupt
+                    case _:
+                        self.warning(f'unknown action {expression}')
+                        raise KeyboardInterrupt
+
+    def func_alias(self, args: list[str], expression: str):
         match args:
-            case [str(name)] if name.isalpha():
-                try:
-                    policy = self.policies[expression.upper()]
-                except KeyError:
-                    try:
-                        policy = int(expression)
-                    except ValueError:
-                        self.warning('unknown policy')
-                        return
+            case [str(name)]:
+                if (policy := self.get_policy_value(expression)) is None:
+                    self.warning(f'unknown policy {expression}')
+                    return
 
                 self.policies[name.upper()] = policy
             case _:
                 self.warning(f'unknown args {args}')
                 return
 
-    def func_policy(self, args: list[str], expression: str | None):
+    def func_val(self, args: list[str], expression: str):
+        match args:
+            case [str(name)]:
+                pass
+            case _:
+                self.warning(f'unknown args {args}')
+                return
+
+        if (context := self.context) is not None:
+            variables = context.variables
+        else:
+            variables = self.variables
+
+        value = eval(expression, dict(np=np), variables)
+        self.variables[name] = value
+        if (context := self.context) is not None:
+            context.variables[name] = value
+
+    def func_var(self, args: list[str], expression: str):
+        match args:
+            case [str(name)]:
+                pass
+            case _:
+                self.warning(f'unknown args {args}')
+                return
+
+        if (context := self.context) is None:
+            return
+
+        value = eval(expression, dict(np=np), context.variables)
+        context.variables[name] = value
+
+    def func_blueprint(self, args: list[str], expression: str):
+        policies = [self.get_policy_value(it) for it in args]
+        if None in policies:
+            return
+
+        file = Path(expression)
+        if not file.exists():
+            self.warning('file not found')
+
+        chmap = self.chmap
+        if file.suffix != '.npy':
+            try:
+                chmap = self.probe.load_from_file(file)
+            except BaseException as e:
+                self.warning(f'load channelmap fail. {file}', exc=e)
+                return
+
+            file = file.with_suffix('.policy.npy')
+
+        if not file.exists():
+            self.warning(f'file not found. {file}')
+
+        try:
+            self.info(f'load {file}')
+            data = self.probe.electrode_from_numpy(self.probe.all_electrodes(chmap), np.load(file))
+        except BaseException as e:
+            self.warning(f'load policy fail. {file}', exc=e)
+            return
+
+        data = np.array([it.policy for it in data])
+        if len(policies) > 0:
+            mask = np.zeros_like(data, dtype=bool)
+            for p in policies:
+                np.logical_or(mask, data == p, out=mask)
+            data[~mask] = ProbeDesp.POLICY_UNSET
+
+        context = CriteriaContext(self, self.context)
+        context.result[:] = data
+
+    def func_save(self, args: list[str], expression: str):
+        if len(args) != 0:
+            self.warning(f'unknown args {args}')
+            return
+
+        file = Path(expression).with_suffix('.policy.npy')
+        blueprint = self.probe.all_electrodes(self.chmap)
+        self.set_blueprint(blueprint)
+        data = self.probe.electrode_to_numpy(blueprint)
+        np.save(file, data)
+        self.info(f'save {file}')
+
+    def func_policy(self, args: list[str], expression: str):
         match args:
             case [str(policy)]:
-                try:
-                    policy = self.policies[policy.upper()]
-                except KeyError:
-                    try:
-                        policy = int(policy)
-                    except ValueError:
-                        self.warning('unknown policy')
-                        return
+                if (value := self.get_policy_value(policy)) is None:
+                    self.warning(f'unknown policy {policy}')
+                    return
             case _:
                 self.warning(f'unknown args {args}')
                 return
@@ -382,7 +499,7 @@ class CriteriaParser(Generic[M, E]):
             return
 
         result = np.asarray(eval(expression, dict(np=np), context.variables), dtype=bool)
-        context.update_result(policy, result)
+        context.update_result(value, result)
 
 
 class CriteriaContext:
@@ -447,16 +564,16 @@ class CriteriaContext:
             elif isinstance(file, Path):
                 if not file.exists():
                     self._parser.warning(f'file not found. {file}')
-
-                try:
-                    data = self.loader(file, self._parser.probe, self._parser.chmap)
-                except BaseException as e:
-                    self._parser.warning('load data fail', exc=e)
-                    data = None
                 else:
-                    if data is None or data.shape != self.result.shape:
-                        self._parser.warning('incorrect data')
+                    try:
+                        data = self.loader(file, self._parser.probe, self._parser.chmap)
+                    except BaseException as e:
+                        self._parser.warning('load data fail', exc=e)
                         data = None
+                    else:
+                        if data is None or data.shape != self.result.shape:
+                            self._parser.warning('incorrect data')
+                            data = None
 
             else:
                 self._parser.warning(f'TypeError file={file}')

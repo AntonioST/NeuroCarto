@@ -5,3 +5,4 @@ Pillow
 tifffile
 pandas
 polars
+coverage
