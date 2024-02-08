@@ -131,6 +131,9 @@ class ProbeView:
 
     def refresh_selection(self):
         """Rerun electrode selection and refresh channelmap"""
+        if self.channelmap is None:
+            return
+
         self.logger.debug('refresh_selection()')
         t = time.time()
         try:
