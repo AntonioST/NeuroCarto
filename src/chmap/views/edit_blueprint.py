@@ -338,8 +338,9 @@ class CriteriaParser(Generic[M, E]):
         if policies is None:
             policies = self.get_result()
 
+        c = {it.electrode: it for it in blueprint}
         for e, p in zip(self.probe.all_electrodes(self.chmap), policies):
-            if (t := self.probe.get_electrode(blueprint, e.electrode)) is not None:
+            if (t := c.get(e.electrode, None)) is not None:
                 t.policy = int(p)
 
         return blueprint
