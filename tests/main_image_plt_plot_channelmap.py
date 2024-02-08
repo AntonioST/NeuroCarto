@@ -19,12 +19,9 @@ class PlotChannelMap(PltImageView):
         self.logger.debug('plot_channelmap')
         from chmap.probe_npx import plot
 
-        with self.plot_figure() as ax:
+        with self.plot_figure(offset=-80) as ax:
             plot.plot_channelmap_block(ax, chmap=m)
             plot.plot_probe_shape(ax, m, color='k')
-
-    def set_image(self, image, boundary=None, offset=-80):
-        super().set_image(image, boundary, offset)
 
 
 if __name__ == '__main__':

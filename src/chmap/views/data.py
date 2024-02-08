@@ -15,7 +15,12 @@ from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import is_recursive_called, PathAutocompleteInput
 from chmap.views.base import ViewBase, DynamicView, InvisibleView
 
-__all__ = ['DataView', 'Data1DView', 'FileDataView']
+__all__ = ['DataView', 'DataHandler', 'Data1DView', 'FileDataView']
+
+
+class DataHandler:
+    def on_data_update(self, probe: ProbeDesp[M, E], e: list[E], data: NDArray[np.float_] | None):
+        pass
 
 
 class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):

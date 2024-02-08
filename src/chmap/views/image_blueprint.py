@@ -30,7 +30,8 @@ class BlueprintView(PltImageView):
         self.logger.debug('plot_channelmap')
         from chmap.probe_npx import plot
 
-        with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1)) as ax:
+        with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1),
+                              offset=-50) as ax:
             plot.plot_policy_area(ax, probe_type, e, shank_width_scale=0.5)
             plot.plot_probe_shape(ax, probe_type, color=None, label_axis=False, shank_width_scale=0.5)
 
@@ -40,9 +41,6 @@ class BlueprintView(PltImageView):
             ax.set_ylabel(None)
             ax.set_yticks([])
             ax.set_yticklabels([])
-
-    def set_image(self, image, boundary=None, offset=-50):
-        super().set_image(image, boundary, offset)
 
 
 if __name__ == '__main__':

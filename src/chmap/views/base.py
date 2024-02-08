@@ -17,15 +17,17 @@ from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_
 from chmap.util.utils import import_name
 
 if TYPE_CHECKING:
+    from chmap.main_bokeh import ChannelMapEditorApp
     from chmap.probe import ProbeDesp, M, E
 
 __all__ = [
-    'ViewBase',
+    'ViewBase', 'ControllerView',
     'StateView', 'GlobalStateView',
     'DynamicView', 'EditorView',
     'InvisibleView',
     'BoundaryState',
-    'BoundView'
+    'BoundView',
+
 ]
 
 
@@ -227,6 +229,36 @@ def import_view(config: ChannelMapEditorConfig, module_path: str) -> ViewBase | 
     return init_view(config, import_name('view base', module_path))
 
 
+V = TypeVar('V', bound=ViewBase)
+
+
+class ControllerView:
+    @final
+    def get_app(self) -> ChannelMapEditorApp:
+        """
+
+        Implement note:
+            do not overwrite this function, because this method will be
+            replaced by GUI.
+
+        :return:
+        """
+        pass
+
+    @final
+    def get_view(self, view_type: str | type[V]) -> V | None:
+        """
+
+        Implement note:
+            do not overwrite this function, because this method will be
+            replaced by GUI.
+
+        :param view_type:
+        :return:
+        """
+        return None
+
+
 class InvisibleView:
     """
     This view component's visible state is controlled by GUI.
@@ -308,9 +340,10 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
 
 
 class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
+    disable_save_global_state = False
 
     @final
-    def save_global_state(self, *, sync=False):
+    def save_global_state(self, *, sync=False, force=False):
         """
         save state into global config.
 
@@ -319,6 +352,7 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
             replaced by GUI.
 
         :param sync: save all GlobalStateView.
+        :param force: ignore disable_save_global_state
         """
         pass
 

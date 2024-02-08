@@ -187,6 +187,20 @@ class EditBlueprintTest(unittest.TestCase):
 
         self.assertListEqual(['unknown func call2'], self.parser.message)
 
+    def test_func_print(self):
+        self.parser.parse_content("""
+        print()=test
+        """)
+
+        self.assertListEqual(['test'], self.parser.message)
+
+    def test_func_print_eval(self):
+        self.parser.parse_content("""
+        print(eval)=f'test {1+1}'
+        """)
+
+        self.assertListEqual(['test 2'], self.parser.message)
+
     def test_func_use(self):
         ret = self.parser.parse_content("""
         use(NpxProbeDesp)

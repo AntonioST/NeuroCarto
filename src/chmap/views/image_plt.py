@@ -278,6 +278,7 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
                     height_ratios: Sequence[float] | None = None,
                     subplot_kw: dict[str, Any] | None = None,
                     gridspec_kw: dict[str, Any] | None = None,
+                    offset: float | tuple[float, float] = 0,
                     transparent: bool = True,
                     rc: str = None,
                     **kwargs) -> ContextManager[Axes]:
@@ -310,6 +311,8 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
             transparent=kwargs.pop('transparent', True),
         )
 
+        offset = kwargs.pop('offset', 0)
+
         ax: Axes
         with plt.rc_context(fname=rc_file):
             fg, ax = plt.subplots(**kwargs)
@@ -327,7 +330,7 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
             finally:
                 plt.close(fg)
 
-        self.set_image(image, boundary)
+        self.set_image(image, boundary, offset)
 
 
 def get_current_plt_image(fg=None, **kwargs) -> NDArray[np.uint]:

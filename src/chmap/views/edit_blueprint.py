@@ -2,17 +2,25 @@ from __future__ import annotations
 
 import functools
 from pathlib import Path
-from typing import Protocol, TypedDict, Generic, overload, Literal, get_args
+from typing import Protocol, TypedDict, Generic, overload, Literal, get_args, TYPE_CHECKING
 
 import numpy as np
 from bokeh.models import TextAreaInput
+from matplotlib.axes import Axes
+from matplotlib.transforms import Affine2D
 from numpy.typing import NDArray
 
 from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
+from chmap.probe_npx import plot
 from chmap.util.bokeh_util import ButtonFactory
 from chmap.util.utils import import_name
-from chmap.views.base import ViewBase, EditorView, GlobalStateView
+from chmap.views.base import EditorView, GlobalStateView, ControllerView
+from chmap.views.data import DataHandler
+from chmap.views.image_plt import PltImageView
+
+if TYPE_CHECKING:
+    from chmap.probe_npx.npx import ChannelMap, ProbeType
 
 __all__ = ['InitializeBlueprintView']
 
@@ -60,7 +68,12 @@ def default_loader(filepath: Path, probe: ProbeDesp[M, E], chmap: M) -> NDArray[
         return None
 
     data = np.load(filepath)
-    s = probe.electrode_from_numpy(probe.all_electrodes(chmap), data)
+    s = probe.all_electrodes(chmap)
+
+    for e in s:
+        e.policy = np.nan
+
+    s = probe.electrode_from_numpy(s, data)
     return np.array([it.policy for it in s], dtype=float)
 
 
@@ -68,14 +81,14 @@ class InitializeBlueprintState(TypedDict):
     content: str
 
 
-class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBlueprintState]):
+class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerView, GlobalStateView[InitializeBlueprintState]):
 
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.edit.blueprint')
 
     @property
     def name(self) -> str:
-        return 'Initialize Blueprint'
+        return 'Blueprint'
 
     # ============= #
     # UI components #
@@ -90,6 +103,7 @@ class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBl
             title='criteria',
             rows=20, cols=100,
             width=500,
+            stylesheets=['textarea {font-family: monospace;}']
         )
 
         from bokeh.layouts import row
@@ -122,11 +136,69 @@ class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBl
     cache_probe: ProbeDesp[M, E] = None
     cache_chmap: M | None
     cache_blueprint: list[E] | None
+    cache_data: NDArray[np.float_] | None = None
 
     def on_probe_update(self, probe: ProbeDesp, chmap: M | None = None, e: list[E] | None = None):
         self.cache_probe = probe
         self.cache_chmap = chmap
         self.cache_blueprint = e
+
+        from chmap.probe_npx.npx import ChannelMap
+        if isinstance(chmap, ChannelMap):
+            self.plot_npx_channelmap()
+        else:
+            self.set_image(None)
+
+    def on_data_update(self, probe: ProbeDesp[M, E], e: list[E], data: NDArray[np.float_] | None):
+        if self.cache_probe is None:
+            self.cache_probe = probe
+
+        if self.cache_blueprint is None:
+            self.cache_blueprint = e
+
+        if len(self.cache_blueprint) == len(data):
+            self.cache_data = data
+
+    def plot_npx_channelmap(self):
+        self.logger.debug('plot_npx_channelmap')
+
+        chmap: ChannelMap = self.cache_chmap
+        probe_type = chmap.probe_type
+
+        offset = -50
+        if self.cache_data is not None:
+            offset = -100
+
+        with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1),
+                              offset=offset) as ax:
+            self._plot_npx_blueprint(ax, probe_type, self.cache_blueprint)
+            if self.cache_data is not None:
+                self._plot_npx_electrode(ax, probe_type, self.cache_blueprint, self.cache_data,
+                                         transform=Affine2D().translate(0.050, 0) + ax.transData)
+
+            ax.set_xlabel(None)
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+            ax.set_ylabel(None)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
+            if self.cache_data is not None:
+                xlim = ax.get_xlim()
+                ax.set_xlim(xlim[0], xlim[1] + 0.1)
+
+    def _plot_npx_blueprint(self, ax: Axes, probe_type: ProbeType, blueprint: list[E]):
+        plot.plot_policy_area(ax, probe_type, blueprint, shank_width_scale=0.5)
+        plot.plot_probe_shape(ax, probe_type, color=None, label_axis=False)
+
+    def _plot_npx_electrode(self, ax: Axes, probe_type: ProbeType, blueprint: list[E], value: NDArray[np.float_], **kwargs):
+        data = plot.ElectrodeMatData.of(probe_type, np.vstack([
+            [it.x for it in blueprint],
+            [it.y for it in blueprint],
+            value
+        ]).T, electrode_unit='xy')
+        data = data.interpolate_nan((0, 1))
+
+        plot.plot_electrode_block(ax, probe_type, data, shank_width_scale=0.5, **kwargs)
 
     def reset_blueprint(self):
         if (blueprint := self.cache_blueprint) is None:
@@ -146,6 +218,7 @@ class InitializeBlueprintView(ViewBase, EditorView, GlobalStateView[InitializeBl
         self.save_global_state()
 
     def eval_blueprint(self):
+        self.cache_data = None
         if (probe := self.cache_probe) is None:
             return
         if (chmap := self.cache_chmap) is None:
@@ -205,9 +278,9 @@ class CriteriaParser(Generic[M, E]):
         block =
            'file=' FILE comment? '\n'
            ('loader=' LOADER comment? '\n')?
-           assign_expression*
-        assign_expression = POLICY '=' EXPRESSION comment? '\n'
-                         | FUNC(args) ('=' EXPRESSION)? comment? '\n'
+           func_expression*
+        func_expression = POLICY '=' EXPRESSION comment? '\n'
+                        | FUNC(args*) ('=' EXPRESSION)? comment? '\n'
         args = VAR (',' VAR)*
 
     *   `FILE` is a file path. Could be 'None'.
@@ -243,8 +316,9 @@ class CriteriaParser(Generic[M, E]):
         * `alias(NAME)=POLICY` give POLICY an alias NAME
         * `save()=FILE` save current result to file
         * `move(SHANK,...)=VALUE` move the blueprint up/down
-        * `print(LEVEL)=MESSAGE`
-        * `abort()`
+        * `print(FLAG)=MESSAGE` print message
+        * `show(FLAG)=EXPRESSION` show figure
+        * `abort()` abort parsing
 
     The latter block overwrite previous blocks.
 
@@ -360,6 +434,25 @@ class CriteriaParser(Generic[M, E]):
         context = CriteriaContext(self, self.context if inherit else None)
         context.result[:] = data
         self.context = context
+
+    def eval_expression(self, expression: str, force_context=False):
+        context = self.context
+
+        if force_context:
+            if context is None:
+                raise RuntimeError()
+            if context.data is None:
+                raise RuntimeError()
+
+            variables = context.variables
+        elif context is not None:
+            if context.data is None:
+                raise RuntimeError()
+            variables = context.variables
+        else:
+            variables = self.variables
+
+        return eval(expression, dict(np=np), variables)
 
     # ======= #
     # parsing #
@@ -481,22 +574,31 @@ class CriteriaParser(Generic[M, E]):
     def func_print(self, args: list[str], expression: str):
         """
 
-        level:
+        FLAG:
 
-        * 'i', 'info'
+        * 'i', 'info' (default)
         * 'w', 'warn'
+        * 'eval' : evaluate the expression before printing
 
-        :param args: [LEVEL]
+        :param args: [FLAG]
         :param expression: message
         """
-        match args:
-            case ['warn' | 'w']:
-                self.warning(expression)
-            case [] | ['info' | 'i']:
-                self.info(expression)
-            case _:
-                self.warning(f'unknown level {args}')
-                self.warning(expression)
+        need_eval = 'eval' in args
+        level_info = 'i' in args or 'info' in args
+        level_warn = 'w' in args or 'warn' in args
+
+        if level_info and level_warn:
+            level_info = False
+        if not level_info and not level_warn:
+            level_info = True
+
+        if need_eval:
+            expression = str(self.eval_expression(expression))
+
+        if level_info:
+            self.info(expression)
+        elif level_warn:
+            self.warning(expression)
 
     def func_use(self, args: list[str]):
         """
@@ -598,7 +700,7 @@ class CriteriaParser(Generic[M, E]):
         :param expression: expression
         """
         match args:
-            case [str(name)]:
+            case [str(name)] if name.isalpha():
                 if (policy := self.get_policy_value(expression)) is None:
                     self.warning(f'unknown policy {expression}')
                     return
@@ -622,12 +724,7 @@ class CriteriaParser(Generic[M, E]):
                 self.warning(f'unknown args {args}')
                 return
 
-        if (context := self.context) is not None:
-            variables = context.variables
-        else:
-            variables = self.variables
-
-        value = eval(expression, dict(np=np), variables)
+        value = self.eval_expression(expression)
         self.variables[name] = value
         if (context := self.context) is not None:
             context.variables[name] = value
@@ -650,7 +747,7 @@ class CriteriaParser(Generic[M, E]):
         if (context := self.context) is None:
             return
 
-        value = eval(expression, dict(np=np), context.variables)
+        value = self.eval_expression(expression, force_context=True)
         context.variables[name] = value
 
     def func_func(self, args: list[str], expression: str):
@@ -759,7 +856,7 @@ class CriteriaParser(Generic[M, E]):
         if (context := self.context) is None:
             return
 
-        result = np.asarray(eval(expression, dict(np=np), context.variables), dtype=bool)
+        result = np.asarray(self.eval_expression(expression, force_context=True), dtype=bool)
         context.update_result(value, result)
 
     def func_move(self, args: list[str], expression: str):
@@ -804,6 +901,46 @@ class CriteriaParser(Generic[M, E]):
                 t.policy = e.policy
 
         self.set_blueprint(new_blueprint, inherit=False)
+
+    def func_draw(self, args: list[str], expression: str = None):
+        """
+
+        flags:
+
+        * 'clear'
+        * 'target=VIEW' pass data to ViewBase that inherit DataHandler
+        * Support pass to imshow() in the future.
+
+        :param args: [] flags.
+        :param expression: expression, default use v in context
+        """
+        if self.context is None:
+            self.view.on_data_update(self.probe, self.electrodes, None)
+            return
+
+        if expression is None:
+            expression = 'v'
+
+        clear_view = False
+        target_view = None
+        for arg in args:
+            match arg.partition('='):
+                case ('clear', '', ''):
+                    clear_view = True
+                case ('target', _, target_view):
+                    pass
+
+        if clear_view:
+            value = None
+        else:
+            value = self.eval_expression(expression, force_context=True)
+
+        if target_view is None:
+            self.view.on_data_update(self.probe, self.electrodes, value)
+        elif isinstance(view := self.view.get_view(target_view), DataHandler):
+            view.on_data_update(self.probe, self.electrodes, value)
+        else:
+            self.warning(f'view {target_view} not a DataHandler')
 
 
 class CriteriaContext:
@@ -883,6 +1020,8 @@ class CriteriaContext:
                 self.parser.warning(f'TypeError file={file}')
 
             self._data = data
+            if data is not None:
+                self.variables['v'] = data
 
         return self._data
 

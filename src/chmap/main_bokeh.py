@@ -14,7 +14,7 @@ from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server, run_later
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback
-from chmap.views.base import ViewBase, StateView, DynamicView, init_view, EditorView, GlobalStateView
+from chmap.views.base import ViewBase, StateView, DynamicView, init_view, EditorView, GlobalStateView, ControllerView
 from chmap.views.probe import ProbeView
 
 __all__ = ['ChannelMapEditorApp', 'main']
@@ -411,17 +411,29 @@ class ChannelMapEditorApp(BokehApplication):
         def log_message(*message, reset=False):
             self.log_message(*message, reset=reset)
 
+        def get_app() -> ChannelMapEditorApp:
+            return self
+
+        def get_view(view_type: str | type[ViewBase]) -> ViewBase | None:
+            for _view in self.right_panel_views:
+                if isinstance(view_type, type) and isinstance(_view, view_type):
+                    return _view
+                elif isinstance(view_type, str) and type(_view).__name__ == view_type:
+                    return _view
+            return None
+
         def update_probe():
             self.logger.debug('update_probe(%s)', type(view).__name__)
-            self.on_probe_update(view)
+            self.on_probe_update()
 
-        def save_global_state(*, sync=False):
-            self.logger.debug('save_global_state(%s)', type(view).__name__)
-            if sync:
-                self.save_global_config(direct=False)
-            else:
-                self.global_views_config[type(view).__name__] = cast(StateView, view, ).save_state()
-                self.save_global_config(direct=True)
+        def save_global_state(*, sync=False, force=False):
+            if not getattr(view, 'disable_save_global_state', False) or force:
+                self.logger.debug('save_global_state(%s)', type(view).__name__)
+                if sync:
+                    self.save_global_config(direct=False)
+                else:
+                    self.global_views_config[type(view).__name__] = cast(StateView, view, ).save_state()
+                    self.save_global_config(direct=True)
 
         def restore_global_state(*, reload=False):
             self.logger.debug('restore_global_state(%s)', type(view).__name__)
@@ -437,6 +449,10 @@ class ChannelMapEditorApp(BokehApplication):
                 cast(StateView, view).restore_state(config)
 
         setattr(view, 'log_message', log_message)
+
+        if isinstance(view, ControllerView):
+            setattr(view, 'get_app', get_app)
+            setattr(view, 'get_view', get_view)
 
         if isinstance(view, EditorView):
             setattr(view, 'update_probe', update_probe)
@@ -490,13 +506,22 @@ class ChannelMapEditorApp(BokehApplication):
     # callbacks #
     # ========= #
 
-    def on_new(self, e: MenuItemClick):
-        if (item := e.item) is None:
-            self.logger.debug('on_new()')
-            return
+    def on_new(self, e: int | str | MenuItemClick):
+        if isinstance(e, MenuItemClick):
+            if (item := e.item) is None:
+                self.logger.debug('on_new()')
+                return
+        else:
+            item = e
 
-        probe_type = self.probe.supported_type[item]
-        self.logger.debug('on_new(%d)=%s', probe_type, item)
+        if isinstance(item, str):
+            probe_type = self.probe.supported_type[item]
+            self.logger.debug('on_new(%d)=%s', probe_type, item)
+        elif isinstance(item, int):
+            probe_type = item
+            self.logger.debug('on_new(%d)', probe_type)
+        else:
+            raise TypeError()
 
         self.probe_view.reset(probe_type)
 
@@ -625,12 +650,12 @@ class ChannelMapEditorApp(BokehApplication):
         else:
             self.on_probe_update()
 
-    def on_probe_update(self, source: ViewBase = None):
+    def on_probe_update(self):
         self.probe_info.text = self.probe_view.channelmap_desp()
         self.probe_view.update_electrode()
 
         for view in self.right_panel_views:
-            if isinstance(view, DynamicView) and view is not source:
+            if isinstance(view, DynamicView):
                 view_class = type(view).__name__
                 t = time.time()
                 view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)

@@ -8,8 +8,9 @@ from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
 from numpy.typing import NDArray
 
+from chmap.probe import ElectrodeDesp
 from chmap.util.util_numpy import index_of, closest_point_index, same_index
-from .desp import NpxProbeDesp, NpxElectrodeDesp
+from .desp import NpxProbeDesp
 from .npx import ChannelMap, ProbeType
 
 if sys.version_info >= (3, 11):
@@ -587,9 +588,9 @@ class ElectrodeMatData(NamedTuple):
 def plot_probe_shape(ax: Axes,
                      probe: ProbeType | ChannelMap,
                      height: float = 10,
+                     color: str | None = 'k',
                      label_axis=False,
                      shank_width_scale: float = 1,
-                     color: str | None = 'k',
                      **kwargs):
     """
     Plot the probe shape.
@@ -597,6 +598,7 @@ def plot_probe_shape(ax: Axes,
     :param ax:
     :param probe: probe type
     :param height: max height (mm) of probe need to plot
+    :param color: probe color
     :param label_axis: add labels on axes
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param kwargs: pass to ax.plot(**kwargs)
@@ -757,8 +759,8 @@ def plot_electrode_block(ax: Axes,
         return ret
 
     elif electrode_unit == 'raw':
-        vmin = kwargs.pop('vmin', np.min(data.mat))
-        vmax = kwargs.pop('vmax', np.max(data.mat))
+        vmin = kwargs.pop('vmin', np.nanmin(data.mat))
+        vmax = kwargs.pop('vmax', np.nanmax(data.mat))
 
         ret = []
         for s in data.shank_list:
@@ -997,21 +999,21 @@ def plot_electrode_matrix(ax: Axes,
 
 def plot_policy_area(ax: Axes,
                      probe: ProbeType,
-                     electrode: NDArray[np.int_] | list[NpxElectrodeDesp], *,
+                     electrode: NDArray[np.int_] | list[ElectrodeDesp], *,
                      color: dict[int, str] = None,
                      **kwargs):
     """
 
     :param ax:
     :param probe:
-    :param electrode: Array[int, N, (S, C, R, policy)] or list of NpxElectrodeDesp
+    :param electrode: Array[int, N, (S, C, R, policy)] or list of ElectrodeDesp
     :param color:
     :param kwargs:
     :return:
     """
     if isinstance(electrode, list):
         _electrode = np.zeros((len(electrode), 4))
-        for i, t in enumerate(electrode):  # type: int, NpxElectrodeDesp
+        for i, t in enumerate(electrode):  # type: int, ElectrodeDesp
             _electrode[i] = [*t.electrode, t.policy]
         electrode = _electrode
 
