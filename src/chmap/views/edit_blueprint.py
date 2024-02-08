@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import functools
 from pathlib import Path
-from typing import Protocol, TypedDict, Generic
+from typing import Protocol, TypedDict, Generic, overload, Literal, get_args
 
 import numpy as np
 from bokeh.models import TextAreaInput
@@ -16,6 +17,7 @@ from chmap.views.base import ViewBase, EditorView, GlobalStateView
 __all__ = ['InitializeBlueprintView']
 
 missing = object()
+SCOPE = Literal['pure', 'parser', 'context']
 
 
 # noinspection PyUnusedLocal
@@ -28,6 +30,28 @@ class DataLoader(Protocol):
         :param chmap: channelmap type. It is a reference.
         :return: Array[float, E] for all available electrodes.
         """
+        pass
+
+
+# noinspection PyUnusedLocal
+class ExternalFunction(Protocol):
+
+    # SCOPE=pure
+    @overload
+    def __call__(self, args: list[str], expression: str = None):
+        pass
+
+    # SCOPE=parser
+    @overload
+    def __call__(self, parser: CriteriaParser, args: list[str], expression: str = None):
+        pass
+
+    # SCOPE=context
+    @overload
+    def __call__(self, context: CriteriaContext, args: list[str], expression: str = None):
+        pass
+
+    def __call__(self, *args):
         pass
 
 
@@ -201,13 +225,16 @@ class CriteriaParser(Generic[M, E]):
         * y : y pos in um
         * v : data value. use zero array when `file=None`.
         * p : previous block's sum result
-        * other variables set by oper 'var(VAR)'
+        * other variables set by func  'val(VAR)' or 'var(VAR)'
 
         The expression evaluated result should be an Array[bool, E].
         The latter expression does not overwrite the previous expression.
 
     *   `FUNC` is function call
 
+        * `use(PROBE,...)` check current probe type (class name of `ProbeDesp`). Abort is not matched.
+        * `run(FLAG,...)=FILE` run another file. FLAG could be 'inherit', 'abort'
+        * `func(NAME, SCOPE?)=func_import_path` import external function. SCOPE could be 'pure', 'parser', 'context'
         * `blueprint(*POLICY)=FILE` load blueprint file (npy or channelmap file), with POLICY ONLY
         * `check(POLICY,...)=ACTION?` check POLICY existed. ACTION could be: (omitted), 'info', 'warn', 'error'
         * `policy(POLICY)=EXPRESSION` set POLICY
@@ -248,12 +275,12 @@ class CriteriaParser(Generic[M, E]):
         }
 
         self.electrodes = probe.all_electrodes(chmap)
-        self.constant_variables = ['s', 'x', 'y', 'p']
         self.variables = dict(
             s=np.array([it.s for it in self.electrodes]),
             x=np.array([it.x for it in self.electrodes]),
             y=np.array([it.y for it in self.electrodes]),
         )
+        self.external_functions: dict[str, (SCOPE, ExternalFunction)] = {}
 
         self.context: CriteriaContext | None = None
 
@@ -266,6 +293,17 @@ class CriteriaParser(Generic[M, E]):
     def warning(self, message: str, exc: BaseException = None):
         self.view.logger.warning('%s line:%d  %s', message, self.current_line, self.current_content, exc_info=exc)
         self.view.log_message(f'{message} @{self.current_line}', self.current_content)
+
+    def clone(self, inherit=False) -> CriteriaParser:
+        """
+
+        :param inherit: inherit context
+        :return:
+        """
+        ret = CriteriaParser(self.view, self.probe, self.chmap)
+        if inherit:
+            ret.context = self.context
+        return ret
 
     def get_result(self) -> NDArray[np.int_]:
         if (context := self.context) is None:
@@ -293,17 +331,29 @@ class CriteriaParser(Generic[M, E]):
         except ValueError:
             return None
 
-    def set_blueprint(self, blueprint: list[E]):
-        policies = self.get_result()
+    def set_blueprint(self, blueprint: list[E] = None, policies: NDArray[np.int_] = None) -> list[E]:
+        if blueprint is None:
+            blueprint = self.probe.all_electrodes(self.chmap)
+
+        if policies is None:
+            policies = self.get_result()
+
         for e, p in zip(self.probe.all_electrodes(self.chmap), policies):
             if (t := self.probe.get_electrode(blueprint, e.electrode)) is not None:
                 t.policy = int(p)
+
+        return blueprint
 
     # ======= #
     # parsing #
     # ======= #
 
     def parse_content(self, content: str) -> bool:
+        """
+
+        :param content:
+        :return: all content evaluated?
+        """
         try:
             for i, line in enumerate(content.split('\n'), start=1):
                 self.current_line = i
@@ -319,7 +369,7 @@ class CriteriaParser(Generic[M, E]):
                 self.parse_line(line)
 
         except KeyboardInterrupt:
-            pass
+            return False
         except BaseException as e:
             self.warning('un-captured error', exc=e)
             return False
@@ -332,7 +382,8 @@ class CriteriaParser(Generic[M, E]):
         if len(eq) == 0:
             if '(' in left and left.endswith(')'):
                 func, _, args = left[:-1].partition('(')
-                return self.parse_call(func, self.parse_args(args))
+                self.parse_call(func, self.parse_args(args))
+                return
             else:
                 self.warning('unknown content')
                 raise KeyboardInterrupt
@@ -355,27 +406,127 @@ class CriteriaParser(Generic[M, E]):
                         self.parse_call('policy', [left], expression)
 
     def parse_args(self, args: str) -> list[str]:
+        args = args.strip()
+        if len(args) == 0:
+            return []
+
         if args.startswith('(') and args.endswith(')'):
             args = args[1:-1].strip()
         return [it.strip() for it in args.split(',')]
 
-    def parse_call(self, oper: str, args: list[str], expression: str | None = missing) -> bool:
+    def parse_call(self, func: str, args: list[str], expression: str | None = missing):
+        f: ExternalFunction = None
+        scope = 'pure'
+
         try:
-            f = getattr(self, f'func_{oper}')
-        except AttributeError:
-            self.warning(f'unknown func {oper}')
+            scope, f = self.external_functions[func]
+        except KeyError:
+            pass
+
+        if f is None:
+            try:
+                scope = 'pure'
+                f = getattr(self, f'func_{func}')
+            except AttributeError:
+                pass
+
+        if f is None:
+            self.warning(f'unknown func {func}')
             return False
+
+        if scope == 'parser':
+            f = functools.partial(f, self)
+        elif scope == 'context':
+            if self.context is None:
+                self.warning(f'call func {func}() without context')
+                return
+
+            f = functools.partial(f, self.context)
+
+        if expression is missing:
+            f(args)
         else:
-            if expression is missing:
-                return f(args)
-            else:
-                return f(args, expression)
+            f(args, expression)
 
     # ========= #
     # functions #
     # ========= #
 
+    def func_use(self, args: list[str]):
+        """
+        check use probe type.
+
+        :param args: [PROBE,...], class name of `ProbeDesp`
+        :return:
+        """
+        probe = type(self.probe).__name__
+
+        if probe not in args:
+            self.warning(f'fail probe check : {probe}')
+            raise KeyboardInterrupt
+
+    def func_run(self, args: list[str], expression: str):
+        """
+        run file.
+
+        flag:
+
+        * 'inherit' : inherit current context
+        * 'abort' : abort when any error. otherwise, skip.
+        * 'no-function', 'xf' : do not import external function
+        * 'no-variable', 'xv'  do not import variable
+        * 'no-alias', 'xa' do not import policy aliases
+        * 'no-result', 'xr'  do not import policy result
+
+        :param args: [flag,...]
+        :param expression: filepath
+        """
+        inherit = 'inherit' in args
+        abort = 'abort' in args
+        no_func = 'no-function' in args or 'xf' in args
+        no_var = 'no-variable' in args or 'xv' in args
+        no_res = 'no-result' in args or 'xr' in args
+        no_ali = 'no-alias' in args or 'xa' in args
+
+        file = Path(expression)
+        if not file.exists():
+            self.warning(f'file not found. {file}')
+            if abort:
+                raise KeyboardInterrupt
+            else:
+                return
+
+        content = file.read_text()
+        parser = self.clone(inherit)
+
+        if not parser.parse_content(content):
+            if abort:
+                raise KeyboardInterrupt
+            else:
+                return
+
+        if not no_func:
+            self.external_functions.update(parser.external_functions)
+        if not no_var:
+            self.variables.update(parser.variables)
+        if not no_ali:
+            for p, v in parser.policies.items():
+                self.policies.setdefault(p, v)
+        if not no_res:
+            self.context = parser.context
+
     def func_check(self, args: list[str], expression: str | None = None):
+        """
+
+        ACTION:
+
+        * 'info' send message about unknown policies in INFO level
+        * 'warn' send message about unknown policies in WARN level
+        * 'error' send message about unknown policies in WARN level and abort parsing.
+
+        :param args: policies values
+        :param expression: ACTION, default 'info'
+        """
         for policy in args:
             if self.get_policy_value(policy) is None:
                 match expression:
@@ -391,6 +542,12 @@ class CriteriaParser(Generic[M, E]):
                         raise KeyboardInterrupt
 
     def func_alias(self, args: list[str], expression: str):
+        """
+        alias a POLICY to a new name.
+
+        :param args: [name]
+        :param expression: expression
+        """
         match args:
             case [str(name)]:
                 if (policy := self.get_policy_value(expression)) is None:
@@ -403,6 +560,12 @@ class CriteriaParser(Generic[M, E]):
                 return
 
     def func_val(self, args: list[str], expression: str):
+        """
+        set parser variable.
+
+        :param args: [name]
+        :param expression: expression
+        """
         match args:
             case [str(name)]:
                 pass
@@ -421,6 +584,13 @@ class CriteriaParser(Generic[M, E]):
             context.variables[name] = value
 
     def func_var(self, args: list[str], expression: str):
+        """
+        set context variable
+
+        :param args: [name]
+        :param expression: expression
+        :return:
+        """
         match args:
             case [str(name)]:
                 pass
@@ -434,7 +604,45 @@ class CriteriaParser(Generic[M, E]):
         value = eval(expression, dict(np=np), context.variables)
         context.variables[name] = value
 
+    def func_func(self, args: list[str], expression: str):
+        """
+
+        scope:
+
+        * 'pure' function signature (args: list[str], expression: str?) -> None
+        * 'parser' function signature (parser: CriteriaParser, args: list[str], expression: str?) -> None
+        * 'context' function signature (context: CriteriaContext, args: list[str], expression: str?) -> None
+
+        :param args: [name, scope?]
+        :param expression: function module path
+        :return:
+        """
+        match args:
+            case [str(name)]:
+                scope = 'pure'
+            case [str(name), str(scope)]:
+                if scope not in get_args(SCOPE):
+                    self.warning(f'unknown args {scope}')
+                    return
+            case _:
+                self.warning(f'unknown args {args}')
+                return
+
+        try:
+            func = import_name('external function', expression)
+        except BaseException as e:
+            self.warning(f'load func fail. {expression}', exc=e)
+            return
+
+        self.external_functions[name] = (scope, func)
+
     def func_blueprint(self, args: list[str], expression: str):
+        """
+
+        :param args: [policy,...] policy mask.
+        :param expression: channelmap (change suffix '.policy.npy') or blueprint (*.npy) filepath.
+        :return:
+        """
         policies = [self.get_policy_value(it) for it in args]
         if None in policies:
             return
@@ -472,8 +680,15 @@ class CriteriaParser(Generic[M, E]):
 
         context = CriteriaContext(self, self.context)
         context.result[:] = data
+        self.context = context
 
     def func_save(self, args: list[str], expression: str):
+        """
+
+        :param args: []
+        :param expression: filepath
+        :return:
+        """
         if len(args) != 0:
             self.warning(f'unknown args {args}')
             return
@@ -486,6 +701,12 @@ class CriteriaParser(Generic[M, E]):
         self.info(f'save {file}')
 
     def func_policy(self, args: list[str], expression: str):
+        """
+
+        :param args: [policy]
+        :param expression: expression
+        :return:
+        """
         match args:
             case [str(policy)]:
                 if (value := self.get_policy_value(policy)) is None:
@@ -504,7 +725,7 @@ class CriteriaParser(Generic[M, E]):
 
 class CriteriaContext:
     def __init__(self, parser: CriteriaParser, previous: CriteriaContext | None):
-        self._parser = parser
+        self.parser = parser
 
         self._file: Path | None = missing
         self._loader_path: str | None = None
@@ -536,7 +757,7 @@ class CriteriaContext:
             if not callable(loader):
                 raise TypeError('loader not callable')
         except BaseException as e:
-            self._parser.warning(f'import loader fail', exc=e)
+            self.parser.warning(f'import loader fail', exc=e)
             loader = e
 
         self._loader = loader
@@ -553,7 +774,7 @@ class CriteriaContext:
             file = self._file
             data = None
             if file is missing:
-                self._parser.warning('missing file=')
+                self.parser.warning('missing file=')
 
             elif file is None:
                 data = np.zeros_like(self.result, dtype=float)
@@ -563,20 +784,20 @@ class CriteriaContext:
 
             elif isinstance(file, Path):
                 if not file.exists():
-                    self._parser.warning(f'file not found. {file}')
+                    self.parser.warning(f'file not found. {file}')
                 else:
                     try:
-                        data = self.loader(file, self._parser.probe, self._parser.chmap)
+                        data = self.loader(file, self.parser.probe, self.parser.chmap)
                     except BaseException as e:
-                        self._parser.warning('load data fail', exc=e)
+                        self.parser.warning('load data fail', exc=e)
                         data = None
                     else:
                         if data is None or data.shape != self.result.shape:
-                            self._parser.warning('incorrect data')
+                            self.parser.warning('incorrect data')
                             data = None
 
             else:
-                self._parser.warning(f'TypeError file={file}')
+                self.parser.warning(f'TypeError file={file}')
 
             self._data = data
 

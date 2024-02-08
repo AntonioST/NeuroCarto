@@ -1,0 +1,6 @@
+func(DB_func)=tests:test_edit_blueprint:external_func_pure
+val(DB_var)=1
+alias(X)=FORBIDDEN
+
+file=None
+X=1

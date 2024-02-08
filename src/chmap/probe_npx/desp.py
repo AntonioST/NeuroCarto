@@ -158,13 +158,14 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         return ret
 
     def electrode_from_numpy(self, s: list[NpxElectrodeDesp], a: NDArray[np.int_]) -> list[NpxElectrodeDesp]:
+        c = {it.electrode: it for it in s}
         for data in a:
             e = (int(data[0]), int(data[1]), int(data[2]))
             state = int(data[3])
             policy = int(data[4])
-            if (ee := self.get_electrode(s, e)) is not None:
-                ee.state = state
-                ee.policy = policy
+            if (t := c.get(e, None)) is not None:
+                t.state = state
+                t.policy = policy
         return s
 
     # ==================== #

@@ -1,11 +1,13 @@
+import time
 import unittest
 from pathlib import Path
 
 import numpy as np
+from numpy.testing import assert_array_equal
 
 from chmap.probe_npx import ChannelMap
 from chmap.probe_npx.desp import NpxProbeDesp, NpxElectrodeDesp
-from chmap.views.edit_blueprint import CriteriaParser, default_loader
+from chmap.views.edit_blueprint import CriteriaParser, default_loader, CriteriaContext
 
 
 class CriteriaParserTester(CriteriaParser[ChannelMap, NpxElectrodeDesp]):
@@ -20,6 +22,13 @@ class CriteriaParserTester(CriteriaParser[ChannelMap, NpxElectrodeDesp]):
     def warning(self, message: str, exc: BaseException = None):
         self.message.append(message)
         self.error = exc
+
+    def clone(self, inherit=False) -> CriteriaParser:
+        ret = CriteriaParserTester()
+        if inherit:
+            ret.context = self.context
+        ret.message = self.message
+        return ret
 
     def func_call0(self, args: list[str]):
         self.message.append('call0')
@@ -39,6 +48,44 @@ class CriteriaParserTester(CriteriaParser[ChannelMap, NpxElectrodeDesp]):
 
 def test_loader(filepath, probe, chmap):
     return default_loader(filepath, probe, chmap)
+
+
+def external_func_pure(args: list[str], expression: str):
+    print('external_func_pure')
+
+
+def external_func_parser(parser: CriteriaParser, args: list[str], expression: str):
+    parser.message.append('external_func_parser')
+    parser.message.extend(args)
+    parser.message.append(expression)
+
+
+def external_func_context(context: CriteriaContext, args: list[str], expression: str):
+    parser = context.parser
+    parser.message.append('external_func_context')
+    parser.message.extend(args)
+    parser.message.append(expression)
+
+
+def get_test_file(filename) -> Path:
+    if not (p := Path('tests') / filename).exists():  # from command line
+        if not (p := Path('.') / filename).exists():  # from IDE
+            raise FileNotFoundError(f'file not found {filename}')
+    return p
+
+
+class TimeMaker:
+    def __init__(self):
+        self.t = time.time()
+
+    def reset(self):
+        self.t = time.time()
+
+    def __call__(self, message: str):
+        t = time.time()
+        d = t - self.t
+        print(message, f'use {d:.2f}')
+        self.t = t
 
 
 class EditBlueprintTest(unittest.TestCase):
@@ -104,7 +151,7 @@ class EditBlueprintTest(unittest.TestCase):
 
         self.assertListEqual(['call0', '1', '2', '3'], self.parser.message)
 
-    def test_func_call_unexpect_expression(self):
+    def test_func_call_unexpected_expression(self):
         self.parser.parse_content("""
         call0(1,2,3)=expression
         """)
@@ -134,12 +181,102 @@ class EditBlueprintTest(unittest.TestCase):
 
         self.assertListEqual(['unknown func call2'], self.parser.message)
 
+    def test_func_use(self):
+        ret = self.parser.parse_content("""
+        use(NpxProbeDesp)
+        """)
+
+        self.assertTrue(ret)
+
+    def test_func_use_fail(self):
+        ret = self.parser.parse_content("""
+        use(NoDefineProbeDesp)
+        """)
+
+        self.assertFalse(ret)
+        self.assertListEqual(['fail probe check : NpxProbeDesp'], self.parser.message)
+
     def test_func_check(self):
         self.parser.parse_content("""
         check(FULL,HALF,QUARTER)
         """)
 
         self.assertListEqual([], self.parser.message)
+
+    def test_func_check_info(self):
+        self.assertNotIn('X', self.parser.policies)
+        self.parser.parse_content("""
+        check(FULL,HALF,QUARTER,X)=info
+        alias(X)=FORBIDDEN
+        """)
+
+        self.assertListEqual(['unknown policy X'], self.parser.message)
+        self.assertIn('X', self.parser.policies)
+
+    def test_func_check_error(self):
+        self.assertNotIn('X', self.parser.policies)
+        self.parser.parse_content("""
+        check(FULL,HALF,QUARTER,X)=error
+        alias(X)=FORBIDDEN
+        """)
+
+        self.assertListEqual(['unknown policy X'], self.parser.message)
+        self.assertNotIn('X', self.parser.policies)
+
+    def test_external_func(self):
+        self.parser.parse_content("""
+        func(test)=tests:test_edit_blueprint:external_func_pure
+        test(arg)=exp
+        """)
+
+        self.assertListEqual([], self.parser.message)
+
+    def test_external_func_scope_parser(self):
+        self.parser.parse_content("""
+        func(test, parser)=tests:test_edit_blueprint:external_func_parser
+        test(arg)=exp
+        """)
+
+        self.assertListEqual(['external_func_parser', 'arg', 'exp'], self.parser.message)
+
+    def test_external_func_scope_context(self):
+        self.parser.parse_content("""
+        func(test, context)=tests:test_edit_blueprint:external_func_context
+        file=None
+        test(arg)=exp
+        """)
+
+        self.assertListEqual(['external_func_context', 'arg', 'exp'], self.parser.message)
+
+    def test_external_func_scope_context_without_context(self):
+        self.parser.parse_content("""
+        func(test, context)=tests:test_edit_blueprint:external_func_context
+        test(arg)=exp
+        """)
+
+        self.assertListEqual(['call func test() without context'], self.parser.message)
+
+    def test_run_file(self):
+        self.parser.parse_content(f"""
+        run()={get_test_file('test_edit_blueprint.txt')}
+        """)
+
+        self.assertListEqual(['policy', 'X', '1'], self.parser.message)
+        self.assertIn('DB_func', self.parser.external_functions)
+        self.assertIn('DB_var', self.parser.variables)
+        self.assertIn('X', self.parser.policies)
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_FORBIDDEN))
+
+    def test_run_file_no_all(self):
+        self.parser.parse_content(f"""
+        run(xf,xv,xa,xr)={get_test_file('test_edit_blueprint.txt')}
+        """)
+
+        self.assertListEqual(['policy', 'X', '1'], self.parser.message)
+        self.assertNotIn('DB_func', self.parser.external_functions)
+        self.assertNotIn('DB_var', self.parser.variables)
+        self.assertNotIn('X', self.parser.policies)
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_UNSET))
 
     def test_func_alias(self):
         self.assertIn('FORBIDDEN', self.parser.policies)
@@ -209,6 +346,64 @@ class EditBlueprintTest(unittest.TestCase):
 
         self.assertListEqual(['policy', 'FORBIDDEN', 'k'], self.parser.message)
         self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_FORBIDDEN))
+
+    def test_func_save(self):
+        m = TimeMaker()
+        self.parser.parse_content("""
+        file=None
+        FORBIDDEN=(y>6000)
+        save()=./test-save
+        """)
+        m('parse_content')
+
+        self.assertListEqual(['policy', 'FORBIDDEN', '(y>6000)', 'save test-save.policy.npy'],
+                             self.parser.message)
+        m('assertListEqual')
+
+        blueprint = self.parser.set_blueprint()
+        m('set_blueprint')
+
+        file = Path('.') / 'test-save.policy.npy'
+        self.assertTrue(file.exists())
+        m('assertTrue')
+
+        probe = self.parser.probe
+        chmap = self.parser.chmap
+        test = probe.electrode_from_numpy(probe.all_electrodes(chmap), np.load(file))
+        m('electrode_from_numpy')
+
+        p0 = np.array([it.policy for it in blueprint])
+        p1 = np.array([it.policy for it in test])
+        m('array')
+        assert_array_equal(p0, p1)
+        m('assert_array_equal')
+
+    @unittest.skipIf(condition=not Path('test-save.policy.npy').exists(),
+                     reason='test_func_save() need to run first')
+    def test_func_blueprint(self):
+        m = TimeMaker()
+        self.parser.parse_content("""
+        blueprint()=./test-save.policy.npy
+        """)
+        m('parse_content')
+
+        self.assertListEqual(['load test-save.policy.npy'], self.parser.message)
+        m('assertListEqual')
+
+        blueprint = self.parser.set_blueprint()
+        m('set_blueprint')
+
+        probe = self.parser.probe
+        chmap = self.parser.chmap
+        test = probe.electrode_from_numpy(probe.all_electrodes(chmap), np.load('test-save.policy.npy'))
+        m('electrode_from_numpy')
+
+        p0 = np.array([it.policy for it in blueprint])
+        p1 = np.array([it.policy for it in test])
+        m('array')
+
+        assert_array_equal(p0, p1)
+        m('assert_array_equal')
 
 
 if __name__ == '__main__':
