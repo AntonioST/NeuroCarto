@@ -81,6 +81,9 @@ class BlueprintFunctions:
         if a.shape[axis] != len(s):
             raise RuntimeError()
 
+        if abs(tx) < dx and abs(ty) < dy:
+            return a
+
         pos = {
             (int(s[i]), int(x[i] / dx), int(y[i] / dy)): i
             for i in range(len(s))
@@ -130,6 +133,8 @@ class BlueprintFunctions:
         :param init: initial value
         :return: moved a (copied)
         """
+        if tx == 0 and ty == 0:
+            return a
         return self.move(a, tx=tx * self.dx, ty=ty * self.dy, shanks=shanks, axis=axis, init=init)
 
     def merge(self, blueprint: NDArray[np.int_], other: NDArray[np.int_] = None) -> NDArray[np.int_]:
@@ -180,11 +185,21 @@ class BlueprintFunctions:
             r = []
             for tx in range(-kernel[0], kernel[0] + 1):
                 for ty in range(-kernel[1], kernel[1] + 1):
-                    if tx != ty:
-                        r.append(self.move_i(a, tx=tx, ty=ty, init=init))
-                    else:
-                        r.append(a)
+                    r.append(self.move_i(a, tx=tx, ty=ty, init=init))
 
             a = f(r, axis=0)
 
         return a
+
+    def fill(self, blueprint: NDArray[np.int_],
+             policy: list[int] = None,
+             threshold: int = None) -> NDArray[np.int_]:
+        """
+        make the area occupied by policies be filled as rectangle.
+
+        :param blueprint:
+        :param policy:
+        :param threshold:
+        :return:
+        """
+        pass
