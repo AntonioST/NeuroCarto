@@ -86,6 +86,7 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
 
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.edit.blueprint')
+        self.logger.warning('it is an experimental feature.')
 
     @property
     def name(self) -> str:
