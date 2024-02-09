@@ -23,7 +23,11 @@ from chmap.views.image_plt import PltImageView
 if TYPE_CHECKING:
     from chmap.probe_npx.npx import ChannelMap, ProbeType
 
-__all__ = ['InitializeBlueprintView']
+__all__ = [
+    'InitializeBlueprintView', 'InitializeBlueprintState',
+    'CriteriaParser', 'CriteriaContext',
+    'DataHandler', 'ExternalFunction'
+]
 
 missing = object()
 SCOPE = Literal['pure', 'parser', 'context']
@@ -253,10 +257,9 @@ class CriteriaParser(Generic[M, E]):
 
     For given a ProbeDesp[M, E].
 
-    Require data
-    ------------
+    **Require data**
 
-    a numpy array that can be parsed by `ProbeDesp.electrode_from_numpy`.
+    a numpy array that can be parsed by `ProbeDesp.load_blueprint`.
     The data value is read from `ElectrodeDesp.category` for electrodes.
 
     Because E's category is expected as an int, this view also take it as an int by default.
@@ -265,8 +268,7 @@ class CriteriaParser(Generic[M, E]):
 
        Array[int, E, (shank, col, row, state, category)]
 
-    Data loader
-    -----------
+    **Data loader**
 
     If a data loader is given, it is imported by `import_name`.
     A loader should follow the signature `DataLoader`.
@@ -274,22 +276,21 @@ class CriteriaParser(Generic[M, E]):
     There is a default loader `default_loader` which just convert the electrode category value
     to float number.
 
-    criteria_area
-    -------------
+    **criteria_area**
 
-    grammar::
+    grammar ::
 
         root = statement*
 
         statement = comment
                  | block
-        comment =  '#' .* '\n'
+        comment =  '#' .* '\\n'
         block =
-           'file=' FILE comment? '\n'
-           ('loader=' LOADER comment? '\n')?
+           'file=' FILE comment? '\\n'
+           ('loader=' LOADER comment? '\\n')?
            func_expression*
-        func_expression = CATEGORY '=' EXPRESSION comment? '\n'
-                        | FUNC(args*) ('=' EXPRESSION)? comment? '\n'
+        func_expression = CATEGORY '=' EXPRESSION comment? '\\n'
+                        | FUNC(args*) ('=' EXPRESSION)? comment? '\\n'
         args = VAR (',' VAR)*
 
     *   `FILE` is a file path. Could be 'None'.
