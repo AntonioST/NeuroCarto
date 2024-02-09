@@ -10,7 +10,7 @@ electrode_select = select_weaker.electrode_select
 selected_electrode = select_weaker.selected_electrode
 pick_electrode = select_weaker.pick_electrode
 update_prob = select_weaker.update_prob
-policy_mapping_priority = select_weaker.policy_mapping_priority
+category_mapping_probability = select_weaker.category_mapping_probability
 information_entropy = select_weaker.information_entropy
 
 
@@ -23,7 +23,7 @@ def _select_loop(desp, probe_type, cand):
                 p = e.prob
                 update_prob(desp, cand, e)
                 count += 1
-                data.append((n, policy_mapping_priority(e.policy), p, information_entropy(cand)))
+                data.append((n, category_mapping_probability(e.category), p, information_entropy(cand)))
             else:
                 break
     except KeyboardInterrupt:

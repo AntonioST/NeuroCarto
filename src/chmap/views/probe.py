@@ -273,12 +273,12 @@ class ProbeView:
 
         self._reset_electrode_state()
 
-    def set_policy_for_selected(self, policy: int):
+    def set_category_for_selected(self, category: int):
         """
-        Set electrode policy value for selected electrodes.
+        Set electrode category value for selected electrodes.
 
-        :param policy: policy value from ProbeDesp.POLICY_*
+        :param category: category value from ProbeDesp.CATE_*
         :return:
         """
         for e in self.get_selected(reset=True):
-            e.policy = policy
+            e.category = category

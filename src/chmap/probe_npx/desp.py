@@ -22,9 +22,9 @@ class NpxElectrodeDesp(ElectrodeDesp):
 
 
 class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
-    POLICY_FULL: ClassVar = 11
-    POLICY_HALF: ClassVar = 12
-    POLICY_QUARTER: ClassVar = 13
+    CATE_FULL: ClassVar = 11  # full-density
+    CATE_HALF: ClassVar = 12  # half-density
+    CATE_QUARTER: ClassVar = 13  # quarter-density
 
     @property
     def supported_type(self) -> dict[str, int]:
@@ -42,17 +42,17 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         }
 
     @property
-    def possible_policies(self) -> dict[str, int]:
+    def possible_categories(self) -> dict[str, int]:
         return {
-            'Unset': self.POLICY_UNSET,
-            'Set': self.POLICY_SET,
+            'Unset': self.CATE_UNSET,
+            'Set': self.CATE_SET,
             #
-            'Full Density': self.POLICY_FULL,
-            'Half Density': self.POLICY_HALF,
+            'Full Density': self.CATE_FULL,
+            'Half Density': self.CATE_HALF,
             #
-            'Quarter Density': self.POLICY_QUARTER,
-            'Low priority': self.POLICY_LOW,
-            'Forbidden': self.POLICY_FORBIDDEN,
+            'Quarter Density': self.CATE_QUARTER,
+            'Low priority': self.CATE_LOW,
+            'Forbidden': self.CATE_FORBIDDEN,
         }
 
     def extra_controls(self, config: ChannelMapEditorConfig):
@@ -110,20 +110,20 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                     ret.append(d)
         return ret
 
-    def all_channels(self, chmap: ChannelMap, s: Iterable[NpxElectrodeDesp] = None) -> list[NpxElectrodeDesp]:
+    def all_channels(self, chmap: ChannelMap, electrodes: Iterable[NpxElectrodeDesp] = None) -> list[NpxElectrodeDesp]:
         probe_type = chmap.probe_type
         ret = []
         for c, e in enumerate(chmap.channels):  # type: int, Electrode|None
             if e is not None:
-                if s is None:
+                if electrodes is None:
                     d = NpxElectrodeDesp()
 
-                    d.s = s
+                    d.s = electrodes
                     d.electrode = (e.shank, e.column, e.row)
                     d.x, d.y = e2p(probe_type, e)
                     d.channel = c
                 else:
-                    d = self.get_electrode(s, (e.shank, e.column, e.row))
+                    d = self.get_electrode(electrodes, (e.shank, e.column, e.row))
 
                 if d is not None:
                     ret.append(d)
@@ -133,8 +133,8 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def is_valid(self, chmap: ChannelMap) -> bool:
         return len(chmap) == chmap.probe_type.n_channels
 
-    def get_electrode(self, s: Iterable[NpxElectrodeDesp], e: K) -> NpxElectrodeDesp | None:
-        return super().get_electrode(s, e)
+    def get_electrode(self, electrodes: Iterable[NpxElectrodeDesp], e: K | NpxElectrodeDesp) -> NpxElectrodeDesp | None:
+        return super().get_electrode(electrodes, e)
 
     def add_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp, *, overwrite=False):
         try:
@@ -150,30 +150,41 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def probe_rule(self, chmap: ChannelMap | None, e1: NpxElectrodeDesp, e2: NpxElectrodeDesp) -> bool:
         return e1.channel != e2.channel
 
-    def electrode_to_numpy(self, s: list[NpxElectrodeDesp]) -> NDArray[np.int_]:
-        ret = np.zeros((len(s), 5), dtype=int)  # (N, (shank, col, row, state, policy))
-        for i, e in enumerate(s):  # type: int, NpxElectrodeDesp
-            h, c, r = e.electrode
-            ret[i] = (h, c, r, e.state, e.policy)
+    def save_blueprint(self, blueprint: list[NpxElectrodeDesp]) -> NDArray[np.int_]:
+        ret = np.zeros((len(blueprint), 5), dtype=int)  # (N, (shank, col, row, state, category))
+        for i, e in enumerate(blueprint):  # type: int, NpxElectrodeDesp
+            s, c, r = e.electrode
+            ret[i] = (s, c, r, e.state, e.category)
         return ret
 
-    def electrode_from_numpy(self, s: list[NpxElectrodeDesp], a: NDArray[np.int_]) -> list[NpxElectrodeDesp]:
-        c = {it.electrode: it for it in s}
-        for data in a:
-            e = (int(data[0]), int(data[1]), int(data[2]))
-            state = int(data[3])
-            policy = int(data[4])
+    def load_blueprint(self, a: str | Path | NDArray[np.int_],
+                       chmap: int | ProbeType | ChannelMap | list[NpxElectrodeDesp]) -> list[NpxElectrodeDesp]:
+        if isinstance(a, (str, Path)):
+            a = np.load(a)
+
+        if isinstance(chmap, (int, ProbeType, ChannelMap)):
+            electrodes = self.all_electrodes(chmap)
+        elif isinstance(chmap, list):
+            electrodes = chmap
+        else:
+            raise TypeError()
+
+        c = {it.electrode: it for it in electrodes}
+        for data in a:  # (shank, col, row, state, category)
+            shank, col, row, state, category = data
+            e = (int(shank), int(col), int(row))
             if (t := c.get(e, None)) is not None:
-                t.state = state
-                t.policy = policy
-        return s
+                t.state = int(state)
+                t.category = int(category)
+
+        return electrodes
 
     # ==================== #
     # electrode selections #
     # ==================== #
 
-    def select_electrodes(self, chmap: ChannelMap, s: list[NpxElectrodeDesp], *,
+    def select_electrodes(self, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], *,
                           selector='default',
                           **kwargs) -> ChannelMap:
         from .select import electrode_select
-        return electrode_select(self, chmap, s, selector=selector, **kwargs)
+        return electrode_select(self, chmap, blueprint, selector=selector, **kwargs)

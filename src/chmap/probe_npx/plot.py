@@ -26,7 +26,7 @@ __all__ = [
     'plot_electrode_block',
     'plot_electrode_grid',
     'plot_electrode_matrix',
-    'plot_policy_area'
+    'plot_category_area'
 ]
 
 ELECTRODE_UNIT = Literal['cr', 'xy', 'raw']
@@ -691,7 +691,7 @@ def plot_channelmap_block(ax: Axes,
 def plot_electrode_block(ax: Axes,
                          probe: ProbeType,
                          electrode: NDArray[np.float_] | ElectrodeMatData,
-                         electrode_unit: ELECTRODE_UNIT = 'cr', *,
+                         electrode_unit: ELECTRODE_UNIT | Literal['crv', 'xyv'] = 'cr', *,
                          height: float | None = 10,
                          shank_width_scale: float = 1,
                          fill=True,
@@ -700,8 +700,8 @@ def plot_electrode_block(ax: Axes,
 
     :param ax:
     :param probe: probe profile
-    :param electrode: Array[float, E, (S, C, R, V?)] (electrode_unit='cr'),
-                      Array[float, E, (X, Y, V?)] (electrode_unit='xy'),
+    :param electrode: Array[float, E, (S, C, R, V?)] (electrode_unit='cr' or 'crv'),
+                      Array[float, E, (X, Y, V?)] (electrode_unit='xy' or 'xyv'),
                       Array[V:float, S, C, r] (electrode_unit='raw'), or ElectrodeMatData
     :param electrode_unit:
     :param height: max height (mm) of probe need to plot
@@ -727,7 +727,13 @@ def plot_electrode_block(ax: Axes,
         data = electrode
         electrode_unit = 'raw'
     elif electrode_unit == 'raw':
-        data = ElectrodeMatData.of(probe, electrode, electrode_unit)
+        data = ElectrodeMatData.of(probe, electrode, 'raw')
+    elif electrode_unit == 'crv':
+        data = ElectrodeMatData.of(probe, electrode, 'cr')
+        electrode_unit = 'raw'
+    elif electrode_unit == 'xyv':
+        data = ElectrodeMatData.of(probe, electrode, 'xy')
+        electrode_unit = 'raw'
     elif electrode_unit == 'cr':
         s = electrode[:, 0]
         x = electrode[:, 1] * h_step + s * s_step
@@ -998,16 +1004,16 @@ def plot_electrode_matrix(ax: Axes,
     return im
 
 
-def plot_policy_area(ax: Axes,
-                     probe: ProbeType,
-                     electrode: NDArray[np.int_] | list[ElectrodeDesp], *,
-                     color: dict[int, str] = None,
-                     **kwargs):
+def plot_category_area(ax: Axes,
+                       probe: ProbeType,
+                       electrode: NDArray[np.int_] | list[ElectrodeDesp], *,
+                       color: dict[int, str] = None,
+                       **kwargs):
     """
 
     :param ax:
     :param probe:
-    :param electrode: Array[int, N, (S, C, R, policy)] or list of ElectrodeDesp
+    :param electrode: Array[int, N, (S, C, R, category)] or list of ElectrodeDesp
     :param color:
     :param kwargs:
     :return:
@@ -1015,20 +1021,20 @@ def plot_policy_area(ax: Axes,
     if isinstance(electrode, list):
         _electrode = np.zeros((len(electrode), 4))
         for i, t in enumerate(electrode):  # type: int, ElectrodeDesp
-            _electrode[i] = [*t.electrode, t.policy]
+            _electrode[i] = [*t.electrode, t.category]
         electrode = _electrode
 
     if color is None:
         color = {
-            NpxProbeDesp.POLICY_SET: 'green',
-            NpxProbeDesp.POLICY_FULL: 'green',
-            NpxProbeDesp.POLICY_HALF: 'orange',
-            NpxProbeDesp.POLICY_QUARTER: 'blue',
-            NpxProbeDesp.POLICY_FORBIDDEN: 'pink',
+            NpxProbeDesp.CATE_SET: 'green',
+            NpxProbeDesp.CATE_FULL: 'green',
+            NpxProbeDesp.CATE_HALF: 'orange',
+            NpxProbeDesp.CATE_QUARTER: 'blue',
+            NpxProbeDesp.CATE_FORBIDDEN: 'pink',
         }
 
-    policies = np.unique(electrode[:, 3])
-    for policy in policies:
-        if (c := color.get(int(policy), None)) is not None:
-            _electrode = electrode[electrode[:, 3] == policy]
+    categories = np.unique(electrode[:, 3])
+    for category in categories:
+        if (c := color.get(int(category), None)) is not None:
+            _electrode = electrode[electrode[:, 3] == category]
             plot_electrode_block(ax, probe, _electrode, color=c, **kwargs)

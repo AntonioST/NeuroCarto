@@ -39,11 +39,11 @@ class CriteriaParserTester(CriteriaParser[ChannelMap, NpxElectrodeDesp]):
         self.message.extend(args)
         self.message.append(expression)
 
-    def func_policy(self, args: list[str], expression: str):
-        self.message.append('policy')
+    def func_set(self, args: list[str], expression: str):
+        self.message.append('category')
         self.message.extend(args)
         self.message.append(expression)
-        super().func_policy(args, expression)
+        super().func_set(args, expression)
 
 
 def test_loader(filepath, probe, chmap):
@@ -95,8 +95,8 @@ class EditBlueprintTest(unittest.TestCase):
         self.parser = CriteriaParserTester()
 
     def assert_blueprint_equal(self, a: list[NpxElectrodeDesp], b: list[NpxElectrodeDesp]):
-        p0 = np.array([it.policy for it in a])
-        p1 = np.array([it.policy for it in b])
+        p0 = np.array([it.category for it in a])
+        p1 = np.array([it.category for it in b])
 
         assert_array_equal(p0, p1)
 
@@ -224,24 +224,24 @@ class EditBlueprintTest(unittest.TestCase):
         self.assertListEqual([], self.parser.message)
 
     def test_func_check_info(self):
-        self.assertNotIn('X', self.parser.policies)
+        self.assertNotIn('X', self.parser.categories)
         self.parser.parse_content("""
         check(FULL,HALF,QUARTER,X)=info
         alias(X)=FORBIDDEN
         """)
 
-        self.assertListEqual(['unknown policy X'], self.parser.message)
-        self.assertIn('X', self.parser.policies)
+        self.assertListEqual(['unknown category X'], self.parser.message)
+        self.assertIn('X', self.parser.categories)
 
     def test_func_check_error(self):
-        self.assertNotIn('X', self.parser.policies)
+        self.assertNotIn('X', self.parser.categories)
         self.parser.parse_content("""
         check(FULL,HALF,QUARTER,X)=error
         alias(X)=FORBIDDEN
         """)
 
-        self.assertListEqual(['unknown policy X'], self.parser.message)
-        self.assertNotIn('X', self.parser.policies)
+        self.assertListEqual(['unknown category X'], self.parser.message)
+        self.assertNotIn('X', self.parser.categories)
 
     def test_external_func(self):
         self.parser.parse_content("""
@@ -281,44 +281,44 @@ class EditBlueprintTest(unittest.TestCase):
         run()={get_test_file('test_edit_blueprint.txt')}
         """)
 
-        self.assertListEqual(['policy', 'X', '1'], self.parser.message)
+        self.assertListEqual(['category', 'X', '1'], self.parser.message)
         self.assertIn('DB_func', self.parser.external_functions)
         self.assertIn('DB_var', self.parser.variables)
-        self.assertIn('X', self.parser.policies)
-        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_FORBIDDEN))
+        self.assertIn('X', self.parser.categories)
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_FORBIDDEN))
 
     def test_run_file_no_all(self):
         self.parser.parse_content(f"""
         run(xf,xv,xa,xr)={get_test_file('test_edit_blueprint.txt')}
         """)
 
-        self.assertListEqual(['policy', 'X', '1'], self.parser.message)
+        self.assertListEqual(['category', 'X', '1'], self.parser.message)
         self.assertNotIn('DB_func', self.parser.external_functions)
         self.assertNotIn('DB_var', self.parser.variables)
-        self.assertNotIn('X', self.parser.policies)
-        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_UNSET))
+        self.assertNotIn('X', self.parser.categories)
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_UNSET))
 
     def test_func_alias(self):
-        self.assertIn('FORBIDDEN', self.parser.policies)
-        self.assertNotIn('X', self.parser.policies)
+        self.assertIn('FORBIDDEN', self.parser.categories)
+        self.assertNotIn('X', self.parser.categories)
 
         self.parser.parse_content("""
         alias(X)=FORBIDDEN
         """)
 
-        self.assertIn('X', self.parser.policies)
-        self.assertEqual(self.parser.policies['FORBIDDEN'], self.parser.policies['X'])
+        self.assertIn('X', self.parser.categories)
+        self.assertEqual(self.parser.categories['FORBIDDEN'], self.parser.categories['X'])
 
-    def test_func_policy(self):
+    def test_func_category(self):
         self.parser.parse_content("""
         file=None
         FORBIDDEN=1
         """)
 
-        self.assertListEqual(['policy', 'FORBIDDEN', '1'], self.parser.message)
-        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_FORBIDDEN))
+        self.assertListEqual(['category', 'FORBIDDEN', '1'], self.parser.message)
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_FORBIDDEN))
 
-    def test_func_policy_skip_when_file_error(self):
+    def test_func_category_skip_when_file_error(self):
         self.parser.parse_content("""
         file=not_found.npy
         FORBIDDEN=1
@@ -340,13 +340,13 @@ class EditBlueprintTest(unittest.TestCase):
         """)
 
         self.assertListEqual([
-            'policy', 'FORBIDDEN', 's==0',
-            'policy', 'FORBIDDEN', 's==1',
-            'policy', 'FORBIDDEN', 's==2',
-            'policy', 'FORBIDDEN', 's==3',
+            'category', 'FORBIDDEN', 's==0',
+            'category', 'FORBIDDEN', 's==1',
+            'category', 'FORBIDDEN', 's==2',
+            'category', 'FORBIDDEN', 's==3',
         ], self.parser.message)
 
-        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_FORBIDDEN))
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_FORBIDDEN))
 
     def test_variable_not_define(self):
         self.parser.parse_content("""
@@ -354,7 +354,7 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=k
         """)
 
-        self.assertListEqual(['policy', 'FORBIDDEN', 'k', 'un-captured error'], self.parser.message)
+        self.assertListEqual(['category', 'FORBIDDEN', 'k', 'un-captured error'], self.parser.message)
         self.assertIsInstance(self.parser.error, NameError)
 
     def test_func_val(self):
@@ -365,8 +365,8 @@ class EditBlueprintTest(unittest.TestCase):
         """)
 
         self.assertIn('k', self.parser.variables)
-        self.assertListEqual(['policy', 'FORBIDDEN', 'k'], self.parser.message)
-        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_FORBIDDEN))
+        self.assertListEqual(['category', 'FORBIDDEN', 'k'], self.parser.message)
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_FORBIDDEN))
 
     def test_func_var(self):
         self.parser.parse_content("""
@@ -376,8 +376,8 @@ class EditBlueprintTest(unittest.TestCase):
         """)
 
         self.assertNotIn('k', self.parser.variables)
-        self.assertListEqual(['policy', 'FORBIDDEN', 'k'], self.parser.message)
-        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_FORBIDDEN))
+        self.assertListEqual(['category', 'FORBIDDEN', 'k'], self.parser.message)
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_FORBIDDEN))
 
     def test_func_save(self):
         m = TimeMaker()
@@ -388,35 +388,35 @@ class EditBlueprintTest(unittest.TestCase):
         """)
         m('parse_content')
 
-        self.assertListEqual(['policy', 'FORBIDDEN', '(y>6000)', 'save test-save.policy.npy'],
+        self.assertListEqual(['category', 'FORBIDDEN', '(y>6000)', 'save test-save.blueprint.npy'],
                              self.parser.message)
         m('assertListEqual')
 
         blueprint = self.parser.get_blueprint()
         m('set_blueprint')
 
-        file = Path('.') / 'test-save.policy.npy'
+        file = Path('.') / 'test-save.blueprint.npy'
         self.assertTrue(file.exists())
         m('assertTrue')
 
         probe = self.parser.probe
         chmap = self.parser.chmap
-        test = probe.electrode_from_numpy(probe.all_electrodes(chmap), np.load(file))
+        test = probe.load_blueprint(file, chmap)
         m('electrode_from_numpy')
 
         self.assert_blueprint_equal(blueprint, test)
         m('assert_blueprint_equal')
 
-    @unittest.skipIf(condition=not Path('test-save.policy.npy').exists(),
+    @unittest.skipIf(condition=not Path('test-save.blueprint.npy').exists(),
                      reason='test_func_save() need to run first')
     def test_func_blueprint(self):
         m = TimeMaker()
         self.parser.parse_content("""
-        blueprint()=./test-save.policy.npy
+        blueprint()=./test-save.blueprint.npy
         """)
         m('parse_content')
 
-        self.assertListEqual(['load test-save.policy.npy'], self.parser.message)
+        self.assertListEqual(['load test-save.blueprint.npy'], self.parser.message)
         m('assertListEqual')
 
         blueprint = self.parser.get_blueprint()
@@ -424,20 +424,20 @@ class EditBlueprintTest(unittest.TestCase):
 
         probe = self.parser.probe
         chmap = self.parser.chmap
-        test = probe.electrode_from_numpy(probe.all_electrodes(chmap), np.load('test-save.policy.npy'))
+        test = probe.load_blueprint('test-save.blueprint.npy', chmap)
         m('electrode_from_numpy')
 
         self.assert_blueprint_equal(blueprint, test)
         m('assert_blueprint_equal')
 
-    def test_policy_setting(self):
+    def test_category_setting(self):
         self.parser.parse_content("""
         file=None
         FORBIDDEN=(y>6000)
         LOW=1
         """)
 
-        self.assertFalse(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_LOW))
+        self.assertFalse(np.all(self.parser.get_result() == NpxProbeDesp.CATE_LOW))
 
         self.setUp()
 
@@ -447,7 +447,7 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=(y>6000)
         """)
 
-        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_LOW))
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_LOW))
 
     def test_block_setting(self):
         self.parser.parse_content("""
@@ -458,7 +458,7 @@ class EditBlueprintTest(unittest.TestCase):
         LOW=1
         """)
 
-        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_LOW))
+        self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_LOW))
 
         self.setUp()
 
@@ -470,7 +470,7 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=(y>6000)
         """)
 
-        self.assertFalse(np.all(self.parser.get_result() == NpxProbeDesp.POLICY_LOW))
+        self.assertFalse(np.all(self.parser.get_result() == NpxProbeDesp.CATE_LOW))
 
     def test_func_move(self):
         self.parser.parse_content("""
@@ -542,7 +542,7 @@ class EditBlueprintTest(unittest.TestCase):
         self.parser.parse_content("""
         file=None
         FORBIDDEN=(y>6000)
-        eval()=bp.set_blueprint(bp.move(bp.blueprint(), tx=0, ty=1000, shanks=[2,3], init=bp.POLICY_UNSET))
+        eval()=bp.set_blueprint(bp.move(bp.blueprint(), tx=0, ty=1000, shanks=[2,3], init=bp.CATE_UNSET))
         """)
 
         blueprint = self.parser.get_blueprint()

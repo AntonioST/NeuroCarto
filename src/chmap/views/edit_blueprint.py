@@ -72,10 +72,10 @@ def default_loader(filepath: Path, probe: ProbeDesp[M, E], chmap: M) -> NDArray[
     s = probe.all_electrodes(chmap)
 
     for e in s:
-        e.policy = np.nan
+        e.category = np.nan
 
-    s = probe.electrode_from_numpy(s, data)
-    return np.array([it.policy for it in s], dtype=float)
+    s = probe.load_blueprint(data, s)
+    return np.array([it.category for it in s], dtype=float)
 
 
 class InitializeBlueprintState(TypedDict):
@@ -140,10 +140,10 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
     cache_blueprint: list[E] | None
     cache_data: NDArray[np.float_] | None = None
 
-    def on_probe_update(self, probe: ProbeDesp, chmap: M | None = None, e: list[E] | None = None):
+    def on_probe_update(self, probe: ProbeDesp, chmap: M | None = None, electrodes: list[E] | None = None):
         self.cache_probe = probe
         self.cache_chmap = chmap
-        self.cache_blueprint = e
+        self.cache_blueprint = electrodes
 
         from chmap.probe_npx.npx import ChannelMap
         if isinstance(chmap, ChannelMap):
@@ -197,17 +197,17 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
                 ax.set_xlim(xlim[0], xlim[1] + 0.1)
 
     def _plot_npx_blueprint(self, ax: Axes, probe_type: ProbeType, blueprint: list[E]):
-        plot.plot_policy_area(ax, probe_type, blueprint, shank_width_scale=0.5)
+        plot.plot_category_area(ax, probe_type, blueprint, shank_width_scale=0.5)
         plot.plot_probe_shape(ax, probe_type, color=None, label_axis=False)
 
     def _plot_npx_electrode(self, ax: Axes, probe_type: ProbeType, blueprint: list[E], value: NDArray[np.float_], **kwargs):
-        data = plot.ElectrodeMatData.of(probe_type, np.vstack([
+        data = np.vstack([
             [it.x for it in blueprint],
             [it.y for it in blueprint],
             value
-        ]).T, electrode_unit='xy')
+        ]).T
 
-        plot.plot_electrode_block(ax, probe_type, data, shank_width_scale=0.5, **kwargs)
+        plot.plot_electrode_block(ax, probe_type, data, electrode_unit='xyv', shank_width_scale=0.5, **kwargs)
 
     def reset_blueprint(self):
         if (blueprint := self.cache_blueprint) is None:
@@ -216,7 +216,7 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
         self.logger.debug('reset blueprint')
 
         for e in blueprint:
-            e.policy = ProbeDesp.POLICY_UNSET
+            e.category = ProbeDesp.CATE_UNSET
 
         self.update_probe()
         self.log_message('reset blueprint')
@@ -257,13 +257,13 @@ class CriteriaParser(Generic[M, E]):
     ------------
 
     a numpy array that can be parsed by `ProbeDesp.electrode_from_numpy`.
-    The data value is read from `ElectrodeDesp.policy` for electrodes.
+    The data value is read from `ElectrodeDesp.category` for electrodes.
 
-    Because E's policy is expected as an int, this view also take it as an int by default.
+    Because E's category is expected as an int, this view also take it as an int by default.
 
     For the Neuropixels, `NpxProbeDesp` use the numpy array in this form:
 
-       Array[int, E, (shank, col, row, state, policy)]
+       Array[int, E, (shank, col, row, state, category)]
 
     Data loader
     -----------
@@ -271,7 +271,7 @@ class CriteriaParser(Generic[M, E]):
     If a data loader is given, it is imported by `import_name`.
     A loader should follow the signature `DataLoader`.
 
-    There is a default loader `default_loader` which just convert the electrode policy value
+    There is a default loader `default_loader` which just convert the electrode category value
     to float number.
 
     criteria_area
@@ -288,15 +288,15 @@ class CriteriaParser(Generic[M, E]):
            'file=' FILE comment? '\n'
            ('loader=' LOADER comment? '\n')?
            func_expression*
-        func_expression = POLICY '=' EXPRESSION comment? '\n'
+        func_expression = CATEGORY '=' EXPRESSION comment? '\n'
                         | FUNC(args*) ('=' EXPRESSION)? comment? '\n'
         args = VAR (',' VAR)*
 
     *   `FILE` is a file path. Could be 'None'.
     *   `LOADER` is a str match `import_name`'s required.
-    *   `POLICY` is a str defined in ProbeDesp[M, E] or an int which work as a tmp policy.
+    *   `CATEGORY` is a str defined in ProbeDesp[M, E] or an int which work as a tmp category.
 
-        it is short for `policy(POLICY)=expression`
+        it is short for `set(CATEGORY)=expression`
 
     *   `EXPRESSION` is a python expression with variables VAR.
 
@@ -315,17 +315,18 @@ class CriteriaParser(Generic[M, E]):
         The expression evaluated result should be an Array[bool, E].
         The latter expression does not overwrite the previous expression.
 
-    *   `FUNC` is function call
+    *   `FUNC` is a function call. Here lists functions with simple description.
+        For details, please check corresponding `func_FUNC` function.
 
         * `use(PROBE,...)` check current probe type (class name of `ProbeDesp`). Abort is not matched.
         * `run(FLAG,...)=FILE` run another file. FLAG could be 'inherit', 'abort'
-        * `func(NAME, SCOPE?)=func_import_path` import external function. SCOPE could be 'pure', 'parser', 'context'
-        * `blueprint(*POLICY)=FILE` load blueprint file (npy or channelmap file), with POLICY ONLY
-        * `check(POLICY,...)=ACTION?` check POLICY existed. ACTION could be: (omitted), 'info', 'warn', 'error'
-        * `policy(POLICY)=EXPRESSION` set POLICY
+        * `func(NAME, SCOPE?)=func_import_path` import external function.
+        * `blueprint(*CATEGORY)=FILE` load blueprint file (npy or channelmap file), with CATEGORY only.
+        * `check(CATEGORY,...)=ACTION?` check CATEGORY existed.
+        * `set(CATEGORY)=EXPRESSION` set CATEGORY by a bool mask (EXPRESSION result)
         * `val(NAME)=EXPRESSION` set variable NAME
         * `var(NAME)=EXPRESSION` set temp variable NAME
-        * `alias(NAME)=POLICY` give POLICY an alias NAME
+        * `alias(NAME)=CATEGORY` give the CATEGORY an alias NAME
         * `save()=FILE` save current result to file
         * `move(SHANK,...)=VALUE` move the blueprint up/down
         * `print(FLAG)=MESSAGE` print message
@@ -339,10 +340,10 @@ class CriteriaParser(Generic[M, E]):
         # It is a comment
         file=data.npy
         loader=default_loader
-        FORBIDDEN=(y>6000)  # set all electrodes over 6mm to FORBIDDEN policy
-        FORBIDDEN=(s==0)    # set all electrodes in shank 0 to FORBIDDEN policy
-        FULL=v>1            # set all electrodes which value over 1 to FULL policy
-        LOW=np.one_like(s)  # set remained electrodes to LOW policy
+        FORBIDDEN=(y>6000)  # set all electrodes over 6mm to FORBIDDEN category
+        FORBIDDEN=(s==0)    # set all electrodes in shank 0 to FORBIDDEN category
+        FULL=v>1            # set all electrodes which value over 1 to FULL category
+        LOW=np.one_like(s)  # set remained electrodes to LOW category
 
     Debug Example::
 
@@ -357,11 +358,7 @@ class CriteriaParser(Generic[M, E]):
         self.view = view
         self.probe = probe
         self.chmap = chmap
-        self.policies = {
-            it[len('POLICY_'):]: int(getattr(probe, it))  # make sure policies are int?
-            for it in dir(type(probe))
-            if it.startswith('POLICY_')
-        }
+        self.categories = probe.all_possible_categories()
 
         self.electrodes = probe.all_electrodes(chmap)
         self.variables = dict(
@@ -371,7 +368,7 @@ class CriteriaParser(Generic[M, E]):
         )
         self.external_functions: dict[str, (SCOPE, ExternalFunction)] = {}
 
-        self.blueprint_functions = BlueprintFunctions(self.variables['s'], self.variables['x'], self.variables['y'], self.policies)
+        self.blueprint_functions = BlueprintFunctions(self.variables['s'], self.variables['x'], self.variables['y'], self.categories)
         self.context: CriteriaContext | None = None
 
         self.current_line: int = 0
@@ -402,47 +399,47 @@ class CriteriaParser(Generic[M, E]):
         ret = context.merge_result().copy()
         mask = np.zeros_like(ret, dtype=bool)
 
-        # mask valid policy value
-        for v in self.policies.values():
+        # mask valid category value
+        for v in self.categories.values():
             np.logical_or(mask, ret == v, out=mask)
 
-        ret[~mask] = ProbeDesp.POLICY_UNSET
+        ret[~mask] = ProbeDesp.CATE_UNSET
         return ret
 
-    def get_policy_value(self, policy: str) -> int | None:
-        if policy.isalpha():
+    def get_category_value(self, category: str) -> int | None:
+        if category.isalpha():
             try:
-                return self.policies[policy.upper()]
+                return self.categories[category.upper()]
             except KeyError:
                 pass
 
         try:
-            return int(policy)
+            return int(category)
         except ValueError:
             return None
 
-    def get_blueprint(self, blueprint: list[E] = None, policies: NDArray[np.int_] = None) -> list[E]:
+    def get_blueprint(self, blueprint: list[E] = None, categories: NDArray[np.int_] = None) -> list[E]:
         if blueprint is None:
             blueprint = self.probe.all_electrodes(self.chmap)
 
-        if policies is None:
-            policies = self.get_result()
+        if categories is None:
+            categories = self.get_result()
 
         c = {it.electrode: it for it in blueprint}
-        for e, p in zip(self.probe.all_electrodes(self.chmap), policies):
+        for e, p in zip(self.probe.all_electrodes(self.chmap), categories):
             if (t := c.get(e.electrode, None)) is not None:
-                t.policy = int(p)
+                t.category = int(p)
 
         return blueprint
 
-    def set_blueprint(self, blueprint: list[E], policies: list[int] = tuple(), inherit=True):
-        data = np.array([it.policy for it in blueprint])
+    def set_blueprint(self, blueprint: list[E], categories: list[int] = tuple(), inherit=True):
+        data = np.array([it.category for it in blueprint])
 
-        if len(policies) > 0:
+        if len(categories) > 0:
             mask = np.zeros_like(data, dtype=bool)
-            for p in policies:
+            for p in categories:
                 np.logical_or(mask, data == p, out=mask)
-            data[~mask] = ProbeDesp.POLICY_UNSET
+            data[~mask] = ProbeDesp.CATE_UNSET
 
         context = CriteriaContext(self, self.context if inherit else None)
         context.result[:] = data
@@ -542,7 +539,7 @@ class CriteriaParser(Generic[M, E]):
                         self.warning('missing file=')
                 case _:
                     if self.context is not None and self.context.data is not None:
-                        self.parse_call('policy', [left], expression)
+                        self.parse_call('set', [left], expression)
 
     def parse_args(self, args: str) -> list[str]:
         args = args.strip()
@@ -663,8 +660,8 @@ class CriteriaParser(Generic[M, E]):
         * 'abort' : abort when any error. otherwise, skip.
         * 'no-function', 'xf' : do not import external function
         * 'no-variable', 'xv'  do not import variable
-        * 'no-alias', 'xa' do not import policy aliases
-        * 'no-result', 'xr'  do not import policy result
+        * 'no-alias', 'xa' do not import category aliases
+        * 'no-result', 'xr'  do not import category result
 
         :param args: [flag,...]
         :param expression: filepath
@@ -698,32 +695,34 @@ class CriteriaParser(Generic[M, E]):
         if not no_var:
             self.variables.update(parser.variables)
         if not no_ali:
-            for p, v in parser.policies.items():
-                self.policies.setdefault(p, v)
+            for p, v in parser.categories.items():
+                self.categories.setdefault(p, v)
         if not no_res:
             self.context = parser.context
 
     def func_check(self, args: list[str], expression: str | None = None):
         """
 
+        check categories name.
+
         ACTION:
 
-        * 'info' send message about unknown policies in INFO level
-        * 'warn' send message about unknown policies in WARN level
-        * 'error' send message about unknown policies in WARN level and abort parsing.
+        * 'info' send message about unknown categories in INFO level
+        * 'warn' send message about unknown categories in WARN level
+        * 'error' send message about unknown categories in WARN level and abort parsing.
 
-        :param args: policies values
+        :param args: categories values
         :param expression: ACTION, default 'info'
         """
-        for policy in args:
-            if self.get_policy_value(policy) is None:
+        for category in args:
+            if self.get_category_value(category) is None:
                 match expression:
                     case None | 'info':
-                        self.info(f'unknown policy {policy}')
+                        self.info(f'unknown category {category}')
                     case 'warn':
-                        self.warning(f'unknown policy {policy}')
+                        self.warning(f'unknown category {category}')
                     case 'error':
-                        self.warning(f'unknown policy {policy}')
+                        self.warning(f'unknown category {category}')
                         raise KeyboardInterrupt
                     case _:
                         self.warning(f'unknown action {expression}')
@@ -731,18 +730,18 @@ class CriteriaParser(Generic[M, E]):
 
     def func_alias(self, args: list[str], expression: str):
         """
-        alias a POLICY to a new name.
+        alias a category name to a new name.
 
         :param args: [name]
         :param expression: expression
         """
         match args:
             case [str(name)] if name.isalpha():
-                if (policy := self.get_policy_value(expression)) is None:
-                    self.warning(f'unknown policy {expression}')
+                if (category := self.get_category_value(expression)) is None:
+                    self.warning(f'unknown category {expression}')
                     return
 
-                self.policies[name.upper()] = policy
+                self.categories[name.upper()] = category
             case _:
                 self.warning(f'unknown args {args}')
                 return
@@ -823,12 +822,12 @@ class CriteriaParser(Generic[M, E]):
         """
         load blueprint.
 
-        :param args: [policy,...] policy mask.
-        :param expression: channelmap (change suffix '.policy.npy') or blueprint (*.npy) filepath.
+        :param args: [category,...] category mask.
+        :param expression: channelmap (change suffix '.blueprint.npy') or blueprint (*.npy) filepath.
         :return:
         """
-        policies = [self.get_policy_value(it) for it in args]
-        if None in policies:
+        categories = [self.get_category_value(it) for it in args]
+        if None in categories:
             return
 
         file = Path(expression)
@@ -843,19 +842,19 @@ class CriteriaParser(Generic[M, E]):
                 self.warning(f'load channelmap fail. {file}', exc=e)
                 return
 
-            file = file.with_suffix('.policy.npy')
+            file = file.with_suffix('.blueprint.npy')
 
         if not file.exists():
             self.warning(f'file not found. {file}')
 
         try:
             self.info(f'load {file}')
-            data = self.probe.electrode_from_numpy(self.probe.all_electrodes(chmap), np.load(file))
+            data = self.probe.load_blueprint(file, chmap)
         except BaseException as e:
-            self.warning(f'load policy fail. {file}', exc=e)
+            self.warning(f'load blueprint fail. {file}', exc=e)
             return
 
-        self.set_blueprint(data, policies, inherit=True)
+        self.set_blueprint(data, categories, inherit=True)
 
     def func_save(self, args: list[str], expression: str):
         """
@@ -868,24 +867,24 @@ class CriteriaParser(Generic[M, E]):
             self.warning(f'unknown args {args}')
             return
 
-        file = Path(expression).with_suffix('.policy.npy')
+        file = Path(expression).with_suffix('.blueprint.npy')
         blueprint = self.probe.all_electrodes(self.chmap)
         self.get_blueprint(blueprint)
-        data = self.probe.electrode_to_numpy(blueprint)
+        data = self.probe.save_blueprint(blueprint)
         np.save(file, data)
         self.info(f'save {file}')
 
-    def func_policy(self, args: list[str], expression: str):
+    def func_set(self, args: list[str], expression: str):
         """
 
-        :param args: [policy]
+        :param args: [category]
         :param expression: expression
         :return:
         """
         match args:
-            case [str(policy)]:
-                if (value := self.get_policy_value(policy)) is None:
-                    self.warning(f'unknown policy {policy}')
+            case [str(category)]:
+                if (category := self.get_category_value(category)) is None:
+                    self.warning(f'unknown category {category}')
                     return
             case _:
                 self.warning(f'unknown args {args}')
@@ -895,7 +894,7 @@ class CriteriaParser(Generic[M, E]):
             return
 
         result = np.asarray(self.eval_expression(expression, force_context=True), dtype=bool)
-        context.update_result(value, result)
+        context.update_result(category, result)
 
     def func_move(self, args: list[str], expression: str):
         """
@@ -903,7 +902,7 @@ class CriteriaParser(Generic[M, E]):
 
         `move(SHANKS)=[MX,]MY` short from ::
 
-            eval()=bp.set_blueprint(bp.move(bp.blueprint(), tx=MY, ty=MY, shanks=SHANKS, init=bp.POLICY_UNSET))
+            eval()=bp.set_blueprint(bp.move(bp.blueprint(), tx=MY, ty=MY, shanks=SHANKS, init=bp.CATE_UNSET))
 
         :param args: [shank,...], empty for all shanks.
         :param expression: y movement in um. or 'x,y' 2d movement.
@@ -923,11 +922,11 @@ class CriteriaParser(Generic[M, E]):
         if my != 0 and abs(my) < (dy := self.blueprint_functions.dy):
             self.info(f'y movement {my} smaller than the dx {dy}')
 
-        policies = self.get_result()
-        new_policies = self.blueprint_functions.move(policies, tx=mx, ty=my, shanks=shanks, init=ProbeDesp.POLICY_UNSET)
+        categories = self.get_result()
+        new_categories = self.blueprint_functions.move(categories, tx=mx, ty=my, shanks=shanks, init=ProbeDesp.CATE_UNSET)
 
         context = CriteriaContext(self, None)
-        context.result[:] = new_policies
+        context.result[:] = new_categories
         self.context = context
 
     def func_draw(self, args: list[str], expression: str = None):
@@ -981,11 +980,11 @@ class CriteriaContext:
 
         self.variables = dict(parser.variables)
         if previous is None:
-            self.variables['p'] = np.full((len(parser.electrodes),), ProbeDesp.POLICY_UNSET)
+            self.variables['p'] = np.full((len(parser.electrodes),), ProbeDesp.CATE_UNSET)
         else:
             self.variables['p'] = previous.merge_result()
 
-        self.result: NDArray[np.int_] = np.full((len(parser.electrodes),), ProbeDesp.POLICY_UNSET)
+        self.result: NDArray[np.int_] = np.full((len(parser.electrodes),), ProbeDesp.CATE_UNSET)
 
         self._data: NDArray[np.float_] | None = missing
 
@@ -1053,19 +1052,19 @@ class CriteriaContext:
 
         return self._data
 
-    def update_result(self, policy: int, result: NDArray[np.bool_]):
+    def update_result(self, category: int, result: NDArray[np.bool_]):
         if result.ndim == 0:
             result = np.full_like(self.result, result, dtype=bool)
 
         # The latter does not overwrite the previous.
         previous = self.result
-        self.result = np.where((previous == ProbeDesp.POLICY_UNSET) & result, policy, previous)
+        self.result = np.where((previous == ProbeDesp.CATE_UNSET) & result, category, previous)
 
     def merge_result(self) -> NDArray[np.int_]:
         previous = self.variables['p']
         result = self.result
         # The latter result overwrite previous result.
-        return np.where(result == ProbeDesp.POLICY_UNSET, previous, result)
+        return np.where(result == ProbeDesp.CATE_UNSET, previous, result)
 
 
 if __name__ == '__main__':

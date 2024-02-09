@@ -11,15 +11,15 @@ def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxE
 
     cand: dict[K, NpxElectrodeDesp] = {it.electrode: it for it in desp.all_electrodes(ret)}
     for e in blueprint:
-        cand[e.electrode].policy = e.policy
+        cand[e.electrode].category = e.category
 
     for e in blueprint:
         # add pre-selected
-        if e.policy == NpxProbeDesp.POLICY_SET:
+        if e.category == NpxProbeDesp.CATE_SET:
             _add(desp, ret, cand, e)
 
         # remove forbidden electrodes from the candidate set
-        elif e.policy == NpxProbeDesp.POLICY_FORBIDDEN:
+        elif e.category == NpxProbeDesp.CATE_FORBIDDEN:
             try:
                 del cand[e.electrode]
             except KeyError:
@@ -32,7 +32,7 @@ def select_loop(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrod
                 **kwargs) -> ChannelMap:
     while len(cand):
         p, e = pick_electrode(cand)
-        if p == NpxProbeDesp.POLICY_FORBIDDEN:
+        if p == NpxProbeDesp.CATE_FORBIDDEN:
             break
         elif e is not None:
             update(desp, chmap, cand, e, p)
@@ -44,35 +44,35 @@ def select_loop(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrod
 
 def pick_electrode(cand: dict[K, NpxElectrodeDesp]) -> tuple[int, NpxElectrodeDesp | None]:
     if len(cand) == 0:
-        return NpxProbeDesp.POLICY_FORBIDDEN, None
+        return NpxProbeDesp.CATE_FORBIDDEN, None
 
-    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_FULL]) > 0:
-        return NpxProbeDesp.POLICY_FULL, random.choice(ret)
+    if len(ret := [e for e in cand.values() if e.category == NpxProbeDesp.CATE_FULL]) > 0:
+        return NpxProbeDesp.CATE_FULL, random.choice(ret)
 
-    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_HALF]) > 0:
-        return NpxProbeDesp.POLICY_HALF, random.choice(ret)
+    if len(ret := [e for e in cand.values() if e.category == NpxProbeDesp.CATE_HALF]) > 0:
+        return NpxProbeDesp.CATE_HALF, random.choice(ret)
 
-    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_QUARTER]) > 0:
-        return NpxProbeDesp.POLICY_QUARTER, random.choice(ret)
+    if len(ret := [e for e in cand.values() if e.category == NpxProbeDesp.CATE_QUARTER]) > 0:
+        return NpxProbeDesp.CATE_QUARTER, random.choice(ret)
 
-    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_LOW]) > 0:
-        return NpxProbeDesp.POLICY_LOW, random.choice(ret)
+    if len(ret := [e for e in cand.values() if e.category == NpxProbeDesp.CATE_LOW]) > 0:
+        return NpxProbeDesp.CATE_LOW, random.choice(ret)
 
-    if len(ret := [e for e in cand.values() if e.policy == NpxProbeDesp.POLICY_UNSET]) > 0:
-        return NpxProbeDesp.POLICY_UNSET, random.choice(ret)
+    if len(ret := [e for e in cand.values() if e.category == NpxProbeDesp.CATE_UNSET]) > 0:
+        return NpxProbeDesp.CATE_UNSET, random.choice(ret)
 
-    return NpxProbeDesp.POLICY_FORBIDDEN, None
+    return NpxProbeDesp.CATE_FORBIDDEN, None
 
 
-def update(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp, policy: int):
-    match policy:
-        case NpxProbeDesp.POLICY_FULL:
+def update(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp, category: int):
+    match category:
+        case NpxProbeDesp.CATE_FULL:
             return update_d1(desp, chmap, cand, e)
-        case NpxProbeDesp.POLICY_HALF:
+        case NpxProbeDesp.CATE_HALF:
             return update_d2(desp, chmap, cand, e)
-        case NpxProbeDesp.POLICY_QUARTER:
+        case NpxProbeDesp.CATE_QUARTER:
             return update_d4(desp, chmap, cand, e)
-        case NpxProbeDesp.POLICY_LOW | NpxProbeDesp.POLICY_UNSET:
+        case NpxProbeDesp.CATE_LOW | NpxProbeDesp.CATE_UNSET:
             return _add(desp, chmap, cand, e)
         case _:
             raise ValueError()
@@ -137,7 +137,7 @@ def _del(cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp | None):
 
 def _get(chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp, c: int, r: int) -> NpxElectrodeDesp | None:
     ret = cand.get(_move(chmap.probe_type, e, c, r), None)
-    return ret if ret is not None and ret.policy == e.policy else None
+    return ret if ret is not None and ret.category == e.category else None
 
 
 def _move(probe_type: ProbeType, e: NpxElectrodeDesp, c: int, r: int) -> K:

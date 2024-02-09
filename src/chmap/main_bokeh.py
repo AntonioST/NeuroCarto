@@ -157,9 +157,9 @@ class ChannelMapEditorApp(BokehApplication):
         self.log_message(f'save channelmap : {file.name}')
         return file
 
-    def get_policy_file(self, chmap: str | Path) -> Path:
+    def get_blueprint_file(self, chmap: str | Path) -> Path:
         """
-        Get corresponded policy matrix saving path.
+        Get corresponded blueprint from channelmap saving path.
 
         :param chmap: filename. See get_chmap_file(filename) for more details.
         :return: saving path.
@@ -168,47 +168,47 @@ class ChannelMapEditorApp(BokehApplication):
             imro_file = self.get_chmap_file(chmap)
         else:
             imro_file = chmap
-        return imro_file.with_suffix('.policy.npy')
+        return imro_file.with_suffix('.blueprint.npy')
 
-    def load_policy(self, chmap: str | Path) -> bool:
+    def load_blueprint(self, chmap: str | Path) -> bool:
         """
-        Load channelmap *chmap* corresponded policy matrix.
+        Load channelmap *chmap* corresponded blueprint.
 
-        :param chmap: filename. See get_policy_file(filename) for more details.
+        :param chmap: filename. See get_blueprint_file(filename) for more details.
         :return: True on success.
         """
         if (electrodes := self.probe_view.electrodes) is None:
             return False
 
-        file = self.get_policy_file(chmap)
+        file = self.get_blueprint_file(chmap)
 
         try:
             data = np.load(file)
         except FileNotFoundError as e:
             self.log_message(f'File not found : {file}')
-            self.logger.warning(f'policy file not found : %s', file, exc_info=e)
+            self.logger.warning(f'blueprint file not found : %s', file, exc_info=e)
             return False
         else:
-            self.log_message(f'load policy : {file.name}')
+            self.log_message(f'load blueprint : {file.name}')
 
-        self.probe.electrode_from_numpy(electrodes, data)
+        self.probe.load_blueprint(data, electrodes)
         return True
 
-    def save_policy(self, chmap: str | Path) -> Path | None:
+    def save_blueprint(self, chmap: str | Path) -> Path | None:
         """
-       Save channelmap *chmap* corresponded policy matrix.
+        Save channelmap *chmap* corresponded blueprint.
 
-       :param chmap: filename. See get_policy_file(filename) for more details.
-       :return: saving path. None on failure.
-       """
+        :param chmap: filename. See get_blueprint_file(filename) for more details.
+        :return: saving path. None on failure.
+        """
         if (electrodes := self.probe_view.electrodes) is None:
             return None
 
-        file = self.get_policy_file(chmap)
-        data = self.probe.electrode_to_numpy(electrodes)
+        file = self.get_blueprint_file(chmap)
+        data = self.probe.save_blueprint(electrodes)
 
         np.save(file, data)
-        self.log_message(f'save policy : {file.name}')
+        self.log_message(f'save blueprint : {file.name}')
 
         return file
 
@@ -343,10 +343,10 @@ class ChannelMapEditorApp(BokehApplication):
             for name, value in self.probe.possible_states.items()
         ], 2)
 
-        # electrode selecting policy buttons
-        policy_btns = col_layout([
-            new_btn(name, functools.partial(self.on_policy_change, policy=value))
-            for name, value in self.probe.possible_policies.items()
+        # electrode selecting category buttons
+        category_btns = col_layout([
+            new_btn(name, functools.partial(self.on_category_change, category=value))
+            for name, value in self.probe.possible_categories.items()
         ], 2)
 
         # channelmap IO buttons
@@ -374,10 +374,10 @@ class ChannelMapEditorApp(BokehApplication):
             self.input_imro,
             Row(empty_btn, load_btn, save_btn),
             self.output_imro,
-            Div(text="<b>State</b>"),
+            Div(text="<b>Electrode State</b>"),
             *state_btns,
-            Div(text="<b>Policy</b>"),
-            *policy_btns,
+            Div(text="<b>Electrode Category</b>"),
+            *category_btns,
             Row(self.auto_btn, refresh_btn),
             self.message_area,
         ]
@@ -556,7 +556,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.output_imro.value = file.stem
 
         self.probe_view.reset(chmap)
-        self.load_policy(file)
+        self.load_blueprint(file)
 
         config = self.load_view_config(file, reset=True)
         for view in self.right_panel_views:
@@ -602,7 +602,7 @@ class ChannelMapEditorApp(BokehApplication):
             return
 
         path = self.save_chmap(name, chmap)
-        self.save_policy(path)
+        self.save_blueprint(path)
         self.save_view_config(path)
 
         self.output_imro.value = path.stem
@@ -627,22 +627,23 @@ class ChannelMapEditorApp(BokehApplication):
         else:
             self.on_probe_update()
 
-    def on_policy_change(self, policy: int):
-        for desp, code in self.probe.possible_policies.items():
-            if code == policy:
+    def on_category_change(self, category: int):
+        for desp, code in self.probe.possible_categories.items():
+            if code == category:
                 break
         else:
             desp = None
 
         if desp is not None:
-            self.logger.debug('on_policy_change(%d)=%s', policy, desp)
+            self.logger.debug('on_category_change(%d)=%s', category, desp)
         else:
-            self.logger.debug('on_policy_change(%d)', policy)
+            self.logger.debug('on_category_change(%d)', category)
 
         try:
-            self.probe_view.set_policy_for_selected(policy)
-        except BaseException:
-            self.log_message(f'set policy {desp} fail')
+            self.probe_view.set_category_for_selected(category)
+        except BaseException as e:
+            self.log_message(f'set category {desp} fail')
+            self.logger.warning('set category %s fail', desp, exc_info=e)
             return
 
         if self.auto_btn.active:

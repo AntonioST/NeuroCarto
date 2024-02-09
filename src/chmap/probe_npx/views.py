@@ -41,7 +41,7 @@ class NpxReferenceControl(ViewBase, DynamicView):
 
         return ret
 
-    def on_probe_update(self, probe, chmap, e):
+    def on_probe_update(self, probe, chmap, electrodes):
         if isinstance(probe, NpxProbeDesp):
             if chmap is None:
                 self._chmap = None

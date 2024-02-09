@@ -39,7 +39,7 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
     # updating methods #
     # ================ #
 
-    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
+    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, electrodes: list[E] | None):
         run_later(self.update)
 
     def start(self):

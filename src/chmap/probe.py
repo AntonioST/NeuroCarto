@@ -65,9 +65,9 @@ class ElectrodeDesp:
     electrode: Hashable  # for identify
     channel: Any  # for display in hover
     state: int = 0
-    policy: int = 0
+    category: int = 0
 
-    __match_args__ = 'electrode', 'channel', 'state', 'policy'
+    __match_args__ = 'electrode', 'channel', 'state', 'category'
 
     def copy(self, r: ElectrodeDesp, **kwargs) -> Self:
         """A copy helper function to move data from *r*.
@@ -99,7 +99,7 @@ class ElectrodeDesp:
     def __repr__(self):
         pos = [self.x, self.y]
         pos = ','.join(map(str, pos))
-        return f'Electrode[{self.channel}:{self.electrode}]({pos}){{state={self.state}, policy={self.policy}}}'
+        return f'Electrode[{self.channel}:{self.electrode}]({pos}){{state={self.state}, category={self.category}}}'
 
 
 K = TypeVar('K')
@@ -119,11 +119,11 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     STATE_USED: ClassVar = 1  # electrode is selected.
     STATE_FORBIDDEN: ClassVar = 2  # electrode is not used, but it is not selectable.
 
-    # predefined electrode selecting policy
-    POLICY_UNSET: ClassVar = 0  # initial value
-    POLICY_SET: ClassVar = 1  # pre-selected
-    POLICY_FORBIDDEN: ClassVar = 2  # never be selected
-    POLICY_LOW: ClassVar = 3  # random selected, low priority
+    # predefined electrode categories
+    CATE_UNSET: ClassVar = 0  # initial value
+    CATE_SET: ClassVar = 1  # pre-selected
+    CATE_FORBIDDEN: ClassVar = 2  # never be selected
+    CATE_LOW: ClassVar = 3  # random selected, low priority
 
     @property
     @abc.abstractmethod
@@ -151,15 +151,41 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def possible_policies(self) -> dict[str, int]:
+    def possible_categories(self) -> dict[str, int]:
         """
-        All possible exported electrode policies.
+        All possible exported electrode categories.
 
         Used in ChannelMapEditorApp._index_left_control() for dynamic generating buttons.
 
-        :return: :return: dict of {description: policy}
+        :return: dict of {description: category}
         """
         pass
+
+    @classmethod
+    def all_possible_states(cls) -> dict[str, int]:
+        """
+        Implement note: It finds all class variable that its name starts with 'STATE_'.
+
+        :return: dict of {state name: state value}
+        """
+        return {
+            it[6:]: int(getattr(cls, it))
+            for it in dir(cls)
+            if it.startswith('STATE_')
+        }
+
+    @classmethod
+    def all_possible_categories(cls) -> dict[str, int]:
+        """
+        Implement note: It finds all class variable that its name starts with 'CATE_'.
+
+        :return: dict of {category name: category value}
+        """
+        return {
+            it[5:]: int(getattr(cls, it))
+            for it in dir(cls)
+            if it.startswith('CATE_')
+        }
 
     def extra_controls(self, config: ChannelMapEditorConfig) -> list[type[ViewBase]]:
         """
@@ -246,12 +272,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def all_channels(self, chmap: M, s: Iterable[E] = None) -> list[E]:
+    def all_channels(self, chmap: M, electrodes: Iterable[E] = None) -> list[E]:
         """
         Selected electrode set in channelmap.
 
         :param chmap: a channelmap instance
-        :param s: restrict electrode set that the return set is its subset.
+        :param electrodes: restrict electrode set that the return set is its subset.
         :return: a list of ElectrodeDesp
         """
         pass
@@ -272,14 +298,17 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
-    def get_electrode(self, s: Iterable[E], e: Hashable) -> E | None:
+    def get_electrode(self, electrodes: Iterable[E], e: Hashable | E) -> E | None:
         """
 
-        :param s: an electrode set
+        :param electrodes: an electrode set
         :param e: electrode identify, as same as ElectrodeDesp.electrode.
         :return: found electrode in *s*. None if not found.
         """
-        for ee in s:
+        if isinstance(e, ElectrodeDesp):
+            e = e.electrode
+
+        for ee in electrodes:
             if ee.electrode == e:
                 return ee
         return None
@@ -316,7 +345,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
-    def copy_electrode(self, s: Sequence[E]) -> list[E]:
+    def copy_electrode(self, electrodes: Sequence[E]) -> list[E]:
         """
         Copy an electrode set, including **ALL** information for every electrode.
 
@@ -327,14 +356,14 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         * type E has any attribute name start with '_'
         * type E overwrite `__getattr__`, `__setattr__`
 
-        :param s:
+        :param electrodes:
         :return:
         """
-        if len(s) == 0:
+        if len(electrodes) == 0:
             return []
 
-        t: type[E] = type(s[0])
-        return [t().copy(it) for it in s]
+        t: type[E] = type(electrodes[0])
+        return [t().copy(it) for it in electrodes]
 
     @abc.abstractmethod
     def probe_rule(self, chmap: M, e1: E, e2: E) -> bool:
@@ -353,50 +382,53 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
-    def invalid_electrodes(self, chmap: M, e: E | Iterable[E], s: Iterable[E]) -> list[E]:
+    def invalid_electrodes(self, chmap: M, e: E | Iterable[E], electrodes: Iterable[E]) -> list[E]:
         """
         Collect the invalid electrodes that an electrode from *s* will break the `probe_rule`
         with the electrode *e* (or any electrode from *e*).
 
         :param chmap: channelmap type. It is a reference.
         :param e: an electrode.
-        :param s: an electrode set.
+        :param electrodes: an electrode set.
         :return: an invalid electrode set from *s*.
         """
         if isinstance(e, Iterable):
-            return [it for it in s if any([not self.probe_rule(chmap, ee, it) for ee in e])]
+            return [it for it in electrodes if any([not self.probe_rule(chmap, ee, it) for ee in e])]
         else:
-            return [it for it in s if not self.probe_rule(chmap, e, it)]
+            return [it for it in electrodes if not self.probe_rule(chmap, e, it)]
 
     @abc.abstractmethod
-    def select_electrodes(self, chmap: M, s: list[E], **kwargs) -> M:
+    def select_electrodes(self, chmap: M, blueprint: list[E], **kwargs) -> M:
         """
         Selecting electrodes based on the electrode blueprint.
 
         :param chmap: channelmap type. It is a reference.
-        :param s: channelmap blueprint
+        :param blueprint: channelmap blueprint
         :param kwargs: other parameters.
         :return: generated channelmap
         """
         pass
 
     @abc.abstractmethod
-    def electrode_to_numpy(self, s: list[E]) -> NDArray[np.int_]:
+    def save_blueprint(self, blueprint: list[E]) -> NDArray[np.int_]:
         """
-        Store electrode information into a numpy array for saving purpose.
+        Store blueprint, included all electrode information into a numpy array.
 
-        :param s: all electrode set.
-        :return: policy matrix for saving.
+        :param blueprint: blueprint.
+        :return: blueprint matrix.
         """
         pass
 
     @abc.abstractmethod
-    def electrode_from_numpy(self, s: list[E], a: NDArray[np.int_]) -> list[E]:
+    def load_blueprint(self, a: str | Path | NDArray[np.int_], chmap: int | M | list[E]) -> list[E]:
         """
-        Retrieve electrode information for an electrode set *s* from *a* for saving purpose.
+        Restore blueprint, included all electrode information from a numpy array *a*.
 
-        :param s: all electrode set.
-        :param a: saved policy matrix
-        :return: *s*
+        If *chmap* is a list[E], it indicates only restore the information only for
+        this electrode subset.
+
+        :param a: saved category matrix, or a saved '.npy' file path
+        :param chmap: channelmap type, or an electrode set.
+        :return: blueprint
         """
         pass

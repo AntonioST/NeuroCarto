@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 
 import matplotlib
-import numpy as np
 from matplotlib import pyplot as plt
 
 from chmap.probe_npx.desp import NpxProbeDesp
@@ -16,9 +15,8 @@ plt.rcParams.update(rc)
 file = Path(sys.argv[1])
 desp = NpxProbeDesp()
 chmap = ChannelMap.from_imro(file)
-policy = np.load(file.with_suffix('.policy.npy'))
-electrodes = desp.electrode_from_numpy(desp.all_electrodes(chmap), policy)
-chmap = electrode_select(desp, chmap, electrodes, selector='weaker')
+blueprint = desp.load_blueprint(file.with_suffix('.blueprint.npy'), chmap)
+chmap = electrode_select(desp, chmap, blueprint, selector='weaker')
 
 fg, ax = plt.subplots()
 height = 6

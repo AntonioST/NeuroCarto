@@ -59,7 +59,7 @@ class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
             margin=(5, 5, 5, 40)
         )
 
-    def on_probe_update(self, probe: ProbeDesp, chmap, e):
+    def on_probe_update(self, probe: ProbeDesp, chmap, electrodes):
         if chmap is None:
             self._stat = None
         elif isinstance(probe, NpxProbeDesp):
@@ -67,9 +67,9 @@ class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
 
             try:
                 from chmap.probe_npx.stat import npx_channel_efficiency
-                self._stat = npx_channel_efficiency(chmap, e)
-            except BaseException as e:
-                self.logger.warning(repr(e), exc_info=e)
+                self._stat = npx_channel_efficiency(chmap, electrodes)
+            except BaseException as electrodes:
+                self.logger.warning(repr(electrodes), exc_info=electrodes)
                 self._stat = None
 
         self.update()

@@ -375,13 +375,13 @@ class DynamicView:
     This view component needs to be aware on modification of channelmap and electrodes.
     """
 
-    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, e: list[E] | None):
+    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, electrodes: list[E] | None):
         """
-        Invoked when channelmap is changed or electrode's policy is changed.
+        Invoked when channelmap is changed or electrode's category is changed.
 
         :param probe: probe interface.
         :param chmap: channelmap instance.
-        :param e: all electrodes.
+        :param electrodes: all electrodes.
         """
         pass
 

@@ -23,14 +23,14 @@ def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxE
     }
 
     for e in blueprint:
-        cand[e.electrode].policy = e.policy
+        cand[e.electrode].category = e.category
 
     for e in cand.values():
-        e.prob = policy_mapping_priority(e.policy)
+        e.prob = category_mapping_probability(e.category)
 
     for e in cand.values():
         # add pre-selected
-        if e.policy == NpxProbeDesp.POLICY_SET:
+        if e.category == NpxProbeDesp.CATE_SET:
             _add(desp, cand, e)
 
     _select_loop(desp, probe_type, cand)
@@ -46,21 +46,21 @@ def _select_loop(desp: NpxProbeDesp, probe_type: ProbeType, cand: dict[K, E]):
             break
 
 
-def policy_mapping_priority(p: int) -> float:
+def category_mapping_probability(p: int) -> float:
     match p:
-        case NpxProbeDesp.POLICY_SET:
+        case NpxProbeDesp.CATE_SET:
             return 1.0
-        case NpxProbeDesp.POLICY_FULL:
+        case NpxProbeDesp.CATE_FULL:
             return 0.9
-        case NpxProbeDesp.POLICY_HALF:
+        case NpxProbeDesp.CATE_HALF:
             return 0.8  # 0.4, 0.2
-        case NpxProbeDesp.POLICY_QUARTER:
+        case NpxProbeDesp.CATE_QUARTER:
             return 0.7  # 0.35, 0.175
-        case NpxProbeDesp.POLICY_LOW:
+        case NpxProbeDesp.CATE_LOW:
             return 0.6
-        case NpxProbeDesp.POLICY_FORBIDDEN:
+        case NpxProbeDesp.CATE_FORBIDDEN:
             return 0
-        # case NpxProbeDesp.POLICY_UNSET:
+        # case NpxProbeDesp.CATE_UNSET:
         case _:
             return 0.5
 
@@ -106,8 +106,8 @@ def update_prob(desp: NpxProbeDesp, cand: dict[K, E], e: E):
 
 
 def surr(cand: dict[K, E], e: E) -> Iterator[E | None]:
-    match e.policy:
-        case NpxProbeDesp.POLICY_HALF:
+    match e.category:
+        case NpxProbeDesp.CATE_HALF:
             # o x o
             # x e x
             # o x o
@@ -115,7 +115,7 @@ def surr(cand: dict[K, E], e: E) -> Iterator[E | None]:
             yield _get(cand, e, 1, 0)
             yield _get(cand, e, 0, 1)
             yield _get(cand, e, 0, -1)
-        case NpxProbeDesp.POLICY_QUARTER:
+        case NpxProbeDesp.CATE_QUARTER:
             # ? x ?
             # x x x
             # x e x

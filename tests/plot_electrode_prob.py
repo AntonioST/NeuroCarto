@@ -3,7 +3,6 @@ import time
 from pathlib import Path
 
 import matplotlib
-import numpy as np
 from matplotlib import pyplot as plt
 
 from chmap.probe_npx import plot
@@ -17,14 +16,13 @@ plt.rcParams.update(rc)
 file = Path(sys.argv[1])
 desp = NpxProbeDesp()
 chmap = ChannelMap.from_imro(file)
-policy = np.load(file.with_suffix('.policy.npy'))
-electrodes = desp.electrode_from_numpy(desp.all_electrodes(chmap), policy)
+blueprint = desp.load_blueprint(file.with_suffix('.blueprint.npy'), desp.all_electrodes(chmap))
 
 selector = ['default', 'weaker'][0]
 print(f'use selector {selector}')
 
 t = time.time()
-prob = npx_electrode_probability(desp, chmap, electrodes, selector=selector, sample_times=10, n_worker=1)
+prob = npx_electrode_probability(desp, chmap, blueprint, selector=selector, sample_times=10, n_worker=1)
 t = time.time() - t
 print(f'use {t:.2f} sec')
 print(f'complete rate : {100 * prob.complete_rate:.2f}%')

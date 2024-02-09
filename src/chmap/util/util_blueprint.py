@@ -13,13 +13,13 @@ class BlueprintFunctions:
     It is used by `chmap.views.edit_blueprint.CriteriaParser`.
     """
 
-    POLICY_UNSET: int
-    POLICY_SET: int
-    POLICY_FORBIDDEN: int
-    POLICY_LOW: int
+    CATE_UNSET: int
+    CATE_SET: int
+    CATE_FORBIDDEN: int
+    CATE_LOW: int
 
     def __init__(self, s: NDArray[np.int_], x: NDArray[np.int_], y: NDArray[np.int_],
-                 policies: dict[str, int]):
+                 categories: dict[str, int]):
         if s.ndim != 1 or x.ndim != 1 or y.ndim != 1:
             raise ValueError()
         if (n := len(s)) != len(x) or n != len(y) or n == 0:
@@ -33,7 +33,7 @@ class BlueprintFunctions:
         if self.dx <= 0 or self.dy <= 0:
             raise ValueError(f'dx={self.dx}, dy={self.dy}')
 
-        self._policies = policies
+        self._categories = categories
 
         self._blueprint: NDArray[np.int_] = None
 
@@ -41,8 +41,8 @@ class BlueprintFunctions:
         return v
 
     def __getattr__(self, item: str):
-        if item.startswith('POLICY_'):
-            if (ret := self._policies.get(item[len('POLICY_'):], None)) is not None:
+        if item.startswith('CATE_'):
+            if (ret := self._categories.get(item[5:], None)) is not None:
                 return ret
 
         raise AttributeError(item)
@@ -64,7 +64,7 @@ class BlueprintFunctions:
         """
         Move blueprint
 
-        :param a: Array[V, ..., N, ...], where N means electrodes
+        :param a: Array[V, ..., N, ...], where N means all electrodes
         :param tx: x movement in um.
         :param ty: y movement in um.
         :param shanks: move electrode only on given shanks
@@ -143,9 +143,9 @@ class BlueprintFunctions:
 
         `merge(blueprint)` works like `merge(blueprint(), blueprint)`.
 
-        :param blueprint:
-        :param other:
-        :return:
+        :param blueprint: Array[category, N]
+        :param other: blueprint Array[category, N]
+        :return: blueprint Array[category, N]
         """
         if other is None:
             if self._blueprint is None:
@@ -154,7 +154,7 @@ class BlueprintFunctions:
             other = blueprint
             blueprint = self._blueprint
 
-        return np.where(other == self.POLICY_UNSET, blueprint, other)
+        return np.where(other == self.CATE_SET, blueprint, other)
 
     def interpolate_nan(self, a: NDArray[np.float_],
                         kernel: int | tuple[int, int] = 1,
@@ -192,14 +192,14 @@ class BlueprintFunctions:
         return a
 
     def fill(self, blueprint: NDArray[np.int_],
-             policy: list[int] = None,
+             categories: list[int] = None,
              threshold: int = None) -> NDArray[np.int_]:
         """
-        make the area occupied by policies be filled as rectangle.
+        make the area occupied by categories be filled as rectangle.
 
-        :param blueprint:
-        :param policy:
+        :param blueprint: Array[category, N]
+        :param categories:
         :param threshold:
-        :return:
+        :return: blueprint Array[category, N]
         """
         pass

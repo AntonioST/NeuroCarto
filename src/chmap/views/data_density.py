@@ -25,7 +25,7 @@ class ElectrodeDensityDataView(Data1DView):
     def description(self) -> str | None:
         return 'show electrode density curve along the shanks'
 
-    def on_probe_update(self, probe: ProbeDesp, chmap, e):
+    def on_probe_update(self, probe: ProbeDesp, chmap, electrodes):
         if chmap is None:
             self._data = None
         elif isinstance(probe, NpxProbeDesp):

@@ -16,13 +16,13 @@ class BlueprintView(PltImageView):
     def description(self) -> str | None:
         return 'plot blueprint beside'
 
-    def on_probe_update(self, probe, chmap, e):
+    def on_probe_update(self, probe, chmap, electrodes):
         from chmap.probe_npx import ChannelMap
         if not self.visible:
             return
 
         if isinstance(chmap, ChannelMap):
-            self.plot_channelmap(chmap.probe_type, e)
+            self.plot_channelmap(chmap.probe_type, electrodes)
         else:
             self.set_image(None)
 
@@ -32,7 +32,7 @@ class BlueprintView(PltImageView):
 
         with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1),
                               offset=-50) as ax:
-            plot.plot_policy_area(ax, probe_type, e, shank_width_scale=0.5)
+            plot.plot_category_area(ax, probe_type, e, shank_width_scale=0.5)
             plot.plot_probe_shape(ax, probe_type, color=None, label_axis=False, shank_width_scale=0.5)
 
             ax.set_xlabel(None)
