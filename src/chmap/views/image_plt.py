@@ -296,7 +296,7 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
 
         :param transparent: fig.savefig(transparent)
         :param rc: default is read from image_plt.matplotlibrc.
-        :param kwargs: plt.subplots(**kwargs)
+        :param kwargs: plt.subplots(kwargs)
         :return: a context manger of Axes
         """
         self.set_status('computing...')

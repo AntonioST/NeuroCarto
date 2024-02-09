@@ -166,7 +166,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         Implement note: It finds all class variable that its name starts with 'STATE_'.
 
-        :return: dict of {state name: state value}
+        :return: dict of {state_name: state_value}
         """
         return {
             it[6:]: int(getattr(cls, it))
@@ -179,7 +179,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         Implement note: It finds all class variable that its name starts with 'CATE_'.
 
-        :return: dict of {category name: category value}
+        :return: dict of {category_name: category_value}
         """
         return {
             it[5:]: int(getattr(cls, it))

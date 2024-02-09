@@ -8,4 +8,5 @@ Tutorials
    notebooks/Example
    notebooks/Extending
    notebooks/Selecting
+   notebooks/Extending_View
    notebooks/Statistics

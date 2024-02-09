@@ -43,24 +43,26 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     ----------------
 
     (boundary UI components)
-    -/-> (event callback)
-        -> update_boundary_transform()
-            -> on_boundary_transform()
 
-    (atlas UI components)
-    (slice_select) -/-> (event callback)
-        -> update_brain_view()
-            -> update_brain_slice(update_image=False)
+        -/-> (event callback)
             -> update_boundary_transform()
                 -> on_boundary_transform()
-                    -> update_image()
-                        -> update_region_image()
-    (region_choose) -/-> (event callback)
-        -> update_region_image()
-    (other) -/-> (event callback)
-        -> update_brain_slice()
-            -> update_image()
-                -> update_region_image()
+
+    (atlas UI components)
+
+        (slice_select) -/-> (event callback)
+            -> update_brain_view()
+                -> update_brain_slice(update_image=False)
+                -> update_boundary_transform()
+                    -> on_boundary_transform()
+                        -> update_image()
+                            -> update_region_image()
+        (region_choose) -/-> (event callback)
+            -> update_region_image()
+        (other) -/-> (event callback)
+            -> update_brain_slice()
+                -> update_image()
+                    -> update_region_image()
 
     """
 

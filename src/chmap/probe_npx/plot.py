@@ -601,7 +601,7 @@ def plot_probe_shape(ax: Axes,
     :param color: probe color
     :param label_axis: add labels on axes
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
-    :param kwargs: pass to ax.plot(**kwargs)
+    :param kwargs: pass to ax.plot(kwargs)
     """
     if isinstance(probe, ChannelMap):
         probe = probe.probe_type
@@ -659,7 +659,7 @@ def plot_channelmap_block(ax: Axes,
     :param selection: electrode selection
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param fill: fill rectangle
-    :param kwargs: pass to Rectangle(**kwargs)
+    :param kwargs: pass to Rectangle(kwargs)
     """
 
     probe = chmap.probe_type
@@ -707,7 +707,7 @@ def plot_electrode_block(ax: Axes,
     :param height: max height (mm) of probe need to plot
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param fill: fill rectangle
-    :param kwargs: pass to Rectangle(**kwargs) or ax.imshow(**kwargs).
+    :param kwargs: pass to Rectangle(kwargs) or ax.imshow(kwargs).
     """
     from matplotlib.patches import Rectangle
 
@@ -807,7 +807,7 @@ def plot_channelmap_grid(ax: Axes, chmap: ChannelMap, *,
     :param unused: show disconnected channels
     :param half_as_full: make unused electrode which over half of surrounding electrode are read-out channels as a channel.
     :param color:
-    :param kwargs: pass to ax.plot(**kwargs)
+    :param kwargs: pass to ax.plot(kwargs)
     """
     probe = chmap.probe_type
     e = channel_coordinate(chmap, 'cr', include_unused=unused)
@@ -864,7 +864,7 @@ def plot_electrode_grid(ax: Axes,
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param color: grid line color
     :param label:
-    :param kwargs: pass to ax.plot(**kwargs)
+    :param kwargs: pass to ax.plot(kwargs)
     """
     data = ElectrodeGridData.of(probe, electrode, electrode_unit)
 
@@ -913,7 +913,7 @@ def plot_channelmap_matrix(ax: Axes,
     :param reduce: function used when data has same (s, x, y) position
     :param cmap: colormap used in ax.imshow(cmap)
     :param shank_gap_color:
-    :param kwargs: pass to ax.imshow(**kwargs)
+    :param kwargs: pass to ax.imshow(kwargs)
     """
     x = channel_coordinate(chmap, 'cr', include_unused=True).astype(float)  # Array[float, E, (S, C, R)]
 
@@ -962,7 +962,7 @@ def plot_electrode_matrix(ax: Axes,
     :param reduce: function used when data has same (s, x, y) position
     :param cmap: colormap used in ax.imshow(cmap)
     :param shank_gap_color: color of shank gao line. Use None to disable plotting.
-    :param kwargs: pass to ax.imshow(**kwargs)
+    :param kwargs: pass to ax.imshow(kwargs)
     """
     if isinstance(electrode, ElectrodeMatData):
         data = electrode

@@ -16,28 +16,33 @@ Commandline options
 
 ::
 
-    usage: chmap [-h] [-P NAME] [--selector MODULE:NAME] [-C PATH] [--view MODULE:NAME,...] [--atlas NAME] [--atlas-root PATH] [--no-open-browser]
+    usage: chmap [-h] [-C PATH] [-P NAME] [--selector MODULE:NAME]
+        [--atlas NAME] [--atlas-root PATH] [--config-file FILE]
+        [--view MODULE:NAME] [--no-open-browser] [FILE]
+
+    positional arguments:
+      FILE                  open channelmap file.
 
     options:
       -h, --help            show this help message and exit
-      -P NAME, --probe NAME
-                            use probe family. default use "npx" (Neuropixels probe family).
-      --selector MODULE:NAME
-                            use which electrode selection method
 
     Source:
       -C PATH, --chmap-dir PATH
                             channel saving directory
 
-    View:
-      --view MODULE:NAME
-                            install extra views in right panel
+    Probe:
+      -P NAME, --probe NAME
+                            use probe family. default use "npx" (Neuropixels probe family).
+      --selector MODULE:NAME
+                            use which electrode selection method
 
     Atlas:
       --atlas NAME          atlas mouse brain name
       --atlas-root PATH     atlas mouse brain download path
 
     Bokeh Application:
+      --config-file FILE    global config file.
+      --view MODULE:NAME    install extra views in right panel
       --no-open-browser     do not open browser when server starts
 
 Application View
@@ -65,13 +70,13 @@ Application View
 
             saved channelmap filename.
 
-    *   State
+    *   Electrode State
 
-        Select/Unselect electrodes that selected by rectangle-tool.
+        Select/Unselect electrodes that captured by rectangle-tool.
 
-    *   Policy
+    *   Electrode Category
 
-        Set electrode selection policy for electrodes selected by rectangle-tool.
+        Set electrode category for electrodes captured by rectangle-tool.
 
     *   Log
 
@@ -93,7 +98,7 @@ Application View
         |figure-toolbar|
 
         * figure pan |bk-tool-icon-pan| (mouse drag): figure view moving.
-        * rectangle-tool |bk-tool-icon-box-select| (mouse drag): select electrodes for setting its state and policy.
+        * rectangle-tool |bk-tool-icon-box-select| (mouse drag): select electrodes for setting its state and category.
         * zoom figure |bk-tool-icon-wheel-zoom| (mouse wheel): figure view zoom
         * wheel figure |bk-tool-icon-wheel-pan| (mouse wheel): figure view vertical moving
         * image pan |bk-tool-icon-box-edit|: moving background image. (shifted-drag) move/scale image inside the dragged rectangle.
@@ -108,8 +113,8 @@ Application View
 
             * black : unselected electrodes
             * green: selected electrodes
-            * red: un-select-able electrodes
-            * yellow: highlighted electrodes that related to the electrode selected by rectangle-tool.
+            * red: un-selectable (forbidden) electrodes
+            * yellow: highlighted electrodes that related to the electrode captured by rectangle-tool.
 
         *   background image
 
@@ -157,11 +162,11 @@ A simple channelmap
 
     |rect-select-electrodes|
 
-4.  Click **Enable** to set the selected electrodes as readout channels.
+4.  Click **Enable** to set the captured electrodes as readout channels.
 
     |enable-electrodes|
 
-    The yellow highlighted electrodes, except the selected ones, will disappear.
+    The yellow highlighted electrodes, except the captured ones, will disappear.
     However, they are still selectable and will overwrite the previous ones when they are enabled.
 
     before: |rect-select-electrodes-overwrite| after: |rect-select-electrodes-after|
@@ -193,7 +198,7 @@ Saved Files
 Once you save a channelmap (use previous example), then you will get files under `-C PATH`:
 
 * `First_map.imro`: channelmap file
-* `First_map.policy.npy`: electrode policies matrix
+* `First_map.blueprint.npy`: electrode blueprint matrix
 * `First_map.config.json`: view configurations of each component, such as the coordinate of atlas mouse image.
 
 Once `First_map.imro` load, the other files are also loaded to restore states.
@@ -219,24 +224,25 @@ A custom channelmap
     |atlas-image-probe|
 
 4.  Use rectangle-tool |bk-tool-icon-box-select| in the figure toolbar to select electrodes in a particular area,
-    then press one of the buttons in **Policy**.
+    then press one of the buttons in **Electrode Category**.
 
     |policy-full-density|
 
-    In this step, rather than directly selecting electrodes as readout channels, we set an arrangement policy for selected electrodes.
-    Following the policy setting (we called it a blueprint), the application will generate a channelmap.
+    In this step, rather than directly selecting electrodes as readout channels, we set category on captured electrodes.
+    By this category setting, we can build a blueprint for all electrodes, and the application will generate a channelmap
+    follow the given blueprint.
 
     There are recommended steps for building a blueprint.
 
-    1.  Set electrodes outside the brain with **forbidden** policy, so forbidden electrodes are never selected.
+    1.  Set electrodes outside the brain with **forbidden** category, so forbidden electrodes are never selected.
 
         select |electrodes-outside| set |forbidden|
 
-    2.  Set electrodes around the regions of interest (Hippocampus structure here) with **Set** or **Full Density** policy.
+    2.  Set electrodes around the regions of interest (Hippocampus structure here) with **Set** or **Full Density** category.
 
         |roi|
 
-    3.  Set the other electrodes with a policy.
+    3.  Set the other electrodes with a category.
     4.  A valid channelmap will be updated automatically |auto|.
 
 5.  Check text becomes |probe-desp| at the top of the figure.

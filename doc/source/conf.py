@@ -66,3 +66,7 @@ autodoc_inherit_docstrings = True
 # -- Options for sphinx-markdown-builder -------------------------------------
 
 markdown_uri_doc_suffix = ''
+
+# -- Options for nbsphinx -------------------------------------
+
+nbsphinx_execute = 'never'
