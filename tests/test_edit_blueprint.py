@@ -495,6 +495,14 @@ class EditBlueprintTest(unittest.TestCase):
         blueprint = self.parser.get_blueprint()
         self.assert_blueprint_equal(expected_blueprint, blueprint)
 
+    def test_bp_id(self):
+        self.parser.parse_content("""
+        file=None
+        print(eval)=str(bp.id(321))
+        """)
+
+        self.assertListEqual(['321'], self.parser.message)
+
 
 if __name__ == '__main__':
     unittest.main()

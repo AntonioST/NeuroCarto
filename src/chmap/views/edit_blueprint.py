@@ -14,6 +14,7 @@ from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import plot
 from chmap.util.bokeh_util import ButtonFactory
+from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import import_name
 from chmap.views.base import EditorView, GlobalStateView, ControllerView
 from chmap.views.data import DataHandler
@@ -298,6 +299,9 @@ class CriteriaParser(Generic[M, E]):
         * y : y pos in um
         * v : data value. use zero array when `file=None`.
         * p : previous block's sum result
+        * np : numpy module
+        * bp : `chmap.util.util_blueprint.BlueprintFunctions` instance
+        * python builtin functions.
         * other variables set by func  'val(VAR)' or 'var(VAR)'
 
         The expression evaluated result should be an Array[bool, E].
@@ -452,7 +456,8 @@ class CriteriaParser(Generic[M, E]):
         else:
             variables = self.variables
 
-        return eval(expression, dict(np=np), variables)
+        bp = BlueprintFunctions(self.variables['s'], self.variables['x'], self.variables['y'])
+        return eval(expression, dict(np=np, bp=bp), variables)
 
     # ======= #
     # parsing #
@@ -859,7 +864,7 @@ class CriteriaParser(Generic[M, E]):
         result = np.asarray(self.eval_expression(expression, force_context=True), dtype=bool)
         context.update_result(value, result)
 
-    def func_move(self, args: list[str], expression: str):
+    def func_move(self, args: list[str], expression: str):  # TODO move to BlueprintFunctions
         """
         collect and generate a blueprint, modify it by move area, store in new context.
 

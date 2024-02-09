@@ -34,7 +34,7 @@ class Tester(ViewBase, ControllerView):
         self.edit.criteria_area.value = textwrap.dedent("""\
         use(NpxProbeDesp)
 
-        alias(F)=FORBIDDEN
+        alias(F)=FULL
         alias(H)=HALF
         alias(Q)=QUARTER
         alias(L)=LOW
@@ -43,13 +43,16 @@ class Tester(ViewBase, ControllerView):
         file=res/Fig5d_data.npy
         print(eval)=f'min={np.nanmin(v)}'
         print(eval)=f'max={np.nanmax(v)}'
+        draw()
         X=(s==0)&(y>5000)
         X=(s==1)&(y>5000)
         X=(s==2)&(y>5000)
         X=(s==3)&(y>5000)
-        var(active)=(v>=5000)
-        F=(y<1000)&active
-        draw()
+        var(active)=(v>=4000)
+        var(dca1)=(3500<=y)&(y<=4000)
+        var(vca1)=(300<=y)&(y<=1000)
+        F=dca1&active
+        F=vca1&active
         
         """)
         run_later(self.eval_blueprint)
