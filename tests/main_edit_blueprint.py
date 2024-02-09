@@ -1,7 +1,7 @@
 import textwrap
 
 from chmap.main_bokeh import main, ChannelMapEditorApp
-from chmap.util.bokeh_app import run_later
+from chmap.util.bokeh_app import run_later, run_timeout
 from chmap.views.base import ViewBase, ControllerView
 from chmap.views.edit_blueprint import InitializeBlueprintView
 
@@ -22,7 +22,7 @@ class Tester(ViewBase, ControllerView):
 
         self.edit.visible = True
         self.edit.disable_save_global_state = True
-        run_later(self.new_probe)
+        run_timeout(1000, self.new_probe)
 
     def new_probe(self):
         self.logger.info('new_probe')

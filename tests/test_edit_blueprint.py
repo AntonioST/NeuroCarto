@@ -503,6 +503,51 @@ class EditBlueprintTest(unittest.TestCase):
 
         self.assertListEqual(['321'], self.parser.message)
 
+    def test_bp_blueprint(self):
+        self.parser.parse_content("""
+        file=None
+        FORBIDDEN=(y>6000)
+        val(b)=bp.blueprint()
+        """)
+
+        assert_array_equal(self.parser.context.result, self.parser.variables['b'])
+
+    def test_bp_set_blueprint(self):
+        self.parser.parse_content("""
+        file=None
+        FORBIDDEN=(y>6000)
+        """)
+        expected_blueprint = self.parser.context.result
+
+        self.setUp()
+        self.parser.variables['b'] = expected_blueprint
+        self.parser.parse_content("""
+        file=None
+        var(_)=bp.set_blueprint(b)
+        """)
+        blueprint = self.parser.context.result
+        assert_array_equal(blueprint, expected_blueprint)
+
+    def test_bp_move(self):
+        self.parser.parse_content("""
+        file=None
+        FORBIDDEN=(y>6000)
+
+        move(2,3)=1000
+        """)
+
+        expected_blueprint = self.parser.get_blueprint()
+
+        self.setUp()
+        self.parser.parse_content("""
+        file=None
+        FORBIDDEN=(y>6000)
+        eval()=bp.set_blueprint(bp.move(bp.blueprint(), tx=0, ty=1000, shanks=[2,3], init=bp.POLICY_UNSET))
+        """)
+
+        blueprint = self.parser.get_blueprint()
+        self.assert_blueprint_equal(expected_blueprint, blueprint)
+
 
 if __name__ == '__main__':
     unittest.main()

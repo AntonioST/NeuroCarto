@@ -363,6 +363,7 @@ class CriteriaParser(Generic[M, E]):
         )
         self.external_functions: dict[str, (SCOPE, ExternalFunction)] = {}
 
+        self.blueprint_functions = BlueprintFunctions(self.variables['s'], self.variables['x'], self.variables['y'], self.policies)
         self.context: CriteriaContext | None = None
 
         self.current_line: int = 0
@@ -449,15 +450,30 @@ class CriteriaParser(Generic[M, E]):
                 raise RuntimeError()
 
             variables = context.variables
+            blueprint = context.result
         elif context is not None:
             if context.data is None:
                 raise RuntimeError()
             variables = context.variables
+            blueprint = context.result
         else:
             variables = self.variables
+            blueprint = None
 
-        bp = BlueprintFunctions(self.variables['s'], self.variables['x'], self.variables['y'])
-        return eval(expression, dict(np=np, bp=bp), variables)
+        self.blueprint_functions._blueprint = blueprint
+        try:
+            ret = eval(expression, dict(np=np, bp=self.blueprint_functions), variables)
+        finally:
+            new_blueprint = self.blueprint_functions._blueprint
+            self.blueprint_functions._blueprint = None
+
+        if new_blueprint is not None and (blueprint is None or np.any(new_blueprint != blueprint)):
+            # blueprint changed
+            context = CriteriaContext(self, None)
+            context.result[:] = new_blueprint
+            self.context = context
+
+        return ret
 
     # ======= #
     # parsing #
@@ -575,6 +591,14 @@ class CriteriaParser(Generic[M, E]):
         :raise: KeyboardInterrupt
         """
         raise KeyboardInterrupt
+
+    def func_eval(self, args: list[str], expression: str):
+        """
+
+        :param args: ignored
+        :param expression:
+        """
+        self.eval_expression(expression)
 
     def func_print(self, args: list[str], expression: str):
         """
@@ -789,6 +813,7 @@ class CriteriaParser(Generic[M, E]):
 
     def func_blueprint(self, args: list[str], expression: str):
         """
+        load blueprint.
 
         :param args: [policy,...] policy mask.
         :param expression: channelmap (change suffix '.policy.npy') or blueprint (*.npy) filepath.
@@ -864,9 +889,13 @@ class CriteriaParser(Generic[M, E]):
         result = np.asarray(self.eval_expression(expression, force_context=True), dtype=bool)
         context.update_result(value, result)
 
-    def func_move(self, args: list[str], expression: str):  # TODO move to BlueprintFunctions
+    def func_move(self, args: list[str], expression: str):
         """
         collect and generate a blueprint, modify it by move area, store in new context.
+
+        `move(SHANKS)=[MX,]MY` short from ::
+
+            eval()=bp.set_blueprint(bp.move(bp.blueprint(), tx=MY, ty=MY, shanks=SHANKS, init=bp.POLICY_UNSET))
 
         :param args: [shank,...], empty for all shanks.
         :param expression: y movement in um. or 'x,y' 2d movement.
@@ -881,31 +910,17 @@ class CriteriaParser(Generic[M, E]):
             mx = 0
             my = int(expression)
 
-        blueprint = self.get_blueprint()
-        dx = np.min(np.diff(np.unique([it.x for it in blueprint])))
-        dy = np.min(np.diff(np.unique([it.y for it in blueprint])))
-
-        if mx != 0 and abs(mx) < dx:
+        if mx != 0 and abs(mx) < (dx := self.blueprint_functions.dx):
             self.info(f'x movement {mx} smaller than the dx {dx}')
-        if my != 0 and abs(my) < dy:
+        if my != 0 and abs(my) < (dy := self.blueprint_functions.dy):
             self.info(f'y movement {my} smaller than the dx {dy}')
 
-        new_blueprint = self.probe.all_electrodes(self.chmap)
-        i_position = {
-            (it.s, int(it.x / dx), int(it.y / dy)): it
-            for it in new_blueprint
-        }
+        policies = self.get_result()
+        new_policies = self.blueprint_functions.move(policies, tx=mx, ty=my, shanks=shanks, init=ProbeDesp.POLICY_UNSET)
 
-        for e in blueprint:
-            if len(shanks) == 0 or e.s in shanks:
-                i = e.s, int((e.x + mx) / dx), int((e.y + my) / dy)
-            else:
-                i = e.s, int(e.x / dx), int(e.y / dy)
-
-            if (t := i_position.get(i, None)) is not None:
-                t.policy = e.policy
-
-        self.set_blueprint(new_blueprint, inherit=False)
+        context = CriteriaContext(self, None)
+        context.result[:] = new_policies
+        self.context = context
 
     def func_draw(self, args: list[str], expression: str = None):
         """
