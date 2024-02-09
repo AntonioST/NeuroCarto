@@ -623,6 +623,7 @@ def plot_probe_shape(ax: Axes,
             ax.plot(
                 [x0, x0, x1, x2, x2],
                 [height, y0, y1, y0, height],
+                color=color,
                 **kwargs
             )
 

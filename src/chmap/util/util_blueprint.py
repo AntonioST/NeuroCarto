@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -54,17 +56,21 @@ class BlueprintFunctions:
 
         self._blueprint = blueprint
 
-    def move(self, a: NDArray, *, tx: int = 0, ty: int = 0, shanks: list[int] = None, axis: int = 0, init=0) -> NDArray:
+    def move(self, a: NDArray, *,
+             tx: int = 0, ty: int = 0,
+             shanks: list[int] = None,
+             axis: int = 0,
+             init: float = 0) -> NDArray:
         """
         Move blueprint
 
         :param a: Array[V, ..., N, ...], where N means electrodes
-        :param tx:
-        :param ty:
+        :param tx: x movement in um.
+        :param ty: y movement in um.
         :param shanks: move electrode only on given shanks
         :param axis: index off N
         :param init: initial value
-        :return:
+        :return: moved a (copied)
         """
         s = self.s
         x = self.x
@@ -107,3 +113,78 @@ class BlueprintFunctions:
         ret[jj] = a[ii]
 
         return ret
+
+    def move_i(self, a: NDArray, *,
+               tx: int = 0, ty: int = 0,
+               shanks: list[int] = None,
+               axis: int = 0,
+               init: float = 0) -> NDArray:
+        """
+        Move blueprint by step.
+
+        :param a: Array[V, ..., N, ...], where N means electrodes
+        :param tx: number of dx
+        :param ty: number of dy
+        :param shanks: move electrode only on given shanks
+        :param axis: index off N
+        :param init: initial value
+        :return: moved a (copied)
+        """
+        return self.move(a, tx=tx * self.dx, ty=ty * self.dy, shanks=shanks, axis=axis, init=init)
+
+    def merge(self, blueprint: NDArray[np.int_], other: NDArray[np.int_] = None) -> NDArray[np.int_]:
+        """
+        merge blueprint. The latter result overwrite former result.
+
+        `merge(blueprint)` works like `merge(blueprint(), blueprint)`.
+
+        :param blueprint:
+        :param other:
+        :return:
+        """
+        if other is None:
+            if self._blueprint is None:
+                return blueprint
+
+            other = blueprint
+            blueprint = self._blueprint
+
+        return np.where(other == self.POLICY_UNSET, blueprint, other)
+
+    def interpolate_nan(self, a: NDArray[np.float_],
+                        kernel: int | tuple[int, int] = 1,
+                        f: str | Callable[[NDArray[np.float_]], float] = 'mean',
+                        iteration: int = 1,
+                        init: float = np.nan) -> NDArray[np.float_]:
+        if isinstance(f, str):
+            if f == 'mean':
+                f = np.nanmean
+            elif f == 'median':
+                f = np.nanmedian
+            elif f == 'min':
+                f = np.nanmin
+            elif f == 'max':
+                f = np.nanmax
+            else:
+                raise ValueError()
+
+        match kernel:
+            case int(y) if y > 0:
+                kernel = (0, y)
+            case (int(x), int(y)) if x > 0 and y > 0:
+                pass
+            case _:
+                raise TypeError()
+
+        for _ in range(iteration):
+            r = []
+            for tx in range(-kernel[0], kernel[0] + 1):
+                for ty in range(-kernel[1], kernel[1] + 1):
+                    if tx != ty:
+                        r.append(self.move_i(a, tx=tx, ty=ty, init=init))
+                    else:
+                        r.append(a)
+
+            a = f(r, axis=0)
+
+        return a

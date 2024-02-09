@@ -157,8 +157,16 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
         if self.cache_blueprint is None:
             self.cache_blueprint = e
 
-        if len(self.cache_blueprint) == len(data):
-            self.cache_data = data
+        if data is None:
+            self.cache_data = None
+        else:
+            try:
+                n = len(data)
+            except TypeError as e:
+                self.logger.warning('not a array', exc_info=e)
+            else:
+                if len(self.cache_blueprint) == n:
+                    self.cache_data = np.asarray(data)
 
     def plot_npx_channelmap(self):
         self.logger.debug('plot_npx_channelmap')
@@ -197,7 +205,6 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
             [it.y for it in blueprint],
             value
         ]).T, electrode_unit='xy')
-        data = data.interpolate_nan((0, 1))
 
         plot.plot_electrode_block(ax, probe_type, data, shank_width_scale=0.5, **kwargs)
 

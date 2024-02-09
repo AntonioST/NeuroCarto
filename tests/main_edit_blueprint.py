@@ -43,12 +43,13 @@ class Tester(ViewBase, ControllerView):
         file=res/Fig5d_data.npy
         print(eval)=f'min={np.nanmin(v)}'
         print(eval)=f'max={np.nanmax(v)}'
+        var(v)=bp.interpolate_nan(v)
         draw()
         X=(s==0)&(y>5000)
         X=(s==1)&(y>5000)
         X=(s==2)&(y>5000)
         X=(s==3)&(y>5000)
-        var(active)=(v>=4000)
+        var(active)=(v>=3500)
         var(dca1)=(3500<=y)&(y<=4000)
         var(vca1)=(300<=y)&(y<=1000)
         F=dca1&active
