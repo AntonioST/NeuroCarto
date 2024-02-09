@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Iterator
 
 import numpy as np
 from numpy.typing import NDArray
@@ -33,12 +34,14 @@ class BlueprintFunctions:
         if self.dx <= 0 or self.dy <= 0:
             raise ValueError(f'dx={self.dx}, dy={self.dy}')
 
+        self._position_index = {
+            (int(s[i]), int(x[i] / self.dx), int(y[i] / self.dy)): i
+            for i in range(len(s))
+        }
+
         self._categories = categories
 
         self._blueprint: NDArray[np.int_] = None
-
-    def id(self, v):
-        return v
 
     def __getattr__(self, item: str):
         if item.startswith('CATE_'):
@@ -84,10 +87,7 @@ class BlueprintFunctions:
         if abs(tx) < dx and abs(ty) < dy:
             return a
 
-        pos = {
-            (int(s[i]), int(x[i] / dx), int(y[i] / dy)): i
-            for i in range(len(s))
-        }
+        pos = self._position_index
 
         ii = []
         jj = []
@@ -137,6 +137,35 @@ class BlueprintFunctions:
             return a
         return self.move(a, tx=tx * self.dx, ty=ty * self.dy, shanks=shanks, axis=axis, init=init)
 
+    def set(self, blueprint: NDArray[np.int_], mask: NDArray[np.bool_], category: int | str) -> NDArray[np.int_]:
+        """
+        set *category* on `blueprint[mask]`.
+
+        :param blueprint:
+        :param mask:
+        :param category:
+        :return:
+        """
+        if len(blueprint) != len(self.s):
+            raise ValueError()
+
+        if isinstance(category, str):
+            category = self._categories[category]
+
+        ret = blueprint.copy()
+        ret[mask] = category
+        return ret
+
+    def unset(self, blueprint: NDArray[np.int_], mask: NDArray[np.bool_]) -> NDArray[np.int_]:
+        """
+        unset `blueprint[mask]`.
+
+        :param blueprint:
+        :param mask:
+        :return:
+        """
+        return self.set(blueprint, mask, self.CATE_UNSET)
+
     def merge(self, blueprint: NDArray[np.int_], other: NDArray[np.int_] = None) -> NDArray[np.int_]:
         """
         merge blueprint. The latter result overwrite former result.
@@ -154,13 +183,15 @@ class BlueprintFunctions:
             other = blueprint
             blueprint = self._blueprint
 
+        n = len(self.s)
+        if len(blueprint) != n or len(other) != n:
+            raise ValueError()
+
         return np.where(other == self.CATE_SET, blueprint, other)
 
     def interpolate_nan(self, a: NDArray[np.float_],
                         kernel: int | tuple[int, int] = 1,
-                        f: str | Callable[[NDArray[np.float_]], float] = 'mean',
-                        iteration: int = 1,
-                        init: float = np.nan) -> NDArray[np.float_]:
+                        f: str | Callable[[NDArray[np.float_]], float] = 'mean') -> NDArray[np.float_]:
         if isinstance(f, str):
             if f == 'mean':
                 f = np.nanmean
@@ -173,33 +204,181 @@ class BlueprintFunctions:
             else:
                 raise ValueError()
 
+        if not np.any(m := np.isnan(a)):
+            return a
+
         match kernel:
+            case 0 | (0, 0):
+                return a
             case int(y) if y > 0:
                 kernel = (0, y)
-            case (int(x), int(y)) if x > 0 and y > 0:
+            case (int(x), int(y)) if x >= 0 and y >= 0:
                 pass
+            case int() | (int(), int()):
+                raise ValueError()
             case _:
                 raise TypeError()
 
-        for _ in range(iteration):
-            r = []
-            for tx in range(-kernel[0], kernel[0] + 1):
-                for ty in range(-kernel[1], kernel[1] + 1):
-                    r.append(self.move_i(a, tx=tx, ty=ty, init=init))
+        r = []
+        for tx in range(-kernel[0], kernel[0] + 1):
+            for ty in range(-kernel[1], kernel[1] + 1):
+                r.append(self.move_i(a, tx=tx, ty=ty, init=np.nan))
 
-            a = f(r, axis=0)
+        r = f(r, axis=0)
 
-        return a
+        ret = a.copy()
+        ret[m] = r[m]
+        return ret
+
+    def find_clustering(self, blueprint: NDArray[np.int_],
+                        categories: list[int] = None) -> NDArray[np.int_]:
+        """
+        find electrode clustering with the same category.
+
+        :param blueprint: Array[category, N]
+        :param categories: only for given categories.
+        :return: Array[int, N]
+        """
+        s = self.s
+        x = self.x
+        y = self.y
+        dx = self.dx
+        dy = self.dy
+
+        if len(blueprint) != len(s):
+            raise ValueError()
+
+        pos = self._position_index
+
+        ret: NDArray[np.int_] = np.arange(len(s)) + 1
+
+        unset = self.CATE_UNSET
+        ret[blueprint == unset] = 0
+        if categories is not None:
+            for category in np.unique(blueprint):
+                if int(category) not in categories:
+                    ret[blueprint == category] = 0
+
+        def union(i: int, j: int):
+            if i == j:
+                return
+
+            a: int = ret[i]
+            b: int = ret[j]
+            c = min(a, b)
+
+            if a != c:
+                ret[ret == a] = c
+            if b != c:
+                ret[ret == b] = c
+
+        def surr(i) -> Iterator[tuple[int, int, int]]:
+            ss = int(s[i])
+            xx = int(x[i] / dx)
+            yy = int(y[i] / dy)
+            # 3 2 1
+            # 4 e 0
+            # 5 6 7
+            yield ss, xx + 1, yy
+            yield ss, xx + 1, yy + 1
+            yield ss, xx, yy + 1
+            yield ss, xx - 1, yy + 1
+            yield ss, xx - 1, yy
+            yield ss, xx - 1, yy - 1
+            yield ss, xx, yy - 1
+            yield ss, xx + 1, yy - 1
+
+        for i in range(len(s)):
+            if ret[i] > 0:
+                for p in surr(i):
+                    if (j := pos.get(p, None)) is not None and blueprint[i] == blueprint[j]:
+                        union(i, j)
+
+        return ret
 
     def fill(self, blueprint: NDArray[np.int_],
-             categories: list[int] = None,
-             threshold: int = None) -> NDArray[np.int_]:
+             categories: int | list[int] = None,
+             threshold: int = None,
+             unset_too_small: bool = False) -> NDArray[np.int_]:
         """
         make the area occupied by categories be filled as rectangle.
 
         :param blueprint: Array[category, N]
-        :param categories:
-        :param threshold:
+        :param categories: fill area occupied by categories.
+        :param threshold: only consider area which size larger than threshold.
+        :param unset_too_small: unset small area (depends on threshold)
         :return: blueprint Array[category, N]
         """
-        pass
+        if len(blueprint) != len(self.s):
+            raise ValueError()
+
+        if categories is None:
+            categories = list(set(self._categories.values()))
+        elif isinstance(categories, int):
+            categories = [categories]
+
+        dx = self.dx
+        dy = self.dy
+
+        ret = blueprint.copy()
+        unset = self.CATE_UNSET
+
+        clustering = self.find_clustering(blueprint, categories)
+        for cluster in np.unique(clustering):
+            if cluster == 0:
+                continue
+
+            area: NDArray[np.bool_] = clustering == cluster
+            size = np.count_nonzero(area)
+            if threshold is not None:
+                if size < threshold:
+                    if unset_too_small:
+                        ret[area] = unset
+                    continue
+
+            c = np.unique(ret[area])
+            assert len(c) == 1
+            c = int(c[0])
+
+            s = np.unique(self.s[area])
+            assert len(s) == 1
+            s = int(s[0])
+
+            x = self.x[area]
+            y = self.y[area]
+
+            for xx in np.unique(x):  # for each column
+                xx = int(xx)
+
+                # fill gap in y
+                y0 = int(np.min(y) / dx)
+                y1 = int(np.max(y) / dy)
+                for yy in range(y0 + 1, y1):
+                    yi = self._position_index[(s, xx, yy - 1)]
+                    yj = self._position_index[(s, xx, yy)]
+                    yk = self._position_index[(s, xx, yy + 1)]
+                    if area[yi] and not area[yj] and area[yk]:
+                        ret[yj] = c
+
+        return ret
+
+    def expand(self, blueprint: NDArray[np.int_],
+               on: int,
+               step: int | tuple[int, int],
+               category: int = None,
+               threshold: int | tuple[int, int] = None,
+               overwrite: bool = False):
+        """
+        extend the area occupied by category *on* with *category*.
+
+        :param blueprint: Array[category, N]
+        :param on: on which category
+        :param step: expend step on y or (x, y)
+        :param category: use which category value
+        :param threshold: for area which size larger than threshold (threshold<=|area|)
+            or in range (threshold<=|area|<=threshold)
+        :param overwrite: overwrite category value. By default, only change the unset electrode.
+        :return:
+        """
+        if len(blueprint) != len(self.s):
+            raise ValueError()
