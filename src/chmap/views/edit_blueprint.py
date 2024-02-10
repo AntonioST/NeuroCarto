@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import functools
+import logging
+import textwrap
 from pathlib import Path
 from typing import Protocol, TypedDict, Generic, overload, Literal, get_args, TYPE_CHECKING
 
@@ -13,6 +15,7 @@ from numpy.typing import NDArray
 from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import plot
+from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import ButtonFactory
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import import_name
@@ -241,7 +244,6 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
         if len(content := self.criteria_area.value) == 0:
             return
 
-        self.logger.debug('eval\n%s', content)
         self.save_global_state()
 
         parser = CriteriaParser(self, probe, chmap)
@@ -249,7 +251,7 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
             return
 
         parser.get_blueprint(blueprint)
-        self.update_probe()
+        run_later(self.update_probe)
 
 
 class CriteriaParser(Generic[M, E]):
@@ -362,7 +364,9 @@ class CriteriaParser(Generic[M, E]):
 
     """
 
-    def __init__(self, view: InitializeBlueprintView, probe: ProbeDesp[M, E], chmap: M):
+    def __init__(self, view: InitializeBlueprintView | None, probe: ProbeDesp[M, E], chmap: M):
+        self.logger = logging.getLogger('chmap.blueprint.parser')
+
         self.view = view
         self.probe = probe
         self.chmap = chmap
@@ -383,11 +387,15 @@ class CriteriaParser(Generic[M, E]):
         self.current_content: str = ''
 
     def info(self, message: str):
-        self.view.log_message(message)
+        if self.view is None:
+            self.logger.info(message)
+        else:
+            self.view.log_message(message)
 
     def warning(self, message: str, exc: BaseException = None):
-        self.view.logger.warning('%s line:%d  %s', message, self.current_line, self.current_content, exc_info=exc)
-        self.view.log_message(f'{message} @{self.current_line}', self.current_content)
+        self.logger.warning('%s line:%d  %s', message, self.current_line, self.current_content, exc_info=exc)
+        if self.view is not None:
+            self.view.log_message(f'{message} @{self.current_line}', self.current_content)
 
     def clone(self, inherit=False) -> CriteriaParser:
         """
@@ -504,6 +512,12 @@ class CriteriaParser(Generic[M, E]):
         :param content:
         :return: all content evaluated?
         """
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug('parse content\n%s', textwrap.indent('\n'.join([
+                f'{i:03d} {line}'
+                for i, line in enumerate(content.split('\n'), start=1)
+            ]), '    '))
+
         try:
             for i, line in enumerate(content.split('\n'), start=1):
                 self.current_line = i
@@ -519,14 +533,18 @@ class CriteriaParser(Generic[M, E]):
                 self.parse_line(line)
 
         except KeyboardInterrupt:
+            self.logger.debug('parse abort')
             return False
         except BaseException as e:
             self.warning('un-captured error', exc=e)
             return False
-
-        return True
+        else:
+            self.logger.debug('parse done')
+            return True
 
     def parse_line(self, line: str):
+        self.logger.debug('parse %s', line)
+
         if line.startswith('!'):
             self.parse_call('eval', [], line[1:].strip())
         elif line.startswith('>'):
@@ -570,6 +588,11 @@ class CriteriaParser(Generic[M, E]):
         return [it.strip() for it in args.split(',')]
 
     def parse_call(self, func: str, args: list[str], expression: str | None = missing):
+        if expression is missing:
+            self.logger.debug('call %s(%s)', func, args)
+        else:
+            self.logger.debug('call %s(%s)=%s', func, args, expression)
+
         f: ExternalFunction = None
         scope = 'pure'
 
@@ -700,14 +723,18 @@ class CriteriaParser(Generic[M, E]):
             else:
                 return
 
+        self.logger.debug('run() read %s', file)
         content = file.read_text()
         parser = self.clone(inherit)
 
+        self.logger.debug('run() parse %s', file)
         if not parser.parse_content(content):
+            self.logger.debug('run() fail %s', file)
             if abort:
                 raise KeyboardInterrupt
             else:
                 return
+        self.logger.debug('run() exit %s', file)
 
         if not no_func:
             self.external_functions.update(parser.external_functions)

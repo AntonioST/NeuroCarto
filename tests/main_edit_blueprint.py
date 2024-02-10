@@ -20,17 +20,18 @@ class Tester(ViewBase, ControllerView):
         if self.app is None or self.edit is None:
             return
 
+        self.set_status('start ...')
         self.edit.visible = True
         self.edit.disable_save_global_state = True
         run_timeout(1000, self.new_probe)
 
     def new_probe(self):
-        self.logger.info('new_probe')
+        self.set_status('create probe ...')
         self.app.on_new(24)
         run_later(self.set_content)
 
     def set_content(self):
-        self.logger.info('set_content')
+        self.set_status('set content ...')
         self.edit.criteria_area.value = textwrap.dedent("""\
         use(NpxProbeDesp)
 
@@ -64,8 +65,13 @@ class Tester(ViewBase, ControllerView):
         run_later(self.eval_blueprint)
 
     def eval_blueprint(self):
-        self.logger.info('eval_blueprint')
+        self.set_status('eval content ...')
         self.edit.eval_blueprint()
+        run_later(self.finish)
+
+    def finish(self):
+        self.set_status('finish ...')
+        run_timeout(3000, self.set_status, None)
 
 
 if __name__ == '__main__':

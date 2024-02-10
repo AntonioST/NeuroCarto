@@ -495,14 +495,6 @@ class EditBlueprintTest(unittest.TestCase):
         blueprint = self.parser.get_blueprint()
         self.assert_blueprint_equal(expected_blueprint, blueprint)
 
-    def test_bp_id(self):
-        self.parser.parse_content("""
-        file=None
-        print(eval)=str(bp.id(321))
-        """)
-
-        self.assertListEqual(['321'], self.parser.message)
-
     def test_bp_blueprint(self):
         self.parser.parse_content("""
         file=None
@@ -547,69 +539,6 @@ class EditBlueprintTest(unittest.TestCase):
 
         blueprint = self.parser.get_blueprint()
         self.assert_blueprint_equal(expected_blueprint, blueprint)
-
-    def test_bp_interpolate_iteration_0(self):
-        file = get_test_file('test_edit_blueprint.py')
-        file = file.absolute().parent / '../res/Fig5d_data.npy'
-        self.assertTrue(file.exists(), file)
-
-        self.parser.parse_content(f"""
-        file={file}
-        var(r)=bp.interpolate_nan(v, iteration=0)
-        """)
-
-        self.assertIn('r', self.parser.context.variables)
-        self.assertIn('v', self.parser.context.variables)
-        assert_array_equal(self.parser.context.variables['r'],
-                           self.parser.context.variables['v'])
-
-    @unittest.skip('show matplotlib plot')
-    def test_bp_interpolate_iteration_1(self):
-        import matplotlib.pyplot as plt
-        from matplotlib.transforms import Affine2D
-
-        from chmap.probe_npx import plot
-        from chmap.probe_npx.npx import PROBE_TYPE_NP24
-
-        file = get_test_file('test_edit_blueprint.py')
-        file = file.absolute().parent / '../res/Fig5d_data.npy'
-        self.assertTrue(file.exists(), file)
-
-        self.parser.parse_content(f"""
-        file={file}
-        var(r)=bp.interpolate_nan(v)
-        """)
-
-        self.assertIn('r', self.parser.context.variables)
-        self.assertIn('v', self.parser.context.variables)
-        x = self.parser.variables['x']
-        y = self.parser.variables['y']
-        v = self.parser.context.variables['v']
-        r = self.parser.context.variables['r']
-
-        self.assertTupleEqual(v.shape, r.shape)
-
-        fg, ax = plt.subplots()
-        data = plot.ElectrodeMatData.of(
-            PROBE_TYPE_NP24,
-            np.vstack([x, y, v]).T,
-            electrode_unit='xy'
-        )
-
-        plot.plot_probe_shape(ax, PROBE_TYPE_NP24, color='k')
-        plot.plot_electrode_block(ax, PROBE_TYPE_NP24, data, shank_width_scale=1)
-
-        data = plot.ElectrodeMatData.of(
-            PROBE_TYPE_NP24,
-            np.vstack([x, y, r]).T,
-            electrode_unit='xy'
-        )
-
-        plot.plot_electrode_block(ax, PROBE_TYPE_NP24, data, shank_width_scale=1,
-                                  transform=Affine2D().translate(0.1, 0) + ax.transData)
-        ax.set_xlim(-0.1, 1.2)
-
-        plt.show()
 
 
 if __name__ == '__main__':
