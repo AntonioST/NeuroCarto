@@ -1,10 +1,47 @@
+from __future__ import annotations
+
+import functools
 from collections.abc import Callable
-from typing import Iterator
+from typing import Iterator, overload
 
 import numpy as np
 from numpy.typing import NDArray
 
 __all__ = ['BlueprintFunctions']
+
+
+def maybe_blueprint(self: BlueprintFunctions, a):
+    n = len(self.s)
+    return isinstance(a, np.ndarray) and a.shape == (n,) and np.issubdtype(a.dtype, np.integer)
+
+
+def blueprint_function(func):
+    """
+    Decorate a blueprint function to make it is able to direct apply function on
+    internal blueprint.
+
+    The function should have a signature `(blueprint, ...) -> blueprint`.
+
+    If the first parameter blueprint is given, it works as usually.
+    If the first parameter blueprint is omitted, use `blueprint()` as first arguments,
+    and use `set_blueprint()` when it returns.
+
+    :param func:
+    :return:
+    """
+
+    @functools.wraps(func)
+    def _blueprint_function(self: BlueprintFunctions, *args, **kwargs):
+        if len(args) and maybe_blueprint(self, args[0]):
+            return func(self, *args, **kwargs)
+        else:
+            blueprint = self.blueprint()
+            ret = func(self, blueprint, *args, **kwargs)
+            if maybe_blueprint(self, ret):
+                self.set_blueprint(ret)
+            return ret
+
+    return _blueprint_function
 
 
 # noinspection PyMethodMayBeStatic
@@ -58,6 +95,25 @@ class BlueprintFunctions:
             raise ValueError()
 
         self._blueprint = blueprint
+
+    @overload
+    def as_category(self, category: int | str) -> int:
+        pass
+
+    @overload
+    def as_category(self, category: list[int | str]) -> list[int]:
+        pass
+
+    def as_category(self, category):
+        match category:
+            case int(category):
+                return category
+            case str(category):
+                return getattr(self, f'CATE_{category.upper()}')
+            case list():
+                return list(map(self.as_category, category))
+            case _:
+                raise TypeError()
 
     def move(self, a: NDArray, *,
              tx: int = 0, ty: int = 0,
@@ -137,6 +193,7 @@ class BlueprintFunctions:
             return a
         return self.move(a, tx=tx * self.dx, ty=ty * self.dy, shanks=shanks, axis=axis, init=init)
 
+    @blueprint_function
     def set(self, blueprint: NDArray[np.int_], mask: NDArray[np.bool_], category: int | str) -> NDArray[np.int_]:
         """
         set *category* on `blueprint[mask]`.
@@ -156,6 +213,7 @@ class BlueprintFunctions:
         ret[mask] = category
         return ret
 
+    @blueprint_function
     def unset(self, blueprint: NDArray[np.int_], mask: NDArray[np.bool_]) -> NDArray[np.int_]:
         """
         unset `blueprint[mask]`.
@@ -231,7 +289,7 @@ class BlueprintFunctions:
         return ret
 
     def find_clustering(self, blueprint: NDArray[np.int_],
-                        categories: list[int] = None) -> NDArray[np.int_]:
+                        categories: list[int | str] = None) -> NDArray[np.int_]:
         """
         find electrode clustering with the same category.
 
@@ -247,6 +305,9 @@ class BlueprintFunctions:
 
         if len(blueprint) != len(s):
             raise ValueError()
+
+        if categories is not None:
+            categories = self.as_category(categories)
 
         pos = self._position_index
 
@@ -296,32 +357,42 @@ class BlueprintFunctions:
 
         return ret
 
+    @blueprint_function
     def fill(self, blueprint: NDArray[np.int_],
-             categories: int | list[int] = None,
+             categories: int | str | list[int | str] = None,
              threshold: int = None,
-             unset_too_small: bool = False) -> NDArray[np.int_]:
+             gap: int | None = 1,
+             unset: bool = False) -> NDArray[np.int_]:
         """
         make the area occupied by categories be filled as rectangle.
 
         :param blueprint: Array[category, N]
         :param categories: fill area occupied by categories.
         :param threshold: only consider area which size larger than threshold.
-        :param unset_too_small: unset small area (depends on threshold)
+        :param gap: fill the gap below (|y| <= gap). Use None, fill() area as a rectangle.
+        :param unset: unset small area (depends on threshold)
         :return: blueprint Array[category, N]
         """
         if len(blueprint) != len(self.s):
             raise ValueError()
 
+        if gap is None:
+            gap_window = None
+        else:
+            if gap <= 0:
+                raise ValueError()
+            gap_window = gap + 2
+
         if categories is None:
             categories = list(set(self._categories.values()))
-        elif isinstance(categories, int):
+        elif isinstance(categories, (int, str)):
             categories = [categories]
 
         dx = self.dx
         dy = self.dy
 
         ret = blueprint.copy()
-        unset = self.CATE_UNSET
+        cate_unset = self.CATE_UNSET
 
         clustering = self.find_clustering(blueprint, categories)
         for cluster in np.unique(clustering):
@@ -329,11 +400,10 @@ class BlueprintFunctions:
                 continue
 
             area: NDArray[np.bool_] = clustering == cluster
-            size = np.count_nonzero(area)
             if threshold is not None:
-                if size < threshold:
-                    if unset_too_small:
-                        ret[area] = unset
+                if np.count_nonzero(area) < threshold:
+                    if unset:
+                        ret[area] = cate_unset
                     continue
 
             c = np.unique(ret[area])
@@ -344,29 +414,36 @@ class BlueprintFunctions:
             assert len(s) == 1
             s = int(s[0])
 
-            x = self.x[area]
-            y = self.y[area]
+            x = (self.x[area] / dx).astype(int)
+            y = (self.y[area] / dy).astype(int)
+            y0 = int(np.min(y))
+            y1 = int(np.max(y))
 
             for xx in np.unique(x):  # for each column
                 xx = int(xx)
-
-                # fill gap in y
-                y0 = int(np.min(y) / dx)
-                y1 = int(np.max(y) / dy)
-                for yy in range(y0 + 1, y1):
-                    yi = self._position_index[(s, xx, yy - 1)]
-                    yj = self._position_index[(s, xx, yy)]
-                    yk = self._position_index[(s, xx, yy + 1)]
-                    if area[yi] and not area[yj] and area[yk]:
-                        ret[yj] = c
+                if gap is None:
+                    for yy in range(y0, y1 + 1):
+                        if not area[(yi := self._position_index[(s, xx, yy)])]:
+                            ret[yi] = c
+                else:
+                    # fill gap in y
+                    for yy in range(y0, y1 + 2 - gap_window):
+                        yi = np.array([
+                            self._position_index[(s, xx, yy + gi)]
+                            for gi in range(gap_window)
+                        ])
+                        if np.count_nonzero(~area[yi]) <= gap:
+                            ret[yi] = c
 
         return ret
 
-    def expand(self, blueprint: NDArray[np.int_],
-               on: int,
+    @blueprint_function
+    def extend(self, blueprint: NDArray[np.int_],
+               on: int | str,
                step: int | tuple[int, int],
-               category: int = None,
+               category: int | str = None,
                threshold: int | tuple[int, int] = None,
+               bi: bool = True,
                overwrite: bool = False):
         """
         extend the area occupied by category *on* with *category*.
@@ -377,8 +454,83 @@ class BlueprintFunctions:
         :param category: use which category value
         :param threshold: for area which size larger than threshold (threshold<=|area|)
             or in range (threshold<=|area|<=threshold)
+        :param bi: both position and negative steps direction
         :param overwrite: overwrite category value. By default, only change the unset electrode.
         :return:
         """
         if len(blueprint) != len(self.s):
             raise ValueError()
+
+        on = self.as_category(on)
+
+        match threshold:
+            case None | int() | (int(), int()):
+                pass
+            case [int(), int()]:
+                threshold = tuple(threshold)
+            case _:
+                raise TypeError()
+
+        if category is None:
+            category = on
+        else:
+            category = self.as_category(category)
+
+        match step:
+            case int(step):
+                step = (0, step)
+            case (int(left), int(right)):
+                step = left, right
+            case _:
+                raise TypeError()
+
+        def _step_as_range(step: int):
+            match step:
+                case 0:
+                    return range(0, 1)
+                case step if bi:
+                    step = abs(step)
+                    return range(-step, step + 1)
+                case step if step > 0:
+                    return range(1, step + 1)
+                case step if step < 0:
+                    return range(step, 1)
+                case _:
+                    raise RuntimeError()
+
+        x_steps = _step_as_range(step[0])
+        y_steps = _step_as_range(step[1])
+
+        ret = blueprint.copy()
+        unset = self.CATE_UNSET
+
+        clustering = self.find_clustering(blueprint, [on])
+        for cluster in np.unique(clustering):
+            if cluster == 0:
+                continue
+
+            area: NDArray[np.bool_] = clustering == cluster
+            if threshold is not None:
+                size = np.count_nonzero(area)
+                match threshold:
+                    case int(threshold):
+                        if not (threshold <= size):
+                            continue
+                    case (int(left), int(right)):
+                        if not (left <= size <= right):
+                            continue
+                    case _:
+                        raise TypeError()
+
+            extend = np.zeros_like(area, dtype=bool)
+            for x in x_steps:
+                for y in y_steps:
+                    np.logical_or(self.move_i(area, tx=x, ty=y, init=False), extend, out=extend)
+
+            extend[area] = False
+            if not overwrite:
+                extend[blueprint != unset] = False
+
+            ret[extend] = category
+
+        return ret

@@ -41,8 +41,7 @@ class Tester(ViewBase, ControllerView):
         alias(X)=FORBIDDEN
         
         file=res/Fig5d_data.npy
-        print(eval)=f'min={np.nanmin(v)}'
-        print(eval)=f'max={np.nanmax(v)}'
+        print(eval)=f'min={np.nanmin(v)}, max={np.nanmax(v)}'
         var(v)=bp.interpolate_nan(v)
         draw()
         X=(s==0)&(y>5000)
@@ -54,6 +53,12 @@ class Tester(ViewBase, ControllerView):
         var(vca1)=(300<=y)&(y<=1000)
         F=dca1&active
         F=vca1&active
+        eval()=bp.fill(F, gap=None)
+        eval()=bp.fill(F, threshold=10, unset=True)
+        eval()=bp.extend(F, 2, threshold=(0, 100))
+        eval()=bp.extend(F, 10, H)
+        Q=(s==3)&(2000<=y)&(y<=4000)
+        L=(s==3)&(1000<=y)&(y<=3000)
         
         """)
         run_later(self.eval_blueprint)

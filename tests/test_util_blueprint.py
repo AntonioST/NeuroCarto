@@ -164,7 +164,7 @@ class UtilBlueprintTest(unittest.TestCase):
             1, 1,
         ])
 
-        bp = self.build_function(blueprint.reshape(1, 2, 5))
+        bp = self.build_function(blueprint.reshape(1, 5, 2))
         self.assert_clustering(bp.fill(blueprint), np.array([
             1, 1,
             1, 1,
@@ -186,6 +186,219 @@ class UtilBlueprintTest(unittest.TestCase):
             1, 1,
             1, 1,
             1, 1,
+        ]))
+
+        blueprint = np.array([
+            0, 0,
+            0, 1,
+            1, 1,
+            1, 0,
+            0, 0,
+        ])
+        self.assert_clustering(bp.fill(blueprint), np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+        ]))
+
+    def test_fill_with_threshold(self):
+        blueprint = np.array([
+            2, 2,
+            2, 2,
+            2, 0,
+            0, 1,
+            1, 1,
+        ])
+
+        bp = self.build_function(blueprint.reshape(1, 5, 2))
+        self.assert_clustering(bp.fill(blueprint, threshold=4), np.array([
+            2, 2,
+            2, 2,
+            2, 2,
+            0, 1,
+            1, 1,
+        ]))
+
+        blueprint = np.array([
+            2, 2,
+            2, 2,
+            2, 0,
+            0, 1,
+            1, 1,
+        ])
+        self.assert_clustering(bp.fill(blueprint, threshold=4, unset=True), np.array([
+            2, 2,
+            2, 2,
+            2, 2,
+            0, 0,
+            0, 0,
+        ]))
+
+    def test_fill_rect(self):
+        blueprint = np.array([
+            0, 0,
+            0, 1,
+            0, 1,
+            1, 1,
+            1, 0,
+            1, 0,
+            0, 0,
+        ])
+
+        bp = self.build_function(blueprint.reshape(1, 7, 2))
+        self.assert_clustering(bp.fill(blueprint, gap=None), np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+        ]))
+
+    def test_extend(self):
+        blueprint = np.array([
+            0, 0,
+            0, 0,
+            1, 1,
+            0, 0,
+            0, 0,
+        ])
+
+        bp = self.build_function(blueprint.reshape(1, 5, 2))
+        self.assert_clustering(bp.extend(blueprint, on=1, step=1), np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+        ]))
+
+        blueprint = np.array([
+            0, 0,
+            0, 0,
+            1, 1,
+            0, 0,
+            0, 0,
+        ])
+        self.assert_clustering(bp.extend(blueprint, on=1, step=1, category=2), np.array([
+            0, 0,
+            2, 2,
+            1, 1,
+            2, 2,
+            0, 0,
+        ]))
+
+    def test_extend_direction(self):
+        blueprint = np.array([
+            0, 0,
+            0, 0,
+            1, 1,
+            0, 0,
+            0, 0,
+        ])
+        bp = self.build_function(blueprint.reshape(1, 5, 2))
+        self.assert_clustering(bp.extend(blueprint, on=1, step=1, bi=False), np.array([
+            0, 0,
+            0, 0,
+            1, 1,
+            1, 1,
+            0, 0,
+        ]))
+
+        blueprint = np.array([
+            0, 0,
+            0, 0,
+            1, 1,
+            0, 0,
+            0, 0,
+        ])
+        self.assert_clustering(bp.extend(blueprint, on=1, step=-1, bi=False), np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            0, 0,
+            0, 0,
+        ]))
+
+        blueprint = np.array([
+            0, 0,
+            0, 0,
+            1, 0,
+            0, 0,
+            0, 0,
+        ])
+        self.assert_clustering(bp.extend(blueprint, on=1, step=1), np.array([
+            0, 0,
+            1, 0,
+            1, 0,
+            1, 0,
+            0, 0,
+        ]))
+        blueprint = np.array([
+            0, 0,
+            0, 0,
+            1, 0,
+            0, 0,
+            0, 0,
+        ])
+        self.assert_clustering(bp.extend(blueprint, on=1, step=(1, 1)), np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+        ]))
+
+    def test_extend_threshold(self):
+        blueprint = np.array([
+            1, 1,
+            0, 0,
+            0, 0,
+            1, 1,
+            1, 1,
+        ])
+        bp = self.build_function(blueprint.reshape(1, 5, 2))
+        self.assert_clustering(bp.extend(blueprint, on=1, step=1, threshold=4), np.array([
+            1, 1,
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+        ]))
+
+    def test_extend_overwrite(self):
+        blueprint = np.array([
+            2, 2,
+            0, 1,
+            1, 1,
+            0, 1,
+            0, 0,
+        ])
+        bp = self.build_function(blueprint.reshape(1, 5, 2))
+        self.assert_clustering(bp.extend(blueprint, on=1, step=1), np.array([
+            2, 2,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 1,
+        ]))
+
+        blueprint = np.array([
+            2, 2,
+            0, 1,
+            1, 1,
+            0, 1,
+            0, 0,
+        ])
+        self.assert_clustering(bp.extend(blueprint, on=1, step=1, overwrite=True), np.array([
+            2, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 1,
         ]))
 
 

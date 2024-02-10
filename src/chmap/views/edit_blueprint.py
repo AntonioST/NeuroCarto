@@ -106,9 +106,9 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
         btn = ButtonFactory(min_width=50, width_policy='min')
 
         self.criteria_area = TextAreaInput(
-            title='criteria',
             rows=20, cols=100,
             width=500,
+            max_length=None,
             stylesheets=['textarea {font-family: monospace;}']
         )
 
@@ -466,6 +466,9 @@ class CriteriaParser(Generic[M, E]):
             variables = self.variables
             blueprint = None
 
+        variables = dict(variables)
+        variables.update(self.categories)
+
         self.blueprint_functions._blueprint = blueprint
         try:
             ret = eval(expression, dict(np=np, bp=self.blueprint_functions), variables)
@@ -475,9 +478,12 @@ class CriteriaParser(Generic[M, E]):
 
         if new_blueprint is not None and (blueprint is None or np.any(new_blueprint != blueprint)):
             # blueprint changed
-            context = CriteriaContext(self, None)
-            context.result[:] = new_blueprint
-            self.context = context
+            if context is None:
+                context = CriteriaContext(self, None)
+                context.result[:] = new_blueprint
+                self.context = context
+            else:
+                context.result[:] = new_blueprint
 
         return ret
 
@@ -514,6 +520,7 @@ class CriteriaParser(Generic[M, E]):
         return True
 
     def parse_line(self, line: str):
+        print('parse', line)
         left, eq, expression = line.partition('=')
 
         if len(eq) == 0:
