@@ -291,6 +291,8 @@ class CriteriaParser(Generic[M, E]):
            func_expression*
         func_expression = CATEGORY '=' EXPRESSION comment? '\\n'
                         | FUNC(args*) ('=' EXPRESSION)? comment? '\\n'
+                        | '!' EXPRESSION comment? '\\n'
+                        | '>' EXPRESSION comment? '\\n'
         args = VAR (',' VAR)*
 
     *   `FILE` is a file path. Could be 'None'.
@@ -333,6 +335,11 @@ class CriteriaParser(Generic[M, E]):
         * `print(FLAG)=MESSAGE` print message
         * `show(FLAG)=EXPRESSION` show figure
         * `abort()` abort parsing
+
+    *   short symbols
+
+        * `!` for `eval()=`
+        * `>` for `print(eval)=`
 
     The latter block overwrite previous blocks.
 
@@ -520,34 +527,38 @@ class CriteriaParser(Generic[M, E]):
         return True
 
     def parse_line(self, line: str):
-        print('parse', line)
-        left, eq, expression = line.partition('=')
+        if line.startswith('!'):
+            self.parse_call('eval', [], line[1:].strip())
+        elif line.startswith('>'):
+            self.parse_call('print', ['eval'], line[1:].strip())
+        else:
+            left, eq, expression = line.partition('=')
 
-        if len(eq) == 0:
+            if len(eq) == 0:
+                if '(' in left and left.endswith(')'):
+                    func, _, args = left[:-1].partition('(')
+                    self.parse_call(func, self.parse_args(args))
+                    return
+                else:
+                    self.warning('unknown content')
+                    raise KeyboardInterrupt
+
             if '(' in left and left.endswith(')'):
                 func, _, args = left[:-1].partition('(')
-                self.parse_call(func, self.parse_args(args))
-                return
+                self.parse_call(func, self.parse_args(args), expression)
             else:
-                self.warning('unknown content')
-                raise KeyboardInterrupt
-
-        if '(' in left and left.endswith(')'):
-            func, _, args = left[:-1].partition('(')
-            self.parse_call(func, self.parse_args(args), expression)
-        else:
-            match left:
-                case 'file':
-                    self.context = CriteriaContext(self, self.context)
-                    self.context.set_file(expression)
-                case 'loader':
-                    if self.context is not None:
-                        self.context.set_loader(expression)
-                    else:
-                        self.warning('missing file=')
-                case _:
-                    if self.context is not None and self.context.data is not None:
-                        self.parse_call('set', [left], expression)
+                match left:
+                    case 'file':
+                        self.context = CriteriaContext(self, self.context)
+                        self.context.set_file(expression)
+                    case 'loader':
+                        if self.context is not None:
+                            self.context.set_loader(expression)
+                        else:
+                            self.warning('missing file=')
+                    case _:
+                        if self.context is not None and self.context.data is not None:
+                            self.parse_call('set', [left], expression)
 
     def parse_args(self, args: str) -> list[str]:
         args = args.strip()
