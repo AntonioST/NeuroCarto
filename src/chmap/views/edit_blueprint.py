@@ -222,18 +222,12 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
     def init_scripts(self):
         self.logger.debug('init_scripts')
 
-        self.contents.setdefault('npx_basic', textwrap.dedent("""\
-        # Neuropixels basic
-        use(NpxProbeDesp)
-        save(script,current)=npx_basic
-        
-        alias(F)=FULL
-        alias(H)=HALF
-        alias(Q)=QUARTER
-        alias(L)=LOW
-        alias(X)=FORBIDDEN
-        
-        """))
+        root = Path(__file__).parent / 'edit'
+        for file in root.glob('edbp_*.txt'):
+            content = file.read_text()
+            name = CriteriaParser.find_func_save_script_config(content)
+            self.logger.debug(f'init script %s from %s', name, file)
+            self.contents.setdefault(name, content)
 
     # ================ #
     # updating methods #
@@ -755,12 +749,14 @@ class CriteriaParser(Generic[M, E]):
         return [it.strip() for it in args.split(',')]
 
     @classmethod
-    def collect_exclusive_flags(cls, args: list[str], *flags: str | tuple[str, ...]) -> tuple[list[str | None], list[str]]:
+    def collect_exclusive_flags(cls, args: list[str], *flags: str | tuple[str, ...],
+                                exclude: list[str] = tuple()) -> tuple[list[str | None], list[str]]:
         """
         For function args, it handles a case that some flags are mutually exclusive.
 
         :param args: function args
         :param flags: zero-arg flag or (flag, request-args), use '?' ending to indicate it is optional.
+        :param exclude: do not consider flag in list as request-args.
         :return: tuple of ([captured flags], [remainder flags]).
         """
         all_flags = {}
@@ -772,14 +768,17 @@ class CriteriaParser(Generic[M, E]):
 
         ex_flags = []
         rm_flags = []
+        by_pass = False
         for arg in args:
             if arg in all_flags:
                 if len(ex_flags) == 0:
                     ex_flags.append(arg)
                 else:
                     raise ValueError(f'use both {ex_flags[0]} and {arg}')
-
-            elif len(ex_flags) > 0 and len(ex_flags) < len(all_flags[ex_flags[0]]):
+            elif arg in exclude:
+                rm_flags.append(arg)
+                by_pass = True
+            elif not by_pass and len(ex_flags) > 0 and len(ex_flags) < len(all_flags[ex_flags[0]]):
                 ex_flags.append(arg)
             else:
                 rm_flags.append(arg)
@@ -1138,9 +1137,8 @@ class CriteriaParser(Generic[M, E]):
 
         * ['blueprint'] : save blueprint (default)
         * ['data', VAR] : save data into numpy array.
-        * ['script', 'file'] : save script into file.
-        * ['script'] : save script into config. expression as script name.
-        * 'current': with 'script', save current parsing content.
+        * ['script', NAME?, 'file'] : save script into file.
+        * ['script', NAME?] : save script into config. expression as script name.
         * 'force': force overwrite.
         * 'date', 'datetime': add date/datetime suffix in filename.
 
@@ -1149,7 +1147,8 @@ class CriteriaParser(Generic[M, E]):
         :return:
         """
         try:
-            save_target, opts = self.collect_exclusive_flags(args, 'blueprint', ('data', 'VAR'), 'script')
+            save_target, opts = self.collect_exclusive_flags(args, 'blueprint', ('data', 'VAR'), ('script', 'NAME?'),
+                                                             exclude=['force', 'file', 'date', 'datetime'])
         except ValueError as e:
             self.warning(e.args[0], exc=e)
             return
@@ -1160,7 +1159,9 @@ class CriteriaParser(Generic[M, E]):
             case ['data', var]:
                 self._func_save_variable(opts, var, expression)
             case ['script']:
-                self._func_save_script(opts, expression)
+                self._func_save_script(opts, None, expression)
+            case ['script', name]:
+                self._func_save_script(opts, name, expression)
             case _:
                 self.warning(f'unknown saving target : {save_target[0]}')
 
@@ -1208,14 +1209,13 @@ class CriteriaParser(Generic[M, E]):
         np.save(file, data)
         self.info(f'save {file}')
 
-    def _func_save_script(self, args: list[str], expression: str = None):
+    def _func_save_script(self, args: list[str], name: str | None, expression: str = None):
         as_file = 'file' in args
-        current = 'current' in args
 
-        if current:
+        if name is None:
             content = self.current_content
         else:
-            content = self.view_get_script()
+            content = self.view_get_script(name)
 
         if as_file:
             if expression is None:
@@ -1306,7 +1306,7 @@ class CriteriaParser(Generic[M, E]):
             expression = 'v'
 
         try:
-            target_view, opts = self.collect_exclusive_flags(args, ('target', 'VIEW'))
+            target_view, opts = self.collect_exclusive_flags(args, ('target', 'VIEW'), exclude=['clear'])
         except ValueError as e:
             self.warning(e.args[0], exc=e)
             return

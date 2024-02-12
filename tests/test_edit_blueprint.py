@@ -448,17 +448,17 @@ class EditBlueprintTest(unittest.TestCase):
 
     def test_func_save_script(self):
         content = 'test'
-        self.parser.scripts[None] = content
+        self.parser.scripts['test'] = content
 
         self.parser.parse_content("""\
-        save(script)=test-script-name
+        save(script,test)=another
         """)
         self.assertIsNone(self.parser.error)
-        self.assertDictEqual({None: content, 'test-script-name': content}, self.parser.scripts)
+        self.assertDictEqual({'test': content, 'another': content}, self.parser.scripts)
 
     def test_func_save_current_script(self):
         content = """
-        save(script,current)=test-script-name
+        save(script)=test-script-name
         """
 
         self.parser.parse_content(content)
