@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from numpy._typing import NDArray
 from numpy.testing import assert_array_equal
 
 from chmap.probe_npx import ChannelMap
@@ -15,6 +16,9 @@ class CriteriaParserTester(CriteriaParser[ChannelMap, NpxElectrodeDesp]):
         super().__init__(None, NpxProbeDesp(), ChannelMap(24))
         self.message = []
         self.error = None
+        self.view_target = None
+        self.view_data = None
+        self.scripts: dict[str | None, str] = {}
 
     def info(self, message: str):
         self.message.append(message)
@@ -29,6 +33,16 @@ class CriteriaParserTester(CriteriaParser[ChannelMap, NpxElectrodeDesp]):
             ret.context = self.context
         ret.message = self.message
         return ret
+
+    def view_get_script(self, name: str | None = None) -> str | None:
+        return self.scripts.get(name, None)
+
+    def view_save_script(self, name: str | None, content: str):
+        self.scripts[name] = content
+
+    def view_data_update(self, view_target: str | None, data: NDArray[np.float_] | None):
+        self.view_target = view_target
+        self.view_data = data
 
     def func_call0(self, args: list[str]):
         self.message.append('call0')
@@ -91,6 +105,7 @@ class EditBlueprintTest(unittest.TestCase):
         file=test.npy
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertIsNotNone(context := self.parser.context)
         self.assertEqual(Path('test.npy'), context._file)
 
@@ -99,6 +114,7 @@ class EditBlueprintTest(unittest.TestCase):
         file=test.npy # load file
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertIsNotNone(context := self.parser.context)
         self.assertEqual(Path('test.npy'), context._file)
 
@@ -107,6 +123,7 @@ class EditBlueprintTest(unittest.TestCase):
         file=None
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertIsNotNone(context := self.parser.context)
         self.assertIsNone(context._file)
 
@@ -115,6 +132,7 @@ class EditBlueprintTest(unittest.TestCase):
         file=None
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertIsNotNone(context := self.parser.context)
         self.assertIs(default_loader, context.loader)
 
@@ -124,6 +142,7 @@ class EditBlueprintTest(unittest.TestCase):
         loader=tests:test_edit_blueprint:test_loader
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertIsNotNone(context := self.parser.context)
         # because function is load from different context(?), they have different memory address
         self.assertIs(test_loader.__name__, context.loader.__name__)
@@ -133,6 +152,7 @@ class EditBlueprintTest(unittest.TestCase):
         loader=tests:test_edit_blueprint:test_loader
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertIsNone(self.parser.context)
         self.assertListEqual(['missing file='], self.parser.message)
 
@@ -141,6 +161,7 @@ class EditBlueprintTest(unittest.TestCase):
         call0(1,2,3)
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['call0', '1', '2', '3'], self.parser.message)
 
     def test_func_call_unexpected_expression(self):
@@ -156,6 +177,7 @@ class EditBlueprintTest(unittest.TestCase):
         call1(1,2,3)=expression
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['call1', '1', '2', '3', 'expression'], self.parser.message)
 
     def test_func_call_forget_expression(self):
@@ -171,6 +193,7 @@ class EditBlueprintTest(unittest.TestCase):
         call2(1,2,3)=expression
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['unknown func call2'], self.parser.message)
 
     def test_func_print(self):
@@ -178,6 +201,7 @@ class EditBlueprintTest(unittest.TestCase):
         print()=test
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['test'], self.parser.message)
 
     def test_func_print_eval(self):
@@ -185,6 +209,7 @@ class EditBlueprintTest(unittest.TestCase):
         print(eval)=f'test {1+1}'
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['test 2'], self.parser.message)
 
     def test_func_use(self):
@@ -192,13 +217,14 @@ class EditBlueprintTest(unittest.TestCase):
         use(NpxProbeDesp)
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertTrue(ret)
 
     def test_func_use_fail(self):
         ret = self.parser.parse_content("""
         use(NoDefineProbeDesp)
         """)
-
+        self.assertIsNone(self.parser.error)
         self.assertFalse(ret)
         self.assertListEqual(['fail probe check : NpxProbeDesp'], self.parser.message)
 
@@ -207,6 +233,7 @@ class EditBlueprintTest(unittest.TestCase):
         check(FULL,HALF,QUARTER)
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual([], self.parser.message)
 
     def test_func_check_info(self):
@@ -216,6 +243,7 @@ class EditBlueprintTest(unittest.TestCase):
         alias(X)=FORBIDDEN
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['unknown category X'], self.parser.message)
         self.assertIn('X', self.parser.categories)
 
@@ -226,6 +254,7 @@ class EditBlueprintTest(unittest.TestCase):
         alias(X)=FORBIDDEN
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['unknown category X'], self.parser.message)
         self.assertNotIn('X', self.parser.categories)
 
@@ -235,6 +264,7 @@ class EditBlueprintTest(unittest.TestCase):
         test(arg)=exp
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual([], self.parser.message)
 
     def test_external_func_scope_parser(self):
@@ -243,6 +273,7 @@ class EditBlueprintTest(unittest.TestCase):
         test(arg)=exp
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['external_func_parser', 'arg', 'exp'], self.parser.message)
 
     def test_external_func_scope_context(self):
@@ -252,6 +283,7 @@ class EditBlueprintTest(unittest.TestCase):
         test(arg)=exp
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['external_func_context', 'arg', 'exp'], self.parser.message)
 
     def test_external_func_scope_context_without_context(self):
@@ -260,13 +292,26 @@ class EditBlueprintTest(unittest.TestCase):
         test(arg)=exp
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['call func test() without context'], self.parser.message)
+
+    def test_run_script(self):
+        self.parser.scripts['test-script'] = """
+        use()
+        """
+        self.parser.parse_content("""
+        run()=test-script
+        """)
+
+        self.assertIsNone(self.parser.error)
+        self.assertListEqual(['use(NpxProbeDesp)'], self.parser.message)
 
     def test_run_file(self):
         self.parser.parse_content(f"""
-        run()={get_test_file('test_edit_blueprint.txt')}
+        run(file)={get_test_file('test_edit_blueprint.txt')}
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['category', 'X', '1'], self.parser.message)
         self.assertIn('DB_func', self.parser.external_functions)
         self.assertIn('DB_var', self.parser.variables)
@@ -275,9 +320,10 @@ class EditBlueprintTest(unittest.TestCase):
 
     def test_run_file_no_all(self):
         self.parser.parse_content(f"""
-        run(xf,xv,xa,xr)={get_test_file('test_edit_blueprint.txt')}
+        run(file,xf,xv,xa,xr)={get_test_file('test_edit_blueprint.txt')}
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['category', 'X', '1'], self.parser.message)
         self.assertNotIn('DB_func', self.parser.external_functions)
         self.assertNotIn('DB_var', self.parser.variables)
@@ -292,6 +338,7 @@ class EditBlueprintTest(unittest.TestCase):
         alias(X)=FORBIDDEN
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertIn('X', self.parser.categories)
         self.assertEqual(self.parser.categories['FORBIDDEN'], self.parser.categories['X'])
 
@@ -301,6 +348,7 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=1
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['category', 'FORBIDDEN', '1'], self.parser.message)
         self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_FORBIDDEN))
 
@@ -309,6 +357,7 @@ class EditBlueprintTest(unittest.TestCase):
         file=not_found.npy
         FORBIDDEN=1
         """)
+        self.assertIsNone(self.parser.error)
 
         match self.parser.message:
             case [message]:
@@ -325,6 +374,7 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=s==3
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual([
             'category', 'FORBIDDEN', 's==0',
             'category', 'FORBIDDEN', 's==1',
@@ -350,6 +400,7 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=k
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertIn('k', self.parser.variables)
         self.assertListEqual(['category', 'FORBIDDEN', 'k'], self.parser.message)
         self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_FORBIDDEN))
@@ -361,19 +412,21 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=k
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertNotIn('k', self.parser.variables)
         self.assertListEqual(['category', 'FORBIDDEN', 'k'], self.parser.message)
         self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_FORBIDDEN))
 
-    def test_func_save(self):
+    def test_func_save_blueprint(self):
         m = TimeMaker()
         self.parser.parse_content("""
         file=None
         FORBIDDEN=(y>6000)
-        save()=./test-save
+        save(force)=./test-save
         """)
         m('parse_content')
 
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['category', 'FORBIDDEN', '(y>6000)', 'save test-save.blueprint.npy'],
                              self.parser.message)
         m('assertListEqual')
@@ -393,6 +446,32 @@ class EditBlueprintTest(unittest.TestCase):
         self.assert_blueprint_equal(blueprint, test)
         m('assert_blueprint_equal')
 
+    def test_func_save_script(self):
+        content = 'test'
+        self.parser.scripts[None] = content
+
+        self.parser.parse_content("""\
+        save(script)=test-script-name
+        """)
+        self.assertIsNone(self.parser.error)
+        self.assertDictEqual({None: content, 'test-script-name': content}, self.parser.scripts)
+
+    def test_func_save_current_script(self):
+        content = """
+        save(script,current)=test-script-name
+        """
+
+        self.parser.parse_content(content)
+        self.assertIsNone(self.parser.error)
+        self.assertDictEqual({'test-script-name': content}, self.parser.scripts)
+
+    def test_func_save_data_missing_var(self):
+        self.parser.parse_content("""
+        save(data)=test.npy
+        """)
+        self.assertListEqual(['data missing VAR'], self.parser.message)
+        self.assertIsInstance(self.parser.error, ValueError)
+
     @unittest.skipIf(condition=not Path('test-save.blueprint.npy').exists(),
                      reason='test_func_save() need to run first')
     def test_func_blueprint(self):
@@ -401,7 +480,7 @@ class EditBlueprintTest(unittest.TestCase):
         blueprint()=./test-save.blueprint.npy
         """)
         m('parse_content')
-
+        self.assertIsNone(self.parser.error)
         self.assertListEqual(['load test-save.blueprint.npy'], self.parser.message)
         m('assertListEqual')
 
@@ -422,6 +501,7 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=(y>6000)
         LOW=1
         """)
+        self.assertIsNone(self.parser.error)
 
         self.assertFalse(np.all(self.parser.get_result() == NpxProbeDesp.CATE_LOW))
 
@@ -432,6 +512,7 @@ class EditBlueprintTest(unittest.TestCase):
         LOW=1
         FORBIDDEN=(y>6000)
         """)
+        self.assertIsNone(self.parser.error)
 
         self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_LOW))
 
@@ -444,6 +525,7 @@ class EditBlueprintTest(unittest.TestCase):
         LOW=1
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_LOW))
 
         self.setUp()
@@ -456,6 +538,7 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=(y>6000)
         """)
 
+        self.assertIsNone(self.parser.error)
         self.assertFalse(np.all(self.parser.get_result() == NpxProbeDesp.CATE_LOW))
 
     def test_func_move(self):
@@ -467,6 +550,7 @@ class EditBlueprintTest(unittest.TestCase):
         FORBIDDEN=(s==3)&(y>7000)
         """)
 
+        self.assertIsNone(self.parser.error)
         expected_blueprint = self.parser.get_blueprint()
 
         self.setUp()
@@ -478,6 +562,7 @@ class EditBlueprintTest(unittest.TestCase):
         move(2,3)=1000
         """)
 
+        self.assertIsNone(self.parser.error)
         blueprint = self.parser.get_blueprint()
         self.assert_blueprint_equal(expected_blueprint, blueprint)
 
@@ -488,6 +573,7 @@ class EditBlueprintTest(unittest.TestCase):
         val(b)=bp.blueprint()
         """)
 
+        self.assertIsNone(self.parser.error)
         assert_array_equal(self.parser.context.result, self.parser.variables['b'])
 
     def test_bp_set_blueprint(self):
@@ -495,6 +581,7 @@ class EditBlueprintTest(unittest.TestCase):
         file=None
         FORBIDDEN=(y>6000)
         """)
+        self.assertIsNone(self.parser.error)
         expected_blueprint = self.parser.context.result
 
         self.setUp()
@@ -503,6 +590,7 @@ class EditBlueprintTest(unittest.TestCase):
         file=None
         var(_)=bp.set_blueprint(b)
         """)
+        self.assertIsNone(self.parser.error)
         blueprint = self.parser.context.result
         assert_array_equal(blueprint, expected_blueprint)
 
@@ -514,6 +602,7 @@ class EditBlueprintTest(unittest.TestCase):
         move(2,3)=1000
         """)
 
+        self.assertIsNone(self.parser.error)
         expected_blueprint = self.parser.get_blueprint()
 
         self.setUp()
@@ -523,6 +612,7 @@ class EditBlueprintTest(unittest.TestCase):
         eval()=bp.set_blueprint(bp.move(bp.blueprint(), tx=0, ty=1000, shanks=[2,3], init=bp.CATE_UNSET))
         """)
 
+        self.assertIsNone(self.parser.error)
         blueprint = self.parser.get_blueprint()
         self.assert_blueprint_equal(expected_blueprint, blueprint)
 

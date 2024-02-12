@@ -184,7 +184,7 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
             else:
                 self.save_global_state()
 
-        run_later(self._reload_script_select_content)
+        self._reload_script_select_content()
 
     def _reload_script_select_content(self):
         self.script_select.options = ['', *list(self.contents)]
@@ -298,6 +298,10 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
 
         plot.plot_electrode_block(ax, probe_type, data, electrode_unit='xyv', shank_width_scale=0.5, **kwargs)
 
+    # ======= #
+    # actions #
+    # ======= #
+
     def reset_blueprint(self):
         if (blueprint := self.cache_blueprint) is None:
             return
@@ -330,13 +334,19 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
         parser.get_blueprint(blueprint)
         run_later(self.update_probe)
 
+    def get_script(self, name: str) -> str | None:
+        return self.contents.get(name, None)
+
     def save_script(self, name: str, content: str = None):
+        if len(name) == 0:
+            raise ValueError()
+
         if content is None:
             content = self.criteria_area.value
 
         self.contents[name] = content
         self.save_global_state()
-        run_later(self._reload_script_select_content)
+        self._reload_script_select_content()
 
 
 class CriteriaParser(Generic[M, E]):
@@ -452,7 +462,7 @@ class CriteriaParser(Generic[M, E]):
     def __init__(self, view: InitializeBlueprintView | None, probe: ProbeDesp[M, E], chmap: M):
         self.logger = logging.getLogger('chmap.blueprint.parser')
 
-        self.view = view
+        self._view = view
         self.probe = probe
         self.chmap = chmap
         self.categories = probe.all_possible_categories()
@@ -468,28 +478,31 @@ class CriteriaParser(Generic[M, E]):
         self.blueprint_functions = BlueprintFunctions(self.variables['s'], self.variables['x'], self.variables['y'], self.categories)
         self.context: CriteriaContext | None = None
 
-        self.current_line: int = 0
         self.current_content: str = ''
+        self.current_line: int = 0
+        self.current_line_content: str = ''
 
     def info(self, message: str):
-        if self.view is None:
+        if self._view is None:
             self.logger.info(message)
         else:
-            self.view.log_message(message)
+            self._view.log_message(message)
 
     def warning(self, message: str, exc: BaseException = None):
-        self.logger.warning('%s line:%d  %s', message, self.current_line, self.current_content, exc_info=exc)
-        if self.view is not None:
-            self.view.log_message(f'{message} @{self.current_line}', self.current_content)
+        self.logger.warning('%s line:%d  %s', message, self.current_line, self.current_line_content, exc_info=exc)
+        if self._view is not None:
+            self._view.log_message(f'{message} @{self.current_line}', self.current_line_content)
 
     def clone(self, inherit=False) -> CriteriaParser:
         """
+        clone a parser for running another script.
 
-        :param inherit: inherit context
+        :param inherit: inherit variables and context
         :return:
         """
-        ret = CriteriaParser(self.view, self.probe, self.chmap)
+        ret = CriteriaParser(self._view, self.probe, self.chmap)
         if inherit:
+            ret.variables.update(self.variables)
             ret.context = self.context
         return ret
 
@@ -587,6 +600,34 @@ class CriteriaParser(Generic[M, E]):
 
         return ret
 
+    # ============== #
+    # view functions #
+    # ============== #
+
+    # functions for call view's functions.
+    # By this indirect call, then we can override those for testing
+
+    def view_get_script(self, name: str | None = None) -> str | None:
+        if name is None:
+            return self._view.criteria_area.value
+        return self._view.get_script(name)
+
+    def view_save_script(self, name: str | None, content: str):
+        if name is None:
+            if len(name := self._view.script_select.value) == 0:
+                self.warning('missing saving name')
+                return
+
+        self._view.save_script(name, content)
+
+    def view_data_update(self, view_target: str | None, data: NDArray[np.float_] | None):
+        if view_target is None:
+            self._view.on_data_update(self.probe, self.electrodes, data)
+        elif isinstance(view := self._view.get_view(view_target), DataHandler):
+            view.on_data_update(self.probe, self.electrodes, data)
+        else:
+            self.warning(f'view {view_target} not a DataHandler')
+
     # ======= #
     # parsing #
     # ======= #
@@ -605,8 +646,9 @@ class CriteriaParser(Generic[M, E]):
 
         try:
             for i, line in enumerate(content.split('\n'), start=1):
+                self.current_content = content  # make sure it doesn't be overwrite
                 self.current_line = i
-                self.current_content = line
+                self.current_line_content = line
 
                 line = line.strip()
                 if '#' in line:
@@ -676,7 +718,7 @@ class CriteriaParser(Generic[M, E]):
                     func, _, args = left[:-1].partition('(')
                     assert func == 'save'
                     args = cls.parse_args(args)
-                    if 'script' in args and 'config' in args:
+                    if 'script' in args and 'file' not in args:
                         return expression
         return None
 
@@ -689,6 +731,49 @@ class CriteriaParser(Generic[M, E]):
         if args.startswith('(') and args.endswith(')'):
             args = args[1:-1].strip()
         return [it.strip() for it in args.split(',')]
+
+    @classmethod
+    def collect_mutually_exclusive_flags(cls, args: list[str], *flags: str | tuple[str, ...]) -> tuple[list[str | None], list[str]]:
+        """
+        For function args, it handles a case that some flags are mutually exclusive.
+
+        :param args: function args
+        :param flags: zero-arg flag or (flag, request-args), use '?' ending to indicate it is optional.
+        :return: tuple of ([captured flags], [remainder flags]).
+        """
+        all_flags = {}
+        for flag in flags:
+            if isinstance(flag, str):
+                all_flags[flag] = (flag,)
+            else:
+                all_flags[flag[0]] = flag
+
+        ex_flags = []
+        rm_flags = []
+        for arg in args:
+            if arg in all_flags:
+                if len(ex_flags) == 0:
+                    ex_flags.append(arg)
+                else:
+                    raise ValueError(f'use both {ex_flags[0]} and {arg}')
+
+            elif len(ex_flags) > 0 and len(ex_flags) < len(all_flags[ex_flags[0]]):
+                ex_flags.append(arg)
+            else:
+                rm_flags.append(arg)
+
+        if len(ex_flags) > 0:
+            use_flag = all_flags[ex_flags[0]]
+            for i in range(len(use_flag)):
+                try:
+                    ex_flags[i]
+                except IndexError as e:
+                    if use_flag[i].endswith('?'):
+                        ex_flags.append(None)
+                    else:
+                        raise ValueError(f'{ex_flags[0]} missing {use_flag[i]}') from e
+
+        return ex_flags, rm_flags
 
     def parse_call(self, func: str, args: list[str], expression: str | None = missing):
         if expression is missing:
@@ -797,20 +882,22 @@ class CriteriaParser(Generic[M, E]):
 
     def func_run(self, args: list[str], expression: str):
         """
-        run file.
+        run script or file.
 
         flag:
 
+        * 'file': expression as filename.
         * 'inherit' : inherit current context
         * 'abort' : abort when any error. otherwise, skip.
-        * 'no-function', 'xf' : do not import external function
-        * 'no-variable', 'xv'  do not import variable
+        * 'no-function', 'xf' : do not import external functions
+        * 'no-variable', 'xv'  do not import variables
         * 'no-alias', 'xa' do not import category aliases
         * 'no-result', 'xr'  do not import category result
 
         :param args: [flag,...]
-        :param expression: filepath
+        :param expression: script name
         """
+        from_file = 'file' in args
         inherit = 'inherit' in args
         abort = 'abort' in args
         no_func = 'no-function' in args or 'xf' in args
@@ -818,26 +905,35 @@ class CriteriaParser(Generic[M, E]):
         no_res = 'no-result' in args or 'xr' in args
         no_ali = 'no-alias' in args or 'xa' in args
 
-        file = Path(expression)
-        if not file.exists():
-            self.warning(f'file not found. {file}')
-            if abort:
-                raise KeyboardInterrupt
-            else:
-                return
+        if from_file:
+            file = Path(expression)
+            if not file.exists():
+                self.warning(f'file not found. {file}')
+                if abort:
+                    raise KeyboardInterrupt
+                else:
+                    return
 
-        self.logger.debug('run() read %s', file)
-        content = file.read_text()
+            self.logger.debug('run() read %s', file)
+            content = file.read_text()
+        else:
+            if (content := self.view_get_script(expression)) is None:
+                self.warning(f'script not found. {expression}')
+                if abort:
+                    raise KeyboardInterrupt
+                else:
+                    return
+
         parser = self.clone(inherit)
 
-        self.logger.debug('run() parse %s', file)
+        self.logger.debug('run() parse %s', expression)
         if not parser.parse_content(content):
-            self.logger.debug('run() fail %s', file)
+            self.logger.debug('run() fail %s', expression)
             if abort:
                 raise KeyboardInterrupt
             else:
                 return
-        self.logger.debug('run() exit %s', file)
+        self.logger.debug('run() exit %s', expression)
 
         if not no_func:
             self.external_functions.update(parser.external_functions)
@@ -1012,8 +1108,9 @@ class CriteriaParser(Generic[M, E]):
 
         * ['blueprint'] : save blueprint (default)
         * ['data', VAR] : save data into numpy array.
-        * ['script'] : save script.
-        * ['script', 'config'] : save script into config. expression as script name.
+        * ['script', 'file'] : save script into file.
+        * ['script'] : save script into config. expression as script name.
+        * 'current': with 'script', save current parsing content.
         * 'force': force overwrite.
         * 'date', 'datetime': add date/datetime suffix in filename.
 
@@ -1021,25 +1118,15 @@ class CriteriaParser(Generic[M, E]):
         :param expression: filepath
         :return:
         """
-        save_target = []
-        opts = []
-        for arg in args:
-            if arg in ('blueprint', 'data', 'script'):
-                if len(save_target) == 0:
-                    save_target.append(arg)
-                else:
-                    self.warning(f'multiple save target : {save_target[0]}, {arg}')
-                    return
-            elif len(save_target) == 1 and save_target[0] == 'data':
-                save_target.append(arg)
-            else:
-                opts.append(arg)
+        try:
+            save_target, opts = self.collect_mutually_exclusive_flags(args, 'blueprint', ('data', 'VAR'), 'script')
+        except ValueError as e:
+            self.warning(e.args[0], exc=e)
+            return
 
         match save_target:
             case [] | ['blueprint']:
                 self._func_save_blueprint(opts, expression)
-            case ['data']:
-                self.warning('missing variable name')
             case ['data', var]:
                 self._func_save_variable(opts, var, expression)
             case ['script']:
@@ -1092,32 +1179,27 @@ class CriteriaParser(Generic[M, E]):
         self.info(f'save {file}')
 
     def _func_save_script(self, args: list[str], expression: str = None):
-        as_config = 'config' in args
+        as_file = 'file' in args
+        current = 'current' in args
 
-        if (view := self.view) is None:
-            return
-
-        content = view.criteria_area.value
-        if as_config and expression is None:
-            expression = view.script_select.value
-            if len(expression) == 0:
-                self.warning('missing save name')
-            else:
-                view.on_save_script()
-
-        elif as_config and expression is not None:
-            view.save_script(expression, content)
-
-        elif expression is None:
-            self.warning('missing save filename')
-
+        if current:
+            content = self.current_content
         else:
-            if (file := self._func_save_filename(args, expression, '.txt')) is None:
-                return
+            content = self.view_get_script()
 
-            with file.open('w') as _file:
-                print(content, file=_file)
-            self.info(f'save {file}')
+        if as_file:
+            if expression is None:
+                self.warning('missing save filename')
+
+            else:
+                if (file := self._func_save_filename(args, expression, '.txt')) is None:
+                    return
+
+                with file.open('w') as _file:
+                    print(content, file=_file)
+                self.info(f'save {file}')
+        else:
+            self.view_save_script(expression, content)
 
     def func_set(self, args: list[str], expression: str):
         """
@@ -1180,39 +1262,34 @@ class CriteriaParser(Generic[M, E]):
         flags:
 
         * 'clear'
-        * 'target=VIEW' pass data to ViewBase that inherit DataHandler
+        * ['target', VIEW]: pass data to ViewBase that inherit DataHandler
         * Support pass to imshow() in the future.
 
         :param args: [] flags.
         :param expression: expression, default use v in context
         """
         if self.context is None:
-            self.view.on_data_update(self.probe, self.electrodes, None)
+            self.view_data_update(None, None)
             return
 
         if expression is None:
             expression = 'v'
 
-        clear_view = False
-        target_view = None
-        for arg in args:
-            match arg.partition('='):
-                case ('clear', '', ''):
-                    clear_view = True
-                case ('target', _, target_view):
-                    pass
+        try:
+            target_view, opts = self.collect_mutually_exclusive_flags(args, ('target', 'VIEW'))
+        except ValueError as e:
+            self.warning(e.args[0], exc=e)
+            return
 
-        if clear_view:
+        if 'clear' in opts:
             value = None
         else:
             value = self.eval_expression(expression, force_context=True)
 
-        if target_view is None:
-            self.view.on_data_update(self.probe, self.electrodes, value)
-        elif isinstance(view := self.view.get_view(target_view), DataHandler):
-            view.on_data_update(self.probe, self.electrodes, value)
+        if len(target_view) == 0:
+            self.view_data_update(None, value)
         else:
-            self.warning(f'view {target_view} not a DataHandler')
+            self.view_data_update(target_view[1], value)
 
 
 class CriteriaContext:

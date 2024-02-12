@@ -72,7 +72,7 @@ def new_parser() -> argparse.ArgumentParser:
                     help='do not open browser when server starts')
     gp.add_argument('--debug', action='store_true', dest='debug',
                     help=argparse.SUPPRESS)
-
+    ap.add_mutually_exclusive_group()
     return ap
 
 
