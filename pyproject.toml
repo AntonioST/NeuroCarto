@@ -32,6 +32,12 @@ Issues = "https://github.com/AntonioST/chmap_editor/issues"
 [project.scripts]
 chmap = "chmap.main_bokeh:main"
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"*" = ['*.txt', '*.matplotlibrc']
+
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
 
