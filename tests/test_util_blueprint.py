@@ -200,6 +200,105 @@ class UtilBlueprintTest(unittest.TestCase):
         # 3 2 1
         self.assertListEqual([(1, 1, 8), (3, 1, 8), (3, 3, 8), (1, 3, 8)], result.set_corner((0, 0)).edges)
 
+    def test_edge_rastering(self):
+        bp = BlueprintFunctions.from_shape((1, 5, 5), self.DEFAULT_CATEGORIES)
+        blueprint = np.array([
+            0, 0, 0, 0, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 0, 1, 0,
+            0, 1, 1, 1, 0,
+            0, 0, 0, 0, 0,
+        ])
+        results = bp.clustering_edges(blueprint, categories=[1])
+        assert_array_equal(blueprint, bp.edge_rastering(results, fill=False))
+
+        blueprint = np.array([
+            0, 1, 1, 0, 0,
+            1, 1, 1, 1, 0,
+            1, 0, 0, 1, 0,
+            1, 1, 1, 1, 0,
+            0, 0, 0, 1, 1,
+        ])
+        results = bp.clustering_edges(blueprint, categories=[1])
+
+        assert_array_equal(blueprint, bp.edge_rastering(results, fill=False))
+
+    def test_edge_rastering_fill(self):
+        bp = BlueprintFunctions.from_shape((1, 5, 5), self.DEFAULT_CATEGORIES)
+        blueprint = np.array([
+            0, 0, 0, 0, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 0, 1, 0,
+            0, 1, 1, 1, 0,
+            0, 0, 0, 0, 0,
+        ])
+        results = bp.clustering_edges(blueprint, categories=[1])
+
+        blueprint_expected = np.array([
+            0, 0, 0, 0, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 1, 1, 0,
+            0, 0, 0, 0, 0,
+        ])
+        assert_array_equal(blueprint_expected, bp.edge_rastering(results, fill=True))
+
+        blueprint = np.array([
+            0, 1, 1, 0, 0,
+            1, 1, 1, 1, 0,
+            1, 0, 0, 1, 0,
+            1, 1, 1, 1, 0,
+            0, 0, 0, 1, 1,
+        ])
+        results = bp.clustering_edges(blueprint, categories=[1])
+
+        blueprint_expected = np.array([
+            0, 1, 1, 0, 0,
+            1, 1, 1, 1, 0,
+            1, 1, 1, 1, 0,
+            1, 1, 1, 1, 0,
+            0, 0, 0, 1, 1,
+        ])
+        assert_array_equal(blueprint_expected, bp.edge_rastering(results, fill=True))
+
+    def test_edge_rastering_cover(self):
+        bp = BlueprintFunctions.from_shape((1, 5, 5), self.DEFAULT_CATEGORIES)
+        b1 = np.array([
+            0, 0, 0, 0, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 1, 1, 0,
+            0, 0, 0, 0, 0,
+        ])
+        b2 = np.array([
+            0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0,
+            0, 0, 2, 2, 2,
+            0, 0, 2, 2, 2,
+            0, 0, 2, 2, 2,
+        ])
+
+        r1 = bp.clustering_edges(b1, [1])[0]
+        r2 = bp.clustering_edges(b2, [2])[0]
+
+        blueprint_expected = np.array([
+            0, 0, 0, 0, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 2, 2, 2,
+            0, 1, 2, 2, 2,
+            0, 0, 2, 2, 2,
+        ])
+        assert_array_equal(blueprint_expected, bp.edge_rastering([r1, r2], fill=True, overwrite=True))
+
+        blueprint_expected = np.array([
+            0, 0, 0, 0, 0,
+            0, 1, 1, 1, 0,
+            0, 1, 1, 1, 2,
+            0, 1, 1, 1, 2,
+            0, 0, 2, 2, 2,
+        ])
+        assert_array_equal(blueprint_expected, bp.edge_rastering([r1, r2], fill=True, overwrite=False))
+
     def test_fill(self):
         bp = BlueprintFunctions.from_shape((1, 5, 2), self.DEFAULT_CATEGORIES)
 

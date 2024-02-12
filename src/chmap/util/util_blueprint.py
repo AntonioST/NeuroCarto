@@ -57,6 +57,8 @@ class ClusteringEdges(NamedTuple):
         4 8 0
         5 6 7
         
+    origin at bottom left.
+        
     """
 
     @property
@@ -635,18 +637,75 @@ class BlueprintFunctions:
 
         return ret
 
-    def edge_rastering(self, *edges: ClusteringEdges, fill=False) -> NDArray[np.int_]:
+    def edge_rastering(self, edges: ClusteringEdges | list[ClusteringEdges], fill=False, overwrite=False) -> NDArray[np.int_]:
         """
         For given edges, put them on the blueprint.
 
         :param edges:
         :param fill: fill the area.
+        :param overwrite: latter result overwrite previous results
         :return: blueprint
         """
-        pass
+        match edges:
+            case (ClusteringEdges() as edge) | [ClusteringEdges() as edge]:
+                return self._edge_rastering(edge, fill=fill)
 
-    def _edge_rastering(self, blueprint: NDArray[np.int_], edge: ClusteringEdges, fill=False) -> NDArray[np.int_]:
-        pass
+        unset = self.CATE_UNSET
+        ret = np.full_like(self.s, unset)
+        for edge in edges:
+            res = self._edge_rastering(edge, fill=fill)
+            if overwrite:
+                ret = np.where(res == unset, ret, res)
+            else:
+                ret = np.where(ret == unset, res, ret)
+        return ret
+
+    def _edge_rastering(self, edge: ClusteringEdges, fill=False) -> NDArray[np.int_]:
+        dx = self.dx
+        dy = self.dy
+        pos = self._position_index
+
+        c = edge.category
+        s = edge.shank
+        edge = edge.set_corner((0, 0))
+        edge = [*edge.edges, edge.edges[0]]  # as closed polygon
+
+        unset = self.CATE_UNSET
+        ret = np.full_like(self.s, unset)
+
+        for i in range(len(edge) - 1):
+            px, py, _ = edge[i]
+            qx, qy, _ = edge[i + 1]
+            if px == qx:
+                x = int(px / dx)
+                py, qy = min(py, qy), max(py, qy)
+                for y in range(py, qy + 1):
+                    y = int(y / dy)
+                    if (p := pos.get((s, x, y), None)) is not None:
+                        ret[p] = c
+            elif py == qy and not fill:
+                y = int(py / dy)
+                px, qx = min(px, qx), max(px, qx)
+                for x in range(px, qx + 1):
+                    x = int(x / dx)
+                    if (p := pos.get((s, x, y), None)) is not None:
+                        ret[p] = c
+
+        if not fill:
+            return ret
+
+        n_x = len(set([
+            x for _s, x, y in self._position_index
+            if _s == s
+        ]))
+
+        ret = ret.reshape((-1, n_x))  # (Y, X)
+        ret_edge = ret != unset
+        interior = np.cumsum(ret_edge.astype(int), axis=1) % 2 == 1
+        interior[ret_edge] = False
+        ret[interior] = c
+
+        return ret.ravel()
 
     @blueprint_function
     def fill(self, blueprint: NDArray[np.int_],
