@@ -107,7 +107,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             i = categories.index(edge.category)
             x = (edge.x + w) % s_space / c_space  # as column index
             # rebuild x position, to reduce block width
-            x = x * w / 2 + edge.shank * s_space - c_space
+            x = x * w + edge.shank * s_space - c_space - w / 2
 
             xs[i].append([list(x)])
             ys[i].append([list(edge.y)])
