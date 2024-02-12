@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import functools
 import logging
 import textwrap
@@ -7,7 +8,7 @@ from pathlib import Path
 from typing import Protocol, TypedDict, Generic, overload, Literal, get_args, TYPE_CHECKING
 
 import numpy as np
-from bokeh.models import TextAreaInput
+from bokeh.models import TextAreaInput, Select
 from matplotlib.axes import Axes
 from matplotlib.transforms import Affine2D
 from numpy.typing import NDArray
@@ -16,7 +17,7 @@ from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import plot
 from chmap.util.bokeh_app import run_later
-from chmap.util.bokeh_util import ButtonFactory
+from chmap.util.bokeh_util import ButtonFactory, as_callback
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import import_name
 from chmap.views.base import EditorView, GlobalStateView, ControllerView
@@ -86,7 +87,8 @@ def default_loader(filepath: Path, probe: ProbeDesp[M, E], chmap: M) -> NDArray[
 
 
 class InitializeBlueprintState(TypedDict):
-    content: str
+    content: str  # last shown content
+    contents: dict[str, str]
 
 
 class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerView, GlobalStateView[InitializeBlueprintState]):
@@ -94,6 +96,7 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.edit.blueprint')
         self.logger.warning('it is an experimental feature.')
+        self.contents: dict[str, str] = {}
 
     @property
     def name(self) -> str:
@@ -104,6 +107,7 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
     # ============= #
 
     criteria_area: TextAreaInput
+    script_select: Select
 
     def _setup_content(self, **kwargs):
         btn = ButtonFactory(min_width=50, width_policy='min')
@@ -115,25 +119,103 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
             stylesheets=['textarea {font-family: monospace;}']
         )
 
+        self.script_select = Select(
+            value='', options=['', *list(self.contents)], width=100
+        )
+        self.script_select.on_change('value', as_callback(self.on_script_select))
+
         from bokeh.layouts import row
         return [
             self.criteria_area,
             row(
                 btn('reset', self.reset_blueprint),
                 btn('eval', self.eval_blueprint),
-                btn('clear', self.clear_input),
+                self.script_select,
+                btn('New', self.on_new_script),
+                btn('Save', self.on_save_script),
+                btn('Copy', self.on_copy_script),
+                btn('Delete', self.on_delete_script),
             ),
         ]
+
+    def on_new_script(self):
+        if self.script_select.value != "":
+            self.on_save_script()
+
+        self.script_select.value = ""
+        self.criteria_area.value = ""
+
+    def on_script_select(self, name: str, value: str):
+        if name != value and len(name) > 0:
+            self.contents[name] = self.criteria_area.value
+
+        try:
+            self.criteria_area.value = self.contents[value]
+        except KeyError:
+            self.criteria_area.value = ''
+
+    def on_save_script(self):
+        if (name := self.script_select.value) != "":
+            self.save_script(name)
+        else:
+            content = self.criteria_area.value
+
+            if (name := CriteriaParser.find_func_save_script_config(content)) is not None:
+                self.logger.debug('save content to %s', name)
+                self.save_script(name, content)
+                self.script_select.value = name
+
+    def on_copy_script(self):
+        if (name := self.script_select.value) != "":
+            content = self.criteria_area.value
+            self.script_select.value = ''
+            self.criteria_area.value = content
+
+    def on_delete_script(self):
+        name = self.script_select.value
+        self.criteria_area.value = ""
+        self.script_select.value = ""
+
+        if name != "":
+            try:
+                del self.contents[name]
+            except KeyError as e:
+                pass
+            else:
+                self.save_global_state()
+
+        run_later(self._reload_script_select_content)
+
+    def _reload_script_select_content(self):
+        self.script_select.options = ['', *list(self.contents)]
 
     # ========= #
     # load/save #
     # ========= #
 
     def save_state(self) -> InitializeBlueprintState:
-        return InitializeBlueprintState(content=self.criteria_area.value)
+        if (name := self.script_select.value) == "":
+            content = self.criteria_area.value
+        else:
+            content = ''
+
+        return InitializeBlueprintState(
+            content=content,
+            contents=dict(self.contents),
+        )
 
     def restore_state(self, state: InitializeBlueprintState):
         self.criteria_area.value = state['content']
+
+        try:
+            self.contents = dict(state['contents'])
+        except KeyError:
+            pass
+
+        try:
+            self.script_select.options = ['', *list(self.contents)]
+        except AttributeError:
+            pass
 
     # ================ #
     # updating methods #
@@ -228,11 +310,6 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
         self.update_probe()
         self.log_message('reset blueprint')
 
-    def clear_input(self):
-        self.logger.debug('clear input')
-        self.criteria_area.value = ''
-        self.save_global_state()
-
     def eval_blueprint(self):
         self.cache_data = None
         if (probe := self.cache_probe) is None:
@@ -252,6 +329,14 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
 
         parser.get_blueprint(blueprint)
         run_later(self.update_probe)
+
+    def save_script(self, name: str, content: str = None):
+        if content is None:
+            content = self.criteria_area.value
+
+        self.contents[name] = content
+        self.save_global_state()
+        run_later(self._reload_script_select_content)
 
 
 class CriteriaParser(Generic[M, E]):
@@ -332,7 +417,7 @@ class CriteriaParser(Generic[M, E]):
         * `val(NAME)=EXPRESSION` set variable NAME
         * `var(NAME)=EXPRESSION` set temp variable NAME
         * `alias(NAME)=CATEGORY` give the CATEGORY an alias NAME
-        * `save()=FILE` save current result to file
+        * `save(FLAG)=FILE` save current result to file
         * `move(SHANK,...)=VALUE` move the blueprint up/down
         * `print(FLAG)=MESSAGE` print message
         * `show(FLAG)=EXPRESSION` show figure
@@ -578,7 +663,25 @@ class CriteriaParser(Generic[M, E]):
                         if self.context is not None and self.context.data is not None:
                             self.parse_call('set', [left], expression)
 
-    def parse_args(self, args: str) -> list[str]:
+    @classmethod
+    def find_func_save_script_config(cls, content: str) -> str | None:
+        for i, line in enumerate(content.split('\n'), start=1):
+            line = line.strip()
+            if '#' in line:
+                line = line[:line.index('#')].strip()
+
+            if line.startswith('save('):
+                left, eq, expression = line.partition('=')
+                if '(' in left and left.endswith(')'):
+                    func, _, args = left[:-1].partition('(')
+                    assert func == 'save'
+                    args = cls.parse_args(args)
+                    if 'script' in args and 'config' in args:
+                        return expression
+        return None
+
+    @classmethod
+    def parse_args(cls, args: str) -> list[str]:
         args = args.strip()
         if len(args) == 0:
             return []
@@ -905,20 +1008,116 @@ class CriteriaParser(Generic[M, E]):
     def func_save(self, args: list[str], expression: str):
         """
 
-        :param args: []
+        flags:
+
+        * ['blueprint'] : save blueprint (default)
+        * ['data', VAR] : save data into numpy array.
+        * ['script'] : save script.
+        * ['script', 'config'] : save script into config. expression as script name.
+        * 'force': force overwrite.
+        * 'date', 'datetime': add date/datetime suffix in filename.
+
+        :param args: flags
         :param expression: filepath
         :return:
         """
-        if len(args) != 0:
-            self.warning(f'unknown args {args}')
+        save_target = []
+        opts = []
+        for arg in args:
+            if arg in ('blueprint', 'data', 'script'):
+                if len(save_target) == 0:
+                    save_target.append(arg)
+                else:
+                    self.warning(f'multiple save target : {save_target[0]}, {arg}')
+                    return
+            elif len(save_target) == 1 and save_target[0] == 'data':
+                save_target.append(arg)
+            else:
+                opts.append(arg)
+
+        match save_target:
+            case [] | ['blueprint']:
+                self._func_save_blueprint(opts, expression)
+            case ['data']:
+                self.warning('missing variable name')
+            case ['data', var]:
+                self._func_save_variable(opts, var, expression)
+            case ['script']:
+                self._func_save_script(opts, expression)
+            case _:
+                self.warning(f'unknown saving target : {save_target[0]}')
+
+    def _func_save_filename(self, args: list[str], expression: str, ext: str) -> Path | None:
+        force = 'force' in args
+        add_date = ' date' in args
+        add_datetime = ' datetime' in args
+
+        if add_datetime:
+            expression = expression + '_' + str(datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S'))
+        elif add_date:
+            expression = expression + '_' + str(datetime.date.today().strftime('%Y-%m-%d'))
+
+        file = Path(expression).with_suffix(ext)
+        if file.exists():
+            if not force:
+                self.warning(f'file exist. use "force" to force saving. {file}')
+                return None
+
+        return file
+
+    def _func_save_blueprint(self, args: list[str], expression: str):
+        if (file := self._func_save_filename(args, expression, '.blueprint.npy')) is None:
             return
 
-        file = Path(expression).with_suffix('.blueprint.npy')
         blueprint = self.probe.all_electrodes(self.chmap)
         self.get_blueprint(blueprint)
         data = self.probe.save_blueprint(blueprint)
         np.save(file, data)
         self.info(f'save {file}')
+
+    def _func_save_variable(self, args: list[str], var: str, expression: str):
+        try:
+            if (context := self.context) is not None:
+                data = context.variables[var]
+            else:
+                data = self.variables[var]
+        except KeyError:
+            self.warning(f'variable {var} is not defined')
+            return
+
+        if (file := self._func_save_filename(args, expression, '.npy')) is None:
+            return
+
+        np.save(file, data)
+        self.info(f'save {file}')
+
+    def _func_save_script(self, args: list[str], expression: str = None):
+        as_config = 'config' in args
+
+        if (view := self.view) is None:
+            return
+
+        content = view.criteria_area.value
+        if as_config and expression is None:
+            expression = view.script_select.value
+            if len(expression) == 0:
+                self.warning('missing save name')
+            else:
+                view.on_save_script()
+
+        elif as_config and expression is not None:
+            view.save_script(expression, content)
+
+        elif expression is None:
+            self.warning('missing save filename')
+
+        else:
+            if (file := self._func_save_filename(args, expression, '.txt')) is None:
+                return
+
+            with file.open('w') as _file:
+                print(content, file=_file)
+            self.info(f'save {file}')
 
     def func_set(self, args: list[str], expression: str):
         """
@@ -1123,6 +1322,5 @@ if __name__ == '__main__':
         '-C', 'res',
         '--debug',
         '--view=-',
-        '--view=blueprint',
         '--view=chmap.views.edit_blueprint:InitializeBlueprintView',
     ]))
