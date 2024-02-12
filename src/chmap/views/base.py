@@ -205,7 +205,7 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
             return AtlasBrainView(config)
 
         elif view_type == 'blueprint':
-            from .image_blueprint import BlueprintView
+            from .blueprint import BlueprintView
             return BlueprintView(config)
 
         elif isinstance(view_type, str) and is_image(image_file := Path(view_type)):

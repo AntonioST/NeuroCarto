@@ -1,4 +1,3 @@
-import time
 import unittest
 from pathlib import Path
 
@@ -7,6 +6,7 @@ from numpy.testing import assert_array_equal
 
 from chmap.probe_npx import ChannelMap
 from chmap.probe_npx.desp import NpxProbeDesp, NpxElectrodeDesp
+from chmap.util.utils import TimeMaker
 from chmap.views.edit_blueprint import CriteriaParser, default_loader, CriteriaContext
 
 
@@ -72,20 +72,6 @@ def get_test_file(filename) -> Path:
         if not (p := Path('.') / filename).exists():  # from IDE
             raise FileNotFoundError(f'file not found {filename}')
     return p
-
-
-class TimeMaker:
-    def __init__(self):
-        self.t = time.time()
-
-    def reset(self):
-        self.t = time.time()
-
-    def __call__(self, message: str):
-        t = time.time()
-        d = t - self.t
-        print(message, f'use {d:.2f}')
-        self.t = t
 
 
 class EditBlueprintTest(unittest.TestCase):

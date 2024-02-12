@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import sys
+import time
 
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ['all_int', 'align_arr', 'as_set', 'import_name']
+__all__ = ['all_int', 'align_arr', 'as_set', 'import_name', 'TimeMaker']
 
 
 def all_int(*x) -> bool:
@@ -74,3 +75,17 @@ def import_name(desp: str, module_path: str, root: str = None):
             sys.path.pop()
 
     return getattr(module, name)
+
+
+class TimeMaker:
+    def __init__(self):
+        self.t = time.time()
+
+    def reset(self):
+        self.t = time.time()
+
+    def __call__(self, message: str):
+        t = time.time()
+        d = t - self.t
+        print(message, f'use {d:.2f}')
+        self.t = t

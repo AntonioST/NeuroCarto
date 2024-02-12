@@ -62,12 +62,12 @@ class ClusteringEdges(NamedTuple):
     """
 
     @property
-    def x(self) -> list[int]:
-        return [it[0] for it in self.edges]
+    def x(self) -> NDArray[np.int_]:
+        return np.array([it[0] for it in self.edges])
 
     @property
-    def y(self) -> list[int]:
-        return [it[1] for it in self.edges]
+    def y(self) -> NDArray[np.int_]:
+        return np.array([it[1] for it in self.edges])
 
     def with_shank(self, s: int) -> ClusteringEdges:
         return self._replace(shank=s)
@@ -157,7 +157,10 @@ class BlueprintFunctions:
         s = np.array([it.s for it in e])
         x = np.array([it.x for it in e])
         y = np.array([it.y for it in e])
-        return BlueprintFunctions(s, x, y, categories)
+        p = np.array([it.category for it in e])
+        ret = BlueprintFunctions(s, x, y, categories)
+        ret.set_blueprint(p)
+        return ret
 
     def __getattr__(self, item: str):
         if item.startswith('CATE_'):
@@ -169,7 +172,10 @@ class BlueprintFunctions:
     def blueprint(self) -> NDArray[np.int_]:
         return self._blueprint
 
-    def set_blueprint(self, blueprint: NDArray[np.int_]):
+    def set_blueprint(self, blueprint: NDArray[np.int_] | list[ElectrodeDesp]):
+        if isinstance(blueprint, list):
+            blueprint = np.array([it.category for it in blueprint])
+
         if len(blueprint) != len(self.s):
             raise ValueError()
 
@@ -300,8 +306,8 @@ class BlueprintFunctions:
         # 5 6 7
         if isinstance(i, (int, np.integer)):
             s = int(self.s[i])
-            x = int(self.x[i])
-            y = int(self.y[i])
+            x = int(self.x[i] / self.dx)
+            y = int(self.y[i] / self.dy)
         else:
             s, x, y = i
 
@@ -324,7 +330,7 @@ class BlueprintFunctions:
                 return s, x + 1, y - 1
 
     @blueprint_function
-    def set(self, blueprint: NDArray[np.int_], mask: NDArray[np.bool_], category: int | str) -> NDArray[np.int_]:
+    def set(self, blueprint: NDArray[np.int_], mask: int | NDArray[np.bool_], category: int | str) -> NDArray[np.int_]:
         """
         set *category* on `blueprint[mask]`.
 
@@ -338,6 +344,9 @@ class BlueprintFunctions:
 
         if isinstance(category, str):
             category = self._categories[category]
+
+        if isinstance(mask, (int, np.integer)):
+            mask = blueprint == mask
 
         ret = blueprint.copy()
         ret[mask] = category
@@ -515,6 +524,9 @@ class BlueprintFunctions:
         :param i: start index
         :return: list of (x, y, corner)
         """
+        if not area[i]:
+            raise ValueError(f'no cluster at index {i}')
+
         pos = self._position_index
 
         # 3 2 1
@@ -621,19 +633,31 @@ class BlueprintFunctions:
         j = i
         d = 0  # right
         while not (i == j and d == 6):
+            if not area[j]:
+                raise ValueError(f'no cluster at index j={j}')
+
+            # print(debug_print_local(self, area.astype(int), j, size=2))
             x = self.x[j]
             y = self.y[j]
             for action, corner in actions[d].items():
-                if action is not None and (k := pos.get(self._surrounding(j, action), None)) is not None and area[k]:
-                    ret.append((x, y, corner))
-                    j = k
-                    d = action
-                    break
+                if action is not None:
+                    if (k := pos.get(self._surrounding(j, action), None)) is not None and area[k]:
+                        ret.append((x, y, corner))
+                        j = k
+                        d = action
+                        break
+                    else:
+                        continue
                 elif action is None:
+                    print('    ', f'{action=}')
+
                     corner, action = corner
                     for _corner in corner:
                         ret.append((x, y, _corner))
                     d = action
+                    break
+            else:
+                raise RuntimeError('un-reachable')
 
         return ret
 
@@ -700,9 +724,7 @@ class BlueprintFunctions:
         ]))
 
         ret = ret.reshape((-1, n_x))  # (Y, X)
-        ret_edge = ret != unset
-        interior = np.cumsum(ret_edge.astype(int), axis=1) % 2 == 1
-        interior[ret_edge] = False
+        interior = np.cumsum((ret != unset).astype(int), axis=1) % 2 == 1
         ret[interior] = c
 
         return ret.ravel()
@@ -884,3 +906,28 @@ class BlueprintFunctions:
             ret[extend] = category
 
         return ret
+
+
+def debug_print_local(bp: BlueprintFunctions, data: NDArray, i: int, size: int = 1) -> str:
+    s = int(bp.s[i])
+    x = int(bp.x[i] / bp.dx)
+    y = int(bp.y[i] / bp.dy)
+
+    ret = []
+    for dy in range(-size, size + 1):
+        ret.append((row := []))
+        for dx in range(-size, size + 1):
+            j = bp._position_index.get((s, x + dx, y + dy), None)
+            if j is None:
+                row.append('_')
+            else:
+                row.append(str(data[j]))
+
+    width = max([max([len(it) for it in row]) for row in ret])
+    fmt = f'%{width}s'
+    return '\n'.join(reversed([
+        ' '.join([
+            fmt % it
+            for it in row
+        ]) for row in ret
+    ]))
