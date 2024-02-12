@@ -649,8 +649,6 @@ class BlueprintFunctions:
                     else:
                         continue
                 elif action is None:
-                    print('    ', f'{action=}')
-
                     corner, action = corner
                     for _corner in corner:
                         ret.append((x, y, _corner))
