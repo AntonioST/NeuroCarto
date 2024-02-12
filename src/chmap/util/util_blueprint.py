@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable
-from typing import Iterator, overload
+from typing import Iterator, overload, TYPE_CHECKING, NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
 
+if TYPE_CHECKING:
+    from chmap.probe import ElectrodeDesp
 __all__ = ['BlueprintFunctions']
 
 
@@ -44,6 +46,53 @@ def blueprint_function(func):
     return _blueprint_function
 
 
+class ClusteringEdges(NamedTuple):
+    category: int
+    shank: int
+    edges: list[tuple[int, int, int]]  # [(x, y, corner)]
+    """
+    corner:
+    
+        3 2 1
+        4 8 0
+        5 6 7
+        
+    """
+
+    @property
+    def x(self) -> list[int]:
+        return [it[0] for it in self.edges]
+
+    @property
+    def y(self) -> list[int]:
+        return [it[1] for it in self.edges]
+
+    def with_shank(self, s: int) -> ClusteringEdges:
+        return self._replace(shank=s)
+
+    def with_category(self, c: int) -> ClusteringEdges:
+        return self._replace(category=c)
+
+    def set_corner(self, tr: tuple[int, int],
+                   tl: tuple[int, int] = None,
+                   bl: tuple[int, int] = None,
+                   br: tuple[int, int] = None) -> ClusteringEdges:
+        if tl is None and bl is None and br is None:
+            w, h = tr
+            tl = -w, h
+            bl = -w, -h
+            br = w, -h
+
+        offset = [None, tr, None, tl, None, bl, None, br, (0, 0)]
+        edges = [
+            (x + off[0], y + off[1], 8)
+            for x, y, c in self.edges
+            # corner at 0, 2, 4, 6 are removed
+            if (off := offset[c]) is not None
+        ]
+        return self._replace(edges=edges)
+
+
 # noinspection PyMethodMayBeStatic
 class BlueprintFunctions:
     """
@@ -79,6 +128,34 @@ class BlueprintFunctions:
         self._categories = categories
 
         self._blueprint: NDArray[np.int_] = None
+
+    @classmethod
+    def from_shape(cls, shape: tuple[int, int, int],
+                   categories: dict[str, int],
+                   xy: tuple[int, int, int, int] = (1, 0, 1, 0)) -> BlueprintFunctions:
+        """
+
+        :param shape: (shank, row, col)
+        :param categories:
+        :param xy:
+        :return:
+        """
+        s, y, x = shape
+        n = x * y
+        yy, xx = np.mgrid[0:y, 0:x]
+        xx = np.tile(xx.ravel(), s) * xy[0] + xy[1]
+        yy = np.tile(yy.ravel(), s) * xy[2] + xy[3]
+        ss = np.repeat(np.arange(s), n)
+
+        return BlueprintFunctions(ss, xx, yy, categories)
+
+    @classmethod
+    def from_blueprint(cls, e: list[ElectrodeDesp],
+                       categories: dict[str, int]) -> BlueprintFunctions:
+        s = np.array([it.s for it in e])
+        x = np.array([it.x for it in e])
+        y = np.array([it.y for it in e])
+        return BlueprintFunctions(s, x, y, categories)
 
     def __getattr__(self, item: str):
         if item.startswith('CATE_'):
@@ -193,6 +270,57 @@ class BlueprintFunctions:
             return a
         return self.move(a, tx=tx * self.dx, ty=ty * self.dy, shanks=shanks, axis=axis, init=init)
 
+    def surrounding(self, i: int | tuple[int, int, int], *, diagonal=True) -> Iterator[int]:
+        if isinstance(i, (int, np.integer)):
+            s = int(self.s[i])
+            x = int(self.x[i] / self.dx)
+            y = int(self.y[i] / self.dy)
+        else:
+            s, x, y = i
+            s = int(s)
+            x = int(x / self.dx)
+            y = int(y / self.dy)
+
+        if diagonal:
+            code = [0, 1, 2, 3, 4, 5, 6, 7]
+        else:
+            code = [0, 2, 4, 6]
+
+        pos = self._position_index
+        for c in code:
+            p = self._surrounding((s, x, y), c)
+            if (i := pos.get(p, None)) is not None:
+                yield i
+
+    def _surrounding(self, i: int | tuple[int, int, int], p: int) -> tuple[int, int, int]:
+        # 3 2 1
+        # 4 e 0
+        # 5 6 7
+        if isinstance(i, (int, np.integer)):
+            s = int(self.s[i])
+            x = int(self.x[i])
+            y = int(self.y[i])
+        else:
+            s, x, y = i
+
+        match p % 8:
+            case 0:
+                return s, x + 1, y
+            case 1 | -7:
+                return s, x + 1, y + 1
+            case 2 | -6:
+                return s, x, y + 1
+            case 3 | -5:
+                return s, x - 1, y + 1
+            case 4 | -4:
+                return s, x - 1, y
+            case 5 | -3:
+                return s, x - 1, y - 1
+            case 6 | -2:
+                return s, x, y - 1
+            case 7 | -1:
+                return s, x + 1, y - 1
+
     @blueprint_function
     def set(self, blueprint: NDArray[np.int_], mask: NDArray[np.bool_], category: int | str) -> NDArray[np.int_]:
         """
@@ -289,29 +417,23 @@ class BlueprintFunctions:
         return ret
 
     def find_clustering(self, blueprint: NDArray[np.int_],
-                        categories: list[int | str] = None) -> NDArray[np.int_]:
+                        categories: list[int | str] = None,
+                        diagonal=True) -> NDArray[np.int_]:
         """
         find electrode clustering with the same category.
 
         :param blueprint: Array[category, N]
         :param categories: only for given categories.
+        :param diagonal: does surrounding includes electrodes on diagonal?
         :return: Array[int, N]
         """
-        s = self.s
-        x = self.x
-        y = self.y
-        dx = self.dx
-        dy = self.dy
-
-        if len(blueprint) != len(s):
+        if len(blueprint) != len(self.s):
             raise ValueError()
 
         if categories is not None:
             categories = self.as_category(categories)
 
-        pos = self._position_index
-
-        ret: NDArray[np.int_] = np.arange(len(s)) + 1
+        ret: NDArray[np.int_] = np.arange(len(blueprint)) + 1
 
         unset = self.CATE_UNSET
         ret[blueprint == unset] = 0
@@ -333,29 +455,198 @@ class BlueprintFunctions:
             if b != c:
                 ret[ret == b] = c
 
-        def surr(i) -> Iterator[tuple[int, int, int]]:
-            ss = int(s[i])
-            xx = int(x[i] / dx)
-            yy = int(y[i] / dy)
-            # 3 2 1
-            # 4 e 0
-            # 5 6 7
-            yield ss, xx + 1, yy
-            yield ss, xx + 1, yy + 1
-            yield ss, xx, yy + 1
-            yield ss, xx - 1, yy + 1
-            yield ss, xx - 1, yy
-            yield ss, xx - 1, yy - 1
-            yield ss, xx, yy - 1
-            yield ss, xx + 1, yy - 1
-
-        for i in range(len(s)):
+        for i in range(len(blueprint)):
             if ret[i] > 0:
-                for p in surr(i):
-                    if (j := pos.get(p, None)) is not None and blueprint[i] == blueprint[j]:
+                for j in self.surrounding(i, diagonal=diagonal):
+                    if blueprint[i] == blueprint[j]:
                         union(i, j)
 
         return ret
+
+    def clustering_edges(self, blueprint: NDArray[np.int_],
+                         categories: list[int | str] = None) -> list[ClusteringEdges]:
+        """
+        For each clustering block, calculate its edges.
+
+        :param blueprint:
+        :param categories:
+        :return: list of ClusteringEdges
+        """
+        dx = self.dx
+        dy = self.dy
+
+        clustering = self.find_clustering(blueprint, categories, diagonal=False)
+        ret = []
+
+        for cluster in np.unique(clustering):
+            if cluster == 0:
+                continue
+
+            area: NDArray[np.bool_] = clustering == cluster
+
+            c = np.unique(blueprint[area])
+            assert len(c) == 1
+            c = int(c[0])
+
+            s = np.unique(self.s[area])
+            assert len(s) == 1
+            s = int(s[0])
+
+            x = self.x[area]
+            y = self.y[area]
+
+            if np.count_nonzero(area) == 1:
+                ret.append(ClusteringEdges(c, s, [(x, y, 1), (x, y, 3), (x, y, 5), (x, y, 7)]))
+            else:
+                x0 = int(np.min(x))
+                y0 = int(np.min(y[x == x0]))
+
+                i = self._position_index[(s, int(x0 / dx), int(y0 / dy))]
+                ret.append(ClusteringEdges(c, s, self._cluster_edge(area, i)))
+
+        return ret
+
+    def _cluster_edge(self, area: NDArray[np.bool_], i: int) -> list[tuple[int, int, int]]:
+        """
+
+        :param area:
+        :param i: start index
+        :return: list of (x, y, corner)
+        """
+        pos = self._position_index
+
+        # 3 2 1
+        # 4 e 0
+        # 5 6 7
+
+        actions = {
+            # direction (i -> j):
+            0: {  # rightward
+                # next direction (j -> k): corner
+                # None: (corners), action
+
+                # * * *
+                # i j *
+                #   k *
+                6: 5,
+
+                # * * *
+                # i j k
+                # ?
+                0: 6,
+
+                # * k
+                # i j
+                #
+                2: 7,
+
+                # ?
+                # i j
+                #
+                None: ((7, 1, 3), 2)
+            },
+            6: {  # downward
+                #   i *
+                # k j *
+                # * * *
+                4: 3,
+
+                # ? i *
+                #   j *
+                #   k *
+                6: 4,
+
+                # ? i *
+                #   j k
+                #
+                0: 5,
+
+                # ? i ?
+                #   j
+                #
+                None: ((5, 7, 1), 0)
+            },
+            4: {  # leftward
+                # ? k
+                # * j i
+                # * * *
+                2: 1,
+
+                #
+                # k j i
+                # * * *
+                4: 2,
+
+                #
+                #   j i
+                # ? k *
+                6: 3,
+
+                #
+                #   j i
+                #     ?
+                None: ((3, 5, 7), 6)
+            },
+            2: {  # upward
+                # * * *
+                # * j k
+                # * i
+                0: 7,
+
+                # * k
+                # * j
+                # * i
+                2: 0,
+
+                #
+                # k j
+                # * i
+                4: 1,
+
+                #
+                #   j
+                # ? i
+                None: ((1, 3, 5), 4)
+            }
+        }
+
+        x = self.x[i]
+        y = self.y[i]
+        ret = [(x, y, 5)]
+        # * ?
+        # i * ?
+        #   ? ?
+        j = i
+        d = 0  # right
+        while not (i == j and d == 6):
+            x = self.x[j]
+            y = self.y[j]
+            for action, corner in actions[d].items():
+                if action is not None and (k := pos.get(self._surrounding(j, action), None)) is not None and area[k]:
+                    ret.append((x, y, corner))
+                    j = k
+                    d = action
+                    break
+                elif action is None:
+                    corner, action = corner
+                    for _corner in corner:
+                        ret.append((x, y, _corner))
+                    d = action
+
+        return ret
+
+    def edge_rastering(self, *edges: ClusteringEdges, fill=False) -> NDArray[np.int_]:
+        """
+        For given edges, put them on the blueprint.
+
+        :param edges:
+        :param fill: fill the area.
+        :return: blueprint
+        """
+        pass
+
+    def _edge_rastering(self, blueprint: NDArray[np.int_], edge: ClusteringEdges, fill=False) -> NDArray[np.int_]:
+        pass
 
     @blueprint_function
     def fill(self, blueprint: NDArray[np.int_],
