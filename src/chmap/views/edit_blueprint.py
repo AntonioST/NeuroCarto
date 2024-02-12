@@ -87,6 +87,7 @@ def default_loader(filepath: Path, probe: ProbeDesp[M, E], chmap: M) -> NDArray[
 
 
 class InitializeBlueprintState(TypedDict):
+    init: bool
     content: str  # last shown content
     contents: dict[str, str]
 
@@ -200,29 +201,46 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
             content = ''
 
         return InitializeBlueprintState(
+            init=False,
             content=content,
             contents=dict(self.contents),
         )
 
     def restore_state(self, state: InitializeBlueprintState):
-        self.criteria_area.value = state['content']
+        self.criteria_area.value = state.get('content', '')
+        self.contents = dict(state.get('contents', {}))
 
-        try:
-            self.contents = dict(state['contents'])
-        except KeyError:
-            pass
+        if state.get('init', True):
+            self.init_scripts()
+            self.save_global_state()
 
         try:
             self.script_select.options = ['', *list(self.contents)]
         except AttributeError:
             pass
 
+    def init_scripts(self):
+        self.logger.debug('init_scripts')
+
+        self.contents.setdefault('npx_basic', textwrap.dedent("""\
+        # Neuropixels basic
+        use(NpxProbeDesp)
+        save(script,current)=npx_basic
+        
+        alias(F)=FULL
+        alias(H)=HALF
+        alias(Q)=QUARTER
+        alias(L)=LOW
+        alias(X)=FORBIDDEN
+        
+        """))
+
     # ================ #
     # updating methods #
     # ================ #
 
     def start(self):
-        self.restore_global_state()
+        self.restore_global_state(force=True)
 
     cache_probe: ProbeDesp[M, E] = None
     cache_chmap: M | None
@@ -317,12 +335,16 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
     def eval_blueprint(self):
         self.cache_data = None
         if (probe := self.cache_probe) is None:
+            self.log_message('no probe created')
             return
         if (chmap := self.cache_chmap) is None:
+            self.log_message('no probe created')
             return
         if (blueprint := self.cache_blueprint) is None:
+            self.log_message('no probe created')
             return
         if len(content := self.criteria_area.value) == 0:
+            self.log_message('empty content')
             return
 
         self.save_global_state()
@@ -733,7 +755,7 @@ class CriteriaParser(Generic[M, E]):
         return [it.strip() for it in args.split(',')]
 
     @classmethod
-    def collect_mutually_exclusive_flags(cls, args: list[str], *flags: str | tuple[str, ...]) -> tuple[list[str | None], list[str]]:
+    def collect_exclusive_flags(cls, args: list[str], *flags: str | tuple[str, ...]) -> tuple[list[str | None], list[str]]:
         """
         For function args, it handles a case that some flags are mutually exclusive.
 
@@ -835,34 +857,42 @@ class CriteriaParser(Generic[M, E]):
         """
         self.eval_expression(expression)
 
-    def func_print(self, args: list[str], expression: str):
+    def func_print(self, args: list[str], expression: str = None):
         """
 
         FLAG:
 
         * 'i', 'info' (default)
         * 'w', 'warn'
+        * 'clear' : clear log area
         * 'eval' : evaluate the expression before printing
 
         :param args: [FLAG]
         :param expression: message
         """
-        need_eval = 'eval' in args
-        level_info = 'i' in args or 'info' in args
-        level_warn = 'w' in args or 'warn' in args
+        try:
+            level, opts = self.collect_exclusive_flags(args, 'i', 'info', 'w', 'warn', 'clear')
+        except ValueError as e:
+            self.warning(e.args[0], exc=e)
+            return
 
-        if level_info and level_warn:
-            level_info = False
-        if not level_info and not level_warn:
-            level_info = True
+        if level == ['clear']:
+            if self._view is not None:
+                self._view.log_message(reset=True)
 
-        if need_eval:
-            expression = str(self.eval_expression(expression))
+        if 'eval' in opts:
+            if expression is not None:
+                expression = str(self.eval_expression(expression))
+            else:
+                expression = str(None)
+        if expression is None:
+            expression = ''
 
-        if level_info:
-            self.info(expression)
-        elif level_warn:
-            self.warning(expression)
+        match level:
+            case [] | ['i'] | ['info']:
+                self.info(expression)
+            case ['w'] | ['warn']:
+                self.warning(expression)
 
     def func_use(self, args: list[str]):
         """
@@ -1119,7 +1149,7 @@ class CriteriaParser(Generic[M, E]):
         :return:
         """
         try:
-            save_target, opts = self.collect_mutually_exclusive_flags(args, 'blueprint', ('data', 'VAR'), 'script')
+            save_target, opts = self.collect_exclusive_flags(args, 'blueprint', ('data', 'VAR'), 'script')
         except ValueError as e:
             self.warning(e.args[0], exc=e)
             return
@@ -1276,7 +1306,7 @@ class CriteriaParser(Generic[M, E]):
             expression = 'v'
 
         try:
-            target_view, opts = self.collect_mutually_exclusive_flags(args, ('target', 'VIEW'))
+            target_view, opts = self.collect_exclusive_flags(args, ('target', 'VIEW'))
         except ValueError as e:
             self.warning(e.args[0], exc=e)
             return

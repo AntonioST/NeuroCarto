@@ -208,6 +208,10 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
             from .blueprint import BlueprintView
             return BlueprintView(config)
 
+        elif view_type == 'editor':
+            from .edit_blueprint import InitializeBlueprintView
+            return InitializeBlueprintView(config)
+
         elif isinstance(view_type, str) and is_image(image_file := Path(view_type)):
             from chmap.views.image import ImageView, ImageHandler
             return ImageView(config, ImageHandler.from_file(image_file))
@@ -357,7 +361,7 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
         pass
 
     @final
-    def restore_global_state(self, *, reload=False):
+    def restore_global_state(self, *, reload=False, force=False):
         """
         read global config and invoke `restore_state`
 
@@ -366,6 +370,7 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
             replaced by GUI.
 
         :param reload: reload config from disk
+        :param force: force invoke restore_state (give an empty dict {})
         """
         pass
 

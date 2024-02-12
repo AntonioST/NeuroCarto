@@ -435,7 +435,7 @@ class ChannelMapEditorApp(BokehApplication):
                     self.global_views_config[type(view).__name__] = cast(StateView, view, ).save_state()
                     self.save_global_config(direct=True)
 
-        def restore_global_state(*, reload=False):
+        def restore_global_state(*, reload=False, force=False):
             self.logger.debug('restore_global_state(%s)', type(view).__name__)
 
             if reload:
@@ -444,7 +444,8 @@ class ChannelMapEditorApp(BokehApplication):
             try:
                 config = self.global_views_config[type(view).__name__]
             except KeyError:
-                pass
+                if force:
+                    cast(StateView, view).restore_state({})
             else:
                 cast(StateView, view).restore_state(config)
 
