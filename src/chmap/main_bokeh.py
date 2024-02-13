@@ -1,5 +1,6 @@
 import functools
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any, cast, TypedDict
@@ -71,8 +72,24 @@ class ChannelMapEditorApp(BokehApplication):
 
         if self.config.debug:
             return Path('.') / '.chmap.config.json'
-        else:
-            return Path.home() / '.config/chmap/chmap.config.json'
+
+        # https://stackoverflow.com/a/3250952
+        if (d := os.environ.get('XDG_CONFIG_HOME', None)) is not None:
+            return Path(d) / 'chmap/chmap.config.json'
+        elif (d := os.environ.get('APPDATA', None)) is not None:
+            return Path(d) / 'chmap/chmap.config.json'
+
+        # https://stackoverflow.com/a/1857
+        import platform
+        match platform.system():
+            case 'Linux':
+                return Path.home() / '.config/chmap/chmap.config.json'
+            case 'Windows':
+                pass
+            case 'Darwin':
+                pass
+
+        return Path.home() / '.chmap.config.json'
 
     def load_global_config(self, *, reset=False) -> dict[str, Any]:
         file = self.global_config_file()
