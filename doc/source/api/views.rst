@@ -7,39 +7,39 @@ chmap.views
 
 .. toctree::
     :maxdepth: 1
-    :caption: Modules:
+    :caption: Basic Views:
 
     views.base
+    views.blueprint
     views.view_efficient
     views.probe
 
 .. toctree::
     :maxdepth: 1
-    :caption: DataView:
+    :caption: DataViews:
 
     views.data
     views.data_density
-    views.data_efficient
 
 .. toctree::
     :maxdepth: 1
-    :caption: ImageView:
+    :caption: ImageViews:
 
     views.image
     views.image_npy
     views.image_plt
-    views.image_blueprint
 
 .. toctree::
     :maxdepth: 1
-    :caption: Atlas:
+    :caption: Atlas Views:
 
     views.atlas
     views.atlas_ibl
 
 .. toctree::
     :maxdepth: 1
-    :caption: Advance:
+    :caption: Advance Views:
 
     views.edit_blueprint
+    views.utils
 

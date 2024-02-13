@@ -23,6 +23,9 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
     * `ViewBase` or `type[ViewBase]`
     * `ImageHandler` or `type[ImageHandler]`, wrap with ImageView.
     * literal 'file' for FileImageView
+    * literal 'atlas' for AtlasBrainView
+    * literal 'blueprint' for BlueprintView
+    * literal 'editor' for InitializeBlueprintView
     * image filepath
     * `str` in pattern: `module.path:attribute` in type listed above.
 
