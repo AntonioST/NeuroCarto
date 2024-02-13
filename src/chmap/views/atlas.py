@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import get_args, TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div
+from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div, CheckboxGroup
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -128,6 +128,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     rotate_ver_slider: Slider
     region_choose: MultiChoice
 
+    checkbox_group: CheckboxGroup
+    checkbox_groups: dict[str, UIElement]
+
     def _setup_render(self, f: Figure,
                       palette: str = 'Greys256',
                       palette_region: str = 'Turbo256',
@@ -145,13 +148,25 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         self.setup_boundary(f, boundary_color=boundary_color, boundary_desp='drag atlas brain image')
 
+    def _setup_title(self, **kwargs) -> list[UIElement]:
+        ret = super()._setup_title(**kwargs)
+
+        self.checkbox_group = CheckboxGroup(labels=['Shear', 'Rotation', 'Scaling', 'Masking'], inline=True)
+        self.checkbox_group.on_change('active', as_callback(self._on_checkbox_active))
+        ret.insert(-1, self.checkbox_group)
+
+        return ret
+
     def _setup_content(self, slider_width: int = 300,
                        rotate_steps=(-1000, 1000, 5),
                        **kwargs) -> list[UIElement]:
+        from bokeh.layouts import row, column
+
         new_btn = ButtonFactory(min_width=100, min_height=30, width_policy='min', height_policy='min')
         new_slider = SliderFactory(width=slider_width, align='end')
+        self.checkbox_groups = {}
 
-        #
+        # slicing
         slice_view_options = list(get_args(SLICE))
         self.slice_select = Select(
             value=slice_view_options[0],
@@ -159,30 +174,44 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             width=100,
         )
         self.slice_select.on_change('value', as_callback(self._on_slice_selected))
-
-        #
         self.plane_slider = new_slider('Slice Plane', (0, 1, 1, 0), self._on_slice_changed)
+
+        # shear
         self.rotate_hor_slider = new_slider('horizontal rotation (um)', rotate_steps, self._on_rotate_changed)
         self.rotate_ver_slider = new_slider('vertical rotation (um)', rotate_steps, self._on_rotate_changed)
 
         reset_rth = new_btn('reset', self._on_reset_rotate_horizontal)
         reset_rtv = new_btn('reset', self._on_reset_rotate_vertical)
 
+        self.checkbox_groups['Shear'] = col_shear = column(
+            row(reset_rth, self.rotate_hor_slider),
+            row(reset_rtv, self.rotate_ver_slider),
+        )
+
+        # rotation
+        self.checkbox_groups['Rotation'] = col_rot = row(*self.setup_rotate_slider(new_btn=new_btn, new_slider=new_slider))
+
+        # scaling
+        self.checkbox_groups['Scaling'] = col_scale = row(*self.setup_scale_slider(new_btn=new_btn, new_slider=new_slider))
+
+        # masking
         self.region_choose = MultiChoice(
-            options=list(sorted(self._structure.regions)),
-            width=400,
+            options=[
+                ((structure := self._structure[acronym]).acronym, f'{acronym} ({structure.name})')
+                for acronym in sorted(self._structure.regions)
+            ],
+            width=350,
         )
         self.region_choose.on_change('value', as_callback(self._on_region_choose))
         mask_help = new_help_button('type region names to color label the corresponding areas.')
+        self.checkbox_groups['Masking'] = col_mask = row(Div(text='mask'), self.region_choose, mask_help)
 
-        from bokeh.layouts import row
         return [
             row(self.slice_select, self.plane_slider),
-            row(reset_rth, self.rotate_hor_slider),
-            row(reset_rtv, self.rotate_ver_slider),
-            row(*self.setup_rotate_slider(new_btn=new_btn, new_slider=new_slider)),
-            row(*self.setup_scale_slider(new_btn=new_btn, new_slider=new_slider)),
-            row(Div(text='mask'), mask_help, self.region_choose)
+            col_shear,
+            col_rot,
+            col_scale,
+            col_mask,
         ]
 
     def _on_slice_selected(self, s: str):
@@ -198,6 +227,11 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if (p := self._brain_slice) is not None:
             q = p.slice.plane_at(int(s)).with_offset(p.dw, p.dh)
             self.update_brain_slice(q)
+
+    def _on_checkbox_active(self, active: list[int]):
+        for i, n in enumerate(self.checkbox_group.labels):
+            if (ui := self.checkbox_groups.get(n, None)) is not None:
+                ui.visible = i in active
 
     def _on_rotate_changed(self):
         if is_recursive_called():
@@ -279,6 +313,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # ================ #
 
     def start(self):
+        self._on_checkbox_active([])
+
         if self.brain_view is None:
             try:
                 view = self.slice_select.value

@@ -13,14 +13,14 @@ from bokeh.plotting import figure as Figure
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server, run_later
-from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback
+from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback, new_help_button
 from chmap.views.base import ViewBase, StateView, DynamicView, init_view, EditorView, GlobalStateView, ControllerView
 from chmap.views.probe import ProbeView
 
 __all__ = ['ChannelMapEditorApp', 'main']
 
 
-class ChannelMapEditorAppConfig(TypedDict):
+class ChannelMapEditorAppConfig(TypedDict, total=False):
     views: list[str]
 
 
@@ -103,6 +103,19 @@ class ChannelMapEditorApp(BokehApplication):
         with file.open('w') as f:
             json.dump(self.global_views_config, f, indent=2)
             self.logger.debug(f'save global config : %s', file)
+
+    def save_app_global_config(self):
+        pass
+
+    def get_app_global_config(self) -> ChannelMapEditorAppConfig:
+        try:
+            app_config: ChannelMapEditorAppConfig = self.global_views_config[type(self).__name__]
+        except KeyError:
+            app_config = ChannelMapEditorAppConfig()
+
+        return ChannelMapEditorAppConfig(
+            views=app_config.get('views', ['blueprint', 'atlas'])
+        )
 
     def list_chmap_files(self) -> list[Path]:
         """
@@ -322,19 +335,22 @@ class ChannelMapEditorApp(BokehApplication):
         )
 
     def _index_left_panel(self) -> list[UIElement]:
+        # 1/1, 1/2, 1/3, ...
+        widths = (290, 140, 90, 30)
+
         self.logger.debug('index left')
-        new_btn = ButtonFactory(min_width=150, width_policy='min')
+        new_btn = ButtonFactory(min_width=widths[1], width_policy='min')
 
         #
         self.input_imro = Select(
             title='Input file',
             options=[], value="",
-            width=300
+            width=widths[0]
         )
 
         self.output_imro = AutocompleteInput(
             title='Save filename',
-            width=300, max_completions=5, case_sensitive=False, restrict=True
+            width=widths[0], max_completions=5, case_sensitive=False, restrict=True
         )
 
         # electrode states buttons
@@ -353,33 +369,34 @@ class ChannelMapEditorApp(BokehApplication):
         empty_btn = Dropdown(
             label='New',
             menu=list(self.probe.supported_type),
-            min_width=100, align='end', width_policy='min',
+            min_width=widths[2], align='end', width_policy='min',
             stylesheets=["div.bk-menu { width: 300%; }"]
         )
         empty_btn.on_click(self.on_new)
 
-        load_btn = new_btn('Load', self.on_load, min_width=100, align='end')
-        save_btn = new_btn('Save', self.on_save, min_width=100, align='end')
+        load_btn = new_btn('Load', self.on_load, min_width=widths[2], align='end')
+        save_btn = new_btn('Save', self.on_save, min_width=widths[2], align='end')
 
         # electrode selecting helping buttons
         refresh_btn = new_btn('Refresh', self.on_refresh)
-        self.auto_btn = Toggle(label='Auto', active=True, min_width=150, width_policy='min')
+        self.auto_btn = Toggle(label='Auto', active=True, min_width=widths[1], width_policy='min')
         self.auto_btn.on_change('active', as_callback(self.on_autoupdate))
 
         #
-        self.message_area = TextAreaInput(title="Log:", rows=10, cols=100, width=300, disabled=True)
+        self.message_area = TextAreaInput(title="Log:", rows=10, cols=100, width=widths[0], disabled=True)
 
         return [
             Div(text="<b>ChannelMap File</b>"),
             self.input_imro,
             Row(empty_btn, load_btn, save_btn),
             self.output_imro,
-            Div(text="<b>Electrode State</b>"),
+            Row(Div(text="<b>Electrode State</b>"), new_help_button('Manually select electrodes directly', position='right')),
             *state_btns,
-            Div(text="<b>Electrode Category</b>"),
+            Row(Div(text="<b>Electrode Category</b>"), new_help_button('Set electrode category for programming electrode selection', position='right')),
             *category_btns,
             Row(self.auto_btn, refresh_btn),
             self.message_area,
+            new_btn('clear', self.log_clear, min_width=widths[3])
         ]
 
     def _index_right_panel(self) -> list[UIElement]:
@@ -473,14 +490,7 @@ class ChannelMapEditorApp(BokehApplication):
 
         ext = []
 
-        try:
-            app_config: ChannelMapEditorAppConfig = self.global_views_config[type(self).__name__]
-        except KeyError:
-            ext.append('blueprint')
-            ext.append('atlas')
-        else:
-            ext.extend(app_config['views'])
-
+        ext.extend(self.get_app_global_config()['views'])
         ext.extend(config.extra_view)
 
         if '-' in ext:

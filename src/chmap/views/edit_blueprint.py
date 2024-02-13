@@ -101,7 +101,7 @@ class InitializeBlueprintView(PltImageView, EditorView, DataHandler, ControllerV
 
     @property
     def name(self) -> str:
-        return 'Blueprint'
+        return 'Blueprint Script'
 
     # ============= #
     # UI components #
