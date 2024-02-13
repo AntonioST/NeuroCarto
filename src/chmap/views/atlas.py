@@ -21,8 +21,8 @@ class AtlasBrainViewState(TypedDict, total=False):
     atlas_brain: str
     brain_slice: SLICE | None
     slice_plane: int | None
-    slice_rot_w: int | None
-    slice_rot_h: int | None
+    slice_rot_w: int
+    slice_rot_h: int
     image_dx: float
     image_dy: float
     image_sx: float
@@ -174,7 +174,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             width=100,
         )
         self.slice_select.on_change('value', as_callback(self._on_slice_selected))
-        self.plane_slider = new_slider('Slice Plane', (0, 1, 1, 0), self._on_slice_changed)
+        self.plane_slider = new_slider('Slice Plane (um)', (0, 1, 1, 0), self._on_slice_changed)
 
         # shear
         self.rotate_hor_slider = new_slider('horizontal rotation (um)', rotate_steps, self._on_rotate_changed)
@@ -224,9 +224,19 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if is_recursive_called():
             return
 
-        if (p := self._brain_slice) is not None:
-            q = p.slice.plane_at(int(s)).with_offset(p.dw, p.dh)
-            self.update_brain_slice(q)
+        old = self.brain_slice
+        view = self.brain_view
+        if view.name == 'sagittal':
+            d = view.n_plane * view.resolution / 2
+            p = int((s + d) / view.resolution)
+        else:
+            p = int(s / view.resolution)
+
+        plane = view.plane_at(p)
+        if old is not None:
+            plane = plane.with_offset(old.dw, old.dh)
+
+        self.update_brain_slice(plane)
 
     def _on_checkbox_active(self, active: list[int]):
         for i, n in enumerate(self.checkbox_group.labels):
@@ -278,8 +288,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             atlas_brain=self.brain.atlas_name,
             brain_slice=None if (p := self._brain_view) is None else p.name,
             slice_plane=None if (p := self._brain_slice) is None else p.plane,
-            slice_rot_w=None if p is None else p.dw,
-            slice_rot_h=None if p is None else p.dh,
+            slice_rot_w=0 if p is None else p.dw,
+            slice_rot_h=0 if p is None else p.dh,
             image_dx=boundary['dx'],
             image_dy=boundary['dy'],
             image_sx=boundary['sx'],
@@ -345,27 +355,12 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         self._brain_view = view
         self.logger.debug('slice_view(%s)', view.name)
 
-        try:
-            self.slice_select.value = view.name
-            self.plane_slider.title = f'Slice Plane (1/{view.resolution} um)'
-            self.plane_slider.end = view.n_plane
-            self.rotate_hor_slider.step = view.resolution
-            self.rotate_ver_slider.step = view.resolution
-        except AttributeError:
-            pass
-
         if (p := self._brain_slice) is not None:
-            self._brain_slice = None  # avoid self.plane_slider.value invoke updating methods
             p = view.plane_at(p.coor_on())
-
-            try:
-                self.plane_slider.value = p.plane
-            except AttributeError:
-                pass
         else:
-            self._brain_slice = None  # avoid self.plane_slider.value invoke updating methods
             p = view.plane_at(view.n_plane // 2)
 
+        self._brain_slice = None  # avoid self.plane_slider.value invoke updating methods
         self.update_brain_slice(p, update_image=False)
         self.update_boundary_transform(s=(old_state['sx'], old_state['sy']))
 
@@ -378,17 +373,41 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if is_recursive_called():
             return
 
+        view = self.brain_view
+
         if isinstance(plane, int):
-            plane = self.brain_view.plane(plane)
+            plane = view.plane(plane)
 
         self._brain_slice: SlicePlane = plane
         # self.logger.debug('slice_plane(%d)', plane.plane)
 
+        try:
+            self.slice_select.value = view.name
+            self.plane_slider.step = view.resolution
+
+            if view.name == 'sagittal':
+                d = view.n_plane * view.resolution / 2
+                self.plane_slider.start = -d
+                self.plane_slider.end = d
+            else:
+                self.plane_slider.start = 0
+                self.plane_slider.end = view.n_plane * view.resolution
+
+            self.rotate_hor_slider.step = view.resolution
+            self.rotate_ver_slider.step = view.resolution
+        except AttributeError:
+            pass
+
         if plane is not None:
             try:
-                self.plane_slider.value = plane.plane
-                self.rotate_hor_slider.value = plane.dw * plane.resolution
-                self.rotate_ver_slider.value = plane.dh * plane.resolution
+                if view.name == 'sagittal':
+                    d = view.n_plane * view.resolution / 2
+                    self.plane_slider.value = plane.plane * view.resolution - d
+                else:
+                    self.plane_slider.value = plane.plane * view.resolution
+
+                self.rotate_hor_slider.value = plane.dw * view.resolution
+                self.rotate_ver_slider.value = plane.dh * view.resolution
             except AttributeError:
                 pass
 

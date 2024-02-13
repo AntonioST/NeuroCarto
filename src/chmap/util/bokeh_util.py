@@ -39,6 +39,14 @@ class SliderFactory(object):
     def __call__(self, title: str,
                  slide: tuple[float, float, float] | tuple[float, float, float, float],
                  callback: Callable[..., None], **kwargs) -> Slider:
+        """
+
+        :param title:
+        :param slide: (start, end. step, value?)
+        :param callback:
+        :param kwargs:
+        :return:
+        """
         for k, v in self.__kwargs.items():
             kwargs.setdefault(k, v)
 
