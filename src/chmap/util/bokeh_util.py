@@ -14,7 +14,6 @@ __all__ = [
     'as_callback',
     'col_layout',
     'is_recursive_called',
-    'is_image',
     'new_help_button'
 ]
 
@@ -281,15 +280,6 @@ class PathAutocompleteInput:
                     return True
 
         return False
-
-
-def is_image(path: Path) -> bool:
-    if not path.is_file():
-        return False
-
-    import mimetypes
-    mt, _ = mimetypes.guess_type(path)
-    return mt is not None and mt.startswith('image/')
 
 
 def new_help_button(content: str, *, position: str = 'right') -> HelpButton:

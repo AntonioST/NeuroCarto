@@ -3,7 +3,6 @@ from __future__ import annotations
 import abc
 import logging
 import math
-from pathlib import Path
 from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast, final
 
 import numpy as np
@@ -13,8 +12,7 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, is_image, new_help_button
-from chmap.util.utils import import_name
+from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
 
 if TYPE_CHECKING:
     from chmap.main_bokeh import ChannelMapEditorApp
@@ -27,7 +25,6 @@ __all__ = [
     'InvisibleView',
     'BoundaryState',
     'BoundView',
-
 ]
 
 
@@ -165,74 +162,6 @@ class ViewBase(metaclass=abc.ABCMeta):
         self.logger.info(' '.join(message))
 
 
-def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
-    """
-
-    Recognised type:
-
-    * `None` skip
-    * `ViewBase` or `type[ViewBase]`
-    * `ImageHandler` or `type[ImageHandler]`, wrap with ImageView.
-    * literal 'file' for FileImageView
-    * image filepath
-    * `str` in pattern: `module.path:attribute` in type listed above.
-
-    :param config:
-    :param view_type:
-    :return:
-    """
-    from chmap.views.image import ImageView, ImageHandler
-
-    try:
-        if isinstance(view_type, type) and issubclass(view_type, ViewBase):
-            return view_type(config)
-
-        elif isinstance(view_type, ViewBase):
-            return view_type
-
-        elif isinstance(view_type, type) and issubclass(view_type, ImageHandler):
-            return ImageView(config, view_type())
-
-        elif isinstance(view_type, ImageHandler):
-            return ImageView(config, view_type)
-
-        elif view_type == 'file':
-            from .image import FileImageView
-            return FileImageView(config)
-
-        elif view_type == 'atlas':
-            from .atlas import AtlasBrainView
-            return AtlasBrainView(config)
-
-        elif view_type == 'blueprint':
-            from .blueprint import BlueprintView
-            return BlueprintView(config)
-
-        elif view_type == 'editor':
-            from .edit_blueprint import InitializeBlueprintView
-            return InitializeBlueprintView(config)
-
-        elif isinstance(view_type, str) and is_image(image_file := Path(view_type)):
-            from chmap.views.image import ImageView, ImageHandler
-            return ImageView(config, ImageHandler.from_file(image_file))
-
-        elif isinstance(view_type, str):
-            return import_view(config, view_type)
-        else:
-            raise RuntimeError(f'unknown view_type : {view_type}')
-
-    except BaseException as e:
-        logging.getLogger('chmap.view').warning('init view fail', exc_info=e)
-        pass
-
-    return None
-
-
-def import_view(config: ChannelMapEditorConfig, module_path: str) -> ViewBase | None:
-    logging.getLogger('chmap.view').debug('import %s', module_path)
-    return init_view(config, import_name('view base', module_path))
-
-
 V = TypeVar('V', bound=ViewBase)
 
 
@@ -347,7 +276,7 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
     disable_save_global_state = False
 
     @final
-    def save_global_state(self, *, sync=False, force=False):
+    def save_global_state(self, state: S = None, *, sync=False, force=False):
         """
         save state into global config.
 
@@ -355,7 +284,8 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
             do not overwrite this function, because this method will be
             replaced by GUI.
 
-        :param sync: save all GlobalStateView.
+        :param state: saved state. If None, use state from save_state().
+        :param sync: save all GlobalStateView. (ignore *state*).
         :param force: ignore disable_save_global_state
         """
         pass

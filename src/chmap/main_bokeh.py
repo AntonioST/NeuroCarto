@@ -3,7 +3,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, cast, TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 from bokeh.events import MenuItemClick
@@ -16,8 +16,7 @@ from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server, run_later
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback, new_help_button
-from chmap.views.base import ViewBase, StateView, DynamicView, init_view, EditorView, GlobalStateView, ControllerView
-from chmap.views.probe import ProbeView
+from chmap.views import *
 
 __all__ = ['ChannelMapEditorApp', 'main']
 
@@ -447,86 +446,20 @@ class ChannelMapEditorApp(BokehApplication):
         ]
 
     def _index_right_panel(self) -> list[UIElement]:
+        from chmap.views.utils import install_view
+
         self.logger.debug('index right')
         self.right_panel_views = []
 
         for view_type in self.install_right_panel_views(self.config):
             if (view := init_view(self.config, view_type)) is not None:
-                self.right_panel_views.append(self.install_view(view))
+                self.right_panel_views.append(install_view(self, view))
 
         uis = []
         for view in self.right_panel_views:
             uis.extend(view.setup(self.probe_fig))
 
         return uis
-
-    def install_view(self, view: ViewBase) -> ViewBase:
-        """
-        Replace some methods in ViewBase. They are
-
-        * ViewBase.log_message
-        * EditorView.update_probe
-        * GlobalStateView.restore_global_state
-
-        :param view:
-        :return:
-        """
-
-        def log_message(*message, reset=False):
-            self.log_message(*message, reset=reset)
-
-        def get_app() -> ChannelMapEditorApp:
-            return self
-
-        def get_view(view_type: str | type[ViewBase]) -> ViewBase | None:
-            for _view in self.right_panel_views:
-                if isinstance(view_type, type) and isinstance(_view, view_type):
-                    return _view
-                elif isinstance(view_type, str) and type(_view).__name__ == view_type:
-                    return _view
-            return None
-
-        def update_probe():
-            self.logger.debug('update_probe(%s)', type(view).__name__)
-            self.on_probe_update()
-
-        def save_global_state(*, sync=False, force=False):
-            if not getattr(view, 'disable_save_global_state', False) or force:
-                self.logger.debug('save_global_state(%s)', type(view).__name__)
-                if sync:
-                    self.save_global_config(direct=False)
-                else:
-                    self.global_views_config[type(view).__name__] = cast(StateView, view, ).save_state()
-                    self.save_global_config(direct=True)
-
-        def restore_global_state(*, reload=False, force=False):
-            self.logger.debug('restore_global_state(%s)', type(view).__name__)
-
-            if reload:
-                self.load_global_config(reset=False)
-
-            try:
-                config = self.global_views_config[type(view).__name__]
-            except KeyError:
-                if force:
-                    cast(StateView, view).restore_state({})
-            else:
-                cast(StateView, view).restore_state(config)
-
-        setattr(view, 'log_message', log_message)
-
-        if isinstance(view, ControllerView):
-            setattr(view, 'get_app', get_app)
-            setattr(view, 'get_view', get_view)
-
-        if isinstance(view, EditorView):
-            setattr(view, 'update_probe', update_probe)
-
-        if isinstance(view, GlobalStateView):
-            setattr(view, 'save_global_state', save_global_state)
-            setattr(view, 'restore_global_state', restore_global_state)
-
-        return view
 
     def install_right_panel_views(self, config: ChannelMapEditorConfig) -> list:
         """
@@ -537,7 +470,7 @@ class ChannelMapEditorApp(BokehApplication):
 
         ext = []
 
-        ext.extend(self.get_app_global_config()['views'])
+        ext.extend(self.get_app_global_config().get('views', ['blueprint', 'atlas']))
         ext.extend(config.extra_view)
 
         if '-' in ext:
