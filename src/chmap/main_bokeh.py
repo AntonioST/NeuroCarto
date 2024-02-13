@@ -9,6 +9,7 @@ from bokeh.events import MenuItemClick
 from bokeh.layouts import row as Row, column as Column
 from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, TextAreaInput, UIElement
 from bokeh.plotting import figure as Figure
+from bokeh.themes import Theme
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.probe import get_probe_desp, ProbeDesp, M
@@ -21,6 +22,7 @@ __all__ = ['ChannelMapEditorApp', 'main']
 
 
 class ChannelMapEditorAppConfig(TypedDict, total=False):
+    theme: str | dict[str, Any] | None
     views: list[str]
 
 
@@ -64,7 +66,7 @@ class ChannelMapEditorApp(BokehApplication):
     def global_config_file(self) -> Path:
         if (ret := self.config.config_file) is not None:
             if ret.is_dir():
-                ret = ret / '.chmap.config.json'
+                ret = ret / 'chmap.config.json'
             return ret
 
         if self.config.debug:
@@ -104,18 +106,14 @@ class ChannelMapEditorApp(BokehApplication):
             json.dump(self.global_views_config, f, indent=2)
             self.logger.debug(f'save global config : %s', file)
 
-    def save_app_global_config(self):
-        pass
-
     def get_app_global_config(self) -> ChannelMapEditorAppConfig:
         try:
             app_config: ChannelMapEditorAppConfig = self.global_views_config[type(self).__name__]
         except KeyError:
-            app_config = ChannelMapEditorAppConfig()
+            self.global_views_config[type(self).__name__] = app_config = ChannelMapEditorAppConfig(theme=None, views=[])
+            self.save_global_config(direct=True)
 
-        return ChannelMapEditorAppConfig(
-            views=app_config.get('views', ['blueprint', 'atlas'])
-        )
+        return app_config
 
     def list_chmap_files(self) -> list[Path]:
         """
@@ -303,6 +301,15 @@ class ChannelMapEditorApp(BokehApplication):
         self.logger.debug('index')
         self.load_global_config(reset=True)
 
+        if (theme := self.get_app_global_config().get('theme', None)) is not None:
+            try:
+                self._set_theme(theme)
+            except BaseException as e:
+                self.logger.warning('set theme', exc_info=e)
+
+        # log area goes first
+        self.message_area = TextAreaInput(rows=10, cols=100, width=290, disabled=True)
+
         # index_middle_panel
         self.logger.debug('index figure')
         self.probe_info = Div(text="<b>Probe</b>")
@@ -333,6 +340,25 @@ class ChannelMapEditorApp(BokehApplication):
             Column(self.probe_info, self.probe_fig),
             Column(self._index_right_panel())
         )
+
+    def _set_theme(self, theme: str | Path | dict[str, Any]):
+        """
+
+        Json Theme: https://docs.bokeh.org/en/latest/docs/reference/themes.html#theme
+
+        :param theme:
+        :return:
+        """
+        if isinstance(theme, str):
+            self.logger.debug('set theme %s', theme)
+            if theme.endswith('.json'):
+                self.document.theme = Theme(theme)
+            else:
+                self.document.theme = theme
+        elif isinstance(theme, (Path, dict)):
+            self.document.theme = Theme(theme)
+        else:
+            raise TypeError()
 
     def _index_left_panel(self) -> list[UIElement]:
         # 1/1, 1/2, 1/3, ...
@@ -382,19 +408,23 @@ class ChannelMapEditorApp(BokehApplication):
         self.auto_btn = Toggle(label='Auto', active=True, min_width=widths[1], width_policy='min')
         self.auto_btn.on_change('active', as_callback(self.on_autoupdate))
 
-        #
-        self.message_area = TextAreaInput(title="Log:", rows=10, cols=100, width=widths[0], disabled=True)
-
         return [
+            # Channelmap IO
             Div(text="<b>ChannelMap File</b>"),
             self.input_imro,
             Row(empty_btn, load_btn, save_btn),
             self.output_imro,
-            Row(Div(text="<b>Electrode State</b>"), new_help_button('Manually select electrodes directly', position='right')),
+            # Electrode Select
+            Row(Div(text="<b>Electrode State</b>"),
+                new_help_button('Manually select electrodes directly', position='right')),
             *state_btns,
-            Row(Div(text="<b>Electrode Category</b>"), new_help_button('Set electrode category for programming electrode selection', position='right')),
+            # Electrode Category
+            Row(Div(text="<b>Electrode Category</b>"),
+                new_help_button('Set electrode category for programming electrode selection', position='right')),
             *category_btns,
             Row(self.auto_btn, refresh_btn),
+            # log message
+            Div(text="<b>Log</b>"),
             self.message_area,
             new_btn('clear', self.log_clear, min_width=widths[3])
         ]
