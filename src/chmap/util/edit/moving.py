@@ -8,7 +8,7 @@ __all__ = ['move', 'move_i', 'fill', 'extend']
 
 def move(self: BlueprintFunctions, a: NDArray, *,
          tx: int = 0, ty: int = 0,
-         shanks: list[int] = None,
+         mask: NDArray[np.bool_] = None,
          axis: int = 0,
          init: float = 0) -> NDArray:
     s = self.s
@@ -20,26 +20,30 @@ def move(self: BlueprintFunctions, a: NDArray, *,
     if a.shape[axis] != len(s):
         raise RuntimeError()
 
+    if mask is not None and len(mask) != len(s):
+        raise RuntimeError()
+
     if abs(tx) < dx and abs(ty) < dy:
         return a
 
     pos = self._position_index
 
-    ii = []
-    jj = []
+    ii = np.arange(len(s))
+    jj = np.arange(len(s))
+    rm = []
     for i in range(len(s)):
-        if shanks is None or s[i] in shanks:
+        if mask is None or mask[i]:
             p = int(s[i]), int((x[i] + tx) / dx), int((y[i] + ty) / dy)
-            j = pos.get(p, None)
+            if (j := pos.get(p, None)) is None:
+                rm.append(i)
+            else:
+                jj[i] = j
         else:
-            j = i
+            rm.append(i)
 
-        if j is not None:
-            ii.append(i)
-            jj.append(j)
-
-    ii = np.array(ii)
-    jj = np.array(jj)
+    if len(rm):
+        ii = np.delete(ii, rm)
+        jj = np.delete(jj, rm)
 
     if a.ndim > 1:
         _index = [slice(None)] * a.ndim
@@ -56,12 +60,52 @@ def move(self: BlueprintFunctions, a: NDArray, *,
 
 def move_i(self: BlueprintFunctions, a: NDArray, *,
            tx: int = 0, ty: int = 0,
-           shanks: list[int] = None,
+           mask: NDArray[np.bool_] = None,
            axis: int = 0,
            init: float = 0) -> NDArray:
     if tx == 0 and ty == 0:
         return a
-    return move(self, a, tx=tx * self.dx, ty=ty * self.dy, shanks=shanks, axis=axis, init=init)
+
+    s = self.s
+    x = (self.x / self.dx).astype(int)
+    y = (self.y / self.dy).astype(int)
+
+    if a.shape[axis] != len(s):
+        raise RuntimeError()
+
+    if mask is not None and len(mask) != len(s):
+        raise RuntimeError()
+
+    pos = self._position_index
+
+    ii = np.arange(len(s))
+    jj = np.arange(len(s))
+    rm = []
+    for i in ii:
+        if mask is None or mask[i]:
+            p = int(s[i]), int(x[i] + tx), int(y[i] + ty)
+            if (j := pos.get(p, None)) is None:
+                rm.append(i)
+            else:
+                jj[i] = j
+        else:
+            rm.append(i)
+
+    if len(rm):
+        ii = np.delete(ii, rm)
+        jj = np.delete(jj, rm)
+
+    if a.ndim > 1:
+        _index = [slice(None)] * a.ndim
+        _index[axis] = ii
+        ii = tuple(_index)
+        _index[axis] = jj
+        jj = tuple(_index)
+
+    ret = np.full_like(a, init)
+    ret[jj] = a[ii]
+
+    return ret
 
 
 def fill(self: BlueprintFunctions,
@@ -208,7 +252,7 @@ def extend(self: BlueprintFunctions,
         extend = np.zeros_like(area, dtype=bool)
         for x in x_steps:
             for y in y_steps:
-                np.logical_or(move_i(self, area, tx=x, ty=y, init=False), extend, out=extend)
+                np.logical_or(move_i(self, area, tx=x, ty=y, mask=area, init=False), extend, out=extend)
 
         extend[area] = False
         if not overwrite:

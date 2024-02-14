@@ -99,12 +99,12 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         script = self.script_select.value
         arg = self.script_input.value_input
         if len(script):
-            self.logger.debug('run_script(%s)=%s', script, arg)
             self.run_script(script, arg)
 
     def get_script(self, name: str) -> BlueScript:
         script = self.actions.get(name, name)
         if isinstance(script, str):
+            self.logger.debug('load script(%s)', name)
             script = cast(BlueScript, import_name('blueprint script', script))
             if callable(script):
                 self.actions[name] = script
@@ -123,17 +123,24 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             self.log_message('no probe created')
             return
 
+        self.logger.debug('run_script(%s)=%s', script, arg)
+        self.set_status('run script ...')
         bp = BlueprintFunctions(probe, chmap)
         bp._controller = self
 
         try:
+            self.logger.debug('run_script(%s) invoke', script)
             self.get_script(script)(bp, arg)
         except BaseException as e:
             self.logger.warning('run_script(%s) fail', script, exc_info=e)
             self.log_message(f'run script {script} fail', *e.args)
             return
 
+        self.logger.debug('run_script(%s) done', script)
+        self.set_status('run script done', decay=3000)
         bp.apply_blueprint(blueprint)
+
+        self.logger.debug('run_script(%s) update', script)
         run_later(self.update_probe)
 
     def reset_blueprint(self):

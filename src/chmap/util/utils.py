@@ -110,8 +110,9 @@ def import_name(desp: str, module_path: str, root: str = None):
 
 
 class TimeMarker:
-    def __init__(self):
+    def __init__(self, disable=False):
         self.t = time.time()
+        self.disable = disable
 
     def reset(self):
         self.t = time.time()
@@ -121,7 +122,7 @@ class TimeMarker:
         d = t - self.t
         self.t = t
 
-        if message is not None:
+        if message is not None and not self.disable:
             print(message, f'use {d:.2f}')
 
         return d

@@ -299,6 +299,7 @@ class BlueprintFunctions(Generic[M, E]):
     def move(self, a: NDArray, *,
              tx: int = 0, ty: int = 0,
              shanks: list[int] = None,
+             mask: NDArray[np.bool_] = None,
              axis: int = 0,
              init: float = 0) -> NDArray:
         """
@@ -308,16 +309,28 @@ class BlueprintFunctions(Generic[M, E]):
         :param tx: x movement in um.
         :param ty: y movement in um.
         :param shanks: move electrode only on given shanks
+        :param mask: move electrode only in mask
         :param axis: index off N
         :param init: initial value
         :return: moved a (copied)
         """
         from .edit.moving import move
-        return move(self, a, tx=tx, ty=ty, shanks=shanks, axis=axis, init=init)
+        if shanks is None:
+            return move(self, a, tx=tx, ty=ty, mask=mask, axis=axis, init=init)
+
+        shank_mask = np.zeros_like(self.s, dtype=bool)
+        for s in shanks:
+            np.logical_or(shank_mask, self.s == s, out=shank_mask)
+
+        if mask is not None:
+            np.logical_and(shank_mask, mask, out=shank_mask)
+
+        return move(self, a, tx=tx, ty=ty, mask=shank_mask, axis=axis, init=init)
 
     def move_i(self, a: NDArray, *,
                tx: int = 0, ty: int = 0,
                shanks: list[int] = None,
+               mask: NDArray[np.bool_] = None,
                axis: int = 0,
                init: float = 0) -> NDArray:
         """
@@ -327,12 +340,23 @@ class BlueprintFunctions(Generic[M, E]):
         :param tx: number of dx
         :param ty: number of dy
         :param shanks: move electrode only on given shanks
+        :param mask: move electrode only in mask
         :param axis: index off N
         :param init: initial value
         :return: moved a (copied)
         """
         from .edit.moving import move_i
-        return move_i(self, a, tx=tx, ty=ty, shanks=shanks, axis=axis, init=init)
+        if shanks is None:
+            return move_i(self, a, tx=tx, ty=ty, mask=mask, axis=axis, init=init)
+
+        shank_mask = np.zeros_like(self.s, dtype=bool)
+        for s in shanks:
+            np.logical_or(shank_mask, self.s == s, out=shank_mask)
+
+        if mask is not None:
+            np.logical_and(shank_mask, mask, out=shank_mask)
+
+        return move_i(self, a, tx=tx, ty=ty, mask=shank_mask, axis=axis, init=init)
 
     def find_clustering(self, blueprint: BLUEPRINT,
                         categories: int | list[int] = None, *,
