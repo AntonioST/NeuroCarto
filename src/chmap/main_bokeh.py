@@ -213,13 +213,19 @@ class ChannelMapEditorApp(BokehApplication):
     @doc_link()
     def get_blueprint_file(self, chmap: str | Path) -> Path:
         """
-        Get corresponded blueprint from channelmap saving path.
+        Get corresponded blueprint file from channelmap path.
+
+        A blueprint is a numpy array, and saved with a suffix '.blueprint.npy'.
+        Sometimes, we encode the channelmap type code inside, e.g. '.CODE.blueprint.npy',
+        when the blueprint file does not have the corresponding channelmap file.
 
         :param chmap: filename. See {#get_chmap_file()} for more details.
         :return: saving path.
         """
         if isinstance(chmap, str):
             imro_file = self.get_chmap_file(chmap)
+        elif isinstance(chmap, Path) and chmap.name.endswith('.blueprint.npy'):
+            return chmap
         else:
             imro_file = chmap
         return imro_file.with_suffix('.blueprint.npy')
@@ -278,6 +284,8 @@ class ChannelMapEditorApp(BokehApplication):
         """
         if isinstance(chmap, str):
             imro_file = self.get_chmap_file(chmap)
+        elif isinstance(chmap, Path) and chmap.name.endswith('.config.json'):
+            return chmap
         else:
             imro_file = chmap
 
@@ -630,16 +638,23 @@ class ChannelMapEditorApp(BokehApplication):
 
         self.logger.debug('on_save(%s)', name)
         chmap = self.probe_view.channelmap
-        if not self.probe.is_valid(chmap):
+        if chmap is None:
+            self.log_message(f'no channelmap')
+
+        elif not self.probe.is_valid(chmap):
             self.log_message(f'incomplete channelmap')
-            return
+            path = self.get_blueprint_file(name)
+            if (code := self.probe.channelmap_code(chmap)) is not None:
+                path = path.with_name(path.name.replace('.blueprint', f'.{code}.blueprint'))
+            self.save_blueprint(path)
 
-        path = self.save_chmap(name, chmap)
-        self.save_blueprint(path)
-        self.save_view_config(path)
+        else:
+            path = self.save_chmap(name, chmap)
+            self.save_blueprint(path)
+            self.save_view_config(path)
 
-        self.output_imro.value_input = path.stem
-        self.reload_input_imro_list(path.stem)
+            self.output_imro.value_input = path.stem
+            self.reload_input_imro_list(path.stem)
 
     def on_state_change(self, state: int):
         for desp, code in self.probe.possible_states.items():

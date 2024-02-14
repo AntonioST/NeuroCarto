@@ -258,13 +258,24 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     @doc_link()
+    def channelmap_code(self, chmap: Any) -> int | None:
+        """
+        identify a channelmap, and return correspond code.
+
+        :param chmap: a channelmap instance
+        :return: a code from {#supported_type}. None if *chmap* is unknown or not supported.
+        """
+        pass
+
+    @abc.abstractmethod
+    @doc_link()
     def new_channelmap(self, chmap: int | M) -> M:
         """
         Create a new, empty channelmap instance.
 
         If you want to copy a channelmap instance, use {#copy_channelmap()} instead.
 
-        :param chmap: a code from supported_type or a channelmap instance as probe type.
+        :param chmap: a code from {#supported_type} or a channelmap instance as probe type.
         :return: a channelmap instance
         """
         pass

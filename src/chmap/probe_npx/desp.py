@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, TypeAlias
+from typing import ClassVar, TypeAlias, Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -70,6 +70,11 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
     def save_to_file(self, chmap: ChannelMap, file: Path):
         chmap.save_imro(file)
+
+    def channelmap_code(self, chmap: Any) -> int | None:
+        if not isinstance(chmap, ChannelMap):
+            return None
+        return chmap.probe_type.code
 
     def new_channelmap(self, probe_type: int | ProbeType | ChannelMap = 24) -> ChannelMap:
         if isinstance(probe_type, ChannelMap):
