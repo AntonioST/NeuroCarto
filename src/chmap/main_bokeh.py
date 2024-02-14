@@ -8,7 +8,6 @@ import numpy as np
 from bokeh.application.application import SessionContext
 from bokeh.events import MenuItemClick
 from bokeh.io import curdoc
-from bokeh.layouts import row as Row, column as Column
 from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, TextAreaInput, UIElement
 from bokeh.plotting import figure as Figure
 from bokeh.themes import Theme
@@ -303,7 +302,6 @@ class ChannelMapEditorApp(BokehApplication):
 
     probe_fig: Figure
     probe_view: ProbeView
-    probe_info: Div
 
     right_panel_views: list[ViewBase]
 
@@ -326,35 +324,35 @@ class ChannelMapEditorApp(BokehApplication):
         # log area goes first
         self.message_area = TextAreaInput(rows=10, cols=100, width=290, disabled=True)
 
-        # index_middle_panel
+        # middle figure
         self.logger.debug('index figure')
-        self.probe_info = Div(text="<b>Probe</b>")
         self.probe_fig = Figure(
             width=600, height=800,
             x_axis_label='(um)', y_axis_label='(um)',
             tools='', toolbar_location='above'
         )
-        self.probe_view = ProbeView(self.probe)
-        self.probe_view.plot(self.probe_fig)
-
         # figure toolbar
-        self.logger.debug('index figure toolbar')
         self.probe_fig.tools.clear()
         self.probe_fig.add_tools(
-            tools.ResetTool(),
             (t_drag := tools.PanTool(dimensions='both')),
-            *self.probe_view.setup_tools(),
-            #
             tools.WheelPanTool(dimension='height'),
             (t_scroll := tools.WheelZoomTool(dimensions='both')),
+            tools.ResetTool(),
         )
+
         self.probe_fig.toolbar.active_drag = t_drag
         self.probe_fig.toolbar.active_scroll = t_scroll
 
-        return Row(
-            Column(self._index_left_panel()),
-            Column(self.probe_info, self.probe_fig),
-            Column(self._index_right_panel())
+        # probe
+        from chmap.views.utils import install_view
+        self.probe_view = install_view(self, ProbeView(self.config, self.probe))
+        probe_ui = self.probe_view.setup(self.probe_fig)
+
+        from bokeh.layouts import row, column
+        return row(
+            column(self._index_left_panel()),
+            column(*probe_ui, self.probe_fig),
+            column(self._index_right_panel())
         )
 
     def _set_theme(self, theme: str | Path | dict[str, Any]):
@@ -425,21 +423,22 @@ class ChannelMapEditorApp(BokehApplication):
         self.auto_btn = Toggle(label='Auto', active=True, min_width=widths[1], width_policy='min')
         self.auto_btn.on_change('active', as_callback(self.on_autoupdate))
 
+        from bokeh.layouts import row
         return [
             # Channelmap IO
             Div(text="<b>ChannelMap File</b>"),
             self.input_imro,
-            Row(empty_btn, load_btn, save_btn),
+            row(empty_btn, load_btn, save_btn),
             self.output_imro,
             # Electrode Select
-            Row(Div(text="<b>Electrode State</b>"),
+            row(Div(text="<b>Electrode State</b>"),
                 new_help_button('Manually select electrodes directly', position='right')),
             *state_btns,
             # Electrode Category
-            Row(Div(text="<b>Electrode Category</b>"),
+            row(Div(text="<b>Electrode Category</b>"),
                 new_help_button('Set electrode category for programming electrode selection', position='right')),
             *category_btns,
-            Row(self.auto_btn, refresh_btn),
+            row(self.auto_btn, refresh_btn),
             # log message
             Div(text="<b>Log</b>"),
             self.message_area,
@@ -484,8 +483,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.logger.debug('start')
         self.reload_input_imro_list()
 
-        self.logger.debug('use selector(%s)', self.config.selector)
-        self.probe_view.selecting_parameters['selector'] = self.config.selector
+        self.probe_view.start()
 
         for view in self.right_panel_views:
             self.logger.debug('start %s', type(view).__name__)
@@ -617,7 +615,7 @@ class ChannelMapEditorApp(BokehApplication):
             self.logger.debug('on_state_change(%d)', state)
 
         try:
-            self.probe_view.set_state_for_selected(state)
+            self.probe_view.set_state_for_captured(state)
         except BaseException:
             self.log_message(f'set state {desp} fail')
         else:
@@ -636,7 +634,7 @@ class ChannelMapEditorApp(BokehApplication):
             self.logger.debug('on_category_change(%d)', category)
 
         try:
-            self.probe_view.set_category_for_selected(category)
+            self.probe_view.set_category_for_captured(category)
         except BaseException as e:
             self.log_message(f'set category {desp} fail')
             self.logger.warning('set category %s fail', desp, exc_info=e)
@@ -648,7 +646,6 @@ class ChannelMapEditorApp(BokehApplication):
             self.on_probe_update()
 
     def on_probe_update(self):
-        self.probe_info.text = self.probe_view.channelmap_desp()
         self.probe_view.update_electrode()
 
         for view in self.right_panel_views:

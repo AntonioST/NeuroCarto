@@ -1,19 +1,20 @@
-import logging
 import time
 from collections.abc import Iterable
 from typing import Any
 
-from bokeh.models import ColumnDataSource, GlyphRenderer, tools
+from bokeh.models import ColumnDataSource, GlyphRenderer, tools, UIElement, Div
 from bokeh.plotting import figure as Figure
 
+from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, E, M
 from chmap.util.bokeh_app import run_timeout
 from chmap.util.bokeh_util import as_callback
+from chmap.views import ViewBase
 
 __all__ = ['ProbeView']
 
 
-class ProbeView:
+class ProbeView(ViewBase):
     """
     Probe view.
 
@@ -34,8 +35,8 @@ class ProbeView:
     data_highlight: ColumnDataSource
     render_highlight: GlyphRenderer
 
-    def __init__(self, desp: ProbeDesp[M, E]):
-        self.logger = logging.getLogger('chmap.view.probe')
+    def __init__(self, config: ChannelMapEditorConfig, desp: ProbeDesp[M, E]):
+        super().__init__(config, logger='chmap.view.probe')
 
         self.logger.debug('init(%s)', type(desp).__name__)
         self.probe: ProbeDesp[M, E] = desp
@@ -46,12 +47,30 @@ class ProbeView:
         self.data_electrodes = {}
         for state in (ProbeDesp.STATE_UNUSED, ProbeDesp.STATE_USED, ProbeDesp.STATE_FORBIDDEN):
             self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[], c=[]))
-            self.data_electrodes[state].selected.on_change('indices', as_callback(self.on_select, state=state))
+            self.data_electrodes[state].selected.on_change('indices', as_callback(self._on_capture, state=state))
 
         self.data_highlight = ColumnDataSource(data=dict(x=[], y=[], e=[]))
-        self.selecting_parameters = {}
 
-    def plot(self, f: Figure):
+        self.logger.debug('use selector(%s)', config.selector)
+        self.selecting_parameters = {
+            'selector': config.selector
+        }
+
+    @property
+    def name(self) -> str:
+        return self.probe.channelmap_desp(self.channelmap)
+
+    # ============= #
+    # UI components #
+    # ============= #
+
+    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
+        self._setup_render(f, **kwargs)
+
+        from bokeh.layouts import row
+        return [row(self._setup_title(**kwargs))]
+
+    def _setup_render(self, f: Figure, **kwargs):
         self.logger.debug('setup(figure)')
         self.render_highlight = f.scatter(
             x='x', y='y', source=self.data_highlight, **self.STYLES.get('highlight', {})
@@ -64,30 +83,42 @@ class ProbeView:
             for state, data in self.data_electrodes.items()
         }
 
-    def setup_tools(self) -> list[tools.Tool]:
-        self.logger.debug('setup(tool)')
+        # toolbar
+        f.tools.insert(2, tools.BoxSelectTool(
+            description='select electrode',
+            renderers=list(self.render_electrodes.values())
+        ))
+
+        f.tools.append(tools.HoverTool(
+            description="electrode information",
+            renderers=[
+                self.render_electrodes[ProbeDesp.STATE_USED],
+                self.render_electrodes[ProbeDesp.STATE_UNUSED],
+                self.render_electrodes[ProbeDesp.STATE_FORBIDDEN],
+            ],
+            tooltips=[  # hover
+                ('Channel', "@c"),
+                ("(x,y)", "($x, $y)"),
+            ]
+        ))
+
+    def _setup_title(self, **kwargs) -> list[UIElement]:
+        self.view_title = Div(text=f'<b>{self.name}</b>')
+        self.status_div = Div(text='')
 
         return [
-            tools.BoxSelectTool(
-                description='select electrode',
-                renderers=list(self.render_electrodes.values())
-            ),
-            tools.HoverTool(
-                description="electrode information",
-                renderers=[
-                    self.render_electrodes[ProbeDesp.STATE_USED],
-                    self.render_electrodes[ProbeDesp.STATE_UNUSED],
-                    self.render_electrodes[ProbeDesp.STATE_FORBIDDEN],
-                ],
-                tooltips=[  # hover
-                    ('Channel', "@c"),
-                    ("(x,y)", "($x, $y)"),
-                ]
-            ),
+            self.view_title, self.status_div
         ]
 
-    def channelmap_desp(self) -> str:
-        return self.probe.channelmap_desp(self.channelmap)
+    def _setup_content(self, **kwargs):
+        raise RuntimeError()
+
+    def update_probe_desp(self):
+        self.view_title.text = f'<b>{self.name}<b/>'
+
+    # ======= #
+    # actions #
+    # ======= #
 
     def reset(self, chmap: int | M = None):
         """
@@ -123,11 +154,14 @@ class ProbeView:
         for e in c:
             e.state = ProbeDesp.STATE_USED
 
+        self.update_probe_desp()
+
     def update_electrode(self):
         """Refresh channelmap"""
         for state, data in self.data_electrodes.items():
             self.update_electrode_position(data, self.get_electrodes(None, state=state))
         self.update_electrode_position(self.data_highlight, [])
+        self.update_probe_desp()
 
     def refresh_selection(self):
         """Rerun electrode selection and refresh channelmap"""
@@ -143,7 +177,7 @@ class ProbeView:
             self.logger.debug('refresh_selection() used %.2f sec', t)
         except BaseException as e:
             self.logger.warning('refresh_selection() fail', exc_info=e)
-            raise  # raise error to ChannelMapEditorApp for logging message in message_area
+            self.log_message('refresh fail')
         else:
             self._reset_electrode_state()
 
@@ -177,9 +211,9 @@ class ProbeView:
 
         return ret
 
-    def get_selected(self, d: ColumnDataSource = None, *, reset=False) -> set[E]:
+    def get_captured_electrodes(self, d: ColumnDataSource = None, *, reset=False) -> set[E]:
         """
-        Get selected electrodes.
+        Get captured electrodes.
 
         :param d: one of `self.data_electrodes`
         :param reset: reset the selecting state.
@@ -188,7 +222,7 @@ class ProbeView:
         if d is None:
             ret = set[E]()
             for state, data in self.data_electrodes.items():
-                ret.update(self.get_selected(data, reset=reset))
+                ret.update(self.get_captured_electrodes(data, reset=reset))
             return ret
         else:
             selected_index = d.selected.indices
@@ -198,19 +232,19 @@ class ProbeView:
             e = d.data['e']
             return set(self.get_electrodes([e[it] for it in selected_index]))
 
-    _on_select_electrode = []
-    _on_select_callback = None
+    _captured_electrodes = []
+    _captured_callback = None
 
-    def on_select(self, state: int):
-        selected = self.get_selected(self.data_electrodes[state])
-        self._on_select_electrode.extend(selected)
-        if self._on_select_callback is None:
-            self._on_select_callback = run_timeout(100, self._on_select)
+    def _on_capture(self, state: int):
+        selected = self.get_captured_electrodes(self.data_electrodes[state])
+        self._captured_electrodes.extend(selected)
+        if self._captured_callback is None:
+            self._captured_callback = run_timeout(100, self._on_capture_callback)
 
-    def _on_select(self):
-        selected = self._on_select_electrode
-        self._on_select_electrode = []
-        self._on_select_callback = None
+    def _on_capture_callback(self):
+        selected = self._captured_electrodes
+        self._captured_electrodes = []
+        self._captured_callback = None
 
         if len(selected):
             self.logger.debug('select %d electrodes', len(selected))
@@ -222,7 +256,6 @@ class ProbeView:
 
         :param d: one of `self.data_electrodes`
         :param e: new electrodes
-        :param append: append *e*.
         """
         x = []
         y = []
@@ -250,35 +283,35 @@ class ProbeView:
 
         self.update_electrode_position(self.data_highlight, s)
 
-    def set_state_for_selected(self, state: int):
+    def set_state_for_captured(self, state: int):
         """
         Set electrode state for selected electrodes.
 
         :param state: new state. value in {ProbeDesp.STATE_USED, ProbeDesp.STATE_UNUSED}
         """
         if state == ProbeDesp.STATE_USED:
-            for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
+            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
                 self.probe.add_electrode(self.channelmap, e)
-            for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
+            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
                 self.probe.add_electrode(self.channelmap, e, overwrite=True)
 
-            self.get_selected(self.data_electrodes[ProbeDesp.STATE_USED], reset=True)
+            self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True)
 
         elif state == ProbeDesp.STATE_UNUSED:
-            for e in self.get_selected(self.data_electrodes[ProbeDesp.STATE_USED], reset=True):
+            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True):
                 self.probe.del_electrode(self.channelmap, e)
 
-            self.get_selected(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True)
-            self.get_selected(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True)
+            self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True)
+            self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True)
 
         self._reset_electrode_state()
 
-    def set_category_for_selected(self, category: int):
+    def set_category_for_captured(self, category: int):
         """
         Set electrode category value for selected electrodes.
 
         :param category: category value from ProbeDesp.CATE_*
         :return:
         """
-        for e in self.get_selected(reset=True):
+        for e in self.get_captured_electrodes(reset=True):
             e.category = category

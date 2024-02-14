@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, TypeVar
 
 from chmap.util.utils import import_name
 from .base import ViewBase, StateView, ControllerView, EditorView, GlobalStateView
@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from chmap.main_bokeh import ChannelMapEditorApp
 
 __all__ = ['init_view']
+
+V = TypeVar('V', bound=ViewBase)
 
 
 def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
@@ -85,7 +87,7 @@ def import_view(config: ChannelMapEditorConfig, module_path: str) -> ViewBase | 
     return init_view(config, import_name('view base', module_path))
 
 
-def install_view(app: ChannelMapEditorApp, view: ViewBase) -> ViewBase:
+def install_view(app: ChannelMapEditorApp, view: V) -> V:
     """
     Replace some methods in ViewBase. They are
 
