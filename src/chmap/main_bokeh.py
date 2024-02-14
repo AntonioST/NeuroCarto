@@ -322,7 +322,10 @@ class ChannelMapEditorApp(BokehApplication):
                 self.logger.warning('set theme', exc_info=e)
 
         # log area goes first
-        self.message_area = TextAreaInput(rows=10, cols=100, width=290, disabled=True)
+        self.message_area = TextAreaInput(
+            rows=10, cols=100, width=290,
+            max_length=None, disabled=True
+        )
 
         # middle figure
         self.logger.debug('index figure')
