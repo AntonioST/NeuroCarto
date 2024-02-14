@@ -131,9 +131,9 @@ class ChannelMapEditorApp(BokehApplication):
         """
         if not direct:
             for view in self.right_panel_views:
-                if isinstance(view, GlobalStateView):
+                if isinstance(view, GlobalStateView) and (state := view.save_state(local=False)) is not None:
                     self.logger.debug('on_save() config %s', type(view).__name__)
-                    self.global_views_config[type(view).__name__] = view.save_state()
+                    self.global_views_config[type(view).__name__] = state
 
         import json
         file = self.global_config_file()
@@ -319,9 +319,9 @@ class ChannelMapEditorApp(BokehApplication):
         """
         if not direct:
             for view in self.right_panel_views:
-                if isinstance(view, StateView):
+                if isinstance(view, StateView) and (state := view.save_state()) is not None:
                     self.logger.debug('on_save() config %s', type(view).__name__)
-                    self.right_panel_views_config[type(view).__name__] = view.save_state()
+                    self.right_panel_views_config[type(view).__name__] = state
 
         import json
         file = self.get_view_config_file(chmap)
@@ -559,7 +559,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.probe_view.reset(probe_type)
 
         if len(self.output_imro.value_input) == 0:
-            self.output_imro.value = "New"
+            self.output_imro.value_input = "New"
 
         self.on_probe_update()
 
@@ -586,7 +586,7 @@ class ChannelMapEditorApp(BokehApplication):
             self.logger.warning(f'channelmap file not found : %s', file, exc_info=x)
             return
 
-        self.output_imro.value = file.stem
+        self.output_imro.value_input = file.stem
 
         self.probe_view.reset(chmap)
         self.load_blueprint(file)
@@ -638,7 +638,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.save_blueprint(path)
         self.save_view_config(path)
 
-        self.output_imro.value = path.stem
+        self.output_imro.value_input = path.stem
         self.reload_input_imro_list(path.stem)
 
     def on_state_change(self, state: int):

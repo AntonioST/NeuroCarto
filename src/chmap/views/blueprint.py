@@ -67,30 +67,31 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             return
 
         if isinstance(chmap, ChannelMap):
-            bp = BlueprintFunctions.from_blueprint(electrodes, probe.all_possible_categories())
-            self.data_blueprint.data = self.plot_npx_channelmap(bp, chmap)
+            bp = BlueprintFunctions(probe, chmap)
+            bp.set_blueprint(electrodes)
+            self.data_blueprint.data = self.plot_npx_channelmap(bp)
         else:
             self.reset_blueprint()
 
     def reset_blueprint(self):
         self.data_blueprint.data = dict(xs=[], ys=[], c=[])
 
-    def plot_npx_channelmap(self, bp: BlueprintFunctions, chmap: ChannelMap) -> dict:
-        from chmap.probe_npx.desp import NpxProbeDesp
+    def plot_npx_channelmap(self, bp: BlueprintFunctions) -> dict:
+        from chmap.probe_npx.npx import ProbeType
 
-        probe_type = chmap.probe_type
-        s_space = probe_type.s_space
+        probe_type: ProbeType = bp.chmap.probe_type
         c_space = probe_type.c_space
         r_space = probe_type.r_space
 
-        blueprint = bp.set(bp.blueprint(), NpxProbeDesp.CATE_SET, NpxProbeDesp.CATE_FULL)
+        blueprint = bp.set(bp.blueprint(), bp.CATE_SET, bp.CATE_FULL)
         categories = [
-            NpxProbeDesp.CATE_FULL, NpxProbeDesp.CATE_HALF, NpxProbeDesp.CATE_QUARTER, NpxProbeDesp.CATE_FORBIDDEN
+            bp.CATE_FULL, bp.CATE_HALF, bp.CATE_QUARTER, bp.CATE_FORBIDDEN
         ]
         edges = bp.clustering_edges(blueprint, categories)
 
         w = c_space // 2
         h = r_space // 2
+        offset = c_space * probe_type.n_col_shank
         edges = [it.set_corner((w, h)) for it in edges]
 
         xs = [[], [], [], []]
@@ -105,11 +106,8 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
 
         for edge in edges:
             i = categories.index(edge.category)
-            x = (edge.x + w) % s_space / c_space  # as column index
-            # rebuild x position, to reduce block width
-            x = x * w + edge.shank * s_space - c_space - w / 2
 
-            xs[i].append([list(x)])
+            xs[i].append([list(edge.x + offset + w)])
             ys[i].append([list(edge.y)])
 
         return dict(xs=xs, ys=ys, c=color)

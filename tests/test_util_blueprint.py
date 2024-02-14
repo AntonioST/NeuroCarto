@@ -9,10 +9,10 @@ from chmap.probe_npx.desp import NpxProbeDesp
 from chmap.util.util_blueprint import BlueprintFunctions
 
 DEFAULT_CATEGORIES = {
-    'CATE_UNSET': 0,
-    'CATE_FORBIDDEN': 1,
-    'CATE_LOW': 2,
-    'CATE_SET': 3,
+    'UNSET': 0,
+    'FORBIDDEN': 1,
+    'LOW': 2,
+    'SET': 3,
 }
 
 

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from chmap.probe_npx.npx import ChannelMap, ProbeType
 
 __all__ = [
-    'BlueScriptView',
+    'BlueprintScriptView',
     'BlueScript',
     'BlueprintScriptState',
 ]
@@ -42,7 +42,7 @@ class BlueprintScriptState(TypedDict):
     actions: dict[str, str]
 
 
-class BlueScriptView(PltImageView, EditorView, DataHandler, ControllerView, GlobalStateView[BlueprintScriptState]):
+class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView, GlobalStateView[BlueprintScriptState]):
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
@@ -133,11 +133,7 @@ class BlueScriptView(PltImageView, EditorView, DataHandler, ControllerView, Glob
             self.log_message(f'run script {script} fail', *e.args)
             return
 
-        categories = bp.blueprint()
-        c = {it.electrode: it for it in blueprint}
-        for e, p in zip(probe.all_electrodes(chmap), categories):
-            if (t := c.get(e.electrode, None)) is not None:
-                t.category = int(p)
+        bp.apply_blueprint(blueprint)
         run_later(self.update_probe)
 
     def reset_blueprint(self):
@@ -273,5 +269,5 @@ if __name__ == '__main__':
         '-C', 'res',
         '--debug',
         '--view=-',
-        '--view=chmap.views.edit_blueprint:BlueScriptView',
+        '--view=chmap.views.edit_blueprint:BlueprintScriptView',
     ]))

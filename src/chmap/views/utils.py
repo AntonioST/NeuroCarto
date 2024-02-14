@@ -22,7 +22,7 @@ V = TypeVar('V', bound=ViewBase)
     FileImageView='chmap.views.image.FileImageView',
     AtlasBrainView='chmap.views.atlas.AtlasBrainView',
     BlueprintView='chmap.views.blueprint.BlueprintView',
-    InitializeBlueprintView='chmap.views.edit_blueprint.InitializeBlueprintView',
+    BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView',
 )
 def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
     """
@@ -35,7 +35,7 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
     * literal `'file'` for {FileImageView}
     * literal `'atlas'` for {AtlasBrainView}
     * literal `'blueprint'` for {BlueprintView}
-    * literal `'editor'` for {InitializeBlueprintView}
+    * literal `'script'` for {BlueprintScriptView}
     * image filepath
     * `str` in pattern: `[PATH:]module.path:attribute` in type listed above.
 
@@ -70,9 +70,9 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
             from .blueprint import BlueprintView
             return BlueprintView(config)
 
-        elif view_type == 'editor':
-            from .edit_blueprint import InitializeBlueprintView
-            return InitializeBlueprintView(config)
+        elif view_type == 'script':
+            from .edit_blueprint import BlueprintScriptView
+            return BlueprintScriptView(config)
 
         elif isinstance(view_type, str) and is_image(image_file := Path(view_type)):
             from chmap.views.image import ImageView, ImageHandler

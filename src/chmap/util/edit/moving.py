@@ -143,7 +143,7 @@ def extend(self: BlueprintFunctions,
            category: int = None, *,
            threshold: int | tuple[int, int] = None,
            bi: bool = True,
-           overwrite: bool = False):
+           overwrite: bool = False) -> NDArray[np.int_]:
     if len(blueprint) != len(self.s):
         raise ValueError()
 

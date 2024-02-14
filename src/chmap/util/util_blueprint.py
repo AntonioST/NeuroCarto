@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload, Generic
 
 import numpy as np
 from numpy.typing import NDArray
@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from chmap.util.edit.clustering import ClusteringEdges
 
 __all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function']
+
+BLUEPRINT = NDArray[np.int_]
 
 
 def maybe_blueprint(self: BlueprintFunctions, a):
@@ -59,37 +61,44 @@ def blueprint_function(func):
 
 
 # noinspection PyMethodMayBeStatic
-class BlueprintFunctions:
+class BlueprintFunctions(Generic[M, E]):
     """
     Provide blueprint manipulating functions.
     """
 
-    CATE_UNSET: int = ProbeDesp.CATE_UNSET
-    CATE_SET: int = ProbeDesp.CATE_SET
-    CATE_FORBIDDEN: int = ProbeDesp.CATE_FORBIDDEN
-    CATE_LOW: int = ProbeDesp.CATE_LOW
+    CATE_UNSET: int
+    CATE_SET: int
+    CATE_FORBIDDEN: int
+    CATE_LOW: int
 
     def __init__(self, probe: ProbeDesp[M, E], chmap: M):
-        self.probe = probe
-        self.chmap = chmap
-        self.categories = probe.all_possible_categories()
+        self.probe: ProbeDesp[M, E] = probe
+        self.chmap: M = chmap
+        self.categories: dict[str, int] = probe.all_possible_categories()
 
         electrodes = probe.all_electrodes(chmap)
-        self.s = np.array([it.s for it in electrodes])
-        self.x = np.array([it.x for it in electrodes])
-        self.y = np.array([it.y for it in electrodes])
-        self.dx = np.min(np.diff(np.unique(self.x)))
-        self.dy = np.min(np.diff(np.unique(self.y)))
+        self.s: NDArray[np.int_] = np.array([it.s for it in electrodes])
+        self.x: NDArray[np.int_] = np.array([it.x for it in electrodes])
+        self.y: NDArray[np.int_] = np.array([it.y for it in electrodes])
+        self.dx: float = float(np.min(np.diff(np.unique(self.x))))
+        self.dy: float = float(np.min(np.diff(np.unique(self.y))))
         if self.dx <= 0 or self.dy <= 0:
             raise ValueError(f'dx={self.dx}, dy={self.dy}')
 
-        self._position_index = {
+        self._position_index: dict[tuple[int, int, int], int] = {
             (int(self.s[i]), int(self.x[i] / self.dx), int(self.y[i] / self.dy)): i
             for i in range(len(self.s))
         }
 
-        self._blueprint: NDArray[np.int_] = np.array([it.category for it in electrodes])
-        self._controller: ControllerView = None
+        self._blueprint: BLUEPRINT = np.array([it.category for it in electrodes])
+        self._controller: ControllerView | None = None
+
+    def __getattr__(self, item: str):
+        if item.startswith('CATE_'):
+            if (ret := self.categories.get(item[5:], None)) is not None:
+                return ret
+
+        raise AttributeError(item)
 
     def clone(self) -> BlueprintFunctions:
         ret = object.__new__(BlueprintFunctions)
@@ -107,7 +116,15 @@ class BlueprintFunctions:
         ret._controller = self._controller
         return ret
 
+    @doc_link()
     def check_probe(self, probe: str | type[ProbeDesp], *, error=True) -> bool:
+        """
+        Check current used probe is type of *probe*.
+
+        :param probe: {ProbeDesp} type or class name.
+        :param error: raise {RuntimeError} when test fail.
+        :return: test success.
+        """
         if isinstance(probe, str):
             test = type(self.probe).__name__ == probe
         elif isinstance(probe, type):
@@ -120,17 +137,20 @@ class BlueprintFunctions:
                 raise RuntimeError()
         return test
 
-    def __getattr__(self, item: str):
-        if item.startswith('CATE_'):
-            if (ret := self.categories.get(item, None)) is not None:
-                return ret
-
-        raise AttributeError(item)
-
-    def blueprint(self) -> NDArray[np.int_]:
+    def blueprint(self) -> BLUEPRINT:
+        """blueprint."""
         return self._blueprint
 
-    def set_blueprint(self, blueprint: NDArray[np.int_] | list[E]):
+    def set_blueprint(self, blueprint: int | BLUEPRINT | list[E]):
+        """
+        set blueprint.
+
+        :param blueprint: a blueprint or a category value.
+        """
+        if isinstance(blueprint, int):
+            self._blueprint[:] = blueprint
+            return
+
         if isinstance(blueprint, list):
             blueprint = np.array([it.category for it in blueprint])
 
@@ -139,7 +159,24 @@ class BlueprintFunctions:
 
         self._blueprint = blueprint
 
-    def load_blueprint(self, file: str | Path) -> NDArray[np.int_]:
+    def apply_blueprint(self, electrodes: list[E], blueprint: BLUEPRINT = None) -> list[E]:
+        """
+        Apply blueprint back to electrode list.
+
+        :param electrodes:
+        :param blueprint:
+        :return: *electrodes*
+        """
+        if blueprint is None:
+            blueprint = self.blueprint()
+
+        c = {it.electrode: it for it in electrodes}
+        for e, p in zip(self.probe.all_electrodes(self.chmap), blueprint):
+            if (t := c.get(e.electrode, None)) is not None:
+                t.category = int(p)
+        return electrodes
+
+    def load_blueprint(self, file: str | Path) -> BLUEPRINT:
         """
 
         :param file: file.blueprint.npy
@@ -153,7 +190,7 @@ class BlueprintFunctions:
         self.set_blueprint(self.probe.load_blueprint(data, self.chmap))
         return self._blueprint
 
-    def save_blueprint(self, file: str | Path, blueprint: NDArray[np.int_] = None):
+    def save_blueprint(self, file: str | Path, blueprint: BLUEPRINT = None):
         if blueprint is None:
             blueprint = self._blueprint
         else:
@@ -171,20 +208,17 @@ class BlueprintFunctions:
         np.save(file, self.probe.save_blueprint(s))
 
     @blueprint_function
-    def set(self, blueprint: NDArray[np.int_], mask: int | NDArray[np.bool_], category: int | str) -> NDArray[np.int_]:
+    def set(self, blueprint: BLUEPRINT, mask: int | NDArray[np.bool_], category: int) -> BLUEPRINT:
         """
-        set *category* on `blueprint[mask]`.
+        Set *category* on the blueprint with a *mask*.
 
         :param blueprint:
         :param mask:
         :param category:
-        :return:
+        :return: a (copied) blueprint
         """
         if len(blueprint) != len(self.s):
             raise ValueError()
-
-        if isinstance(category, str):
-            category = self._categories[category]
 
         if isinstance(mask, (int, np.integer)):
             mask = blueprint == mask
@@ -194,9 +228,9 @@ class BlueprintFunctions:
         return ret
 
     @blueprint_function
-    def unset(self, blueprint: NDArray[np.int_], mask: NDArray[np.bool_]) -> NDArray[np.int_]:
+    def unset(self, blueprint: BLUEPRINT, mask: int | NDArray[np.bool_]) -> BLUEPRINT:
         """
-        unset `blueprint[mask]`.
+        unset electrodes in the *blueprint* with a *mask*.
 
         :param blueprint:
         :param mask:
@@ -204,15 +238,41 @@ class BlueprintFunctions:
         """
         return self.set(blueprint, mask, self.CATE_UNSET)
 
+    @doc_link()
     def __setitem__(self, mask: int | NDArray[np.bool_], category: int | str):
-        self.set_blueprint(self.set(self.blueprint(), mask, category))
+        """
+        Set a *category* to the blueprint with a *mask*.
+        The new *category* only apply on unset electrodes.
+        If you want to overwrite the electrode's category, please use {#set()}.
+
+        :param mask:
+        :param category:
+        :return:
+        :see: {#merge()}
+        """
+        blueprint = self.blueprint()
+        self.set_blueprint(self.merge(blueprint, self.set(blueprint, mask, category)))
 
     def __delitem__(self, mask: int | NDArray[np.bool_]):
+        """
+        unset electrodes in the *blueprint* with a *mask*.
+
+        :param mask:
+        :return:
+        """
         self.set_blueprint(self.set(self.blueprint(), mask, self.CATE_UNSET))
 
-    def merge(self, blueprint: NDArray[np.int_], other: NDArray[np.int_] = None) -> NDArray[np.int_]:
+    @overload
+    def merge(self, blueprint: BLUEPRINT | BlueprintFunctions) -> BLUEPRINT:
+        pass
+
+    @overload
+    def merge(self, blueprint: BLUEPRINT, other: BLUEPRINT | BlueprintFunctions = None) -> BLUEPRINT:
+        pass
+
+    def merge(self, blueprint: BLUEPRINT, other: BLUEPRINT = None) -> BLUEPRINT:
         """
-        merge blueprint. The latter result overwrite former result.
+        Merge two blueprints. The latter blueprint won't overwrite the former result.
 
         `merge(blueprint)` works like `merge(blueprint(), blueprint)`.
 
@@ -221,17 +281,16 @@ class BlueprintFunctions:
         :return: blueprint Array[category, N]
         """
         if other is None:
-            if self._blueprint is None:
-                return blueprint
+            blueprint, other = self._blueprint, blueprint
 
-            other = blueprint
-            blueprint = self._blueprint
+        if isinstance(other, BlueprintFunctions):
+            other = other.blueprint()
 
         n = len(self.s)
         if len(blueprint) != n or len(other) != n:
             raise ValueError()
 
-        return np.where(other == self.CATE_SET, blueprint, other)
+        return np.where(blueprint != self.CATE_UNSET, blueprint, other)
 
     # ================== #
     # external functions #
@@ -275,9 +334,9 @@ class BlueprintFunctions:
         from .edit.moving import move_i
         return move_i(self, a, tx=tx, ty=ty, shanks=shanks, axis=axis, init=init)
 
-    def find_clustering(self, blueprint: NDArray[np.int_],
+    def find_clustering(self, blueprint: BLUEPRINT,
                         categories: int | list[int] = None, *,
-                        diagonal=True) -> NDArray[np.int_]:
+                        diagonal=True) -> BLUEPRINT:
         """
         find electrode clustering with the same category.
 
@@ -289,7 +348,7 @@ class BlueprintFunctions:
         from .edit.clustering import find_clustering
         return find_clustering(self, blueprint, categories, diagonal=diagonal)
 
-    def clustering_edges(self, blueprint: NDArray[np.int_],
+    def clustering_edges(self, blueprint: BLUEPRINT,
                          categories: int | list[int] = None) -> list[ClusteringEdges]:
         """
         For each clustering block, calculate its edges.
@@ -302,7 +361,7 @@ class BlueprintFunctions:
         return clustering_edges(self, blueprint, categories)
 
     def edge_rastering(self, edges: ClusteringEdges | list[ClusteringEdges], *,
-                       fill=False, overwrite=False) -> NDArray[np.int_]:
+                       fill=False, overwrite=False) -> BLUEPRINT:
         """
         For given edges, put them on the blueprint.
 
@@ -315,11 +374,11 @@ class BlueprintFunctions:
         return edge_rastering(self, edges, fill=fill, overwrite=overwrite)
 
     @blueprint_function
-    def fill(self, blueprint: NDArray[np.int_],
+    def fill(self, blueprint: BLUEPRINT,
              categories: int | list[int] = None, *,
              threshold: int = None,
              gap: int | None = 1,
-             unset: bool = False) -> NDArray[np.int_]:
+             unset: bool = False) -> BLUEPRINT:
         """
         make the area occupied by categories be filled as rectangle.
 
@@ -334,13 +393,13 @@ class BlueprintFunctions:
         return fill(self, blueprint, categories, threshold=threshold, gap=gap, unset=unset)
 
     @blueprint_function
-    def extend(self, blueprint: NDArray[np.int_],
+    def extend(self, blueprint: BLUEPRINT,
                on: int,
                step: int | tuple[int, int],
                category: int = None, *,
                threshold: int | tuple[int, int] = None,
                bi: bool = True,
-               overwrite: bool = False):
+               overwrite: bool = False) -> BLUEPRINT:
         """
         extend the area occupied by category *on* with *category*.
 
