@@ -16,4 +16,5 @@ modules
     util.bokeh_util
     util.util_blueprint
     util.util_numpy
+    util.utils
 

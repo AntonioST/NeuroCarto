@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, cast, TypeVar
 
-from chmap.util.utils import import_name
+from chmap.util.utils import import_name, doc_link
 from .base import ViewBase, StateView, ControllerView, EditorView, GlobalStateView
 
 if TYPE_CHECKING:
@@ -16,20 +16,28 @@ __all__ = ['init_view']
 V = TypeVar('V', bound=ViewBase)
 
 
+@doc_link(
+    ImageHandler='chmap.views.image.ImageHandler',
+    ImageView='chmap.views.image.ImageView',
+    FileImageView='chmap.views.image.FileImageView',
+    AtlasBrainView='chmap.views.atlas.AtlasBrainView',
+    BlueprintView='chmap.views.blueprint.BlueprintView',
+    InitializeBlueprintView='chmap.views.edit_blueprint.InitializeBlueprintView',
+)
 def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
     """
 
     Recognised type:
 
     * `None` skip
-    * `ViewBase` or `type[ViewBase]`
-    * `ImageHandler` or `type[ImageHandler]`, wrap with ImageView.
-    * literal 'file' for FileImageView
-    * literal 'atlas' for AtlasBrainView
-    * literal 'blueprint' for BlueprintView
-    * literal 'editor' for InitializeBlueprintView
+    * {ViewBase} or it subtype
+    * {ImageHandler} or subtype, wrap with {ImageView}.
+    * literal `'file'` for {FileImageView}
+    * literal `'atlas'` for {AtlasBrainView}
+    * literal `'blueprint'` for {BlueprintView}
+    * literal `'editor'` for {InitializeBlueprintView}
     * image filepath
-    * `str` in pattern: `module.path:attribute` in type listed above.
+    * `str` in pattern: `[PATH:]module.path:attribute` in type listed above.
 
     :param config:
     :param view_type:
@@ -87,18 +95,19 @@ def import_view(config: ChannelMapEditorConfig, module_path: str) -> ViewBase | 
     return init_view(config, import_name('view base', module_path))
 
 
+@doc_link()
 def install_view(app: ChannelMapEditorApp, view: V) -> V:
     """
     Replace some methods in ViewBase. They are
 
-    * ViewBase.log_message
-    * ControllerView.*
-    * EditorView.*
-    * GlobalStateView.*
+    * {ViewBase} method {ViewBase#log_message()}
+    * {ControllerView} all methods
+    * {EditorView} all methods
+    * {GlobalStateView} all methods
 
-    :param app:
+    :param app: GUI application
     :param view:
-    :return:
+    :return: *view* itself
     """
 
     def log_message(*message, reset=False):

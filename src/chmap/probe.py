@@ -4,10 +4,13 @@ import abc
 import sys
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
+from types import ModuleType
 from typing import TypeVar, Generic, Any, ClassVar, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
+
+from chmap.util.utils import import_name, doc_link
 
 if TYPE_CHECKING:
     from chmap.config import ChannelMapEditorConfig
@@ -21,39 +24,62 @@ else:
 __all__ = ['ProbeDesp', 'ElectrodeDesp', 'get_probe_desp']
 
 
-def get_probe_desp(name: str, package: str = 'chmap', describer: str = None) -> type[ProbeDesp]:
+@doc_link(ProbeDesp='chmap.probe.ProbeDesp')
+def get_probe_desp(name: str) -> type[ProbeDesp]:
     """Get probe describer.
 
-    Naming rules:
+    Naming rules (finding in order):
 
-    * *name* correspond Python module name.
-    * in `chmap` package, module name `probe_NAME` can shorten as `NAME`.
+    * a module path `MODULE:NAME`, import MODULE and use NAME.
+    * (following rule does not specific which {ProbeDesp} subtype, find the first matched.)
+    * a probe family name, which can be found in module `chmap.probe_NAME`.
+    * a probe family name, which can be found in module `chmap.NAME`.
+    * a module name, which can be found in module `NAME`.
 
     :param name: probe family name.
-    :param package: root package.
-    :param describer: class name of ProbeDesp. If None, find the first found.
-    :return: type of ProbeDesp.
-    :raise ModuleNotFoundError: module *name* not found.
-    :raise RuntimeError: no ProbeDesp subclass found in module.
-    :raise TypeError: *describer* in module not a subclass of ProbeDesp
+    :return: type of {ProbeDesp}.
+    :raise RuntimeError: module not found; no {ProbeDesp} implementation found; not a {ProbeDesp} subtype.
+    :see: {import_name()}
     """
-    if package == 'chmap' and not name.startswith('probe_'):
-        name = f'probe_{name}'
 
-    import importlib
-    module = importlib.import_module('.', package + '.' + name)
+    module = None
+    if '.' not in name and ':' not in name:
+        try:
+            module = import_name('probe', f'chmap.probe_{name}:*')
+        except ImportError:
+            pass
 
-    if describer is None:
+    if module is None and ':' not in name:
+        try:
+            module = import_name('probe', f'chmap.{name}:*')
+        except ImportError:
+            pass
+
+    if module is None and ':' not in name:
+        try:
+            module = import_name('probe', f'{name}:*')
+        except ImportError:
+            pass
+
+    if module is None:
+        try:
+            module = import_name('probe', name)
+        except ImportError:
+            pass
+
+    if module is None:
+        raise RuntimeError(f'ProbeDesp[{name}] not found')
+
+    if isinstance(module, ModuleType):
         for attr in dir(module):
             if not attr.startswith('_') and issubclass(desp := getattr(module, attr), ProbeDesp):
                 return desp
 
         raise RuntimeError(f'ProbeDesp[{name}] not found')
-    else:
-        if issubclass(desp := getattr(module, describer), ProbeDesp):
-            return desp
+    elif issubclass(module, ProbeDesp):
+        return module
 
-        raise TypeError(f"type of {type(desp).__name__} not subclass of ProbeDesp")
+    raise RuntimeError(f"type of {type(module).__name__} not subclass of ProbeDesp")
 
 
 class ElectrodeDesp:
@@ -107,11 +133,12 @@ E = TypeVar('E', bound=ElectrodeDesp)  # electrode
 M = TypeVar('M')  # channelmap
 
 
+@doc_link()
 class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     """A probe interface for GUI interaction between different probe implementations.
 
     :param M: channelmap, any class
-    :param E: electrode, subclass of ElectrodeDesp
+    :param E: electrode, subclass of {ElectrodeDesp}
     """
 
     # predefined electrode states
@@ -127,11 +154,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def supported_type(self) -> dict[str, int]:
         """
         All supported probe type.
 
-        Used in ChannelMapEditorApp._index_left_control() for dynamic generating options.
+        Used in {ChannelMapEditorApp#install_right_panel_views()} for dynamic generating options.
 
         :return: dict of {description: code}, where code is used in new_channelmap(code)
         """
@@ -139,11 +167,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def possible_states(self) -> dict[str, int]:
         """
         All possible exported electrode state.
 
-        Used in ChannelMapEditorApp._index_left_control() for dynamic generating buttons.
+        Used in {ChannelMapEditorApp#install_right_panel_views()} for dynamic generating buttons.
 
         :return: dict of {description: state}
         """
@@ -151,11 +180,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def possible_categories(self) -> dict[str, int]:
         """
         All possible exported electrode categories.
 
-        Used in ChannelMapEditorApp._index_left_control() for dynamic generating buttons.
+        Used in {ChannelMapEditorApp#install_right_panel_views()} for dynamic generating buttons.
 
         :return: dict of {description: category}
         """
@@ -164,7 +194,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @classmethod
     def all_possible_states(cls) -> dict[str, int]:
         """
-        Implement note: It finds all class variable that its name starts with 'STATE_'.
+        Implement note: It finds all class variable that its name starts with 'STATE_*'.
 
         :return: dict of {state_name: state_value}
         """
@@ -177,7 +207,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @classmethod
     def all_possible_categories(cls) -> dict[str, int]:
         """
-        Implement note: It finds all class variable that its name starts with 'CATE_'.
+        Implement note: It finds all class variable that its name starts with 'CATE_*'.
 
         :return: dict of {category_name: category_value}
         """
@@ -227,11 +257,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    @doc_link()
     def new_channelmap(self, chmap: int | M) -> M:
         """
         Create a new, empty channelmap instance.
 
-        If you want to copy a channelmap instance, use `copy_channelmap` instead.
+        If you want to copy a channelmap instance, use {#copy_channelmap()} instead.
 
         :param chmap: a code from supported_type or a channelmap instance as probe type.
         :return: a channelmap instance
@@ -259,6 +290,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    @doc_link()
     def all_electrodes(self, chmap: int | M) -> list[E]:
         """
         Get all possible electrode set for the given channelmap kind.
@@ -267,22 +299,24 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
             make sure the result is consistent in its ordering.
 
         :param chmap: a channelmap instance or a code from supported_type.
-        :return: a list of ElectrodeDesp
+        :return: a list of {ElectrodeDesp}
         """
         pass
 
     @abc.abstractmethod
+    @doc_link()
     def all_channels(self, chmap: M, electrodes: Iterable[E] = None) -> list[E]:
         """
         Selected electrode set in channelmap.
 
         :param chmap: a channelmap instance
         :param electrodes: restrict electrode set that the return set is its subset.
-        :return: a list of ElectrodeDesp
+        :return: a list of {ElectrodeDesp}
         """
         pass
 
     @abc.abstractmethod
+    @doc_link()
     def is_valid(self, chmap: M) -> bool:
         """
         Is it a valid channelmap?
@@ -290,7 +324,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         A valid channelmap means:
 
         * not an incomplete channelmap.
-        * no electrode pair will break the probe restriction (probe_rule()).
+        * no electrode pair will break the probe restriction ({#probe_rule()}).
         * can be saved in file and read by other applications without error and mis-position.
 
         :param chmap: a channelmap instance
@@ -298,11 +332,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
+    @doc_link()
     def get_electrode(self, electrodes: Iterable[E], e: Hashable | E) -> E | None:
         """
 
         :param electrodes: an electrode set
-        :param e: electrode identify, as same as ElectrodeDesp.electrode.
+        :param e: electrode identify, as same as {ElectrodeDesp#electrode}.
         :return: found electrode in *s*. None if not found.
         """
         if isinstance(e, ElectrodeDesp):
@@ -382,9 +417,10 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
+    @doc_link()
     def invalid_electrodes(self, chmap: M, e: E | Iterable[E], electrodes: Iterable[E]) -> list[E]:
         """
-        Collect the invalid electrodes that an electrode from *s* will break the `probe_rule`
+        Collect the invalid electrodes that an electrode from *s* will break the {#probe_rule()}
         with the electrode *e* (or any electrode from *e*).
 
         :param chmap: channelmap type. It is a reference.
@@ -424,7 +460,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         Restore blueprint, included all electrode information from a numpy array *a*.
 
-        If *chmap* is a list[E], it indicates only restore the information only for
+        If *chmap* is a `list[E]`, it indicates only restore the information only for
         this electrode subset.
 
         :param a: saved category matrix, or a saved '.npy' file path

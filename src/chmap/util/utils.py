@@ -1,12 +1,29 @@
 from __future__ import annotations
 
+import inspect
+import re
 import sys
 import time
+from collections.abc import Callable
+from types import FunctionType
+from typing import TypeVar
 
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ['all_int', 'align_arr', 'as_set', 'import_name', 'TimeMarker']
+__all__ = [
+    # pattern match utils
+    'all_int',
+    'align_arr', 'as_set',
+    # dynamic import
+    'import_name',
+    # profile
+    'TimeMarker',
+    # documenting
+    'doc_link'
+]
+
+T = TypeVar('T')
 
 
 def all_int(*x) -> bool:
@@ -51,8 +68,18 @@ def as_set(x, n: int) -> set[int]:
 def import_name(desp: str, module_path: str, root: str = None):
     """
 
+    Module Path: `[ROOT:]MODULE:NAME`, where
+
+    ROOT:
+        a filepath insert into `sys.path`.
+    MODULE:
+        module path
+    NAME:
+         variable name. Use '*' to return a module.
+
+
     :param desp:
-    :param module_path: '[ROOT:]MODULE:NAME'
+    :param module_path:
     :param root: PYTHONPATH
     :return:
     """
@@ -74,6 +101,9 @@ def import_name(desp: str, module_path: str, root: str = None):
         if root is not None:
             sys.path.pop()
 
+    if name == '*':
+        return module
+
     return getattr(module, name)
 
 
@@ -93,3 +123,81 @@ class TimeMarker:
             print(message, f'use {d:.2f}')
 
         return d
+
+
+def doc_link(**kwargs: str) -> Callable[[T], T]:
+    """
+    A decorator to replace the text with pattern `{CLASS}` into sphinx class cross-reference link
+    in the function document.
+
+    Match rules:
+
+    * `{class}` : `:class:~`
+    * `{class#attr}` : `:attr:~`
+    * `{class#meth()}` : `:meth:~`
+    * `{#meth()}` : `:meth:~`
+    * `{func()}` : `:func:~`
+    * `{VAR}` : if VAR is a str, use its str content.
+    * `{...}` : do not replace
+
+    Limitation:
+
+    * not support ForwardReference
+
+    :param kwargs: extra
+    :return:
+    """
+    g = dict(inspect.stack()[1].frame.f_locals)
+    kwargs.update(g)
+
+    def _decorator(func: T) -> T:
+        func.__doc__ = replace_doc_link(func.__doc__, **kwargs)
+        return func
+
+    return _decorator
+
+
+def replace_doc_link(doc: str | None, **kwargs: str) -> str | None:
+    if doc is None:
+        return None
+
+    def replace(m: re.Match) -> str:
+        k = m.group(1)
+        attr = m.group(3)
+        is_func = m.group(4)
+
+        if k is not None:
+            old_k = k
+            try:
+                k = kwargs[k]
+            except KeyError:
+                pass
+            else:
+                if isinstance(k, type):
+                    module = k.__module__
+                    name = k.__name__
+                    k = f'~{module}.{name}'
+                elif isinstance(k, FunctionType):
+                    module = k.__module__
+                    name = k.__name__
+                    k = f'~{module}.{name}'
+                elif isinstance(k, str) and k.startswith('chmap'):
+                    k = f'~{k}'
+                elif isinstance(k, str) and attr is None and is_func is None:
+                    return k
+                else:
+                    k = old_k
+
+        match (k, attr, is_func):
+            case (func, None, '()'):
+                return f':func:`{func}()`'
+            case (None, func, '()'):
+                return f':meth:`.{func}()`'
+            case (name, None, None):
+                return f':class:`{name}`'
+            case (name, func, '()'):
+                return f':meth:`{name}.{func}()`'
+            case _:
+                return m.group()  # do not replace
+
+    return re.sub(r'\{([a-zA-Z_.]+)?(#([a-zA-Z_]+))?(\(\))?}', replace, doc)

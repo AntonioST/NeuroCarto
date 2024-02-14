@@ -361,10 +361,12 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     Event Call chain
     ----------------
 
-    (UI component)
-        -/-> (event callback)
-            -> update_boundary_transform()
-                -> on_boundary_transform()
+    ::
+
+        (UI component)
+            -/-> (event callback)
+                -> update_boundary_transform()
+                    -> on_boundary_transform()
     """
 
     data_boundary: ColumnDataSource  # boundary data
