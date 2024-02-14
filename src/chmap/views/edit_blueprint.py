@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import textwrap
 from typing import Protocol, TypedDict, Literal, TYPE_CHECKING, cast
 
 import numpy as np
-from bokeh.models import Select, TextInput
+from bokeh.models import Select, TextInput, PreText
 from matplotlib.axes import Axes
 from matplotlib.transforms import Affine2D
 from numpy.typing import NDArray
@@ -12,7 +13,7 @@ from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import plot
 from chmap.util.bokeh_app import run_later
-from chmap.util.bokeh_util import ButtonFactory
+from chmap.util.bokeh_util import ButtonFactory, as_callback
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import import_name
 from chmap.views.base import EditorView, GlobalStateView, ControllerView
@@ -45,7 +46,7 @@ class BlueScriptView(PltImageView, EditorView, DataHandler, ControllerView, Glob
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
-        self.actions: dict[str, str] = {}
+        self.actions: dict[str, str | BlueScript] = {}
 
     @property
     def name(self) -> str:
@@ -57,6 +58,7 @@ class BlueScriptView(PltImageView, EditorView, DataHandler, ControllerView, Glob
 
     script_select: Select
     script_input: TextInput
+    script_document: PreText
 
     def _setup_content(self, **kwargs):
         btn = ButtonFactory(min_width=50, width_policy='min')
@@ -64,7 +66,9 @@ class BlueScriptView(PltImageView, EditorView, DataHandler, ControllerView, Glob
         self.script_select = Select(
             value='', options=list(self.actions), width=100
         )
+        self.script_select.on_change('value', as_callback(self._on_script_select))
         self.script_input = TextInput()
+        self.script_document = PreText(text="", )
 
         from bokeh.layouts import row
         return [
@@ -73,7 +77,23 @@ class BlueScriptView(PltImageView, EditorView, DataHandler, ControllerView, Glob
                 btn('run', self._on_run_script),
                 btn('reset', self.reset_blueprint),
             ),
+            self.script_document
         ]
+
+    def _on_script_select(self, name: str):
+        if len(name) == 0:
+            self.script_document.text = ''
+
+        try:
+            script = self.get_script(name)
+        except ImportError:
+            self.script_document.text = 'Import Fail'
+        else:
+            head = f'{script.__name__}()'
+            if (doc := script.__doc__) is not None:
+                self.script_document.text = head + '\n' + textwrap.dedent(doc)
+            else:
+                self.script_document.text = head
 
     def _on_run_script(self):
         script = self.script_select.value
@@ -81,6 +101,16 @@ class BlueScriptView(PltImageView, EditorView, DataHandler, ControllerView, Glob
         if len(script):
             self.logger.debug('run_script(%s)=%s', script, arg)
             self.run_script(script, arg)
+
+    def get_script(self, name: str) -> BlueScript:
+        script = self.actions.get(name, name)
+        if isinstance(script, str):
+            script = cast(BlueScript, import_name('blueprint script', script))
+            if callable(script):
+                self.actions[name] = script
+            else:
+                raise ImportError(f'script {name} not callable')
+        return script
 
     def run_script(self, script: str, arg: str):
         if (probe := self.cache_probe) is None:
@@ -93,16 +123,11 @@ class BlueScriptView(PltImageView, EditorView, DataHandler, ControllerView, Glob
             self.log_message('no probe created')
             return
 
-        if script in self.actions:
-            script_path = self.actions[script]
-        else:
-            script_path = script
-
         bp = BlueprintFunctions(probe, chmap)
         bp._controller = self
 
         try:
-            cast(BlueScript, import_name('blueprint script', script_path))(bp, arg)
+            self.get_script(script)(bp, arg)
         except BaseException as e:
             self.logger.warning('run_script(%s) fail', script, exc_info=e)
             self.log_message(f'run script {script} fail', *e.args)
@@ -148,7 +173,6 @@ class BlueScriptView(PltImageView, EditorView, DataHandler, ControllerView, Glob
             self.script_select.value = ""
 
     def add_script(self, name: str, script: str):
-        import_name('blueprint script', script)
         self.actions[name] = script
         self.script_select.options = list(sorted(self.actions))
         self.script_select.value = name

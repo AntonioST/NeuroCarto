@@ -5,6 +5,11 @@ from chmap.util.util_blueprint import BlueprintFunctions
 
 
 def blueprint_simple_init_script_from_activity_data_with_a_threshold(bp: BlueprintFunctions, arg: str):
+    """\
+    input: "FILE, THRESHOLD"
+    FILE: (str) a numpy filepath, which shape Array[int, N, (shank, col, row, state, value)]
+    THRESHOLD: (float) activities threshold to set FULL category
+    """
     if len(arg) == 0:
         raise RuntimeError('empty empty. Need "FILE,THRESHOLD"')
 
