@@ -7,7 +7,7 @@ from numpy.testing import assert_array_equal
 
 from chmap.probe_npx import ChannelMap
 from chmap.probe_npx.desp import NpxProbeDesp, NpxElectrodeDesp
-from chmap.util.utils import TimeMaker
+from chmap.util.utils import TimeMarker
 from chmap.views.edit_blueprint import CriteriaParser, default_loader, CriteriaContext
 
 
@@ -418,7 +418,7 @@ class EditBlueprintTest(unittest.TestCase):
         self.assertTrue(np.all(self.parser.get_result() == NpxProbeDesp.CATE_FORBIDDEN))
 
     def test_func_save_blueprint(self):
-        m = TimeMaker()
+        m = TimeMarker()
         self.parser.parse_content("""
         file=None
         FORBIDDEN=(y>6000)
@@ -475,7 +475,7 @@ class EditBlueprintTest(unittest.TestCase):
     @unittest.skipIf(condition=not Path('test-save.blueprint.npy').exists(),
                      reason='test_func_save() need to run first')
     def test_func_blueprint(self):
-        m = TimeMaker()
+        m = TimeMarker()
         self.parser.parse_content("""
         blueprint()=./test-save.blueprint.npy
         """)

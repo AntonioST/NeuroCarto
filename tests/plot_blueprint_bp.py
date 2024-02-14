@@ -12,9 +12,9 @@ from matplotlib.patches import Polygon
 from chmap.probe_npx.desp import NpxProbeDesp
 from chmap.probe_npx.npx import ChannelMap
 from chmap.util.util_blueprint import BlueprintFunctions
-from chmap.util.utils import TimeMaker
+from chmap.util.utils import TimeMarker
 
-marker = TimeMaker()
+marker = TimeMarker()
 marker('import')
 
 rc = matplotlib.rc_params_from_file('tests/default.matplotlibrc', fail_on_error=True, use_default_template=True)

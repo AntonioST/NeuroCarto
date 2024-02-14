@@ -1,6 +1,5 @@
 import functools
 import os
-import time
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -16,6 +15,7 @@ from chmap.config import ChannelMapEditorConfig, parse_cli, setup_logger
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server, run_later
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback, new_help_button
+from chmap.util.utils import TimeMarker
 from chmap.views import *
 
 __all__ = ['ChannelMapEditorApp', 'main']
@@ -650,12 +650,15 @@ class ChannelMapEditorApp(BokehApplication):
     def on_probe_update(self):
         self.probe_view.update_electrode()
 
+        mark = TimeMarker()
         for view in self.right_panel_views:
             if isinstance(view, DynamicView):
                 view_class = type(view).__name__
-                t = time.time()
+
+                mark.reset()
                 view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
-                t = time.time() - t
+                t = mark()
+
                 self.logger.debug('on_probe_update(%s) used %.2f sec', view_class, t)
 
     def on_autoupdate(self, active: bool):

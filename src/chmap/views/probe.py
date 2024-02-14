@@ -1,4 +1,3 @@
-import time
 from collections.abc import Iterable
 from typing import Any
 
@@ -9,6 +8,7 @@ from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, E, M
 from chmap.util.bokeh_app import run_timeout
 from chmap.util.bokeh_util import as_callback
+from chmap.util.utils import TimeMarker
 from chmap.views import ViewBase
 
 __all__ = ['ProbeView']
@@ -169,11 +169,11 @@ class ProbeView(ViewBase):
             return
 
         self.logger.debug('refresh_selection()')
-        t = time.time()
         try:
+            mark = TimeMarker()
             self.channelmap = self.probe.select_electrodes(self.channelmap, self.electrodes, **self.selecting_parameters)
+            t = mark()
 
-            t = time.time() - t
             self.logger.debug('refresh_selection() used %.2f sec', t)
         except BaseException as e:
             self.logger.warning('refresh_selection() fail', exc_info=e)
