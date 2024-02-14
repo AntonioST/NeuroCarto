@@ -511,9 +511,11 @@ class ChannelMapEditorApp(BokehApplication):
         if isinstance(item, str):
             probe_type = self.probe.supported_type[item]
             self.logger.debug('on_new(%d)=%s', probe_type, item)
+            self.log_message(f'new probe({item})')
         elif isinstance(item, int):
             probe_type = item
             self.logger.debug('on_new(%d)', probe_type)
+            self.log_message(f'new probe[{probe_type}]')
         else:
             raise TypeError()
 
@@ -670,26 +672,17 @@ class ChannelMapEditorApp(BokehApplication):
             self.on_probe_update()
 
     def log_message(self, *message, reset=False):
-        area = self.message_area
         message = '\n'.join(message)
         self.logger.info(message)
-        area.disabled = False
-        try:
-            if reset:
-                area.value = message
-            else:
-                text = area.value
-                area.value = message + '\n' + text
-        finally:
-            area.disabled = True
+
+        if reset:
+            self.message_area.value = message
+        else:
+            text = self.message_area.value
+            self.message_area.value = message + '\n' + text
 
     def log_clear(self):
-        area = self.message_area
-        area.disabled = False
-        try:
-            area.value = ""
-        finally:
-            area.disabled = True
+        self.message_area.value = ""
 
 
 def main(config: ChannelMapEditorConfig = None):
