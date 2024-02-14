@@ -1,9 +1,0 @@
-# Neuropixels basic
-use(NpxProbeDesp)
-save(script)=npx_basic
-
-alias(F)=FULL
-alias(H)=HALF
-alias(Q)=QUARTER
-alias(L)=LOW
-alias(X)=FORBIDDEN

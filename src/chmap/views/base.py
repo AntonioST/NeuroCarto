@@ -150,7 +150,7 @@ class ViewBase(metaclass=abc.ABCMeta):
     # noinspection PyUnusedLocal
     @final
     @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
-    def log_message(self, *message, reset=False):
+    def log_message(self, *message: str, reset=False):
         """
         log message in {ChannelMapEditorApp}.
 
@@ -259,7 +259,7 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def save_state(self) -> S:
+    def save_state(self) -> S | None:
         """
         Save current state into S.
 
@@ -280,6 +280,16 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
 class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
     disable_save_global_state = False
     """disable {#restore_global_state()} for debugging purposes to prevent testing content from polluting config."""
+
+    @abc.abstractmethod
+    def save_state(self, local=True) -> S | None:
+        """
+        Save current state into S.
+
+        :param local: Is this state saved into local config?
+        :return: json-serialize instance.
+        """
+        pass
 
     @final
     @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')

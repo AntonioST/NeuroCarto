@@ -5,19 +5,51 @@ import numpy as np
 from numpy.testing import assert_array_equal
 from numpy.typing import NDArray
 
+from chmap.probe_npx.desp import NpxProbeDesp
 from chmap.util.util_blueprint import BlueprintFunctions
+
+DEFAULT_CATEGORIES = {
+    'CATE_UNSET': 0,
+    'CATE_FORBIDDEN': 1,
+    'CATE_LOW': 2,
+    'CATE_SET': 3,
+}
+
+
+def bp_from_shape(shape: tuple[int, int, int]) -> BlueprintFunctions:
+    """
+
+    :param shape: (shank, row, col)
+    :return:
+    """
+    s, y, x = shape
+    n = x * y
+    yy, xx = np.mgrid[0:y, 0:x]
+    xx = np.tile(xx.ravel(), s)
+    yy = np.tile(yy.ravel(), s)
+    ss = np.repeat(np.arange(s), n)
+
+    ret = object.__new__(BlueprintFunctions)
+    ret.probe = NpxProbeDesp()
+    ret.chmap = None
+    ret.categories = DEFAULT_CATEGORIES
+    ret.s = ss
+    ret.x = xx
+    ret.y = yy
+    ret.dx = 1
+    ret.dy = 1
+    ret._position_index = {
+        (int(ss[i]), int(xx[i]), int(yy[i])): i
+        for i in range(len(ss))
+    }
+    ret._blueprint = np.zeros_like(s)
+    return ret
 
 
 class UtilBlueprintTest(unittest.TestCase):
-    DEFAULT_CATEGORIES = {
-        'UNSET': 0,
-        'FORBIDDEN': 1,
-        'LOW': 2,
-        'SET': 3,
-    }
 
     def test_build(self):
-        bp = BlueprintFunctions.from_shape((1, 4, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 4, 2))
 
         assert_array_equal(bp.s, np.array([0, 0, 0, 0, 0, 0, 0, 0]))
         assert_array_equal(bp.x, np.array([0, 1, 0, 1, 0, 1, 0, 1]))
@@ -25,7 +57,7 @@ class UtilBlueprintTest(unittest.TestCase):
         self.assertEqual(bp.dx, 1)
         self.assertEqual(bp.dy, 1)
 
-        bp = BlueprintFunctions.from_shape((2, 2, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((2, 2, 2))
 
         assert_array_equal(bp.s, np.array([0, 0, 0, 0, 1, 1, 1, 1]))
         assert_array_equal(bp.x, np.array([0, 1, 0, 1, 0, 1, 0, 1]))
@@ -34,7 +66,7 @@ class UtilBlueprintTest(unittest.TestCase):
         self.assertEqual(bp.dy, 1)
 
     def test_move(self):
-        bp = BlueprintFunctions.from_shape((2, 3, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((2, 3, 2))
 
         blueprint = np.array([
             2, 0,
@@ -66,7 +98,7 @@ class UtilBlueprintTest(unittest.TestCase):
         ]))
 
     def test_interpolate_nan(self):
-        bp = BlueprintFunctions.from_shape((2, 3, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((2, 3, 2))
 
         blueprint = np.array([
             2, 0,
@@ -107,7 +139,7 @@ class UtilBlueprintTest(unittest.TestCase):
                 """))
 
     def test_find_clustering(self):
-        bp = BlueprintFunctions.from_shape((1, 3, 3), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 3, 3))
 
         blueprint = np.array([
             2, 2, 2,
@@ -134,7 +166,7 @@ class UtilBlueprintTest(unittest.TestCase):
         ]))
 
     def test_find_clustering_no_diagonal(self):
-        bp = BlueprintFunctions.from_shape((1, 3, 3), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 3, 3))
 
         blueprint = np.array([
             2, 3, 3,
@@ -149,7 +181,7 @@ class UtilBlueprintTest(unittest.TestCase):
         ]))
 
     def test_clustering_edges_single(self):
-        bp = BlueprintFunctions.from_shape((1, 3, 3), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 3, 3))
         blueprint = np.array([
             0, 0, 0,
             0, 1, 0,
@@ -163,7 +195,7 @@ class UtilBlueprintTest(unittest.TestCase):
         self.assertListEqual([(1, 1, 1), (1, 1, 3), (1, 1, 5), (1, 1, 7)], result.edges)
 
     def test_clustering(self):
-        bp = BlueprintFunctions.from_shape((1, 4, 4), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 4, 4))
         blueprint = np.array([
             0, 0, 0, 0,
             0, 1, 1, 0,
@@ -182,7 +214,7 @@ class UtilBlueprintTest(unittest.TestCase):
         self.assertListEqual([(1, 1, 8), (2, 1, 8), (2, 2, 8), (1, 2, 8)], result.set_corner((0, 0)).edges)
 
     def test_clustering_hole(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 5), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 5))
         blueprint = np.array([
             0, 0, 0, 0, 0,
             0, 1, 1, 1, 0,
@@ -201,7 +233,7 @@ class UtilBlueprintTest(unittest.TestCase):
         self.assertListEqual([(1, 1, 8), (3, 1, 8), (3, 3, 8), (1, 3, 8)], result.set_corner((0, 0)).edges)
 
     def test_edge_rastering(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 5), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 5))
         blueprint = np.array([
             0, 0, 0, 0, 0,
             0, 1, 1, 1, 0,
@@ -224,7 +256,7 @@ class UtilBlueprintTest(unittest.TestCase):
         assert_array_equal(blueprint, bp.edge_rastering(results, fill=False))
 
     def test_edge_rastering_fill(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 5), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 5))
         blueprint = np.array([
             0, 0, 0, 0, 0,
             0, 1, 1, 1, 0,
@@ -262,7 +294,7 @@ class UtilBlueprintTest(unittest.TestCase):
         assert_array_equal(blueprint_expected, bp.edge_rastering(results, fill=True))
 
     def test_edge_rastering_cover(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 5), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 5))
         b1 = np.array([
             0, 0, 0, 0, 0,
             0, 1, 1, 1, 0,
@@ -300,7 +332,7 @@ class UtilBlueprintTest(unittest.TestCase):
         assert_array_equal(blueprint_expected, bp.edge_rastering([r1, r2], fill=True, overwrite=False))
 
     def test_fill(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 2))
 
         blueprint = np.array([
             1, 1,
@@ -349,7 +381,7 @@ class UtilBlueprintTest(unittest.TestCase):
         ]))
 
     def test_fill_with_threshold(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 2))
 
         blueprint = np.array([
             2, 2,
@@ -383,7 +415,7 @@ class UtilBlueprintTest(unittest.TestCase):
         ]))
 
     def test_fill_rect(self):
-        bp = BlueprintFunctions.from_shape((1, 7, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 7, 2))
 
         blueprint = np.array([
             0, 0,
@@ -406,7 +438,7 @@ class UtilBlueprintTest(unittest.TestCase):
         ]))
 
     def test_extend(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 2))
 
         blueprint = np.array([
             0, 0,
@@ -440,7 +472,7 @@ class UtilBlueprintTest(unittest.TestCase):
         ]))
 
     def test_extend_direction(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 2))
 
         blueprint = np.array([
             0, 0,
@@ -503,7 +535,7 @@ class UtilBlueprintTest(unittest.TestCase):
         ]))
 
     def test_extend_threshold(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 2))
 
         blueprint = np.array([
             1, 1,
@@ -521,7 +553,7 @@ class UtilBlueprintTest(unittest.TestCase):
         ]))
 
     def test_extend_overwrite(self):
-        bp = BlueprintFunctions.from_shape((1, 5, 2), self.DEFAULT_CATEGORIES)
+        bp = bp_from_shape((1, 5, 2))
 
         blueprint = np.array([
             2, 2,

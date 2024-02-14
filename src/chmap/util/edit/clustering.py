@@ -64,7 +64,7 @@ class ClusteringEdges(NamedTuple):
 
 def find_clustering(self: BlueprintFunctions,
                     blueprint: NDArray[np.int_],
-                    categories: list[int | str] = None, *,
+                    categories: int | list[int] = None, *,
                     diagonal=True) -> NDArray[np.int_]:
     """
     find electrode clustering with the same category.
@@ -77,8 +77,8 @@ def find_clustering(self: BlueprintFunctions,
     if len(blueprint) != len(self.s):
         raise ValueError()
 
-    if categories is not None:
-        categories = self.as_category(categories)
+    if isinstance(categories, int):
+        categories = [categories]
 
     ret: NDArray[np.int_] = np.arange(len(blueprint)) + 1
 
@@ -113,7 +113,7 @@ def find_clustering(self: BlueprintFunctions,
 
 def clustering_edges(self: BlueprintFunctions,
                      blueprint: NDArray[np.int_],
-                     categories: list[int | str] = None) -> list[ClusteringEdges]:
+                     categories: int | list[int] = None) -> list[ClusteringEdges]:
     """
     For each clustering block, calculate its edges.
 
@@ -151,7 +151,7 @@ def clustering_edges(self: BlueprintFunctions,
             y0 = int(np.min(y[x == x0]))
 
             i = self._position_index[(s, int(x0 / dx), int(y0 / dy))]
-            ret.append(ClusteringEdges(c, s, self._cluster_edge(area, i)))
+            ret.append(ClusteringEdges(c, s, _cluster_edge(self, area, i)))
 
     return ret
 
@@ -315,7 +315,7 @@ def edge_rastering(self: BlueprintFunctions,
     """
     match edges:
         case (ClusteringEdges() as edge) | [ClusteringEdges() as edge]:
-            return self._edge_rastering(edge, fill=fill)
+            return _edge_rastering(self, edge, fill=fill)
 
     unset = self.CATE_UNSET
     ret = np.full_like(self.s, unset)

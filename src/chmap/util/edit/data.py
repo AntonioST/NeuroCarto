@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
@@ -6,7 +7,15 @@ from numpy.typing import NDArray
 from chmap.util.util_blueprint import BlueprintFunctions
 from .moving import move_i
 
-__all__ = ['interpolate_nan']
+__all__ = ['load_data', 'interpolate_nan']
+
+
+def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float_]:
+    e = self.probe.all_electrodes(self.chmap)
+    for t in e:
+        t.category = np.nan
+    e = self.probe.load_blueprint(file, e)
+    return np.array([it.category for it in e], dtype=float)
 
 
 def interpolate_nan(self: BlueprintFunctions,

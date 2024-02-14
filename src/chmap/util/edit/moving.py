@@ -66,7 +66,7 @@ def move_i(self: BlueprintFunctions, a: NDArray, *,
 
 def fill(self: BlueprintFunctions,
          blueprint: NDArray[np.int_],
-         categories: int | str | list[int | str] = None, *,
+         categories: int | list[int] = None, *,
          threshold: int = None,
          gap: int | None = 1,
          unset: bool = False) -> NDArray[np.int_]:
@@ -81,8 +81,8 @@ def fill(self: BlueprintFunctions,
         gap_window = gap + 2
 
     if categories is None:
-        categories = list(set(self._categories.values()))
-    elif isinstance(categories, (int, str)):
+        categories = list(set(self.categories.values()))
+    elif isinstance(categories, int):
         categories = [categories]
 
     dx = self.dx
@@ -138,16 +138,14 @@ def fill(self: BlueprintFunctions,
 
 def extend(self: BlueprintFunctions,
            blueprint: NDArray[np.int_],
-           on: int | str,
+           on: int,
            step: int | tuple[int, int],
-           category: int | str = None, *,
+           category: int = None, *,
            threshold: int | tuple[int, int] = None,
            bi: bool = True,
            overwrite: bool = False):
     if len(blueprint) != len(self.s):
         raise ValueError()
-
-    on = self.as_category(on)
 
     match threshold:
         case None | int() | (int(), int()):
@@ -159,8 +157,6 @@ def extend(self: BlueprintFunctions,
 
     if category is None:
         category = on
-    else:
-        category = self.as_category(category)
 
     match step:
         case int(step):
