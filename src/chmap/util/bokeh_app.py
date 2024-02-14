@@ -1,18 +1,24 @@
+from __future__ import annotations
+
 import abc
 import functools
 import logging
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import bokeh.io
-from bokeh.application.application import SessionContext
 from bokeh.document import Document
 from bokeh.model import Model
 from bokeh.plotting import figure as Figure
-from bokeh.server.callbacks import SessionCallback
 from bokeh.server.server import Server
 
-from chmap.config import ChannelMapEditorConfig
 from chmap.util.utils import doc_link
+
+if TYPE_CHECKING:
+    from bokeh.application.application import SessionContext
+    from bokeh.server.callbacks import PeriodicCallback, TimeoutCallback, NextTickCallback
+
+    from chmap.config import ChannelMapEditorConfig
 
 __all__ = [
     'BokehApplication',
@@ -20,6 +26,8 @@ __all__ = [
     'run_timeout',
     'run_periodic',
     'run_server',
+    'remove_timeout',
+    'remove_periodic',
     'Figure'
 ]
 
@@ -65,7 +73,7 @@ class BokehApplication(metaclass=abc.ABCMeta):
         self.logger.debug('cleanup()')
 
 
-def run_later(callback: Callable, *args, **kwargs) -> SessionCallback:
+def run_later(callback: Callable, *args, **kwargs) -> NextTickCallback:
     """
     Run *callback* on next event loop.
 
@@ -77,7 +85,7 @@ def run_later(callback: Callable, *args, **kwargs) -> SessionCallback:
     return document.add_next_tick_callback(functools.partial(callback, *args, **kwargs))
 
 
-def run_timeout(delay: int, callback: Callable, *args, **kwargs) -> SessionCallback:
+def run_timeout(delay: int, callback: Callable, *args, **kwargs) -> TimeoutCallback:
     """
     Run *callback* after the given time.
 
@@ -90,7 +98,12 @@ def run_timeout(delay: int, callback: Callable, *args, **kwargs) -> SessionCallb
     return document.add_timeout_callback(functools.partial(callback, *args, **kwargs), delay)
 
 
-def run_periodic(cycle: int, callback: Callable, *args, **kwargs) -> SessionCallback:
+def remove_timeout(callback: TimeoutCallback):
+    document = bokeh.io.curdoc()
+    document.remove_timeout_callback(callback)
+
+
+def run_periodic(cycle: int, callback: Callable, *args, **kwargs) -> PeriodicCallback:
     """
     Run *callback* on every given time.
 
@@ -101,6 +114,11 @@ def run_periodic(cycle: int, callback: Callable, *args, **kwargs) -> SessionCall
     """
     document = bokeh.io.curdoc()
     return document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
+
+
+def remove_periodic(callback: PeriodicCallback):
+    document = bokeh.io.curdoc()
+    document.remove_periodic_callback(callback)
 
 
 @doc_link()

@@ -12,6 +12,7 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
+from chmap.util.bokeh_app import run_timeout, remove_timeout
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
 from chmap.util.utils import doc_link
 
@@ -136,12 +137,19 @@ class ViewBase(metaclass=abc.ABCMeta):
         """Invoked when figure is ready."""
         pass
 
-    def set_status(self, text: str | None):
+    _status_decay_callback = None
+
+    def set_status(self, text: str | None, *, decay: int = None):
         if text is None:
             self.status_div.text = ''
+            self._status_decay_callback = None
         else:
             self.status_div.text = text
             self.logger.info('status : %s', text)
+            if decay is not None:
+                if (callback := self._status_decay_callback) is not None:
+                    remove_timeout(callback)
+                self._status_decay_callback = run_timeout(decay, self.set_status, None)
 
     # =========== #
     # GUI methods #

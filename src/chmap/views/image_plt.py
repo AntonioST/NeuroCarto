@@ -15,7 +15,6 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.util.bokeh_app import run_timeout
 from chmap.views.base import DynamicView, ViewBase
 from chmap.views.image import ImageView, ImageHandler
 from chmap.views.image_npy import NumpyImageHandler
@@ -245,8 +244,7 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
                 center = (center[0] + offset, center[1])
             self.update_boundary_transform(p=center, s=boundary.scale)
 
-        self.set_status('updated')
-        run_timeout(3000, self.set_status, None)
+        self.set_status('updated', decay=3000)
 
     # ============= #
     # UI components #
