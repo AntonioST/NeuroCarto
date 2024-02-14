@@ -11,6 +11,8 @@ from bokeh.plotting import figure as Figure
 from bokeh.server.callbacks import SessionCallback
 from bokeh.server.server import Server
 
+from chmap.config import ChannelMapEditorConfig
+
 __all__ = [
     'BokehApplication',
     'run_later',
@@ -24,22 +26,29 @@ __all__ = [
 class BokehApplication(metaclass=abc.ABCMeta):
     """Bokeh Application of a single page"""
 
-    logger: logging.Logger | None = None
-    document: Document
+    logger: logging.Logger
 
     def __init__(self, *, logger: str | logging.Logger = None):
         if isinstance(logger, str):
             self.logger = logging.getLogger(logger)
         elif isinstance(logger, logging.Logger):
             self.logger = logger
+        else:
+            self.logger = logging.getLogger(f'chmap.app.{type(self).__name__}')
 
-        if (logger := self.logger) is not None:
-            logger.debug('init()')
+        self.logger.debug('init()')
 
     @property
     def title(self) -> str:
         """Application title (shown in web page title)"""
         return type(self).__name__
+
+    def setup(self, document: Document):
+        self.logger.debug('setup')
+        document.title = self.title
+        document.add_root(self.index())
+        document.on_session_destroyed(self.cleanup)
+        document.add_next_tick_callback(self.start)
 
     @abc.abstractmethod
     def index(self) -> Model:
@@ -48,13 +57,11 @@ class BokehApplication(metaclass=abc.ABCMeta):
 
     def start(self):
         """Invoked when session set"""
-        if (logger := self.logger) is not None:
-            logger.debug('start()')
+        self.logger.debug('start()')
 
     def cleanup(self, context: SessionContext):
         """Invoked when session destroyed"""
-        if (logger := self.logger) is not None:
-            logger.debug('cleanup()')
+        self.logger.debug('cleanup()')
 
 
 def run_later(callback: Callable, *args, **kwargs) -> SessionCallback:
@@ -95,12 +102,12 @@ def run_periodic(cycle: int, callback: Callable, *args, **kwargs) -> SessionCall
     return document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
 
 
-def run_server(handlers: BokehApplication | dict[str, BokehApplication], *,
-               no_open_browser: bool = False):
+def run_server(handlers: BokehApplication | dict[str, BokehApplication],
+               config: ChannelMapEditorConfig):
     """start bokeh local server and run the application.
 
     :param handlers: bokeh application, or a dict {path: app}
-    :param no_open_browser:
+    :param config:
     :return: Never return, except a KeyboardInterrupt is raised
     """
     logger = logging.getLogger('chmap.server')
@@ -115,36 +122,22 @@ def run_server(handlers: BokehApplication | dict[str, BokehApplication], *,
         for path, app in handlers.items():
             logger.debug('service map %s -> %s', path, type(app).__name__)
 
+    if (port := config.server_port) is None:
+        from bokeh.resources import DEFAULT_SERVER_PORT
+        port = DEFAULT_SERVER_PORT
+
     server = Server({
-        p: _setup_application(p, h)
+        p: h.setup
         for p, h in handlers.items()
-    }, num_procs=1)
+    }, address=config.server_address, port=port, num_procs=1)
 
     logger.debug('starting service')
     server.start()
     logger.debug('started service')
 
-    if not no_open_browser:
+    if not config.no_open_browser:
         logger.debug('open page')
         server.io_loop.add_callback(server.show, "/")
 
     server.run_until_shutdown()
     logger.debug('stop service')
-
-
-def _setup_application(path: str, handler: BokehApplication):
-    logger = logging.getLogger(f'chmap.server[{path}]')
-
-    def setup(document: Document):
-        logger.debug('setup')
-        handler.document = document
-        document.title = handler.title
-
-        logger.debug('index')
-        document.add_root(handler.index())
-        document.on_session_destroyed(handler.cleanup)
-
-        logger.debug('start')
-        document.add_next_tick_callback(handler.start)
-
-    return setup

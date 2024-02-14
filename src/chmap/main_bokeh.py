@@ -1,18 +1,19 @@
 import functools
-import logging
 import os
 import time
 from pathlib import Path
 from typing import Any, TypedDict
 
 import numpy as np
+from bokeh.application.application import SessionContext
 from bokeh.events import MenuItemClick
+from bokeh.io import curdoc
 from bokeh.layouts import row as Row, column as Column
 from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, TextAreaInput, UIElement
 from bokeh.plotting import figure as Figure
 from bokeh.themes import Theme
 
-from chmap.config import ChannelMapEditorConfig, parse_cli
+from chmap.config import ChannelMapEditorConfig, parse_cli, setup_logger
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server, run_later
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback, new_help_button
@@ -34,7 +35,6 @@ class ChannelMapEditorApp(BokehApplication):
     * center: figure that contains probe/electrodes, image and curves.
     * right: controls of image, curves that shown in center panel.
 
-
     """
 
     probe: ProbeDesp[M, Any]
@@ -46,8 +46,8 @@ class ChannelMapEditorApp(BokehApplication):
     right_panel_views_config: dict[str, Any] = {}
     """view configuration, channelmap depended"""
 
-    def __init__(self, config: ChannelMapEditorConfig):
-        super().__init__(logger='chmap.editor')
+    def __init__(self, config: ChannelMapEditorConfig, *, logger: str = 'chmap.editor'):
+        super().__init__(logger=logger)
         self.config = config
 
         self.logger.debug('get get_probe_desp(%s)', config.probe_family)
@@ -365,14 +365,15 @@ class ChannelMapEditorApp(BokehApplication):
         :param theme:
         :return:
         """
+        document = curdoc()
         if isinstance(theme, str):
             self.logger.debug('set theme %s', theme)
             if theme.endswith('.json'):
-                self.document.theme = Theme(theme)
+                document.theme = Theme(theme)
             else:
-                self.document.theme = theme
+                document.theme = theme
         elif isinstance(theme, (Path, dict)):
-            self.document.theme = Theme(theme)
+            document.theme = Theme(theme)
         else:
             raise TypeError()
 
@@ -492,6 +493,10 @@ class ChannelMapEditorApp(BokehApplication):
 
         if (open_file := self.config.open_file) is not None:
             run_later(self.load_file, open_file)
+
+    def cleanup(self, context: SessionContext):
+        super().cleanup(context)
+        self.save_global_config()
 
     # ========= #
     # callbacks #
@@ -695,15 +700,9 @@ def main(config: ChannelMapEditorConfig = None):
     if config is None:
         config = parse_cli()
 
-    logging.basicConfig(
-        format='[%(levelname)s] %(name)s - %(message)s'
-    )
+    setup_logger(config)
 
-    if config.debug:
-        logging.getLogger('chmap').setLevel(logging.DEBUG)
-
-    run_server(ChannelMapEditorApp(config),
-               no_open_browser=config.no_open_browser)
+    run_server(ChannelMapEditorApp(config), config)
 
 
 if __name__ == '__main__':
