@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.probe_npx.npx import ProbeType, Electrode, ChannelMap, PROBE_TYPE_NP24, ChannelHasUsedError
-from chmap.util.utils import as_set
+from chmap.util.utils import as_set, doc_link
 
 __all__ = [
     'clone', 'clear', 'set_electrodes',
@@ -446,6 +446,7 @@ def npx24_one_eighth_density(row: int = 0, *, um: bool = False) -> ChannelMap:
     return ret
 
 
+@doc_link()
 def print_probe(chmap: ChannelMap | list[ChannelMap], *,
                 file=None,
                 truncate: Literal['none', 'top', 'both'] = 'none',
@@ -453,7 +454,7 @@ def print_probe(chmap: ChannelMap | list[ChannelMap], *,
     """
     print probe in string.
 
-    :param chmap: a channelmap instance, or a list of channelmaps
+    :param chmap: a {ChannelMap} instance, or a list of {ChannelMap}
     :param file: io, or `print`
     :param truncate: truncate rows without electrodes
     :param um: print depth from tip in um, instead of row.

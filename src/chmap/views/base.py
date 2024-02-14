@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
+from chmap.util.utils import doc_link
 
 if TYPE_CHECKING:
     from chmap.main_bokeh import ChannelMapEditorApp
@@ -148,13 +149,14 @@ class ViewBase(metaclass=abc.ABCMeta):
 
     # noinspection PyUnusedLocal
     @final
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def log_message(self, *message, reset=False):
         """
-        log message in GUI.
+        log message in {ChannelMapEditorApp}.
 
         Implement note:
            do not overwrite this function, because this method will be
-           replaced by GUI.
+           replaced by {ChannelMapEditorApp}.
 
         :param message: message in lines.
         :param reset: reset message area.
@@ -167,24 +169,26 @@ V = TypeVar('V', bound=ViewBase)
 
 class ControllerView:
     @final
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def get_app(self) -> ChannelMapEditorApp:
         """
 
         Implement note:
             do not overwrite this function, because this method will be
-            replaced by GUI.
+            replaced by {ChannelMapEditorApp}.
 
         :return:
         """
         pass
 
     @final
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def get_view(self, view_type: str | type[V]) -> V | None:
         """
 
         Implement note:
             do not overwrite this function, because this method will be
-            replaced by GUI.
+            replaced by {ChannelMapEditorApp}.
 
         :param view_type:
         :return:
@@ -192,9 +196,10 @@ class ControllerView:
         return None
 
 
+@doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
 class InvisibleView:
     """
-    This view component's visible state is controlled by GUI.
+    This view component's visible state is controlled by {ChannelMapEditorApp}.
     """
 
     visible_btn: Switch
@@ -274,33 +279,36 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
 
 class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
     disable_save_global_state = False
+    """disable {#restore_global_state()} for debugging purposes to prevent testing content from polluting config."""
 
     @final
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def save_global_state(self, state: S = None, *, sync=False, force=False):
         """
         save state into global config.
 
         Implement note:
             do not overwrite this function, because this method will be
-            replaced by GUI.
+            replaced by {ChannelMapEditorApp}.
 
-        :param state: saved state. If None, use state from save_state().
-        :param sync: save all GlobalStateView. (ignore *state*).
-        :param force: ignore disable_save_global_state
+        :param state: saved state. If None, use state from {StateView#save_state()}.
+        :param sync: save all {GlobalStateView}. (ignore *state*).
+        :param force: ignore {#disable_save_global_state}
         """
         pass
 
     @final
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def restore_global_state(self, *, reload=False, force=False):
         """
-        read global config and invoke `restore_state`
+        read global config and invoke {StateView#restore_state()}.
 
         Implement note:
             do not overwrite this function, because this method will be
-            replaced by GUI.
+            replaced by {ChannelMapEditorApp}.
 
         :param reload: reload config from disk
-        :param force: force invoke restore_state (give an empty dict {})
+        :param force: force invoke {StateView#restore_state()} (give an empty dict)
         """
         pass
 
@@ -327,16 +335,17 @@ class EditorView(DynamicView):
     """
 
     @final
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def update_probe(self):
         """
         notify GUI probe has updated.
 
         Implement note:
-            do not call this method in `on_probe_update`. It may cause
+            do not call this method in {DynamicView#on_probe_update()}. It may cause
             recursive call.
         Implement note:
             do not overwrite this function, because this method will be
-            replaced by GUI.
+            replaced by {ChannelMapEditorApp}.
         """
         raise RuntimeError()
 
@@ -419,8 +428,8 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         """
         Setup image rotating controls.
 
-        :param new_btn: ButtonFactory
-        :param new_slider: SliderFactory
+        :param new_btn:
+        :param new_slider:
         :return: row list.
         """
         if new_btn is None:
@@ -442,8 +451,8 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         """
         Setup image scaling controls.
 
-        :param new_btn: ButtonFactory
-        :param new_slider: SliderFactory
+        :param new_btn:
+        :param new_slider:
         :return: row list.
         """
         if new_btn is None:
@@ -601,13 +610,14 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         except AttributeError:
             pass
 
+    @doc_link()
     def transform_image_data(self, image: NDArray[np.uint], boundary: BoundaryState = None) -> dict[str, Any]:
         """
         A helper method for transforming an image data.
 
         :param image: image data
         :param boundary: boundary parameters
-        :return: a dict which is ready for updating ColumnDataSource.
+        :return: a dict which is ready for updating {ColumnDataSource}.
         """
         if boundary is None:
             boundary = self.get_boundary_state()

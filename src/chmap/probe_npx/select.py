@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from chmap.util.utils import import_name
+from chmap.util.utils import import_name, doc_link
 from .desp import NpxProbeDesp, NpxElectrodeDesp
 from .npx import ChannelMap
 
@@ -13,6 +13,8 @@ BUILTIN_SELECTOR = {
 
 
 class ElectrodeSelector(Protocol):
+    """An electrode selector protocol class."""
+
     def __call__(self, desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], **kwargs) -> ChannelMap:
         """
         Selecting electrodes based on the electrode blueprint.
@@ -26,14 +28,34 @@ class ElectrodeSelector(Protocol):
         pass
 
 
+@doc_link()
 def load_select(selector: str) -> ElectrodeSelector:
+    """
+    Load a Neuropixels electrode selector.
+
+    :param selector: `module_path:name`
+    :return:
+    :see: {import_name()}
+    """
     selector = BUILTIN_SELECTOR.get(selector, selector)
     return import_name('selector', selector)
 
 
+@doc_link()
 def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], *,
                      selector: str = 'default',
                      **kwargs) -> ChannelMap:
+    """
+    Do electrode selection for the Neuropixels channel map with a given blueprint.
+
+    :param desp:
+    :param chmap: channelmap type. It is a reference.
+    :param blueprint: channelmap blueprint
+    :param selector: selector name
+    :param kwargs: selector keyword parameters.
+    :return: {load_select()}
+    :see:
+    """
     selector = load_select(selector)
 
     return selector(desp, chmap, blueprint, **kwargs)

@@ -1,3 +1,7 @@
+"""
+Neuropixels another electrode selection method.
+It has a *weaker* local density rule compared to the default one.
+"""
 import math
 import random
 from collections.abc import Iterator

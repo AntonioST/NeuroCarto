@@ -12,6 +12,7 @@ from bokeh.server.callbacks import SessionCallback
 from bokeh.server.server import Server
 
 from chmap.config import ChannelMapEditorConfig
+from chmap.util.utils import doc_link
 
 __all__ = [
     'BokehApplication',
@@ -102,13 +103,14 @@ def run_periodic(cycle: int, callback: Callable, *args, **kwargs) -> SessionCall
     return document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
 
 
+@doc_link()
 def run_server(handlers: BokehApplication | dict[str, BokehApplication],
                config: ChannelMapEditorConfig):
     """start bokeh local server and run the application.
 
     :param handlers: bokeh application, or a dict {path: app}
     :param config:
-    :return: Never return, except a KeyboardInterrupt is raised
+    :return: Never return, except a {KeyboardInterrupt} is raised
     """
     logger = logging.getLogger('chmap.server')
 

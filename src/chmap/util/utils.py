@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import functools
 import inspect
+import os
 import re
 import sys
 import time
@@ -127,7 +129,8 @@ class TimeMarker:
 
 def doc_link(**kwargs: str) -> Callable[[T], T]:
     """
-    A decorator to replace the text with pattern `{CLASS}` into sphinx class cross-reference link
+    A decorator to replace the text with pattern `{CLASS}`
+    into sphinx cross-reference link (if environment variable `SPHINX_BUILD` is set)
     in the function document.
 
     Match rules:
@@ -151,53 +154,56 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
     kwargs.update(g)
 
     def _decorator(func: T) -> T:
-        func.__doc__ = replace_doc_link(func.__doc__, **kwargs)
+        if func.__doc__ is not None:
+            func.__doc__ = replace_doc_link(kwargs, func.__doc__)
         return func
 
     return _decorator
 
 
-def replace_doc_link(doc: str | None, **kwargs: str) -> str | None:
-    if doc is None:
-        return None
+def replace_doc_link(context: dict, doc: str) -> str:
+    if len(os.environ.get('SPHINX_BUILD', '')):
+        replace = functools.partial(sphinx_doc_link_replace, context)
+        return re.sub(r'\{([a-zA-Z_.]+)?(#([a-zA-Z_]+))?(\(\))?}', replace, doc)
 
-    def replace(m: re.Match) -> str:
-        k = m.group(1)
-        attr = m.group(3)
-        is_func = m.group(4)
+    return doc
 
-        if k is not None:
-            old_k = k
-            try:
-                k = kwargs[k]
-            except KeyError:
-                pass
+
+def sphinx_doc_link_replace(context: dict, m: re.Match) -> str:
+    k = m.group(1)
+    attr = m.group(3)
+    is_func = m.group(4)
+
+    if k is not None:
+        old_k = k
+        try:
+            k = context[k]
+        except KeyError:
+            pass
+        else:
+            if isinstance(k, type):
+                module = k.__module__
+                name = k.__name__
+                k = f'~{module}.{name}'
+            elif isinstance(k, FunctionType):
+                module = k.__module__
+                name = k.__name__
+                k = f'~{module}.{name}'
+            elif isinstance(k, str) and k.startswith('chmap'):
+                k = f'~{k}'
+            elif isinstance(k, str) and attr is None and is_func is None:
+                return k
             else:
-                if isinstance(k, type):
-                    module = k.__module__
-                    name = k.__name__
-                    k = f'~{module}.{name}'
-                elif isinstance(k, FunctionType):
-                    module = k.__module__
-                    name = k.__name__
-                    k = f'~{module}.{name}'
-                elif isinstance(k, str) and k.startswith('chmap'):
-                    k = f'~{k}'
-                elif isinstance(k, str) and attr is None and is_func is None:
-                    return k
-                else:
-                    k = old_k
+                k = old_k
 
-        match (k, attr, is_func):
-            case (func, None, '()'):
-                return f':func:`{func}()`'
-            case (None, func, '()'):
-                return f':meth:`.{func}()`'
-            case (name, None, None):
-                return f':class:`{name}`'
-            case (name, func, '()'):
-                return f':meth:`{name}.{func}()`'
-            case _:
-                return m.group()  # do not replace
-
-    return re.sub(r'\{([a-zA-Z_.]+)?(#([a-zA-Z_]+))?(\(\))?}', replace, doc)
+    match (k, attr, is_func):
+        case (func, None, '()'):
+            return f':func:`{func}()`'
+        case (None, func, '()'):
+            return f':meth:`.{func}()`'
+        case (name, None, None):
+            return f':class:`{name}`'
+        case (name, func, '()'):
+            return f':meth:`{name}.{func}()`'
+        case _:
+            return m.group()  # do not replace

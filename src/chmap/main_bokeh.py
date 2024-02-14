@@ -15,7 +15,7 @@ from chmap.config import ChannelMapEditorConfig, parse_cli, setup_logger
 from chmap.probe import get_probe_desp, ProbeDesp, M
 from chmap.util.bokeh_app import BokehApplication, run_server, run_later
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback, new_help_button
-from chmap.util.utils import TimeMarker
+from chmap.util.utils import TimeMarker, doc_link
 from chmap.views import *
 
 __all__ = ['ChannelMapEditorApp', 'main']
@@ -30,6 +30,7 @@ class ChannelMapEditorApp(BokehApplication):
     """Application of neural probe channelmap editor.
 
     The layout of this application is split into:
+
     * left: channelmap manipulating button groups.
     * center: figure that contains probe/electrodes, image and curves.
     * right: controls of image, curves that shown in center panel.
@@ -63,6 +64,11 @@ class ChannelMapEditorApp(BokehApplication):
     # ==================== #
 
     def global_config_file(self) -> Path:
+        """
+        Get global (user) config filepath.
+
+        :return: filepath.
+        """
         if (ret := self.config.config_file) is not None:
             if ret.is_dir():
                 ret = ret / 'chmap.config.json'
@@ -89,7 +95,15 @@ class ChannelMapEditorApp(BokehApplication):
 
         return Path.home() / '.chmap.config.json'
 
+    @doc_link()
     def load_global_config(self, *, reset=False) -> dict[str, Any]:
+        """
+        load global (user) config.
+
+        :param reset: reset global config. Otherwise, just update dict.
+        :return:
+        :see: {#global_config_file()}
+        """
         file = self.global_config_file()
         if not file.exists():
             self.logger.debug('global config not found: %s', file)
@@ -107,7 +121,14 @@ class ChannelMapEditorApp(BokehApplication):
 
         return self.global_views_config
 
+    @doc_link()
     def save_global_config(self, direct=False):
+        """
+        save global (user) config.
+
+        :param direct: Do not update configurations from {GlobalStateView}.
+        :see: {#global_config_file()}
+        """
         if not direct:
             for view in self.right_panel_views:
                 if isinstance(view, GlobalStateView):
@@ -122,6 +143,10 @@ class ChannelMapEditorApp(BokehApplication):
             self.logger.debug(f'save global config : %s', file)
 
     def get_app_global_config(self) -> ChannelMapEditorAppConfig:
+        """
+        get app config from global (user) config.
+        :return:
+        """
         try:
             app_config: ChannelMapEditorAppConfig = self.global_views_config[type(self).__name__]
         except KeyError:
@@ -132,7 +157,7 @@ class ChannelMapEditorApp(BokehApplication):
 
     def list_chmap_files(self) -> list[Path]:
         """
-        List channelmap files under chmap-dir (--chmap-dir).
+        List channelmap files under chmap-dir (`-C`, `--chmap-dir`).
 
         :return: list of files
         """
@@ -154,11 +179,12 @@ class ChannelMapEditorApp(BokehApplication):
 
         return p.with_suffix(self.probe.channelmap_file_suffix)
 
+    @doc_link()
     def load_chmap(self, name: str | Path) -> M:
         """
         Load channelmap from file with *name*.
 
-        :param name: filename. See get_chmap_file(filename) for more details.
+        :param name: filename. See {#get_chmap_file()} for more details.
         :return: channelmap instance.
         """
         if isinstance(name, str):
@@ -170,11 +196,12 @@ class ChannelMapEditorApp(BokehApplication):
         self.log_message(f'load channelmap : {file.name}')
         return ret
 
+    @doc_link()
     def save_chmap(self, name: str, chmap: M) -> Path:
         """
         Save channelmap into file.
 
-        :param name: filename. See get_chmap_file(filename) for more details.
+        :param name: filename. See {#get_chmap_file()} for more details.
         :param chmap: channelmap instance.
         :return: saved path.
         """
@@ -183,11 +210,12 @@ class ChannelMapEditorApp(BokehApplication):
         self.log_message(f'save channelmap : {file.name}')
         return file
 
+    @doc_link()
     def get_blueprint_file(self, chmap: str | Path) -> Path:
         """
         Get corresponded blueprint from channelmap saving path.
 
-        :param chmap: filename. See get_chmap_file(filename) for more details.
+        :param chmap: filename. See {#get_chmap_file()} for more details.
         :return: saving path.
         """
         if isinstance(chmap, str):
@@ -196,11 +224,12 @@ class ChannelMapEditorApp(BokehApplication):
             imro_file = chmap
         return imro_file.with_suffix('.blueprint.npy')
 
+    @doc_link()
     def load_blueprint(self, chmap: str | Path) -> bool:
         """
         Load channelmap *chmap* corresponded blueprint.
 
-        :param chmap: filename. See get_blueprint_file(filename) for more details.
+        :param chmap: filename. See {#get_blueprint_file()} for more details.
         :return: True on success.
         """
         if (electrodes := self.probe_view.electrodes) is None:
@@ -220,11 +249,12 @@ class ChannelMapEditorApp(BokehApplication):
         self.probe.load_blueprint(data, electrodes)
         return True
 
+    @doc_link()
     def save_blueprint(self, chmap: str | Path) -> Path | None:
         """
         Save channelmap *chmap* corresponded blueprint.
 
-        :param chmap: filename. See get_blueprint_file(filename) for more details.
+        :param chmap: filename. See {#get_blueprint_file()} for more details.
         :return: saving path. None on failure.
         """
         if (electrodes := self.probe_view.electrodes) is None:
@@ -238,11 +268,12 @@ class ChannelMapEditorApp(BokehApplication):
 
         return file
 
+    @doc_link()
     def get_view_config_file(self, chmap: str | Path) -> Path:
         """
         Get view components' configurations saving path.
 
-        :param chmap: filename. See get_chmap_file(filename) for more details.
+        :param chmap: filename. See {#get_chmap_file()} for more details.
         :return: saving path.
         """
         if isinstance(chmap, str):
@@ -252,11 +283,12 @@ class ChannelMapEditorApp(BokehApplication):
 
         return imro_file.with_suffix('.config.json')
 
+    @doc_link()
     def load_view_config(self, chmap: str | Path, *, reset=False) -> dict[str, Any]:
         """
         Load view components' configurations.
 
-        :param chmap: filename. See get_view_config_file(filename) for more details.
+        :param chmap: filename. See {#get_view_config_file()} for more details.
         :param reset: reset right_view_config or update.
         :return: configuration dict {type_name: Any}.
         """
@@ -277,11 +309,12 @@ class ChannelMapEditorApp(BokehApplication):
 
         return self.right_panel_views_config
 
+    @doc_link()
     def save_view_config(self, chmap: str | Path, *, direct=False):
         """
         Save view components' configurations.
 
-        :param chmap: filename. See get_view_config_file(filename) for more details.
+        :param chmap: filename. See {#get_view_config_file()} for more details.
         :param direct: Do not update configurations from view components.
         """
         if not direct:
@@ -464,10 +497,11 @@ class ChannelMapEditorApp(BokehApplication):
 
         return uis
 
+    @doc_link()
     def install_right_panel_views(self, config: ChannelMapEditorConfig) -> list:
         """
         :param config:
-        :return: list of item that recognised by `init_view`
+        :return: list of item that recognised by {init_view()}
         """
         ret: list = self.probe.extra_controls(config)
 

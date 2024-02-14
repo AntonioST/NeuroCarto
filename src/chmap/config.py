@@ -3,6 +3,8 @@ import dataclasses
 import logging
 from pathlib import Path
 
+from chmap.util.utils import doc_link
+
 __all__ = [
     'ChannelMapEditorConfig',
     'new_parser',
@@ -12,6 +14,7 @@ __all__ = [
 
 
 @dataclasses.dataclass
+@doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
 class ChannelMapEditorConfig:
     """Start configuration for ChannelMapEditorApp.
     """
@@ -40,8 +43,9 @@ class ChannelMapEditorConfig:
     open_file: str | None = None
 
 
+@doc_link()
 def new_parser() -> argparse.ArgumentParser:
-    """Create a cli parse for ChannelMapEditorConfig."""
+    """Create a cli parse for {ChannelMapEditorConfig}."""
     ap = argparse.ArgumentParser(prog='chmap')
 
     ap.add_argument(metavar='FILE', nargs='?', type=Path, default=None, dest='open_file',
@@ -88,7 +92,7 @@ def parse_cli(args: list[str] = None) -> ChannelMapEditorConfig:
     Parse command-line arguments and return result.
 
     :param args: command-line arguments list. use sys.argv if None.
-    :return: ChannelMapEditorConfig
+    :return:
     """
     opt = new_parser().parse_args(args)
     kw = {}
@@ -98,6 +102,7 @@ def parse_cli(args: list[str] = None) -> ChannelMapEditorConfig:
 
 
 def setup_logger(config: ChannelMapEditorConfig):
+    """setup logger"""
     logging.basicConfig(
         format='[%(levelname)s] %(name)s - %(message)s'
     )

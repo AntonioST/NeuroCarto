@@ -7,9 +7,12 @@ from typing import Iterator, overload, TYPE_CHECKING, NamedTuple
 import numpy as np
 from numpy.typing import NDArray
 
+from chmap.util.utils import doc_link
+
 if TYPE_CHECKING:
     from chmap.probe import ElectrodeDesp
-__all__ = ['BlueprintFunctions']
+
+__all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function']
 
 
 def maybe_blueprint(self: BlueprintFunctions, a):
@@ -24,9 +27,14 @@ def blueprint_function(func):
 
     The function should have a signature `(blueprint, ...) -> blueprint`.
 
-    If the first parameter blueprint is given, it works as usually.
+    If the first parameter blueprint is given, it works as usually. ::
+
+        func(blueprint, ...)
+
     If the first parameter blueprint is omitted, use `blueprint()` as first arguments,
-    and use `set_blueprint()` when it returns.
+    and use `set_blueprint()` after it returns. ::
+
+        bp.set_blueprint(func(bp.blueprint(), ...))
 
     :param func:
     :return:
@@ -96,10 +104,11 @@ class ClusteringEdges(NamedTuple):
 
 
 # noinspection PyMethodMayBeStatic
+@doc_link(CriteriaParser='chmap.views.edit_blueprint.CriteriaParser')
 class BlueprintFunctions:
     """
     Provide blueprint manipulating functions.
-    It is used by `chmap.views.edit_blueprint.CriteriaParser`.
+    It is used by {CriteriaParser}.
     """
 
     CATE_UNSET: int

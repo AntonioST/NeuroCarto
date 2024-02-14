@@ -9,7 +9,7 @@ from typing import Any, NamedTuple, Final, Literal, overload, cast, TYPE_CHECKIN
 import numpy as np
 from numpy.typing import NDArray
 
-from chmap.util.utils import all_int, as_set, align_arr
+from chmap.util.utils import all_int, as_set, align_arr, doc_link
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -28,6 +28,7 @@ __all__ = [
     'PROBE_TYPE_NP21',
     'PROBE_TYPE_NP24',
     'Electrode',
+    'ReferenceInfo',
     'ChannelMap',
     'channel_coordinate',
     'electrode_coordinate',
@@ -38,11 +39,10 @@ __all__ = [
 class ProbeType(NamedTuple):
     """Probe profile.
 
-    References
-    ----------
+    References:
 
-    https://github.com/open-ephys-plugins/neuropixels-pxi/blob/master/Source/Probes/Geometry.cpp#L27
-    https://github.com/jenniferColonell/SGLXMetaToCoords/blob/140452d43a55ea7c7904f09e03858bfe0d499df3/SGLXMetaToCoords.py#L79
+    * `open-ephys-plugins <https://github.com/open-ephys-plugins/neuropixels-pxi/blob/master/Source/Probes/Geometry.cpp#L27>`_
+    * `SpikeGLX <https://github.com/jenniferColonell/SGLXMetaToCoords/blob/140452d43a55ea7c7904f09e03858bfe0d499df3/SGLXMetaToCoords.py#L79>`_
 
     """
     code: int
@@ -424,8 +424,9 @@ class ChannelMap:
         return self.probe_type.n_electrode_block
 
     @property
+    @doc_link()
     def reference(self) -> int:
-        """reference type. see `reference_info` for more information."""
+        """reference type. see {ReferenceInfo} for more information."""
         return self._reference
 
     @reference.setter
@@ -492,11 +493,12 @@ class ChannelMap:
     def channels(self) -> Channels:
         return Channels(self.probe_type, self._electrodes)
 
+    @doc_link()
     def get_electrode(self, electrode: E) -> Electrode | None:
         """
         Get electrode via electrode ID, or position.
 
-        :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row) or an Electrode.
+        :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row) or an {Electrode}.
         :return: found electrodes.
         """
         match electrode:
@@ -525,13 +527,14 @@ class ChannelMap:
     # add/delete electrode #
     # ==================== #
 
+    @doc_link()
     def add_electrode(self, electrode: E,
                       in_used: bool = True,
                       exist_ok: bool = False) -> Electrode:
         """
         Add an electrode into this channelmap.
 
-        :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row), or an Electrode
+        :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row), or an {Electrode}
         :param in_used: Is it used?
         :param exist_ok: if not exist_ok, an error will raise if electrode has existed.
         :return: a correspond electrode.
@@ -579,11 +582,12 @@ class ChannelMap:
         else:
             raise ChannelHasUsedError(e)
 
+    @doc_link()
     def del_electrode(self, electrode: E) -> Electrode | None:
         """
         Remove an electrode from this channelmap.
 
-        :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row), or an Electrode
+        :param electrode: electrode ID, tuple of (shank, electrode), tuple of (shank, column, row), or an {Electrode}
         :return: removed electrodes
         """
         match electrode:

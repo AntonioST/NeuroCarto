@@ -1,3 +1,7 @@
+"""
+Neuropixels default electrode selection method.
+
+"""
 import random
 
 from .desp import NpxProbeDesp, NpxElectrodeDesp, K

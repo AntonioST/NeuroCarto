@@ -16,4 +16,5 @@ Functions
 .. automodule:: chmap.probe_npx.select
    :members:
    :undoc-members:
+   :special-members: __call__
 
