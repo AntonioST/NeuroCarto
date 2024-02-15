@@ -24,8 +24,12 @@ def my_blueprint_script_function(bp: BlueprintFunctions, arg: str):
     A0: (str) the first string argument
     A1: (int) the second int argument
     """
+    bp.check_probe("npx", 24)
+
     # check script input: arg
     args = [it.strip() for it in arg.split(',')]
     a0 = bp.arg.get_value('a0', args, 0)
     a1 = bp.arg.get_value('a1', args, 1, int)
     bp.log_message(f'{a0=}', f'{a1=}')
+
+    bp.log_message('done')

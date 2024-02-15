@@ -78,26 +78,33 @@ class BlueprintFunctions(Generic[M, E]):
     CATE_FORBIDDEN: int
     CATE_LOW: int
 
-    def __init__(self, probe: ProbeDesp[M, E], chmap: M):
+    def __init__(self, probe: ProbeDesp[M, E], chmap: int | str | M | None):
         self.probe: ProbeDesp[M, E] = probe
-        self.chmap: M = chmap
+        if chmap is not None:
+            chmap = probe.new_channelmap(chmap)
+
+        self.chmap: M | None = chmap
         self.categories: dict[str, int] = probe.all_possible_categories()
 
-        electrodes = probe.all_electrodes(chmap)
-        self.s: NDArray[np.int_] = np.array([it.s for it in electrodes])
-        self.x: NDArray[np.int_] = np.array([it.x for it in electrodes])
-        self.y: NDArray[np.int_] = np.array([it.y for it in electrodes])
-        self.dx: float = float(np.min(np.diff(np.unique(self.x))))
-        self.dy: float = float(np.min(np.diff(np.unique(self.y))))
-        if self.dx <= 0 or self.dy <= 0:
-            raise ValueError(f'dx={self.dx}, dy={self.dy}')
+        if chmap is not None:
+            electrodes = probe.all_electrodes(chmap)
+            self.s: NDArray[np.int_] = np.array([it.s for it in electrodes])
+            self.x: NDArray[np.int_] = np.array([it.x for it in electrodes])
+            self.y: NDArray[np.int_] = np.array([it.y for it in electrodes])
+            self.dx: float = float(np.min(np.diff(np.unique(self.x))))
+            self.dy: float = float(np.min(np.diff(np.unique(self.y))))
+            if self.dx <= 0 or self.dy <= 0:
+                raise ValueError(f'dx={self.dx}, dy={self.dy}')
 
-        self._position_index: dict[tuple[int, int, int], int] = {
-            (int(self.s[i]), int(self.x[i] / self.dx), int(self.y[i] / self.dy)): i
-            for i in range(len(self.s))
-        }
+            self._position_index: dict[tuple[int, int, int], int] = {
+                (int(self.s[i]), int(self.x[i] / self.dx), int(self.y[i] / self.dy)): i
+                for i in range(len(self.s))
+            }
 
-        self._blueprint: BLUEPRINT = np.array([it.category for it in electrodes])
+            self._blueprint: BLUEPRINT = np.array([it.category for it in electrodes])
+        else:
+            self._blueprint = None
+
         self._controller: ControllerView | None = None
 
     def __getattr__(self, item: str):
@@ -122,27 +129,6 @@ class BlueprintFunctions(Generic[M, E]):
         ret._blueprint = self._blueprint.copy()
         ret._controller = self._controller
         return ret
-
-    @doc_link()
-    def check_probe(self, probe: str | type[ProbeDesp], *, error=True) -> bool:
-        """
-        Check current used probe is type of *probe*.
-
-        :param probe: {ProbeDesp} type or class name.
-        :param error: raise {RuntimeError} when test fail.
-        :return: test success.
-        """
-        if isinstance(probe, str):
-            test = type(self.probe).__name__ == probe
-        elif isinstance(probe, type):
-            test = isinstance(self.probe, probe)
-        else:
-            raise TypeError()
-
-        if not test:
-            if error:
-                raise RuntimeError()
-        return test
 
     def blueprint(self) -> BLUEPRINT:
         """blueprint."""
@@ -457,14 +443,6 @@ class BlueprintFunctions(Generic[M, E]):
     # data process methods #
     # ==================== #
 
-    def log_message(self, *message: str):
-        if (controller := self._controller) is None:
-            return
-
-        from chmap.views.base import ViewBase
-        if isinstance(controller, ViewBase):
-            controller.log_message(*message)
-
     @doc_link()
     def load_data(self, file: str | Path) -> NDArray[np.float_]:
         """
@@ -483,18 +461,51 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.data import load_data
         return load_data(self, file)
 
-    def draw(self, a: NDArray[np.float_] | None, *, view: str | type[ViewBase] = None):
-        if (controller := self._controller) is None:
-            return
-
-        from chmap.views.data import DataHandler
-        if isinstance(controller, DataHandler):
-            controller.on_data_update(self.probe, self.probe.all_electrodes(self.chmap), a)
-        elif isinstance(view_target := controller.get_view(view), DataHandler):
-            view_target.on_data_update(self.probe, self.probe.all_electrodes(self.chmap), a)
-
     def interpolate_nan(self, a: NDArray[np.float_],
                         kernel: int | tuple[int, int] = 1,
                         f: str | Callable[[NDArray[np.float_]], float] = 'mean') -> NDArray[np.float_]:
         from .edit.data import interpolate_nan
         return interpolate_nan(self, a, kernel, f)
+
+    # ==================== #
+    # controller functions #
+    # ==================== #
+
+    @doc_link(get_probe_desp='chmap.probe.get_probe_desp')
+    def check_probe(self, probe: str | type[ProbeDesp], chmap_code: int = None, *, error=True):
+        """
+        Check current used probe is type of *probe*.
+
+        :param probe: request probe. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
+        :param chmap_code: request channelmap code
+        :param error:
+        :return: test success.
+        :raise RequestChannelmapTypeError: when check failed.
+        """
+        from .edit.actions import check_probe, RequestChannelmapTypeError
+
+        try:
+            check_probe(self, probe, chmap_code)
+        except RequestChannelmapTypeError:
+            if error:
+                raise
+            return False
+        else:
+            return True
+
+    def new_channelmap(self, code: int | str) -> M:
+        from .edit.actions import new_channelmap
+        if (controller := self._controller) is not None:
+            return new_channelmap(controller, code)
+        else:
+            raise RuntimeError()
+
+    def draw(self, a: NDArray[np.float_] | None, *, view: str | type[ViewBase] = None):
+        from .edit.actions import draw
+        if (controller := self._controller) is not None:
+            draw(self, controller, a, view=view)
+
+    def log_message(self, *message: str):
+        from .edit.actions import log_message
+        if (controller := self._controller) is not None:
+            log_message(controller, *message)

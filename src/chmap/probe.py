@@ -258,7 +258,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     @doc_link()
-    def channelmap_code(self, chmap: Any) -> int | None:
+    def channelmap_code(self, chmap: Any | None) -> int | None:
         """
         identify a channelmap, and return correspond code.
 

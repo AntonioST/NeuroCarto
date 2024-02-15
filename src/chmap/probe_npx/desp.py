@@ -71,7 +71,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def save_to_file(self, chmap: ChannelMap, file: Path):
         chmap.save_imro(file)
 
-    def channelmap_code(self, chmap: Any) -> int | None:
+    def channelmap_code(self, chmap: Any | None) -> int | None:
         if not isinstance(chmap, ChannelMap):
             return None
         return chmap.probe_type.code

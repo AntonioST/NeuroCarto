@@ -35,6 +35,7 @@ SCOPE = Literal['pure', 'parser', 'context']
 
 class BlueprintScript(Protocol):
     """A protocol class  to represent a blueprint script function."""
+
     def __call__(self, bp: BlueprintFunctions, arg: str):
         """
 
@@ -134,35 +135,64 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         :param script: script name, script path or a {BlueprintScript}
         :param arg: script input text.
         """
-        if (probe := self.cache_probe) is None:
-            self.log_message('no probe created')
-            return
-        if (chmap := self.cache_chmap) is None:
-            self.log_message('no probe created')
-            return
-        if (blueprint := self.cache_blueprint) is None:
-            self.log_message('no probe created')
+        probe = self.get_app().probe
+
+        script_name = getattr(script, '__name__', str(script))
+
+        self.logger.debug('run_script(%s)', script_name)
+        self.set_status('run script ...')
+
+        try:
+            bs = self.get_script(script)
+        except BaseException as e:
+            self.logger.warning('run_script(%s) import fail', script_name, exc_info=e)
+            self.log_message(f'run script {script} import fail')
+            self.set_status(None)
             return
 
-        self.logger.debug('run_script(%s)=%s', script, arg)
-        self.set_status('run script ...')
+        try:
+            bp = self._run_script(bs, probe, self.cache_chmap, arg)
+        except BaseException as e:
+            self.logger.warning('run_script(%s) fail', script_name, exc_info=e)
+            self.log_message(f'run script {script} fail')
+            self.set_status(None)
+            return
+
+        self.set_status('run script done', decay=3)
+
+        if (blueprint := self.cache_blueprint) is not None:
+            bp.apply_blueprint(blueprint)
+            self.logger.debug('run_script(%s) update', script_name)
+            run_later(self.update_probe)
+
+    def _run_script(self, script: BlueprintScript, probe: ProbeDesp[M, E], chmap: M | None, arg: str) -> BlueprintFunctions:
+        from chmap.util.edit.actions import RequestChannelmapTypeError
+        script_name = getattr(script, '__name__', str(script))
+
         bp = BlueprintFunctions(probe, chmap)
         bp._controller = self
 
+        self.logger.debug('run_script(%s)[%s]', script_name, arg)
+
+        request: RequestChannelmapTypeError = None
         try:
-            self.logger.debug('run_script(%s) invoke', script)
-            self.get_script(script)(bp, arg)
-        except BaseException as e:
-            self.logger.warning('run_script(%s) fail', script, exc_info=e)
-            self.log_message(f'run script {script} fail', *e.args)
-            return
+            script(bp, arg)
+        except RequestChannelmapTypeError as e:
+            if chmap is None and e.check_probe(probe) and e.chmap_code is not None:
+                request = e
+            else:
+                raise
+        else:
+            self.logger.debug('run_script(%s) done', script_name)
+            return bp
 
-        self.logger.debug('run_script(%s) done', script)
-        self.set_status('run script done', decay=3)
-        bp.apply_blueprint(blueprint)
+        # from RequestChannelmapTypeError
+        assert request is not None
+        self.logger.debug('run_script(%s) request %s[%d]', script_name, request.probe_name, request.chmap_code)
+        chmap = bp.new_channelmap(request.chmap_code)
 
-        self.logger.debug('run_script(%s) update', script)
-        run_later(self.update_probe)
+        self.logger.debug('run_script(%s) rerun')
+        return self._run_script(script, probe, chmap, arg)
 
     def reset_blueprint(self):
         if (blueprint := self.cache_blueprint) is None:
@@ -209,8 +239,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         self.restore_global_state(force=True)
 
     cache_probe: ProbeDesp[M, E] = None
-    cache_chmap: M | None
-    cache_blueprint: list[E] | None
+    cache_chmap: M | None = None
+    cache_blueprint: list[E] | None = None
     cache_data: NDArray[np.float_] | None = None
 
     def on_probe_update(self, probe: ProbeDesp, chmap: M | None = None, electrodes: list[E] | None = None):

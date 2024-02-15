@@ -101,7 +101,7 @@ def import_name(desp: str, module_path: str, root: str = None):
         module = importlib.import_module(module)
     finally:
         if root is not None:
-            sys.path.pop()
+            sys.path.pop(0)
 
     if name == '*':
         return module
