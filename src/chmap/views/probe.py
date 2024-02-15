@@ -8,7 +8,7 @@ from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, E, M
 from chmap.util.bokeh_app import run_timeout
 from chmap.util.bokeh_util import as_callback
-from chmap.util.utils import TimeMarker
+from chmap.util.utils import TimeMarker, doc_link
 from chmap.views import ViewBase
 
 __all__ = ['ProbeView']
@@ -232,12 +232,16 @@ class ProbeView(ViewBase):
             e = d.data['e']
             return set(self.get_electrodes([e[it] for it in selected_index]))
 
-    def set_captured_electrodes(self, electrodes: list[E], d: ColumnDataSource = None):
+    def set_captured_electrodes(self, electrodes: list[int] | list[E], d: ColumnDataSource = None):
         if d is None:
             for data in self.data_electrodes.values():
                 self.set_captured_electrodes(electrodes, data)
         else:
-            i = set([self._e2i[it] for it in electrodes])
+            i = set([
+                it if isinstance(it, int) else self._e2i[it]
+                for it in electrodes
+            ])
+
             e = d.data['e']
             s = [ii for ii, ie in enumerate(e) if ie in i]
             d.selected.indices = s
@@ -286,43 +290,66 @@ class ProbeView(ViewBase):
 
         :param s: selected electrode set
         :param invalid: extend the highlight set to include co-electrodes
-        :param append: append the highlight set.
         """
         if invalid:
             s = self.probe.invalid_electrodes(self.channelmap, s, self.electrodes)
 
         self.update_electrode_position(self.data_highlight, s)
 
-    def set_state_for_captured(self, state: int):
+    @doc_link()
+    def set_state_for_captured(self, state: int, electrodes: list[int | E] = None):
         """
         Set electrode state for selected electrodes.
 
-        :param state: new state. value in {ProbeDesp.STATE_USED, ProbeDesp.STATE_UNUSED}
+        :param state: new state. value in {ProbeDesp#STATE_USED}, {ProbeDesp#STATE_UNUSED}
+        :param electrodes: captured electrodes.
         """
-        if state == ProbeDesp.STATE_USED:
+        if state not in (ProbeDesp.STATE_USED, ProbeDesp.STATE_UNUSED):
+            return
+
+        if electrodes is not None:
+            for e in electrodes:
+                if isinstance(e, int):
+                    i, e = e, self.electrodes[e]
+                else:
+                    i, e = self._e2i[e], e
+
+                if state == ProbeDesp.STATE_USED:
+                    self.probe.add_electrode(self.channelmap, e, overwrite=True)
+                elif state == ProbeDesp.STATE_UNUSED:
+                    self.probe.del_electrode(self.channelmap, e)
+
+        elif state == ProbeDesp.STATE_USED:
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
                 self.probe.add_electrode(self.channelmap, e)
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
                 self.probe.add_electrode(self.channelmap, e, overwrite=True)
-
             self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True)
 
         elif state == ProbeDesp.STATE_UNUSED:
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True):
                 self.probe.del_electrode(self.channelmap, e)
-
             self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True)
             self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True)
 
         self._reset_electrode_state()
 
-    def set_category_for_captured(self, category: int):
+    @doc_link()
+    def set_category_for_captured(self, category: int, electrodes: list[int | E] = None):
         """
         Set electrode category value for selected electrodes.
 
-        :param category: category value from ProbeDesp.CATE_*
-        :return:
+        :param category: category value from {ProbeDesp}.CATE_*
+        :param electrodes: captured electrodes.
         """
-        for e in self.get_captured_electrodes(reset=True):
-            e.category = category
+        if electrodes is not None:
+            for e in electrodes:
+                if isinstance(e, int):
+                    i, e = e, self.electrodes[e]
+                else:
+                    i, e = self._e2i[e], e
 
+                e.category = category
+        else:
+            for e in self.get_captured_electrodes(reset=True):
+                e.category = category

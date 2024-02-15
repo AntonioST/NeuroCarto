@@ -77,6 +77,7 @@ class ChannelMapEditorApp(BokehApplication):
         if self.config.debug:
             return Path('.') / '.chmap.config.json'
 
+        # https://wiki.archlinux.org/title/XDG_Base_Directory
         # https://stackoverflow.com/a/3250952
         if (d := os.environ.get('XDG_CONFIG_HOME', None)) is not None:
             return Path(d) / 'chmap/chmap.config.json'
@@ -93,7 +94,7 @@ class ChannelMapEditorApp(BokehApplication):
             case 'Darwin':
                 pass
 
-        return Path.home() / '.chmap.config.json'
+        return Path.home() / '.chmap/chmap.config.json'
 
     @doc_link()
     def load_global_config(self, *, reset=False) -> dict[str, Any]:
@@ -657,11 +658,7 @@ class ChannelMapEditorApp(BokehApplication):
             self.reload_input_imro_list(path.stem)
 
     def on_state_change(self, state: int):
-        for desp, code in self.probe.possible_states.items():
-            if code == state:
-                break
-        else:
-            desp = None
+        desp = self.probe.state_description(state)
 
         if desp is not None:
             self.logger.debug('on_state_change(%d)=%s', state, desp)
@@ -676,11 +673,7 @@ class ChannelMapEditorApp(BokehApplication):
             self.on_probe_update()
 
     def on_category_change(self, category: int):
-        for desp, code in self.probe.possible_categories.items():
-            if code == category:
-                break
-        else:
-            desp = None
+        desp = self.probe.category_description(category)
 
         if desp is not None:
             self.logger.debug('on_category_change(%d)=%s', category, desp)

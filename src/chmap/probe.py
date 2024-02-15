@@ -165,6 +165,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
+    def channelmap_description(self, code: int) -> str | None:
+        for name, _code in self.supported_type.items():
+            if code == _code:
+                return name
+        return None
+
     @property
     @abc.abstractmethod
     @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
@@ -178,6 +184,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
+    def state_description(self, state: int) -> str | None:
+        for desp, _state in self.possible_states.items():
+            if state == _state:
+                return desp
+        return None
+
     @property
     @abc.abstractmethod
     @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
@@ -190,6 +202,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         :return: dict of {description: category}
         """
         pass
+
+    def category_description(self, code: int) -> str | None:
+        for desp, cate in self.possible_categories.items():
+            if cate == code:
+                return desp
+        return None
 
     @classmethod
     def all_possible_states(cls) -> dict[str, int]:
