@@ -383,6 +383,7 @@ R = TypeVar('R')
 class RecordStep(NamedTuple):
     source: str
     time_stamp: float
+    description: str
     record: R  # json-serialize
 
 
@@ -393,7 +394,7 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
 
     @final
     @doc_link(RecordManager='chmap.views.record.RecordManager')
-    def add_record(self, record: R):
+    def add_record(self, record: R, description: str):
         """
 
         Implement note:

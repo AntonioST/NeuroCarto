@@ -31,6 +31,9 @@ class ProbeViewAction(TypedDict, total=False):
     # action=set_category
     category: int
 
+    # other
+    description: str
+
 
 class ProbeView(ViewBase, RecordView[ProbeViewAction]):
     """
@@ -161,7 +164,9 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
         for i, e in enumerate(self.electrodes):  # type: int, E
             self._e2i[e] = i
 
-        self.add_record(ProbeViewAction(action='reset', code=self.probe.channelmap_code(self.channelmap)))
+        code = self.probe.channelmap_code(self.channelmap)
+        desp = f'create new {self.probe.channelmap_description(code)}'
+        self.add_record(ProbeViewAction(action='reset', code=code), desp)
 
     def _reset_electrode_state(self):
         for e in self.electrodes:
@@ -191,7 +196,8 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
             e.category
             for e in self.electrodes
         ]
-        self.add_record(ProbeViewAction(action='blueprint', electrodes=electrodes))
+        self.add_record(ProbeViewAction(action='blueprint', electrodes=electrodes),
+                        'electrode selection blueprint')
 
         self.logger.debug('refresh_selection()')
         try:
@@ -211,7 +217,8 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
                 for i, e in enumerate(self.electrodes)
                 if e.state == ProbeDesp.STATE_USED
             ]
-            self.add_record(ProbeViewAction(action='channelmap', electrodes=electrodes))
+            self.add_record(ProbeViewAction(action='channelmap', electrodes=electrodes),
+                            'electrode selection result')
 
     def get_electrodes(self, s: None | int | list[int] | ColumnDataSource, *, state: int = None) -> list[E]:
         """
@@ -388,7 +395,11 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
 
         self._reset_electrode_state()
         if len(captured) > 0:
-            self.add_record(ProbeViewAction(action='set_state', electrodes=captured, state=state))
+            if (state_name := self.probe.state_description(state)) is None:
+                state_name = f'State[{state}]'
+
+            self.add_record(ProbeViewAction(action='set_state', electrodes=captured, state=state),
+                            f'set {len(captured)} electrodes to {state_name}')
 
     @doc_link()
     def set_category_for_captured(self, category: int, electrodes: list[int | E] = None):
@@ -414,7 +425,11 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
                 captured.append(self._e2i[e])
 
         if len(captured) > 0:
-            self.add_record(ProbeViewAction(action='set_category', electrodes=captured, category=category))
+            if (category_name := self.probe.category_description(category)) is None:
+                category_name = f'Category[{category}]'
+
+            self.add_record(ProbeViewAction(action='set_category', electrodes=captured, category=category),
+                            f'set {len(captured)} electrodes to {category_name}')
 
     # ============ #
     # replay steps #
@@ -422,8 +437,10 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
 
     def replay_records(self, records: list[RecordStep], *, reset=False):
         for record in self._filter_records(records):
+            self.logger.debug('replay %s', record.get('description', record['action']))
+
             match record:
-                case {'action': 'reset', 'code': code} if reset:
+                case {'action': 'reset', 'code': code}:
                     self.reset(code)
                 case {'action': 'set_state', 'electrodes': electrodes, 'state': state}:
                     self.set_state_for_captured(state, electrodes)
@@ -444,10 +461,13 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
         ret = []
         for record in records:
             if record.source == source:
-                match record.record:
-                    case {'action': 'reset'}:
-                        ret = [record.record]
+                item = dict(record.record)
+                item['description'] = record.description
+
+                match record.record['action']:
+                    case 'reset':
+                        ret = [item]
                     case _:
-                        ret.append(record.record)
+                        ret.append(item)
 
         return ret
