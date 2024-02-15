@@ -471,10 +471,17 @@ class BlueprintFunctions(Generic[M, E]):
     # controller functions #
     # ==================== #
 
-    @doc_link(get_probe_desp='chmap.probe.get_probe_desp')
+    @doc_link(
+        get_probe_desp='chmap.probe.get_probe_desp',
+        BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView',
+        RequestChannelmapTypeError='chmap.util.edit.actions.RequestChannelmapTypeError',
+    )
     def check_probe(self, probe: str | type[ProbeDesp], chmap_code: int = None, *, error=True):
         """
         Check current used probe is type of *probe*.
+
+        If it is managed by {BlueprintScriptView}, {RequestChannelmapTypeError} could be captured,
+        and the request channelmap ({#new_channelmap()}) will be created when needed.
 
         :param probe: request probe. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
         :param chmap_code: request channelmap code
@@ -494,18 +501,76 @@ class BlueprintFunctions(Generic[M, E]):
             return True
 
     def new_channelmap(self, code: int | str) -> M:
+        """
+        Create a new channelmap with type *code*.
+
+        :param code: channelmap type code.
+        :return: new channelmap instance.
+        """
         from .edit.actions import new_channelmap
         if (controller := self._controller) is not None:
             return new_channelmap(controller, code)
         else:
             raise RuntimeError()
 
+    @doc_link(DataHandler='chmap.views.data.DataHandler')
     def draw(self, a: NDArray[np.float_] | None, *, view: str | type[ViewBase] = None):
+        """
+        Send a drawable data array *a*  to a {DataHandler}.
+
+        :param a: Array[float, E], where E is all electrodes
+        :param view: which {DataHandler}
+        """
         from .edit.actions import draw
         if (controller := self._controller) is not None:
             draw(self, controller, a, view=view)
 
     def log_message(self, *message: str):
+        """
+        Send messages to log area in GUI.
+
+        :param message:
+        """
         from .edit.actions import log_message
         if (controller := self._controller) is not None:
             log_message(controller, *message)
+
+    def capture_electrode(self, index: NDArray[np.int_] | NDArray[np.bool_],
+                          state: list[int] = None):
+        """
+        Capture electrodes.
+
+        :param index: index (Array[E, N]) or bool (Array[bool, E]) array.
+        :param state: restrict electrodes on given states.
+        """
+        from .edit.actions import capture_electrode
+        if (controller := self._controller) is not None:
+            capture_electrode(self, controller, index, state)
+
+    @doc_link()
+    def set_state_for_captured(self, state: int,
+                               index: NDArray[np.int_] | NDArray[np.bool_] = None):
+        """
+        Set state for captured electrodes.
+
+        :param state: a state value
+        :param index: index (Array[E, N]) or bool (Array[bool, E]) array.
+        :see: {#capture_electrode()}
+        """
+        from .edit.actions import set_state_for_captured
+        if (controller := self._controller) is not None:
+            set_state_for_captured(self, controller, state, index)
+
+    @doc_link()
+    def set_category_for_captured(self, category: int,
+                                  index: NDArray[np.int_] | NDArray[np.bool_] = None):
+        """
+        Set category for captured electrodes.
+
+        :param category: a category value
+        :param index: index (Array[E, N]) or bool (Array[bool, E]) array.
+        :see: {#capture_electrode()}
+        """
+        from .edit.actions import set_category_for_captured
+        if (controller := self._controller) is not None:
+            set_category_for_captured(self, controller, category, index)

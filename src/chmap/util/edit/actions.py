@@ -13,7 +13,10 @@ __all__ = [
     'check_probe',
     'new_channelmap',
     'log_message',
-    'draw'
+    'draw',
+    'capture_electrode',
+    'set_state_for_captured',
+    'set_category_for_captured',
 ]
 
 
@@ -118,3 +121,38 @@ def draw(self: BlueprintFunctions, controller: ControllerView,
         controller.on_data_update(self.probe, self.probe.all_electrodes(self.chmap), a)
     elif isinstance(view_target := controller.get_view(view), DataHandler):
         view_target.on_data_update(self.probe, self.probe.all_electrodes(self.chmap), a)
+
+
+def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
+                      index: NDArray[np.int_] | NDArray[np.bool_],
+                      state: list[int] = None):
+    electrodes = self.probe.all_electrodes(self.chmap)
+    captured = [electrodes[int(it)] for it in np.arange(len(self.s))[index]]
+
+    view = controller.get_app().probe_view
+    if state is None:
+        view.set_captured_electrodes(captured)
+    else:
+        for s in state:
+            try:
+                data = view.data_electrodes[s]
+            except KeyError:
+                pass
+            else:
+                view.set_captured_electrodes(captured, data)
+
+
+def set_state_for_captured(self: BlueprintFunctions, controller: ControllerView,
+                           state: int,
+                           index: NDArray[np.int_] | NDArray[np.bool_] = None):
+    if index is not None:
+        capture_electrode(self, controller, index)
+    controller.get_app().probe_view.set_state_for_captured(state)
+
+
+def set_category_for_captured(self: BlueprintFunctions, controller: ControllerView,
+                              category: int,
+                              index: NDArray[np.int_] | NDArray[np.bool_] = None):
+    if index is not None:
+        capture_electrode(self, controller, index)
+    controller.get_app().probe_view.set_category_for_captured(category)

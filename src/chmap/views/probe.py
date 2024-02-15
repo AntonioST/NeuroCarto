@@ -42,9 +42,9 @@ class ProbeView(ViewBase):
         self.probe: ProbeDesp[M, E] = desp
         self.channelmap: M | None = None
         self.electrodes: list[E] | None = None
-        self._e2i: dict[E, int] = {}
+        self._e2i: dict[E, int] = {}  # {E: electrode_index}
 
-        self.data_electrodes = {}
+        self.data_electrodes = {}  # {state : ColumnDataSource}
         for state in (ProbeDesp.STATE_UNUSED, ProbeDesp.STATE_USED, ProbeDesp.STATE_FORBIDDEN):
             self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[], c=[]))
             self.data_electrodes[state].selected.on_change('indices', as_callback(self._on_capture, state=state))
@@ -232,6 +232,16 @@ class ProbeView(ViewBase):
             e = d.data['e']
             return set(self.get_electrodes([e[it] for it in selected_index]))
 
+    def set_captured_electrodes(self, electrodes: list[E], d: ColumnDataSource = None):
+        if d is None:
+            for data in self.data_electrodes.values():
+                self.set_captured_electrodes(electrodes, data)
+        else:
+            i = set([self._e2i[it] for it in electrodes])
+            e = d.data['e']
+            s = [ii for ii, ie in enumerate(e) if ie in i]
+            d.selected.indices = s
+
     _captured_electrodes = []
     _captured_callback = None
 
@@ -315,3 +325,4 @@ class ProbeView(ViewBase):
         """
         for e in self.get_captured_electrodes(reset=True):
             e.category = category
+
