@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, TypedDict
 
 from bokeh.models import ColumnDataSource, GlyphRenderer, tools, UIElement, Div
 from bokeh.plotting import figure as Figure
@@ -9,12 +11,28 @@ from chmap.probe import ProbeDesp, E, M
 from chmap.util.bokeh_app import run_timeout
 from chmap.util.bokeh_util import as_callback
 from chmap.util.utils import TimeMarker, doc_link
-from chmap.views import ViewBase
+from chmap.views.base import ViewBase, RecordView, RecordStep
 
 __all__ = ['ProbeView']
 
 
-class ProbeView(ViewBase):
+class ProbeViewAction(TypedDict, total=False):
+    action: str  # reset, set_state, set_category, channelmap, blueprint
+
+    # action=reset
+    code: int
+
+    # action=set_state, set_category, channelmap, blueprint
+    electrodes: list[int]
+
+    # action=set_state
+    state: int
+
+    # action=set_category
+    category: int
+
+
+class ProbeView(ViewBase, RecordView[ProbeViewAction]):
     """
     Probe view.
     """
@@ -143,6 +161,8 @@ class ProbeView(ViewBase):
         for i, e in enumerate(self.electrodes):  # type: int, E
             self._e2i[e] = i
 
+        self.add_record(ProbeViewAction(action='reset', code=self.probe.channelmap_code(self.channelmap)))
+
     def _reset_electrode_state(self):
         for e in self.electrodes:
             e.state = ProbeDesp.STATE_UNUSED
@@ -167,6 +187,12 @@ class ProbeView(ViewBase):
         if self.channelmap is None:
             return
 
+        electrodes = [
+            e.category
+            for e in self.electrodes
+        ]
+        self.add_record(ProbeViewAction(action='blueprint', electrodes=electrodes))
+
         self.logger.debug('refresh_selection()')
         try:
             mark = TimeMarker()
@@ -179,6 +205,13 @@ class ProbeView(ViewBase):
             self.log_message('refresh fail')
         else:
             self._reset_electrode_state()
+
+            electrodes = [
+                i
+                for i, e in enumerate(self.electrodes)
+                if e.state == ProbeDesp.STATE_USED
+            ]
+            self.add_record(ProbeViewAction(action='channelmap', electrodes=electrodes))
 
     def get_electrodes(self, s: None | int | list[int] | ColumnDataSource, *, state: int = None) -> list[E]:
         """
@@ -315,6 +348,8 @@ class ProbeView(ViewBase):
         :param state: new state. value in {ProbeDesp#STATE_USED}, {ProbeDesp#STATE_UNUSED}
         :param electrodes: captured electrodes.
         """
+        captured = []
+
         if state not in (ProbeDesp.STATE_USED, ProbeDesp.STATE_UNUSED):
             return
 
@@ -330,20 +365,30 @@ class ProbeView(ViewBase):
                 elif state == ProbeDesp.STATE_UNUSED:
                     self.probe.del_electrode(self.channelmap, e)
 
+                captured.append(i)
+
         elif state == ProbeDesp.STATE_USED:
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
+                captured.append(self._e2i[e])
                 self.probe.add_electrode(self.channelmap, e)
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
+                captured.append(self._e2i[e])
                 self.probe.add_electrode(self.channelmap, e, overwrite=True)
-            self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True)
+            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True):
+                captured.append(self._e2i[e])
 
         elif state == ProbeDesp.STATE_UNUSED:
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True):
+                captured.append(self._e2i[e])
                 self.probe.del_electrode(self.channelmap, e)
-            self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True)
-            self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True)
+            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
+                captured.append(self._e2i[e])
+            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
+                captured.append(self._e2i[e])
 
         self._reset_electrode_state()
+        if len(captured) > 0:
+            self.add_record(ProbeViewAction(action='set_state', electrodes=captured, state=state))
 
     @doc_link()
     def set_category_for_captured(self, category: int, electrodes: list[int | E] = None):
@@ -353,6 +398,7 @@ class ProbeView(ViewBase):
         :param category: category value from {ProbeDesp}.CATE_*
         :param electrodes: captured electrodes.
         """
+        captured = []
         if electrodes is not None:
             for e in electrodes:
                 if isinstance(e, int):
@@ -361,6 +407,47 @@ class ProbeView(ViewBase):
                     i, e = self._e2i[e], e
 
                 e.category = category
+                captured.append(i)
         else:
             for e in self.get_captured_electrodes(reset=True):
                 e.category = category
+                captured.append(self._e2i[e])
+
+        if len(captured) > 0:
+            self.add_record(ProbeViewAction(action='set_category', electrodes=captured, category=category))
+
+    # ============ #
+    # replay steps #
+    # ============ #
+
+    def replay_records(self, records: list[RecordStep], *, reset=False):
+        for record in self._filter_records(records):
+            match record:
+                case {'action': 'reset', 'code': code} if reset:
+                    self.reset(code)
+                case {'action': 'set_state', 'electrodes': electrodes, 'state': state}:
+                    self.set_state_for_captured(state, electrodes)
+                case {'action': 'set_category', 'electrodes': electrodes, 'category': category}:
+                    self.set_category_for_captured(category, electrodes)
+                case {'action': 'channelmap', 'electrodes': electrodes}:
+                    self.reset(self.channelmap)
+                    for e in electrodes:
+                        self.probe.add_electrode(self.channelmap, self.electrodes[e], overwrite=True)
+                    self._reset_electrode_state()
+                case {'action': 'blueprint', 'electrodes': electrodes}:
+                    for e, c in zip(self.electrodes, electrodes):
+                        e.category = c
+
+    def _filter_records(self, records: list[RecordStep]) -> list[ProbeViewAction]:
+        source = type(self).__name__
+
+        ret = []
+        for record in records:
+            if record.source == source:
+                match record.record:
+                    case {'action': 'reset'}:
+                        ret = [record.record]
+                    case _:
+                        ret.append(record.record)
+
+        return ret

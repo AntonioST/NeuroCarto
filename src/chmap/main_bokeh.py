@@ -17,6 +17,7 @@ from chmap.util.bokeh_app import BokehApplication, run_server, run_later
 from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback, new_help_button
 from chmap.util.utils import TimeMarker, doc_link
 from chmap.views import *
+from chmap.views.record import RecordManager
 
 __all__ = ['ChannelMapEditorApp', 'main']
 
@@ -52,6 +53,7 @@ class ChannelMapEditorApp(BokehApplication):
 
         self.logger.debug('get get_probe_desp(%s)', config.probe_family)
         self.probe = get_probe_desp(config.probe_family)()
+        self.record_manager: RecordManager | None = None
         self.logger.debug('get get_probe_desp() -> %s', type(self.probe).__name__)
 
     @property
@@ -95,6 +97,26 @@ class ChannelMapEditorApp(BokehApplication):
                 pass
 
         return Path.home() / '.chmap/chmap.config.json'
+
+    def cache_file(self, filename: str) -> Path:
+        if self.config.debug:
+            return Path('.') / f'.chmap.{filename}'
+
+        if (d := os.environ.get('XDG_CACHE_HOME', None)) is not None:
+            return Path(d) / 'chmap' / filename
+        elif (d := os.environ.get('APPDATA', None)) is not None:
+            return Path(d) / 'chmap' / filename
+
+        import platform
+        match platform.system():
+            case 'Linux':
+                return Path.home() / '.cache/chmap' / filename
+            case 'Windows':
+                pass
+            case 'Darwin':
+                pass
+
+        return Path.home() / '.chmap/cache' / filename
 
     @doc_link()
     def load_global_config(self, *, reset=False) -> dict[str, Any]:
@@ -142,6 +164,12 @@ class ChannelMapEditorApp(BokehApplication):
         with file.open('w') as f:
             json.dump(self.global_views_config, f, indent=2)
             self.logger.debug(f'save global config : %s', file)
+
+        if (manager := self.record_manager) is not None:
+            history_file = self.cache_file('history.json')
+            history_file.parent.mkdir(parents=True, exist_ok=True)
+            manager.save_steps(history_file)
+            self.logger.debug(f'save history : %s', history_file)
 
     def get_app_global_config(self) -> ChannelMapEditorAppConfig:
         """
@@ -356,6 +384,7 @@ class ChannelMapEditorApp(BokehApplication):
     def index(self):
         self.logger.debug('index')
         self.load_global_config(reset=True)
+        self.record_manager = RecordManager()
 
         if (theme := self.get_app_global_config().get('theme', None)) is not None:
             try:
@@ -392,6 +421,7 @@ class ChannelMapEditorApp(BokehApplication):
         from chmap.views.utils import install_view
         self.probe_view = install_view(self, ProbeView(self.config, self.probe))
         probe_ui = self.probe_view.setup(self.probe_fig)
+        self.record_manager.register(self.probe_view)
 
         from bokeh.layouts import row, column
         return row(
@@ -499,6 +529,8 @@ class ChannelMapEditorApp(BokehApplication):
         for view_type in self.install_right_panel_views(self.config):
             if (view := init_view(self.config, view_type)) is not None:
                 self.right_panel_views.append(install_view(self, view))
+                if isinstance(view, RecordView):
+                    self.record_manager.register(view)
 
         uis = []
         for view in self.right_panel_views:

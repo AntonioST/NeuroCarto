@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 import logging
 import math
-from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast, final
+from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast, final, NamedTuple
 
 import numpy as np
 from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch, Div
@@ -25,6 +25,7 @@ __all__ = [
     'StateView', 'GlobalStateView',
     'DynamicView', 'EditorView',
     'InvisibleView',
+    'RecordView', 'RecordStep',
     'BoundaryState',
     'BoundView',
 ]
@@ -374,6 +375,51 @@ class EditorView(DynamicView):
             replaced by {ChannelMapEditorApp}.
         """
         raise RuntimeError()
+
+
+R = TypeVar('R')
+
+
+class RecordStep(NamedTuple):
+    source: str
+    time_stamp: float
+    record: R  # json-serialize
+
+
+class RecordView(Generic[R], metaclass=abc.ABCMeta):
+    """
+    This view can record each manipulating steps and also can replay them,
+    """
+
+    @final
+    @doc_link(RecordManager='chmap.views.record.RecordManager')
+    def add_record(self, record: R):
+        """
+
+        Implement note:
+            do not overwrite this function, because this method will be
+            replaced by {RecordManager}.
+
+        :param record: stored step. type should be json-serialize.
+        """
+        pass
+
+    @abc.abstractmethod
+    @doc_link(RecordManager='chmap.views.record.RecordManager')
+    def replay_records(self, records: list[RecordStep], *, reset=False):
+        """
+        Replay the records.
+
+        Use Note:
+            Do not call this method directly, because it might cause
+            {#add_record()} be invoked during the replay.
+
+            Use {RecordManager#replay()} instead.
+
+        :param records:
+        :param reset: reset view to the initial state?
+        """
+        pass
 
 
 class BoundaryState(TypedDict):
