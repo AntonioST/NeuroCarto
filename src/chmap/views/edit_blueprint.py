@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import sys
 import textwrap
-from typing import Protocol, TypedDict, Literal, TYPE_CHECKING, cast
+from pathlib import Path
+from typing import Protocol, TypedDict, Literal, TYPE_CHECKING, cast, NamedTuple
 
 import numpy as np
 from bokeh.models import Select, TextInput, PreText
@@ -15,10 +17,15 @@ from chmap.probe_npx import plot
 from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import ButtonFactory, as_callback
 from chmap.util.util_blueprint import BlueprintFunctions
-from chmap.util.utils import import_name, doc_link
+from chmap.util.utils import import_name, get_import_file, doc_link
 from chmap.views.base import EditorView, GlobalStateView, ControllerView
 from chmap.views.data import DataHandler
 from chmap.views.image_plt import PltImageView
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from chmap.probe_npx.npx import ChannelMap, ProbeType
@@ -46,6 +53,41 @@ class BlueprintScript(Protocol):
         pass
 
 
+class BlueprintScriptInfo(NamedTuple):
+    name: str
+    module: str  # 'MODUlE:NAME'
+    filepath: Path | None
+    time_stamp: float | None
+    script: BlueprintScript
+
+    @classmethod
+    def load(cls, name: str, module_path: str) -> Self:
+        script = cast(BlueprintScript, import_name('blueprint script', module_path))
+        if not callable(script):
+            raise ImportError(f'script {name} not callable')
+
+        script_file = get_import_file(module_path)
+        time_stamp = None if script_file is None or not script_file.exists() else script_file.stat().st_mtime
+        return BlueprintScriptInfo(name, module_path, script_file, time_stamp, script)
+
+    def check_changed(self) -> bool:
+        if self.filepath is None or self.time_stamp is None:
+            return False
+        if not self.filepath.exists():
+            return True
+        t = self.filepath.stat().st_mtime
+        return self.time_stamp < t
+
+    def reload(self) -> Self:
+        script = cast(BlueprintScript, import_name('blueprint script', self.module, reload=True))
+        if not callable(script):
+            raise ImportError(f'script {self.name} not callable')
+
+        script_file = self.filepath
+        time_stamp = None if script_file is None or not script_file.exists() else script_file.stat().st_mtime
+        return self._replace(time_stamp=time_stamp, script=script)
+
+
 class BlueprintScriptState(TypedDict):
     actions: dict[str, str]
 
@@ -54,7 +96,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
-        self.actions: dict[str, str | BlueprintScript] = {}
+        self.actions: dict[str, str | BlueprintScriptInfo] = {}
 
     @property
     def name(self) -> str:
@@ -114,18 +156,26 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         """
         Get and load {BlueScript}.
 
+        If the corresponding module has changed, this function will try to reload it.
+
         :param name: script name.
         :return:
         """
         script = self.actions.get(name, name)
         if isinstance(script, str):
             self.logger.debug('load script(%s)', name)
-            script = cast(BlueprintScript, import_name('blueprint script', script))
-            if callable(script):
-                self.actions[name] = script
-            else:
-                raise ImportError(f'script {name} not callable')
-        return script
+            self.actions[name] = script = BlueprintScriptInfo.load(name, script)
+            if script.filepath is not None:
+                self.logger.debug('loaded script(%s) from %s', name, script.filepath)
+
+        if not isinstance(script, BlueprintScriptInfo):
+            raise TypeError()
+
+        if script.check_changed():
+            self.logger.debug('reload script(%s)', name)
+            self.actions[name] = script = script.reload()
+
+        return script.script
 
     @doc_link()
     def run_script(self, script: str | BlueprintScript, arg: str):
@@ -319,8 +369,6 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
 
 
 if __name__ == '__main__':
-    import sys
-
     from chmap.main_bokeh import main
 
     main(parse_cli([
