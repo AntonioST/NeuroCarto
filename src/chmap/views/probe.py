@@ -17,9 +17,6 @@ __all__ = ['ProbeView']
 class ProbeView(ViewBase):
     """
     Probe view.
-
-    It is a special view component handled by ChannelMapEditorApp, so we do not inherit from ViewBase.
-
     """
 
     STYLES: dict[int | str, dict[str, Any]] = {
@@ -45,6 +42,8 @@ class ProbeView(ViewBase):
         self._e2i: dict[E, int] = {}  # {E: electrode_index}
 
         self.data_electrodes = {}  # {state : ColumnDataSource}
+        """dict {state: ColumnDataSource}"""
+
         for state in (ProbeDesp.STATE_UNUSED, ProbeDesp.STATE_USED, ProbeDesp.STATE_FORBIDDEN):
             self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[], c=[]))
             self.data_electrodes[state].selected.on_change('indices', as_callback(self._on_capture, state=state))
@@ -211,11 +210,12 @@ class ProbeView(ViewBase):
 
         return ret
 
+    @doc_link()
     def get_captured_electrodes(self, d: ColumnDataSource = None, *, reset=False) -> set[E]:
         """
         Get captured electrodes.
 
-        :param d: one of `self.data_electrodes`
+        :param d: one of {#data_electrodes}
         :param reset: reset the selecting state.
         :return: selected electrodes.
         """
@@ -264,11 +264,12 @@ class ProbeView(ViewBase):
             self.logger.debug('select %d electrodes', len(selected))
         self.set_highlight(selected)
 
+    @doc_link()
     def update_electrode_position(self, d: ColumnDataSource, e: Iterable[E]):
         """
         Show electrodes.
 
-        :param d: one of `self.data_electrodes`
+        :param d: one of {#data_electrodes}
         :param e: new electrodes
         """
         x = []

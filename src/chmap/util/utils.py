@@ -168,6 +168,7 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
     * `{class}` : `:class:~`
     * `{class#attr}` : `:attr:~`
     * `{class#meth()}` : `:meth:~`
+    * `{#attr}` : `:attr:~`
     * `{#meth()}` : `:meth:~`
     * `{func()}` : `:func:~`
     * `{VAR}` : if VAR is a str, use its str content.
@@ -180,7 +181,18 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
     :param kwargs: extra
     :return:
     """
-    g = dict(inspect.stack()[1].frame.f_locals)
+    stack = inspect.stack()
+    g = {}
+    g.update({  # function scope
+        name: value
+        for name, value in stack[1].frame.f_locals.items()
+        if not name.startswith('_')
+    })
+    g.update({  # method scope
+        name: value
+        for name, value in stack[2].frame.f_locals.items()
+        if not name.startswith('_')
+    })
     kwargs.update(g)
 
     def _decorator(func: T) -> T:
@@ -231,9 +243,13 @@ def sphinx_doc_link_replace(context: dict, m: re.Match) -> str:
             return f':func:`{func}()`'
         case (None, func, '()'):
             return f':meth:`.{func}()`'
+        case (None, attr, None):
+            return f':attr:`.{attr}`'
         case (name, None, None):
             return f':class:`{name}`'
         case (name, func, '()'):
             return f':meth:`{name}.{func}()`'
+        case (name, attr, None):
+            return f':attr:`{name}.{attr}`'
         case _:
             return m.group()  # do not replace

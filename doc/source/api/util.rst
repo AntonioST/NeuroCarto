@@ -1,13 +1,9 @@
 chmap.util
 ==========
 
-.. automodule:: chmap.util
-    :members:
-
-modules
--------
 .. toctree::
     :maxdepth: 1
+    :caption: Modules:
 
     util.atlas_brain
     util.atlas_slice

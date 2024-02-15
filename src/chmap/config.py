@@ -1,3 +1,43 @@
+"""
+
+.. code-block :: shell
+
+    python -m chmap -h
+
+::
+
+    usage: chmap [-h] [-C PATH] [-P NAME] [--selector MODULE:NAME] [--atlas NAME]
+                 [--atlas-root PATH] [--config-file FILE] [--view MODULE:NAME]
+                 [--server-address URL] [--server-port PORT] [--no-open-browser]
+                 [FILE]
+
+    positional arguments:
+      FILE                  open channelmap file.
+
+    options:
+      -h, --help            show this help message and exit
+
+    Source:
+      -C PATH, --chmap-dir PATH
+                            channel saving directory
+
+    Probe:
+      -P NAME, --probe NAME
+                            use probe family. default use "npx" (Neuropixels probe family).
+      --selector MODULE:NAME
+                            use which electrode selection method
+
+    Atlas:
+      --atlas NAME          atlas mouse brain name
+      --atlas-root PATH     atlas mouse brain download path
+
+    Bokeh Application:
+      --config-file FILE    global config file.
+      --view MODULE:NAME    install extra views in right panel
+      --server-address URL
+      --server-port PORT
+      --no-open-browser     do not open browser when server starts
+"""
 import argparse
 import dataclasses
 import logging
@@ -16,7 +56,8 @@ __all__ = [
 @dataclasses.dataclass
 @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
 class ChannelMapEditorConfig:
-    """Start configuration for ChannelMapEditorApp.
+    """
+    Startup configuration for {ChannelMapEditorApp}.
     """
 
     # Source

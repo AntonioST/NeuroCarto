@@ -7,13 +7,16 @@ from bokeh.model import Model
 from bokeh.models import PreText
 
 from chmap.util.bokeh_app import BokehApplication, run_server
+from chmap.util.utils import doc_link
 from .config import ChannelMapEditorConfig, parse_cli, setup_logger
 from .main_bokeh import ChannelMapEditorApp
 
 __all__ = ['ChannelMapEditorAppMulti', 'main']
 
 
+@doc_link()
 class ChannelMapEditorAppMulti(BokehApplication):
+    """Support multiple {ChannelMapEditorApp} instance."""
 
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(logger='chmap.app.multi')
@@ -39,6 +42,17 @@ class ChannelMapEditorAppMulti(BokehApplication):
             self.sessions.pop(session_hash)
 
     def new_config(self, args: dict[str, list[bytes]]) -> ChannelMapEditorConfig:
+        """
+
+        Allow arguments:
+
+        * `probe`
+        * `selector`
+        * `view` (multiple times)
+
+        :param args: http request arguments.
+        :return: new config
+        """
         probe = args.get('probe', [b'npx'])[0].decode()
 
         try:
