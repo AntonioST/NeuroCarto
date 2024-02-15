@@ -40,7 +40,7 @@ class Tester(ViewBase, ControllerView):
         run_later(self.finish)
 
     def finish(self):
-        self.set_status('finish ...', decay=3000)
+        self.set_status('finish ...', decay=3)
 
 
 if __name__ == '__main__':

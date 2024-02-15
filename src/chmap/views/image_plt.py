@@ -4,6 +4,7 @@ import abc
 import contextlib
 import io
 import logging
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING, NamedTuple
@@ -15,9 +16,15 @@ from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
+from chmap.util.utils import doc_link
 from chmap.views.base import DynamicView, ViewBase
 from chmap.views.image import ImageView, ImageHandler
 from chmap.views.image_npy import NumpyImageHandler
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -32,12 +39,22 @@ __all__ = [
 
 
 class Boundary(NamedTuple):
-    shape: tuple[int, int]
-    bbox: tuple[float, float, float, float]  # boundary (left, bottom, right, top) in ratio.
-    xlim: tuple[float, float]
-    ylim: tuple[float, float]
+    """Matplotlib axes boundary in a figure."""
 
-    def as_um(self) -> Boundary:
+    shape: tuple[int, int]
+    """Figure size in pixels."""
+
+    bbox: tuple[float, float, float, float]
+    """Axes boundary box (left, bottom, right, top) in ratio."""
+
+    xlim: tuple[float, float]
+    """Axes x-axis limits"""
+
+    ylim: tuple[float, float]
+    """Axes y-axis limits"""
+
+    def as_um(self) -> Self:
+        """Change value unit from mm to um."""
         xlim = self.xlim
         if xlim[1] - xlim[0] < 50:
             xlim = (xlim[0] * 1000, xlim[1] * 1000)
@@ -48,26 +65,111 @@ class Boundary(NamedTuple):
 
         return self._replace(xlim=xlim, ylim=ylim)
 
+    # ================= #
+    # Figure properties #
+    # ================= #
+
     @property
     def fg_width_px(self) -> int:
+        """Figure width in pixel"""
         return self.shape[1]
 
     @property
     def fg_height_px(self) -> int:
+        """Figure height in pixel"""
         return self.shape[0]
 
     @property
+    def fg_width(self) -> float:
+        """Figure width in um"""
+        a, _, c, _ = self.bbox
+        return self.ax_width / (c - a)
+
+    @property
+    def fg_height(self) -> float:
+        """Figure height in um."""
+        _, b, _, d = self.bbox
+        return self.ax_height / (d - b)
+
+    @property
+    def fg_xlim(self) -> tuple[float, float]:
+        """Extended x-axis limits for the figure."""
+        return self._point_x(0), self._point_x(1)
+
+    @property
+    def fg_ylim(self) -> tuple[float, float]:
+        """Extended y-axis limits for the figure."""
+        return self._point_y(0), self._point_y(1)
+
+    @property
+    def fg_extent(self) -> tuple[float, float, float, float]:
+        """
+        Figure's extent.
+
+        :return: (left, bottom, right, top) in um
+        """
+        h, w = self.shape
+        a, b = self.point(0, 0)
+        c, d = self.point(w, h)
+        return a, b, c, d
+
+    # =============== #
+    # Axes properties #
+    # =============== #
+
+    @property
     def ax_width(self) -> float:
+        """Axes width in um."""
         return self.xlim[1] - self.xlim[0]
 
     @property
     def ax_height(self) -> float:
+        """Axes height in um."""
         return self.ylim[1] - self.ylim[0]
+
+    @property
+    def ax_width_px(self) -> int:
+        """Axes width in pixel"""
+        w = self.fg_width_px
+        l, _, r, _ = self.bbox
+        return int(w * (r - l))
+
+    @property
+    def ax_height_px(self) -> int:
+        """Axes height in pixel"""
+        h = self.fg_height_px
+        _, b, _, t = self.bbox
+        return int(h * (t - b))
+
+    @property
+    def ax_extent(self) -> tuple[float, float, float, float]:
+        """
+        Axes's extent.
+
+        :return: (left, bottom, right, top) in um
+        """
+        return self.xlim[0], self.ylim[0], self.xlim[1], self.ylim[1]
+
+    @property
+    def ax_extent_px(self) -> tuple[int, int, int, int]:
+        """
+
+        :return: (left, bottom, right, top) in pixels
+        """
+        w = self.fg_width_px
+        h = self.fg_height_px
+        l, b, r, t = self.bbox
+        return int(w * l), int(h * b), int(w * r), int(t * h)
+
+    # =============== #
+    # point transform #
+    # =============== #
 
     @property
     def origin_px(self) -> tuple[int, int]:
         """
         origin point position in figure.
+
         :return: (x, y) pixel
         """
         return self.point_px(0, 0)
@@ -91,18 +193,20 @@ class Boundary(NamedTuple):
     @property
     def center(self) -> tuple[float, float]:
         """
-        the position of the figure's center point.
-        :return: (x, y)
+        The center position of the figure.
+
+        :return: (x, y) in um
         """
         h, w = self.shape
         return self.point(w // 2, h // 2)
 
     def point(self, x: int, y: int) -> tuple[float, float]:
         """
+        The point position of the figure.
 
         :param x: x coordinate on figure in pixels.
         :param y: y coordinate on figure in pixels.
-        :return: (x, y) in axis
+        :return: (x, y) in um
         """
         h, w = self.shape
         x0, x1 = self.xlim
@@ -122,52 +226,13 @@ class Boundary(NamedTuple):
         _, b, _, d = self.bbox
         return (y - b) * (y1 - y0) / (d - b) + y0
 
-    @property
-    def ax_extent(self) -> tuple[float, float, float, float]:
-        """
-
-        :return: (left, bottom, right, top)
-        """
-        return self.xlim[0], self.ylim[0], self.xlim[1], self.ylim[1]
-
-    @property
-    def ax_extent_px(self) -> tuple[int, int, int, int]:
-        """
-
-        :return: (left, bottom, right, top) in pixels
-        """
-        w = self.fg_width_px
-        h = self.fg_height_px
-        l, b, r, t = self.bbox
-        return int(w * l), int(h * b), int(w * r), int(t * h)
-
-    @property
-    def fg_extent(self) -> tuple[float, float, float, float]:
-        h, w = self.shape
-        a, b = self.point(0, 0)
-        c, d = self.point(w, h)
-        return a, b, c, d
-
-    @property
-    def fg_width(self) -> float:
-        a, _, c, _ = self.bbox
-        return self.ax_width / (c - a)
-
-    @property
-    def fg_height(self) -> float:
-        _, b, _, d = self.bbox
-        return self.ax_height / (d - b)
-
-    @property
-    def fg_xlim(self) -> tuple[float, float]:
-        return self._point_x(0), self._point_x(1)
-
-    @property
-    def fg_ylim(self) -> tuple[float, float]:
-        return self._point_y(0), self._point_y(1)
+    # ======= #
+    # Scaling #
+    # ======= #
 
     @property
     def scale(self) -> tuple[float, float]:
+        """scale for (x, y) in unit: um/pixels"""
         return self.scale_x, self.scale_y
 
     @property
@@ -181,7 +246,7 @@ class Boundary(NamedTuple):
 
 class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
     """
-    Use matplotlib to generate image.
+    Use matplotlib to generate an image.
 
     Example:
 
@@ -216,19 +281,22 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
 
     def set_image_handler(self, image: ImageHandler | None):
         self._image = image
+
+        # disable other components updating
         if image is None:
             self.set_status(None)
 
+    @doc_link()
     def set_image(self, image: NDArray[np.uint] | None,
                   boundary: Boundary = None,
                   offset: float | tuple[float, float] = 0):
         """
         Set image. Due to the figure origin point usually not the origin point in axes,
-        you need to provide *boundary* to tell program how to align the image.
+        you need to provide *boundary* to tell program how to align the image with the probe.
 
-        :param image: image array
-        :param boundary: image boundary
-        :param offset: x or (x, y) offset. Once you don't want figure 100% aligned.
+        :param image: image array. May from {get_current_plt_image()}
+        :param boundary: image boundary. May from {get_current_plt_boundary()}
+        :param offset: x or (x, y) offset. When you don't want the image 100% aligned to the probe origin.
         """
         self.set_status('update image ...')
         self.set_image_handler(NumpyImageHandler(image))
@@ -244,7 +312,7 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
                 center = (center[0] + offset, center[1])
             self.update_boundary_transform(p=center, s=boundary.scale)
 
-        self.set_status('updated', decay=3000)
+        self.set_status('updated', decay=3)
 
     # ============= #
     # UI components #
@@ -254,6 +322,7 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
         self.setup_image(f)
 
     def _setup_title(self, **kwargs) -> list[UIElement]:
+        # we do not need other components. just origin title.
         return ViewBase._setup_title(self, **kwargs)
 
     def _setup_content(self, **kwargs) -> list[UIElement]:
@@ -282,7 +351,9 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
                     **kwargs) -> ContextManager[Axes]:
         pass
 
+    # noinspection PyIncorrectDocstring
     @contextlib.contextmanager
+    @doc_link()
     def plot_figure(self, **kwargs) -> ContextManager[Axes]:
         """
         A context manager of matplotlib axes.
@@ -290,12 +361,13 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
         >>> with self.plot_figure() as ax:
         ...     ax.plot(...)
 
-        Once context closed, call `set_image()` with parameters *image* and *boundary* filled.
+        Once context closed, call {#set_image()} with parameters *image*, *boundary* and *offset* filled.
 
         :param transparent: fig.savefig(transparent)
         :param rc: default is read from image_plt.matplotlibrc.
+        :param offset: see *offset* in {#set_image()}
         :param kwargs: plt.subplots(kwargs)
-        :return: a context manger of Axes
+        :return: a context manger carries {Axes}
         """
         self.set_status('computing...')
 
@@ -332,6 +404,13 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
 
 
 def get_current_plt_image(fg=None, **kwargs) -> NDArray[np.uint]:
+    """
+    Save matplotlib figure into numpy array.
+
+    :param fg: matplotlib Figure.
+    :param kwargs: `fg.savefig(kwargs)`, except parameters *format* and *dpi*.
+    :return: a numpy array.
+    """
     if fg is None:
         fg = plt.gcf()
 
@@ -347,6 +426,12 @@ def get_current_plt_image(fg=None, **kwargs) -> NDArray[np.uint]:
 
 
 def get_current_plt_boundary(ax: Axes = None) -> Boundary:
+    """
+    Get Axes boundary.
+
+    :param ax: matplotlib Axes
+    :return: a boundary
+    """
     if ax is None:
         ax = plt.gca()
 

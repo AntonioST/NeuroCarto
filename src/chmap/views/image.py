@@ -35,16 +35,22 @@ class ImageViewState(TypedDict):
 
 
 class ImageHandler(metaclass=abc.ABCMeta):
+    """
+    Image information.
+    """
+
     def __init__(self, filename: str | None):
         self.filename: str | None = filename
         self._resolution = (1, 1)
 
     @abc.abstractmethod
     def __len__(self) -> int:
+        """number of image slides."""
         pass
 
     @abc.abstractmethod
     def __getitem__(self, index: int) -> NDArray[np.uint] | None:
+        """Get image slide at *index*."""
         pass
 
     @property
@@ -108,6 +114,9 @@ class ImageHandler(metaclass=abc.ABCMeta):
 
 
 class ImageView(BoundView, metaclass=abc.ABCMeta):
+    """
+    Base of image view.
+    """
     data_image: ColumnDataSource
     render_image: GlyphRenderer
 
@@ -217,6 +226,8 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
             global_alpha=1, syncable=False,
         )
 
+    # TODO need a better design to provide resolution changing mechanism
+    # How do we distinguish an image source between resolution self-contained and not contained?
     resolution_input: TextInput
 
     def _setup_title(self, **kwargs) -> list[UIElement]:
@@ -238,6 +249,15 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
                        support_rotate=True,
                        support_scale=True,
                        **kwargs) -> list[UIElement]:
+        """
+
+        :param slider_width:
+        :param support_index: support image slide indexing.
+        :param support_rotate: support image rotation
+        :param support_scale: support image scaling
+        :param kwargs:
+        :return:
+        """
         from bokeh.layouts import row
 
         new_slider = SliderFactory(width=slider_width, align='end')
@@ -351,6 +371,9 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
 
 class FileImageView(ImageView, StateView[list[ImageViewState]]):
+    """
+    Load images from file.
+    """
     image_config: dict[str, ImageViewState]
 
     def __init__(self, config: ChannelMapEditorConfig, *,

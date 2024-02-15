@@ -18,6 +18,8 @@ def make_stat_div(text: str):
 
 
 class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
+    """Display a channel map statistics table."""
+
     label_used_channel: Div = make_stat_div('used channels')
     label_request_electrodes: Div = make_stat_div('request electrodes')
     label_channel_efficiency: Div = make_stat_div('channel efficiency')

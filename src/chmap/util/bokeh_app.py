@@ -98,9 +98,14 @@ def run_timeout(delay: int, callback: Callable, *args, **kwargs) -> TimeoutCallb
     return document.add_timeout_callback(functools.partial(callback, *args, **kwargs), delay)
 
 
-def remove_timeout(callback: TimeoutCallback):
+def remove_timeout(callback: TimeoutCallback) -> bool:
     document = bokeh.io.curdoc()
-    document.remove_timeout_callback(callback)
+    try:
+        document.remove_timeout_callback(callback)
+    except ValueError:
+        return False
+    else:
+        return True
 
 
 def run_periodic(cycle: int, callback: Callable, *args, **kwargs) -> PeriodicCallback:
@@ -116,9 +121,14 @@ def run_periodic(cycle: int, callback: Callable, *args, **kwargs) -> PeriodicCal
     return document.add_periodic_callback(functools.partial(callback, *args, **kwargs), cycle)
 
 
-def remove_periodic(callback: PeriodicCallback):
+def remove_periodic(callback: PeriodicCallback) -> bool:
     document = bokeh.io.curdoc()
-    document.remove_periodic_callback(callback)
+    try:
+        document.remove_periodic_callback(callback)
+    except ValueError:
+        return False
+    else:
+        return True
 
 
 @doc_link()

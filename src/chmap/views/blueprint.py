@@ -16,6 +16,8 @@ __all__ = ['BlueprintView']
 
 
 class BlueprintView(ViewBase, InvisibleView, DynamicView):
+    """Show blueprint beside."""
+
     data_blueprint: ColumnDataSource
     render_blueprint: GlyphRenderer
 

@@ -15,7 +15,7 @@ from chmap.probe_npx import plot
 from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import ButtonFactory, as_callback
 from chmap.util.util_blueprint import BlueprintFunctions
-from chmap.util.utils import import_name
+from chmap.util.utils import import_name, doc_link
 from chmap.views.base import EditorView, GlobalStateView, ControllerView
 from chmap.views.data import DataHandler
 from chmap.views.image_plt import PltImageView
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     'BlueprintScriptView',
-    'BlueScript',
+    'BlueprintScript',
     'BlueprintScriptState',
 ]
 
@@ -33,8 +33,15 @@ missing = object()
 SCOPE = Literal['pure', 'parser', 'context']
 
 
-class BlueScript(Protocol):
+class BlueprintScript(Protocol):
+    """A protocol class  to represent a blueprint script function."""
     def __call__(self, bp: BlueprintFunctions, arg: str):
+        """
+
+        :param bp: script running context.
+        :param arg: script input
+        :return:
+        """
         pass
 
 
@@ -46,7 +53,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
-        self.actions: dict[str, str | BlueScript] = {}
+        self.actions: dict[str, str | BlueprintScript] = {}
 
     @property
     def name(self) -> str:
@@ -101,18 +108,32 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         if len(script):
             self.run_script(script, arg)
 
-    def get_script(self, name: str) -> BlueScript:
+    @doc_link()
+    def get_script(self, name: str) -> BlueprintScript:
+        """
+        Get and load {BlueScript}.
+
+        :param name: script name.
+        :return:
+        """
         script = self.actions.get(name, name)
         if isinstance(script, str):
             self.logger.debug('load script(%s)', name)
-            script = cast(BlueScript, import_name('blueprint script', script))
+            script = cast(BlueprintScript, import_name('blueprint script', script))
             if callable(script):
                 self.actions[name] = script
             else:
                 raise ImportError(f'script {name} not callable')
         return script
 
-    def run_script(self, script: str, arg: str):
+    @doc_link()
+    def run_script(self, script: str | BlueprintScript, arg: str):
+        """
+        Run a blueprint script.
+
+        :param script: script name, script path or a {BlueprintScript}
+        :param arg: script input text.
+        """
         if (probe := self.cache_probe) is None:
             self.log_message('no probe created')
             return
@@ -137,7 +158,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             return
 
         self.logger.debug('run_script(%s) done', script)
-        self.set_status('run script done', decay=3000)
+        self.set_status('run script done', decay=3)
         bp.apply_blueprint(blueprint)
 
         self.logger.debug('run_script(%s) update', script)
@@ -152,8 +173,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         for e in blueprint:
             e.category = ProbeDesp.CATE_UNSET
 
-        self.update_probe()
         self.log_message('reset blueprint')
+        run_later(self.update_probe)
 
     # ========= #
     # load/save #
@@ -226,6 +247,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     # ================ #
 
     def plot_npx_channelmap(self):
+        """Plot Neuropixels blueprint and electrode data."""
         self.logger.debug('plot_npx_channelmap')
 
         chmap: ChannelMap = self.cache_chmap

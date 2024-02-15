@@ -137,11 +137,23 @@ class ViewBase(metaclass=abc.ABCMeta):
         """Invoked when figure is ready."""
         pass
 
+    # =========== #
+    # GUI methods #
+    # =========== #
+
     _status_decay_callback = None
 
-    def set_status(self, text: str | None, *, decay: int = None):
+    def set_status(self, text: str | None, *, decay: float = None):
+        """
+
+        :param text: message
+        :param decay: after give seconds, clear the message.
+        """
         if text is None:
             self.status_div.text = ''
+
+            if (callback := self._status_decay_callback) is not None:
+                remove_timeout(callback)
             self._status_decay_callback = None
         else:
             self.status_div.text = text
@@ -149,11 +161,7 @@ class ViewBase(metaclass=abc.ABCMeta):
             if decay is not None:
                 if (callback := self._status_decay_callback) is not None:
                     remove_timeout(callback)
-                self._status_decay_callback = run_timeout(decay, self.set_status, None)
-
-    # =========== #
-    # GUI methods #
-    # =========== #
+                self._status_decay_callback = run_timeout(int(decay * 1000), self.set_status, None)
 
     # noinspection PyUnusedLocal
     @final

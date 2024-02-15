@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, overload, Generic
@@ -11,6 +12,11 @@ from numpy.typing import NDArray
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.utils import doc_link
 from .edit import validation
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from chmap.views.base import ViewBase, ControllerView
@@ -61,9 +67,10 @@ def blueprint_function(func):
 
 
 # noinspection PyMethodMayBeStatic
+@doc_link(BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView')
 class BlueprintFunctions(Generic[M, E]):
     """
-    Provide blueprint manipulating functions.
+    Provide blueprint manipulating functions. Used by {BlueprintScriptView}.
     """
 
     CATE_UNSET: int
@@ -100,7 +107,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         raise AttributeError(item)
 
-    def clone(self) -> BlueprintFunctions:
+    def clone(self) -> Self:
         ret = object.__new__(BlueprintFunctions)
         ret.probe = self.probe
         ret.chmap = ret.probe.new_channelmap(self.chmap)
@@ -409,7 +416,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param blueprint: Array[category, N]
         :param categories: fill area occupied by categories.
         :param threshold: only consider area which size larger than threshold.
-        :param gap: fill the gap below (|y| <= gap). Use None, fill() area as a rectangle.
+        :param gap: fill the gap below (abs(y) <= gap). Use `None`, fill an area as a rectangle.
         :param unset: unset small area (depends on threshold)
         :return: blueprint Array[category, N]
         """
