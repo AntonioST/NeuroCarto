@@ -25,6 +25,7 @@ __all__ = ['ChannelMapEditorApp', 'main']
 class ChannelMapEditorAppConfig(TypedDict, total=False):
     theme: str | dict[str, Any] | None
     views: list[str]
+    history: bool
 
 
 class ChannelMapEditorApp(BokehApplication):
@@ -164,12 +165,6 @@ class ChannelMapEditorApp(BokehApplication):
         with file.open('w') as f:
             json.dump(self.global_views_config, f, indent=2)
             self.logger.debug(f'save global config : %s', file)
-
-        if (manager := self.record_manager) is not None:
-            history_file = self.cache_file('history.json')
-            history_file.parent.mkdir(parents=True, exist_ok=True)
-            manager.save_steps(history_file)
-            self.logger.debug(f'save history : %s', history_file)
 
     def get_app_global_config(self) -> ChannelMapEditorAppConfig:
         """
@@ -384,7 +379,9 @@ class ChannelMapEditorApp(BokehApplication):
     def index(self):
         self.logger.debug('index')
         self.load_global_config(reset=True)
-        self.record_manager = RecordManager()
+
+        if self.get_app_global_config().get('history', True):
+            self.record_manager = RecordManager()
 
         if (theme := self.get_app_global_config().get('theme', None)) is not None:
             try:
