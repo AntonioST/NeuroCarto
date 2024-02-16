@@ -4,4 +4,4 @@ dist/
 *.egg-info/
 .mypy_cache/
 .coverage
-.chmap.config.json
+.chmap.*.json

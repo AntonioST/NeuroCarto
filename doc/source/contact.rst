@@ -4,7 +4,7 @@ Contact Us
 Authors
 -------
 
-* Ta-Shun Su (ta.shun.su@nerf.be)
+* Ta-Shun Su (antoniost29@gmail.com)
 
 Contributors
 ------------
