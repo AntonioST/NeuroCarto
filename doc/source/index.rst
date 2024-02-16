@@ -9,6 +9,26 @@ Welcome to ChmapEditor's documentation!
 Neuropixels channelmap editor is an editor for generate a custom channelmap from
 a given electrode-density blueprint.
 
+Features
+--------
+
+- [x] Read/Visualize/Modify/Write Neuropixels channelmap files (`*.imro`).
+- [x] Read SpikeGLX meta file (`*.meta`).
+- [x] Read/Visualize/Modify/Write Blueprint (a blueprint for generating a channelmap by a programming way).
+- [x] Show Atlas mouse brain as a background image.
+
+  - [ ] utilities functions for controlling the atlas image.
+  - [ ] probe coordinate functions
+
+- [x] Customize electrode selection and probe kind.
+- [x] Show channel efficiency and electrode density.
+- [x] (Experimental) Show an image file as a background image (`--view=file`, `--view=IMAGE`).
+- [x] (Experimental) Run custom scripts (`--view=script`).
+
+  - [x] give an example script to initial a blueprint based on an experimental data.
+
+- [x] (Experimental) Record/Save/Load/Replay channelmap manipulate steps (branch `record-steps`)
+
 
 Contents
 --------
@@ -18,7 +38,7 @@ Contents
 
     install
     start
-    atlas
+    views
     tutorial
 
 
@@ -28,7 +48,8 @@ Support formats
 ==================== ============================
 package\\probe       Neuropixels family
 ==================== ============================
-native               `*.imro` (rw), `*.meta` (r)
+native `*.imro`      read/write
+SpikeGLX `*.meta`    read
 probeinterface [1]_  read/write
 pandas [1]_          write [2]_
 polars [1]_          write [2]_
@@ -37,8 +58,8 @@ polars [1]_          write [2]_
 .. [1] optional dependency package
 .. [2] convert channelmap as dataframe.
 
-Support probes
---------------
+Support probe kinds
+-------------------
 
 Neuropixels probe family
 ~~~~~~~~~~~~~~~~~~~~~~~~

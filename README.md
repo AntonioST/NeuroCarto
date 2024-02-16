@@ -4,6 +4,16 @@ Channelmap Editor for the Neuropixels Family
 Neuropixels channelmap editor is an editor for generate a custom channelmap from 
 a given electrode-density blueprint.
 
+Features
+--------
+
+- Read/Visualize/Modify/Write Neuropixels channelmap files (`*.imro`).
+- Read SpikeGLX meta file (`*.meta`).
+- Read/Visualize/Modify/Write Blueprint (a blueprint for generating a channelmap by a programming way).
+- Show Atlas mouse brain as a background image.
+- Customize electrode selection and probe kind.
+- Show channel efficiency and electrode density.
+
 Relevant Papers
 ---------------
 

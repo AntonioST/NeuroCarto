@@ -16,9 +16,10 @@ Commandline options
 
 ::
 
-    usage: chmap [-h] [-C PATH] [-P NAME] [--selector MODULE:NAME]
-        [--atlas NAME] [--atlas-root PATH] [--config-file FILE]
-        [--view MODULE:NAME] [--no-open-browser] [FILE]
+    usage: chmap [-h] [-C PATH] [-P NAME] [--selector MODULE:NAME] [--atlas NAME]
+                 [--atlas-root PATH] [--config-file FILE] [--view MODULE:NAME]
+                 [--server-address URL] [--server-port PORT] [--no-open-browser]
+                 [FILE]
 
     positional arguments:
       FILE                  open channelmap file.
@@ -43,93 +44,110 @@ Commandline options
     Bokeh Application:
       --config-file FILE    global config file.
       --view MODULE:NAME    install extra views in right panel
+      --server-address URL
+      --server-port PORT
       --no-open-browser     do not open browser when server starts
 
 Application View
 ----------------
 
-.. image:: _static/fig3a.png
+.. image:: _static/fig4a.png
 
-*   Left panel
+Left panel
+~~~~~~~~~~
 
-    *   Channelmap File
++--------------+------------------------------------------------------------------------+
+| |fig4a-left| | **ChannelMap File**                                                    |
+|              |                                                                        |
+|              | Input file                                                             |
+|              |     Channelmap files lists under `-C PATH`.                            |
+|              |                                                                        |
+|              | * New : Create a new channelmap from supporting probe types.           |
+|              | * Load : load channelmap file from the *Input file* .                  |
+|              | * Save: Save current channelmap file.                                  |
+|              |                                                                        |
+|              | Save filename                                                          |
+|              |    The filename give to the saved channelmap file.                     |
+|              +------------------------------------------------------------------------+
+|              | **Electrode State**                                                    |
+|              |                                                                        |
+|              | Select/Unselect electrodes that captured by |bk-tool-icon-box-select|. |
+|              +------------------------------------------------------------------------+
+|              | **Electrode Category**                                                 |
+|              |                                                                        |
+|              | Set electrode category for electrodes captured                         |
+|              | by |bk-tool-icon-box-select|.                                          |
+|              +------------------------------------------------------------------------+
+|              | **Log**                                                                |
+|              |                                                                        |
+|              | Application logging messages.                                          |
++--------------+------------------------------------------------------------------------+
 
-        *   Input (input-text-field).
+Top Panels
+~~~~~~~~~~
 
-            Channelmap files lists under `-C PATH`
+|probe-desp| `Probe[CODE] CURRENT/TOTAL`.
 
-        *   New/Load/Save
+CODE
+  current probe type.
+TOTAL
+  total channel number.
+CURRENT
+  number of electrodes selected as channels.
 
-            * New: Create a new channelmap
+|figure-toolbar|
 
-            * Load: load channelmap from input-text-field.
+Bokeh provides figure tools, there are:
 
-            * Save: Save current channelmap into output-text-field.
+* |bk-tool-icon-pan| (mouse drag): figure view moving.
+* |bk-tool-icon-box-select| (mouse drag): select electrodes for
+  setting its state and category.
+* |bk-tool-icon-wheel-zoom| (mouse wheel): figure view zoom
+* |bk-tool-icon-wheel-pan| (mouse wheel): vertical moving viewport.
+* |bk-tool-icon-box-edit|: moving background image.
+  (shifted-drag) move/scale image inside the dragged rectangle.
+* |bk-tool-icon-reset|: reset figure view
+* |bk-tool-icon-hover|: display electrode information when mouse
+  moves on electrodes.
+* |bk-logo-small|: bokeh logo. Goto bokeh website on clicking.
 
-        *   Save (output-text-field)
+Figure Panel
+~~~~~~~~~~~~
 
-            saved channelmap filename.
+electrodes
+``````````
 
-    *   Electrode State
+|custom-chmap|
 
-        Select/Unselect electrodes that captured by rectangle-tool.
+Electrode colors indicate:
 
-    *   Electrode Category
+* black : selectable electrodes
+* green: selected electrodes
+* red: un-selectable (forbidden) electrodes
+* yellow: highlighted electrodes that related to the electrode captured by |bk-tool-icon-box-select|.
 
-        Set electrode category for electrodes captured by rectangle-tool.
+Background Image
+````````````````
 
-    *   Log
+Atlas mouse image. It requires extra package. Please check :ref:`atlas`.
 
-        application log messages.
+Right Panel
+~~~~~~~~~~~
 
-*   Middle panel
+|fig4a-right|
 
-    *   Probe
+All components have a common layout structures:
 
-        |probe-desp| `Probe[CODE] CURRENT/TOTAL`
+::
 
-        where **CODE** indicates current probe type, **TOTAL** represents the total channels,
-        and **CURRENT** represents number of electrodes selected as channels.
+    +-----------------+-------+-------+-----------+--------+
+    | visible_switch? | title | help? | controls? | status |
+    +-----------------+-------+-------+-----------+--------+
+    | custom contents                                      |
+    +------------------------------------------------------+
 
-    *   Tools
-
-        Bokeh provides figure tools, there are:
-
-        |figure-toolbar|
-
-        * figure pan |bk-tool-icon-pan| (mouse drag): figure view moving.
-        * rectangle-tool |bk-tool-icon-box-select| (mouse drag): select electrodes for setting its state and category.
-        * zoom figure |bk-tool-icon-wheel-zoom| (mouse wheel): figure view zoom
-        * wheel figure |bk-tool-icon-wheel-pan| (mouse wheel): figure view vertical moving
-        * image pan |bk-tool-icon-box-edit|: moving background image. (shifted-drag) move/scale image inside the dragged rectangle.
-        * reset |bk-tool-icon-reset|: reset figure view
-        * hover hint |bk-tool-icon-hover|: display electrode information when mouse moves on electrodes.
-        * bokeh logo |bk-logo-small|: goto bokeh website.
-
-
-    *   Figures
-
-        *   electrodes
-
-            * black : unselected electrodes
-            * green: selected electrodes
-            * red: un-selectable (forbidden) electrodes
-            * yellow: highlighted electrodes that related to the electrode captured by rectangle-tool.
-
-        *   background image
-
-            Atlas mouse image that controlled by right controls.
-
-*   Right panel
-
-    *   Atlas Brain control groups. (required extra package. check :ref:`atlas`)
-
-        Control image's scaling and rotating. (move controlled by figure-tools)
-
-    *   Electrode Density Curve along shanks
-
-        display electrode density curve (blue) along shanks.
-
+.. |fig4a-left| image:: _static/fig4a-left.png
+.. |fig4a-right| image:: _static/fig4a-right.png
 .. |figure-toolbar| image:: _static/figure-toolbar.png
 .. |bk-tool-icon-pan| image:: _static/bk-tool-icon-pan.svg
 .. |bk-tool-icon-box-select| image:: _static/bk-tool-icon-box-select.svg
@@ -249,7 +267,7 @@ A custom channelmap
 
     |custom-chmap|
 
-    If not, it means the current blueprint isn't compatible with the Neuropixels's hardware restriction. Please check `tips`_
+    If not, it means the current blueprint isn't compatible with the Neuropixels's hardware restriction. Please check `Tips on building custom channelmap`_
 
 6.  Type the new filename for your channelmap in **Save filename** field.
 7.  Press **Save**.
@@ -265,7 +283,6 @@ A custom channelmap
 .. |auto| image:: _static/auto.png
 
 
-.. _tips:
 
 Tips on building custom channelmap
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
