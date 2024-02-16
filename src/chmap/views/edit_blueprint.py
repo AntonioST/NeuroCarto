@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import collections
+import functools
+import inspect
 import sys
 import textwrap
 from pathlib import Path
 from typing import Protocol, TypedDict, Literal, TYPE_CHECKING, cast, NamedTuple
 
 import numpy as np
-from bokeh.models import Select, TextInput, PreText
+from bokeh.models import Select, TextInput, PreText, Div
 from matplotlib.axes import Axes
 from matplotlib.transforms import Affine2D
 from numpy.typing import NDArray
@@ -43,19 +46,19 @@ SCOPE = Literal['pure', 'parser', 'context']
 class BlueprintScript(Protocol):
     """A protocol class  to represent a blueprint script function."""
 
-    def __call__(self, bp: BlueprintFunctions, arg: str):
+    def __call__(self, bp: BlueprintFunctions, *args, **kwargs) -> None:
         """
 
         :param bp: script running context.
-        :param arg: script input
-        :return:
+        :param args:
+        :param kwargs:
         """
         pass
 
 
 class BlueprintScriptInfo(NamedTuple):
     name: str
-    module: str  # 'MODUlE:NAME'
+    module: str | None  # 'MODUlE:NAME'
     filepath: Path | None
     time_stamp: float | None
     script: BlueprintScript
@@ -79,6 +82,9 @@ class BlueprintScriptInfo(NamedTuple):
         return self.time_stamp < t
 
     def reload(self) -> Self:
+        if self.module is None:
+            raise ImportError()
+
         script = cast(BlueprintScript, import_name('blueprint script', self.module, reload=True))
         if not callable(script):
             raise ImportError(f'script {self.name} not callable')
@@ -86,6 +92,46 @@ class BlueprintScriptInfo(NamedTuple):
         script_file = self.filepath
         time_stamp = None if script_file is None or not script_file.exists() else script_file.stat().st_mtime
         return self._replace(time_stamp=time_stamp, script=script)
+
+    def script_name(self) -> str:
+        return self.script.__name__
+
+    def script_signature(self) -> str:
+        name = self.script.__name__
+        p = ', '.join(self.script_parameters())
+        return f'{name}({p})'
+
+    def script_parameters(self) -> list[str]:
+        s = inspect.signature(self.script)
+        return [it for i, it in enumerate(s.parameters) if i != 0]
+
+    def script_doc(self) -> str | None:
+        if (doc := self.script.__doc__) is not None:
+            return textwrap.dedent(doc)
+        return None
+
+    def __call__(self, bp: BlueprintFunctions, script_input: str):
+        """
+        Eval *script_input* and call actual script function.
+
+        Although *script_input* should be a valid Python code,
+        we cheat the undefined variable name as a str.
+        For example, the following *script_input* will be considered::
+
+            (input) a,1,"b,3"
+            (output) ("a", 1, "b,3")
+
+        This function does not do the argument type validation.
+
+        :param bp:
+        :param script_input:
+        """
+
+        class Missing(collections.defaultdict):
+            def __missing__(self, key):
+                return key
+
+        eval(f'__script_func__({script_input})', {}, Missing(__script_func__=functools.partial(self.script, bp)))
 
 
 class BlueprintScriptState(TypedDict):
@@ -123,9 +169,11 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         from bokeh.layouts import row
         return [
             row(
-                self.script_select, self.script_input,
+                self.script_select, Div(text="(", css_classes=['chmap-large']),
+                self.script_input, Div(text=")", css_classes=['chmap-large']),
                 btn('run', self._on_run_script),
                 btn('reset', self.reset_blueprint),
+                stylesheets=['div.chmap-large {font-size: x-large;}']
             ),
             self.script_document
         ]
@@ -139,9 +187,9 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         except ImportError:
             self.script_document.text = 'Import Fail'
         else:
-            head = f'{script.__name__}()'
-            if (doc := script.__doc__) is not None:
-                self.script_document.text = head + '\n' + textwrap.dedent(doc)
+            head = script.script_signature()
+            if (doc := script.script_doc()) is not None:
+                self.script_document.text = head + '\n' + doc
             else:
                 self.script_document.text = head
 
@@ -152,7 +200,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             self.run_script(script, arg)
 
     @doc_link()
-    def get_script(self, name: str) -> BlueprintScript:
+    def get_script(self, name: str | BlueprintScript | BlueprintScriptInfo) -> BlueprintScriptInfo:
         """
         Get and load {BlueScript}.
 
@@ -162,32 +210,41 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         :return:
         """
         script = self.actions.get(name, name)
-        if isinstance(script, str):
+
+        if isinstance(name, str) and isinstance(script, str):
             self.logger.debug('load script(%s)', name)
             self.actions[name] = script = BlueprintScriptInfo.load(name, script)
             if script.filepath is not None:
                 self.logger.debug('loaded script(%s) from %s', name, script.filepath)
 
         if not isinstance(script, BlueprintScriptInfo):
-            raise TypeError()
+            if not callable(script):
+                raise TypeError()
 
-        if script.check_changed():
+            script = BlueprintScriptInfo(script.__name__, '', None, None, script)
+
+        if isinstance(name, str) and script.check_changed():
             self.logger.debug('reload script(%s)', name)
             self.actions[name] = script = script.reload()
 
-        return script.script
+        return script
 
     @doc_link()
-    def run_script(self, script: str | BlueprintScript, arg: str):
+    def run_script(self, script: str | BlueprintScript | BlueprintScriptInfo, script_input: str = None):
         """
         Run a blueprint script.
 
         :param script: script name, script path or a {BlueprintScript}
-        :param arg: script input text.
+        :param script_input: script input text.
         """
         probe = self.get_app().probe
 
-        script_name = getattr(script, '__name__', str(script))
+        if isinstance(script, str):
+            script_name = script
+        elif isinstance(script, BlueprintScriptInfo):
+            script_name = script.script_name()
+        else:
+            script_name = getattr(script, '__name__', str(script))
 
         self.logger.debug('run_script(%s)', script_name)
         self.set_status('run script ...')
@@ -196,15 +253,18 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             bs = self.get_script(script)
         except BaseException as e:
             self.logger.warning('run_script(%s) import fail', script_name, exc_info=e)
-            self.log_message(f'run script {script} import fail')
+            self.log_message(f'run script {script_name} import fail')
             self.set_status(None)
             return
 
+        if script_input is None:
+            script_input = self.script_input.value_input
+
         try:
-            bp = self._run_script(bs, probe, self.cache_chmap, arg)
+            bp = self._run_script(bs, probe, self.cache_chmap, script_input)
         except BaseException as e:
             self.logger.warning('run_script(%s) fail', script_name, exc_info=e)
-            self.log_message(f'run script {script} fail')
+            self.log_message(f'run script {script_name} fail')
             self.set_status(None)
             return
 
@@ -215,18 +275,21 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             self.logger.debug('run_script(%s) update', script_name)
             run_later(self.update_probe)
 
-    def _run_script(self, script: BlueprintScript, probe: ProbeDesp[M, E], chmap: M | None, arg: str) -> BlueprintFunctions:
+    def _run_script(self, script: BlueprintScriptInfo,
+                    probe: ProbeDesp[M, E],
+                    chmap: M | None,
+                    script_input: str) -> BlueprintFunctions:
         from chmap.util.edit.actions import RequestChannelmapTypeError
-        script_name = getattr(script, '__name__', str(script))
+        script_name = script.script_name()
 
         bp = BlueprintFunctions(probe, chmap)
         bp._controller = self
 
-        self.logger.debug('run_script(%s)[%s]', script_name, arg)
+        self.logger.debug('run_script(%s)[%s]', script_name, script_input)
 
-        request: RequestChannelmapTypeError = None
+        request: RequestChannelmapTypeError
         try:
-            script(bp, arg)
+            script(bp, script_input)
         except RequestChannelmapTypeError as e:
             if chmap is None and e.check_probe(probe) and e.chmap_code is not None:
                 request = e
@@ -237,12 +300,11 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             return bp
 
         # from RequestChannelmapTypeError
-        assert request is not None
         self.logger.debug('run_script(%s) request %s[%d]', script_name, request.probe_name, request.chmap_code)
         chmap = bp.new_channelmap(request.chmap_code)
 
-        self.logger.debug('run_script(%s) rerun')
-        return self._run_script(script, probe, chmap, arg)
+        self.logger.debug('run_script(%s) rerun', script_name)
+        return self._run_script(script, probe, chmap, script_input)
 
     def reset_blueprint(self):
         if (blueprint := self.cache_blueprint) is None:

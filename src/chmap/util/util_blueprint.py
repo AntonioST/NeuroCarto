@@ -11,7 +11,6 @@ from numpy.typing import NDArray
 
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.utils import doc_link
-from .edit import validation
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -365,6 +364,7 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.clustering import find_clustering
         return find_clustering(self, blueprint, categories, diagonal=diagonal)
 
+    @doc_link()
     def clustering_edges(self, blueprint: BLUEPRINT,
                          categories: int | list[int] = None) -> list[ClusteringEdges]:
         """
@@ -372,7 +372,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param blueprint:
         :param categories:
-        :return: list of ClusteringEdges
+        :return: list of {ClusteringEdges}
         """
         from .edit.clustering import clustering_edges
         return clustering_edges(self, blueprint, categories)
@@ -432,12 +432,6 @@ class BlueprintFunctions(Generic[M, E]):
         """
         from .edit.moving import extend
         return extend(self, blueprint, on, step, category, threshold=threshold, bi=bi, overwrite=overwrite)
-
-    # ====================== #
-    # data input validations #
-    # ====================== #
-
-    arg = validation
 
     # ==================== #
     # data process methods #

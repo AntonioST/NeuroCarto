@@ -31,12 +31,12 @@ class Tester(ViewBase, ControllerView):
     def set_value(self):
         self.set_status('set value ...')
         self.edit.add_script('demo', 'chmap.util.edit._actions:blueprint_simple_init_script_from_activity_data_with_a_threshold')
-        self.edit.script_input.value_input = 'res/Fig5d_data.npy,3500'
+        self.edit.script_input.value_input = '"res/Fig5d_data.npy", 3500'
         run_later(self.run_script)
 
     def run_script(self):
         self.set_status('eval content ...')
-        self.edit._on_run_script()
+        self.edit.run_script("demo")
         run_later(self.finish)
 
     def finish(self):
@@ -53,5 +53,5 @@ if __name__ == '__main__':
         '--debug',
         '--view=-',
         '--view=chmap.views.edit_blueprint:BlueprintScriptView',
-        '--view=tests:main_edit_blueprint:Tester',
+        '--view=tests:main_blueprint_script:Tester',
     ]))

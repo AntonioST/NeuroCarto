@@ -29,7 +29,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         self.data_blueprint = ColumnDataSource(data=dict(xs=[], ys=[], c=[]))
 
     @property
-    def name(self) -> str | None:
+    def name(self) -> str:
         return "Blueprint"
 
     @property
