@@ -16,7 +16,7 @@ Electrode Category value colors:
 Commandline options
 -------------------
 
-It is enable by default.
+It is enabled by default.
 If no, use ``--view=blueprint`` in command-line.
 
 

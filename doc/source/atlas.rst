@@ -29,7 +29,7 @@ If no, use ``--view=atlas`` in command-line.
 Application View
 ----------------
 
-Once `bg-atlasapi` installed, you can find a brain slice shown in the middle figure.
+Once ``bg-atlasapi`` installed, you can find a brain slice shown in the middle figure.
 
 Controls
 ~~~~~~~~
