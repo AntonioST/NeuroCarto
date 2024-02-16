@@ -401,13 +401,22 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def del_electrode(self, chmap: M, e: E):
         """
-        Remove an electrode *e* from *chmap*.
+        Remove an electrode *e* from the *chmap*.
 
         :param chmap: a channelmap instance
         :param e: an electrode
         :raise: any error means the action was failed.
         """
         pass
+
+    def clear_electrode(self, chmap: M):
+        """
+        Remove all electrodes from the *chmap*.
+
+        :param chmap: a channelmap instance
+        """
+        for e in self.all_channels(chmap):
+            self.del_electrode(chmap, e)
 
     def copy_electrode(self, electrodes: Sequence[E]) -> list[E]:
         """
@@ -452,10 +461,12 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         Collect the invalid electrodes that an electrode from *s* will break the {#probe_rule()}
         with the electrode *e* (or any electrode from *e*).
 
+        Note that *e* may also be contained in the result if *e* in *electrodes*.
+
         :param chmap: channelmap type. It is a reference.
         :param e: an electrode.
         :param electrodes: an electrode set.
-        :return: an invalid electrode set from *s*.
+        :return: an invalid electrode set from *electrodes*.
         """
         if isinstance(e, Iterable):
             return [it for it in electrodes if any([not self.probe_rule(chmap, ee, it) for ee in e])]

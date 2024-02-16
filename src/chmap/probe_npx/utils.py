@@ -129,7 +129,7 @@ def set_electrodes(chmap: ChannelMap,
 
 def npx24_single_shank(shank: int, row: int = 0, *, um: bool = False) -> ChannelMap:
     """
-    Make a typical channelmap for 4-shank Neuropixels probe.
+    Make a block channelmap for 4-shank Neuropixels probe.
 
     >>> print_probe(npx24_single_shank(0))
     624▕ ▏▕ ▏▕ ▏▕ ▏
@@ -175,7 +175,7 @@ def npx24_single_shank(shank: int, row: int = 0, *, um: bool = False) -> Channel
 
 def npx24_stripe(row: int = 0, *, um: bool = False) -> ChannelMap:
     """
-    Make a typical channelmap for 4-shank Neuropixels probe.
+    Make a block channelmap for 4-shank Neuropixels probe.
 
     >>> print_probe(npx24_stripe())
     624▕ ▏▕ ▏▕ ▏▕ ▏

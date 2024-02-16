@@ -135,6 +135,7 @@ class BlueprintScriptInfo(NamedTuple):
 
 
 class BlueprintScriptState(TypedDict):
+    clear: bool
     actions: dict[str, str]
 
 
@@ -142,7 +143,13 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
-        self.actions: dict[str, str | BlueprintScriptInfo] = {}
+        self.actions: dict[str, str | BlueprintScriptInfo] = {
+            'single': 'chmap.util.edit._actions:npx24_single_shank',
+            'stripe': 'chmap.util.edit._actions:npx24_stripe',
+            'half': 'chmap.util.edit._actions:npx24_half_density',
+            'quarter': 'chmap.util.edit._actions:npx24_quarter_density',
+            '1-eighth': 'chmap.util.edit._actions:npx24_one_eighth_density',
+        }
 
     @property
     def name(self) -> str:
@@ -322,17 +329,18 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     # load/save #
     # ========= #
 
-    def save_state(self, local=True) -> BlueprintScriptState | None:
-        if local:
-            return None
-
-        return BlueprintScriptState(
-            actions=self.actions
-        )
+    def save_state(self, local=True) -> None:
+        return None
 
     def restore_state(self, state: BlueprintScriptState):
-        self.actions = state.get('actions', {})
-        self.script_select.options = opts = list(sorted(self.actions))
+        clear = state.get('clear', False)
+        actions = state.get('actions', {})
+        if clear:
+            self.actions = actions
+        else:
+            self.actions.update(actions)
+
+        self.script_select.options = opts = list(self.actions)
         try:
             self.script_select.value = opts[0]
         except IndexError:

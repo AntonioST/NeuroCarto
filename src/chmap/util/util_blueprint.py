@@ -79,9 +79,6 @@ class BlueprintFunctions(Generic[M, E]):
 
     def __init__(self, probe: ProbeDesp[M, E], chmap: int | str | M | None):
         self.probe: ProbeDesp[M, E] = probe
-        if chmap is not None:
-            chmap = probe.new_channelmap(chmap)
-
         self.chmap: M | None = chmap
         self.categories: dict[str, int] = probe.all_possible_categories()
 
@@ -116,7 +113,7 @@ class BlueprintFunctions(Generic[M, E]):
     def clone(self) -> Self:
         ret = object.__new__(BlueprintFunctions)
         ret.probe = self.probe
-        ret.chmap = ret.probe.new_channelmap(self.chmap)
+        ret.chmap = self.chmap
         ret.categories = self.categories
 
         ret.s = self.s
@@ -128,6 +125,68 @@ class BlueprintFunctions(Generic[M, E]):
         ret._blueprint = self._blueprint.copy()
         ret._controller = self._controller
         return ret
+
+    # ==================== #
+    # channelmap functions #
+    # ==================== #
+
+    def add_electrodes(self, e: int | list[int] | NDArray[np.int_] | NDArray[np.bool_], *, overwrite=True):
+        """
+
+        :param e: electrode index, index list, index array or index mask.
+        :param overwrite: overwrite previous selected electrode.
+        """
+        electrodes = self.probe.all_electrodes(self.chmap)
+        if isinstance(e, (int, np.integer)):
+            e = [electrodes[int(e)]]
+        elif isinstance(e, (list, tuple)):
+            e = [electrodes[int(it)] for it in e]
+        else:
+            e = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
+
+        for t in e:
+            self.probe.add_electrode(self.chmap, t, overwrite=overwrite)
+
+    def del_electrodes(self, e: int | list[int] | NDArray[np.int_] | NDArray[np.bool_]):
+        """
+
+        :param e: electrode index, index list, index array or index mask.
+        """
+        electrodes = self.probe.all_electrodes(self.chmap)
+        if isinstance(e, (int, np.integer)):
+            e = [electrodes[int(e)]]
+        elif isinstance(e, (list, tuple)):
+            e = [electrodes[int(it)] for it in e]
+        else:
+            e = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
+
+        for t in e:
+            self.probe.del_electrode(self.chmap, t)
+
+    def selected_electrodes(self) -> NDArray[np.int_]:
+        """
+
+        :return: electrode index array
+        """
+        ret = []
+
+        pos = self._position_index
+
+        for e in self.probe.all_channels(self.chmap):
+            p = int(e.s), int(e.x / self.dx), int(e.y / self.dy)
+            if (i := pos.get(p, None)) is not None:
+                ret.append(i)
+
+        return np.unique(ret)
+
+    def set_channelmap(self, chmap: M):
+        self.probe.clear_electrode(self.chmap)
+        for t in self.probe.all_channels(chmap):
+            self.probe.add_electrode(self.chmap, t)
+
+    # =================== #
+    # blueprint functions #
+    # =================== #
 
     def blueprint(self) -> BLUEPRINT:
         """blueprint."""
@@ -162,10 +221,19 @@ class BlueprintFunctions(Generic[M, E]):
         if blueprint is None:
             blueprint = self.blueprint()
 
+        for e in electrodes:
+            e.state = ProbeDesp.STATE_UNUSED
+
+        for e in self.probe.all_channels(self.chmap, electrodes):
+            for t in self.probe.invalid_electrodes(self.chmap, e, electrodes):
+                t.state = ProbeDesp.STATE_FORBIDDEN
+            e.state = ProbeDesp.STATE_USED
+
         c = {it.electrode: it for it in electrodes}
         for e, p in zip(self.probe.all_electrodes(self.chmap), blueprint):
             if (t := c.get(e.electrode, None)) is not None:
                 t.category = int(p)
+
         return electrodes
 
     def load_blueprint(self, file: str | Path) -> BLUEPRINT:

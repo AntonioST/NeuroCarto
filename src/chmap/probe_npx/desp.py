@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, TypeAlias, Any, TypeVar, Generic
+from typing import ClassVar, TypeAlias, Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -151,6 +151,9 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
     def del_electrode(self, chmap: ChannelMap, e: NpxElectrodeDesp):
         chmap.del_electrode(e.electrode)
+
+    def clear_electrode(self, chmap: ChannelMap):
+        del chmap.channels[:]
 
     def probe_rule(self, chmap: ChannelMap | None, e1: NpxElectrodeDesp, e2: NpxElectrodeDesp) -> bool:
         return e1.channel != e2.channel

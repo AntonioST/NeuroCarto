@@ -1,8 +1,61 @@
 import numpy as np
 
-from chmap.probe_npx import NpxProbeDesp
+from chmap.probe_npx import NpxProbeDesp, utils
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import TimeMarker
+
+
+def npx24_single_shank(bp: BlueprintFunctions, shank: int = 0, row: int = 0):
+    """\
+    Make a block channelmap for 4-shank Neuropixels probe.
+
+    :param shank: (int=0) on which shank.
+    :param row: (int=0) start row in um.
+    """
+    bp.check_probe(NpxProbeDesp, 24)
+    bp.set_channelmap(utils.npx24_single_shank(shank, row, um=True))
+
+
+def npx24_stripe(bp: BlueprintFunctions, row: int = 0):
+    """\
+    Make a block channelmap for 4-shank Neuropixels probe.
+
+    :param row: (int=0) start row in um.
+    """
+    bp.check_probe(NpxProbeDesp, 24)
+    bp.set_channelmap(utils.npx24_stripe(row, um=True))
+
+
+def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] = 0, row: int = 0):
+    """\
+    Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in half density.
+
+    :param shank: (int|[int, int]=0) on which shank/s.
+    :param row: (int=0) start row in um.
+    """
+    bp.check_probe(NpxProbeDesp, 24)
+    bp.set_channelmap(utils.npx24_half_density(shank, row, um=True))
+
+
+def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | None = None, row: int = 0):
+    """\
+    Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in quarter density.
+
+    :param shank: (int|[int, int]=None) on which shank/s. use `None` for four shanks.
+    :param row: (int=0) start row in um.
+    """
+    bp.check_probe(NpxProbeDesp, 24)
+    bp.set_channelmap(utils.npx24_quarter_density(shank, row, um=True))
+
+
+def npx24_one_eighth_density(bp: BlueprintFunctions, row: int = 0):
+    """\
+    Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in one-eighth density.
+
+    :param row: (int=0) start row in um.
+    """
+    bp.check_probe(NpxProbeDesp, 24)
+    bp.set_channelmap(utils.npx24_one_eighth_density(row, um=True))
 
 
 def blueprint_simple_init_script_from_activity_data_with_a_threshold(bp: BlueprintFunctions, filename: str, threshold: float):
