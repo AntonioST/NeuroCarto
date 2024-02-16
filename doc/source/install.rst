@@ -4,7 +4,7 @@ Installation
 Require
 -------
 
-Require `Python 3.10`, and (recommended) a Python virtual environment.
+Require ``Python 3.10``, and (recommended) a Python virtual environment.
 
 Install
 -------
@@ -26,15 +26,15 @@ Run
 Optional dependency packages
 ----------------------------
 
-* `bg-atlasapi` Atlas Brain background image supporting.
-* `Pillow`, `tifffile` other background image format supporting.
-* `probeinterface` probe/channelmap format import/export
-* `pandas`, `polars` channelmap data export.
+* ``bg-atlasapi`` Atlas Brain background image supporting.
+* ``Pillow``, ``tifffile`` other background image format supporting.
+* ``probeinterface`` probe/channelmap format import/export
+* ``pandas``, ``polars`` channelmap data export.
 
 Build from source
 -----------------
 
-1. create python environment. Here use `conda` as example. ::
+1. create python environment. Here use ``conda`` as example. ::
 
     conda create -n chmap python~=3.10.0
     conda activate chmap
@@ -57,12 +57,12 @@ Build from source
 
         pip install dist/chmap_editor-0.0.0-py3-none-any.whl
 
-   change version `0.0.0` to latest when needed.
+   change version ``0.0.0`` to latest when needed.
 
 Build Document
 --------------
 
-Make sure the package has been installed or added in `PYTHONPATH`.
+Make sure the package has been installed or added in ``PYTHONPATH``.
 
 1. install extra dependencies. ::
 
@@ -73,7 +73,7 @@ Make sure the package has been installed or added in `PYTHONPATH`.
     cd doc
     make html
 
-3. open generated html at `doc/build/html/index.html`.
+3. open generated html at ``doc/build/html/index.html``.
 
 build github wiki
 ~~~~~~~~~~~~~~~~~
@@ -85,11 +85,11 @@ For contributors only.
     git submodule init doc/wiki
     git submodule update doc/wiki
 
-2. under `doc` directory. run make. ::
+2. under ``doc`` directory. run make. ::
 
     make markdown
 
-3. check the output at `doc/wiki`. Note that the `rst` output may be not suitable for `md`.
+3. check the output at ``doc/wiki``. Note that the ``rst`` output may be not suitable for ``md``.
    Check the git difference and modify the contents are necessary.
 
 testing library versions

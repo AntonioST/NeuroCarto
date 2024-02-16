@@ -60,7 +60,7 @@ Left panel
 | |fig4a-left| | **ChannelMap File**                                                    |
 |              |                                                                        |
 |              | Input file                                                             |
-|              |     Channelmap files lists under `-C PATH`.                            |
+|              |     Channelmap files lists under ``-C PATH``.                          |
 |              |                                                                        |
 |              | * New : Create a new channelmap from supporting probe types.           |
 |              | * Load : load channelmap file from the *Input file* .                  |
@@ -86,7 +86,7 @@ Left panel
 Top Panels
 ~~~~~~~~~~
 
-|probe-desp| `Probe[CODE] CURRENT/TOTAL`.
+|probe-desp| ``Probe[CODE] CURRENT/TOTAL``.
 
 CODE
   current probe type.
@@ -213,11 +213,11 @@ A simple channelmap
 Saved Files
 ~~~~~~~~~~~
 
-Once you save a channelmap (use previous example), then you will get files under `-C PATH`:
+Once you save a channelmap (use previous example), then you will get files under ``-C PATH``:
 
-* `First_map.imro`: channelmap file
-* `First_map.blueprint.npy`: electrode blueprint matrix
-* `First_map.config.json`: view configurations of each component, such as the coordinate of atlas mouse image.
+* ``First_map.imro``: channelmap file
+* ``First_map.blueprint.npy``: electrode blueprint matrix
+* ``First_map.config.json``: view configurations of each component, such as the coordinate of atlas mouse image.
 
 Once `First_map.imro` load, the other files are also loaded to restore states.
 
@@ -267,7 +267,7 @@ A custom channelmap
 
     |custom-chmap|
 
-    If not, it means the current blueprint isn't compatible with the Neuropixels's hardware restriction. Please check `Tips on building custom channelmap`_
+    If not, it means the current blueprint isn't compatible with the Neuropixels hardware restriction. Please check `Tips on building custom channelmap`_
 
 6.  Type the new filename for your channelmap in **Save filename** field.
 7.  Press **Save**.

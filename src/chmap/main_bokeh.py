@@ -151,7 +151,7 @@ class ChannelMapEditorApp(BokehApplication):
         try:
             app_config: ChannelMapEditorAppConfig = self.global_views_config[type(self).__name__]
         except KeyError:
-            self.global_views_config[type(self).__name__] = app_config = ChannelMapEditorAppConfig(theme=None, views=[])
+            self.global_views_config[type(self).__name__] = app_config = ChannelMapEditorAppConfig()
             self.save_global_config(direct=True)
 
         return app_config

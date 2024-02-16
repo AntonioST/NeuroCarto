@@ -12,8 +12,8 @@ a given electrode-density blueprint.
 Features
 --------
 
-- [x] Read/Visualize/Modify/Write Neuropixels channelmap files (`*.imro`).
-- [x] Read SpikeGLX meta file (`*.meta`).
+- [x] Read/Visualize/Modify/Write Neuropixels channelmap files (``*.imro``).
+- [x] Read SpikeGLX meta file (``*.meta``).
 - [x] Read/Visualize/Modify/Write Blueprint (a blueprint for generating a channelmap by a programming way).
 - [x] Show Atlas mouse brain as a background image.
 
@@ -22,12 +22,16 @@ Features
 
 - [x] Customize electrode selection and probe kind.
 - [x] Show channel efficiency and electrode density.
-- [x] (Experimental) Show an image file as a background image (`--view=file`, `--view=IMAGE`).
-- [x] (Experimental) Run custom scripts (`--view=script`).
+- [x] (Experimental) Show an image file as a background image (``--view=file``, ``--view=IMAGE``).
+
+  - [ ] Read image resolution tags.
+
+- [x] Show dynamic generated image (via ``matplotlib``) as a background image.
+- [x] (Experimental) Run custom scripts (``--view=script``).
 
   - [x] give an example script to initial a blueprint based on an experimental data.
 
-- [x] (Experimental) Record/Save/Load/Replay channelmap manipulate steps (branch `record-steps`)
+- [x] (Experimental) Record/Save/Load/Replay channelmap manipulate steps (branch ``record-steps``)
 
 
 Contents
@@ -48,8 +52,8 @@ Support formats
 ==================== ============================
 package\\probe       Neuropixels family
 ==================== ============================
-native `*.imro`      read/write
-SpikeGLX `*.meta`    read
+SpikeGLX ``*.imro``  read/write
+SpikeGLX ``*.meta``  read
 probeinterface [1]_  read/write
 pandas [1]_          write [2]_
 polars [1]_          write [2]_
@@ -64,7 +68,7 @@ Support probe kinds
 Neuropixels probe family
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-file format: `*.imro`.
+file format: ``*.imro``.
 
 ===== =============== =============== ======================= =================
 rw\\p Neuropixels 1.0 Neuropixels 2.0 4-shank Neuropixels 2.0 Neuropixels Ultra
