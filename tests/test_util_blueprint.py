@@ -16,6 +16,7 @@ DEFAULT_CATEGORIES = {
 }
 
 
+# noinspection PyFinal
 def bp_from_shape(shape: tuple[int, int, int]) -> BlueprintFunctions:
     """
 
@@ -31,7 +32,7 @@ def bp_from_shape(shape: tuple[int, int, int]) -> BlueprintFunctions:
 
     ret = object.__new__(BlueprintFunctions)
     ret.probe = NpxProbeDesp()
-    ret.chmap = None
+    ret.channelmap = None
     ret.categories = DEFAULT_CATEGORIES
     ret.s = ss
     ret.x = xx

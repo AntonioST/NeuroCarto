@@ -11,7 +11,7 @@ __all__ = ['load_data', 'interpolate_nan']
 
 
 def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float_]:
-    e = self.probe.all_electrodes(self.chmap)
+    e = self.probe.all_electrodes(self.channelmap)
     for t in e:
         t.category = np.nan
     e = self.probe.load_blueprint(file, e)

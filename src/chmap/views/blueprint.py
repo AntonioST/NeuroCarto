@@ -81,7 +81,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
     def plot_npx_channelmap(self, bp: BlueprintFunctions) -> dict:
         from chmap.probe_npx.npx import ProbeType
 
-        probe_type: ProbeType = bp.chmap.probe_type
+        probe_type: ProbeType = bp.channelmap.probe_type
         c_space = probe_type.c_space
         r_space = probe_type.r_space
 

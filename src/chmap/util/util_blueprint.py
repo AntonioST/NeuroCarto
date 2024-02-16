@@ -4,7 +4,7 @@ import functools
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, overload, Generic
+from typing import TYPE_CHECKING, overload, Generic, Final
 
 import numpy as np
 from numpy.typing import NDArray
@@ -78,17 +78,17 @@ class BlueprintFunctions(Generic[M, E]):
     CATE_LOW: int
 
     def __init__(self, probe: ProbeDesp[M, E], chmap: int | str | M | None):
-        self.probe: ProbeDesp[M, E] = probe
-        self.chmap: M | None = chmap
-        self.categories: dict[str, int] = probe.all_possible_categories()
+        self.probe: Final[ProbeDesp[M, E]] = probe
+        self.channelmap: Final[M | None] = chmap
+        self.categories: Final[dict[str, int]] = probe.all_possible_categories()
 
         if chmap is not None:
             electrodes = probe.all_electrodes(chmap)
-            self.s: NDArray[np.int_] = np.array([it.s for it in electrodes])
-            self.x: NDArray[np.int_] = np.array([it.x for it in electrodes])
-            self.y: NDArray[np.int_] = np.array([it.y for it in electrodes])
-            self.dx: float = float(np.min(np.diff(np.unique(self.x))))
-            self.dy: float = float(np.min(np.diff(np.unique(self.y))))
+            self.s: Final[NDArray[np.int_]] = np.array([it.s for it in electrodes])
+            self.x: Final[NDArray[np.int_]] = np.array([it.x for it in electrodes])
+            self.y: Final[NDArray[np.int_]] = np.array([it.y for it in electrodes])
+            self.dx: Final[float] = float(np.min(np.diff(np.unique(self.x))))
+            self.dy: Final[float] = float(np.min(np.diff(np.unique(self.y))))
             if self.dx <= 0 or self.dy <= 0:
                 raise ValueError(f'dx={self.dx}, dy={self.dy}')
 
@@ -110,10 +110,11 @@ class BlueprintFunctions(Generic[M, E]):
 
         raise AttributeError(item)
 
+    # noinspection PyFinal
     def clone(self) -> Self:
         ret = object.__new__(BlueprintFunctions)
         ret.probe = self.probe
-        ret.chmap = self.chmap
+        ret.channelmap = self.channelmap
         ret.categories = self.categories
 
         ret.s = self.s
@@ -136,7 +137,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param e: electrode index, index list, index array or index mask.
         :param overwrite: overwrite previous selected electrode.
         """
-        electrodes = self.probe.all_electrodes(self.chmap)
+        electrodes = self.probe.all_electrodes(self.channelmap)
         if isinstance(e, (int, np.integer)):
             e = [electrodes[int(e)]]
         elif isinstance(e, (list, tuple)):
@@ -145,14 +146,14 @@ class BlueprintFunctions(Generic[M, E]):
             e = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
 
         for t in e:
-            self.probe.add_electrode(self.chmap, t, overwrite=overwrite)
+            self.probe.add_electrode(self.channelmap, t, overwrite=overwrite)
 
     def del_electrodes(self, e: int | list[int] | NDArray[np.int_] | NDArray[np.bool_]):
         """
 
         :param e: electrode index, index list, index array or index mask.
         """
-        electrodes = self.probe.all_electrodes(self.chmap)
+        electrodes = self.probe.all_electrodes(self.channelmap)
         if isinstance(e, (int, np.integer)):
             e = [electrodes[int(e)]]
         elif isinstance(e, (list, tuple)):
@@ -161,7 +162,7 @@ class BlueprintFunctions(Generic[M, E]):
             e = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
 
         for t in e:
-            self.probe.del_electrode(self.chmap, t)
+            self.probe.del_electrode(self.channelmap, t)
 
     def selected_electrodes(self) -> NDArray[np.int_]:
         """
@@ -172,7 +173,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         pos = self._position_index
 
-        for e in self.probe.all_channels(self.chmap):
+        for e in self.probe.all_channels(self.channelmap):
             p = int(e.s), int(e.x / self.dx), int(e.y / self.dy)
             if (i := pos.get(p, None)) is not None:
                 ret.append(i)
@@ -180,9 +181,9 @@ class BlueprintFunctions(Generic[M, E]):
         return np.unique(ret)
 
     def set_channelmap(self, chmap: M):
-        self.probe.clear_electrode(self.chmap)
+        self.probe.clear_electrode(self.channelmap)
         for t in self.probe.all_channels(chmap):
-            self.probe.add_electrode(self.chmap, t)
+            self.probe.add_electrode(self.channelmap, t)
 
     # =================== #
     # blueprint functions #
@@ -224,13 +225,13 @@ class BlueprintFunctions(Generic[M, E]):
         for e in electrodes:
             e.state = ProbeDesp.STATE_UNUSED
 
-        for e in self.probe.all_channels(self.chmap, electrodes):
-            for t in self.probe.invalid_electrodes(self.chmap, e, electrodes):
+        for e in self.probe.all_channels(self.channelmap, electrodes):
+            for t in self.probe.invalid_electrodes(self.channelmap, e, electrodes):
                 t.state = ProbeDesp.STATE_FORBIDDEN
             e.state = ProbeDesp.STATE_USED
 
         c = {it.electrode: it for it in electrodes}
-        for e, p in zip(self.probe.all_electrodes(self.chmap), blueprint):
+        for e, p in zip(self.probe.all_electrodes(self.channelmap), blueprint):
             if (t := c.get(e.electrode, None)) is not None:
                 t.category = int(p)
 
@@ -247,7 +248,7 @@ class BlueprintFunctions(Generic[M, E]):
             file = file.with_suffix('.blueprint.npy')
 
         data = np.load(file)
-        self.set_blueprint(self.probe.load_blueprint(data, self.chmap))
+        self.set_blueprint(self.probe.load_blueprint(data, self.channelmap))
         return self._blueprint
 
     def save_blueprint(self, file: str | Path, blueprint: BLUEPRINT = None):
@@ -261,7 +262,7 @@ class BlueprintFunctions(Generic[M, E]):
         if file.name.endswith('.blueprint.npy'):
             file = file.with_suffix('.blueprint.npy')
 
-        s = self.probe.all_electrodes(self.chmap)
+        s = self.probe.all_electrodes(self.channelmap)
         for e, c in zip(s, blueprint):
             e.category = c
 

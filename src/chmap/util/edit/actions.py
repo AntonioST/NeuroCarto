@@ -74,8 +74,8 @@ def check_probe(self: BlueprintFunctions, probe: str | type[ProbeDesp], chmap_co
     :return: `None`
     :raise RequestChannelmapTypeError: when check failed.
     """
-    current_probe = getattr(self, 'probe', None)
-    current_chmap = getattr(self, 'chmap', None)
+    current_probe = self.probe
+    current_chmap = self.channelmap
 
     if isinstance(probe, type):
         test = isinstance(current_probe, probe)
@@ -118,15 +118,15 @@ def draw(self: BlueprintFunctions, controller: ControllerView,
          a: NDArray[np.float_] | None, *,
          view: str | type[ViewBase] = None):
     if isinstance(controller, DataHandler):
-        controller.on_data_update(self.probe, self.probe.all_electrodes(self.chmap), a)
+        controller.on_data_update(self.probe, self.probe.all_electrodes(self.channelmap), a)
     elif isinstance(view_target := controller.get_view(view), DataHandler):
-        view_target.on_data_update(self.probe, self.probe.all_electrodes(self.chmap), a)
+        view_target.on_data_update(self.probe, self.probe.all_electrodes(self.channelmap), a)
 
 
 def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
                       index: NDArray[np.int_] | NDArray[np.bool_],
                       state: list[int] = None):
-    electrodes = self.probe.all_electrodes(self.chmap)
+    electrodes = self.probe.all_electrodes(self.channelmap)
     captured = [electrodes[int(it)] for it in np.arange(len(self.s))[index]]
 
     view = controller.get_app().probe_view
