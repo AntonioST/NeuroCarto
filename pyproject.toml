@@ -1,4 +1,5 @@
 # https://packaging.python.org/en/latest/tutorials/packaging-projects/
+# https://packaging.python.org/en/latest/guides/writing-pyproject-toml
 # https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html
 # https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/
 
@@ -6,27 +7,38 @@
 name = 'chmap_editor'
 version = '0.0.0'
 authors = [
-    { name = "Ta-Shun Su", email = "Ta.Shun.Su@nerf.be" },
+    { name = "Ta-Shun Su", email = "antoniost29@gmail.com" },
 ]
 description = "A web-interface channelmap editor for Neuropixels probe familiy"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "BSD-3-Clause" }
+license = { file = "LICENSE" }
 keywords = ["Eletrophysiology", "Neuropixels", 'Channelmap']
 classifiers = [
+    # https://pypi.org/classifiers/
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    # "Programming Language :: Python :: 3.11",
+    # "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: BSD License",
-    'Natural Language :: English',
+    "Natural Language :: English",
     "Operating System :: OS Independent",
-    "Framework :: Bokeh",
-    'Topic :: Scientific/Engineering :: Medical Science Apps.',
+    "Environment :: Web Environment",
+    "Environment :: Console",
+    "Topic :: Scientific/Engineering",
     'Intended Audience :: Science/Research',
+    "Typing :: Typed",
 ]
 
 dynamic = ["dependencies"]
 
 [project.urls]
 Homepage = "https://github.com/AntonioST/chmap_editor"
+Documentation = "https://github.com/AntonioST/chmap_editor/wiki"
+Repository = "https://github.com/AntonioST/chmap_editor"
 Issues = "https://github.com/AntonioST/chmap_editor/issues"
 
 [project.scripts]
