@@ -217,12 +217,22 @@ class ProbeView(ViewBase):
 
         :param d: one of {#data_electrodes}
         :param reset: reset the selecting state.
-        :return: selected electrodes.
+        :return: captured electrodes.
+        """
+        return set(self.get_electrodes(self.get_captured_electrodes_index(d, reset=reset)))
+
+    def get_captured_electrodes_index(self, d: ColumnDataSource = None, *, reset=False) -> list[int]:
+        """
+        Get captured electrodes.
+
+        :param d: one of {#data_electrodes}
+        :param reset: reset the selecting state.
+        :return: index list of captured electrodes.
         """
         if d is None:
-            ret = set[E]()
+            ret = list[int]()
             for state, data in self.data_electrodes.items():
-                ret.update(self.get_captured_electrodes(data, reset=reset))
+                ret.extend(self.get_captured_electrodes_index(data, reset=reset))
             return ret
         else:
             selected_index = d.selected.indices
@@ -230,7 +240,7 @@ class ProbeView(ViewBase):
                 d.selected.indices = []
 
             e = d.data['e']
-            return set(self.get_electrodes([e[it] for it in selected_index]))
+            return [e[it] for it in selected_index]
 
     def set_captured_electrodes(self, electrodes: list[int] | list[E], d: ColumnDataSource = None):
         if d is None:

@@ -5,6 +5,7 @@ from numpy.typing import NDArray
 
 from chmap.probe import ProbeDesp, get_probe_desp
 from chmap.util.util_blueprint import BlueprintFunctions
+from chmap.util.utils import doc_link
 from chmap.views.base import ViewBase, ControllerView
 from chmap.views.data import DataHandler
 
@@ -15,13 +16,15 @@ __all__ = [
     'log_message',
     'draw',
     'capture_electrode',
+    'captured_electrodes',
     'set_state_for_captured',
     'set_category_for_captured',
+    'refresh_selection',
 ]
 
 
 class RequestChannelmapTypeError(RuntimeError):
-    def __init__(self, probe: str | type[ProbeDesp], chmap_code: int | None):
+    def __init__(self, probe: str | type[ProbeDesp] | None, chmap_code: int | None):
         """
 
         :param probe: request probe type.
@@ -30,7 +33,9 @@ class RequestChannelmapTypeError(RuntimeError):
         self.probe = probe
         self.chmap_code = chmap_code
 
-        if isinstance(probe, str):
+        if probe is None:
+            message = 'Require a probe'
+        elif isinstance(probe, str):
             message = f'Request Probe[{probe}]'
         else:
             message = f'Request {probe.__name__}'
@@ -64,20 +69,28 @@ class RequestChannelmapTypeError(RuntimeError):
             raise RuntimeError()
 
 
-def check_probe(self: BlueprintFunctions, probe: str | type[ProbeDesp], chmap_code: int = None):
+@doc_link()
+def check_probe(self: BlueprintFunctions,
+                probe: str | type[ProbeDesp] | None = None,
+                chmap_code: int = None):
     """
     check request probe type and channelmap code.
 
     :param self:
-    :param probe: request probe type.
+    :param probe: request probe type. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
+        It `None`, checking a probe has created, and its type doesn't matter.
     :param chmap_code: request channelmap code
-    :return: `None`
     :raise RequestChannelmapTypeError: when check failed.
     """
     current_probe = self.probe
     current_chmap = self.channelmap
 
-    if isinstance(probe, type):
+    if probe is None:
+        if current_chmap is None:
+            raise RequestChannelmapTypeError(probe, chmap_code)
+        return
+
+    elif isinstance(probe, type):
         test = isinstance(current_probe, probe)
 
     elif isinstance(probe, str):
@@ -142,6 +155,17 @@ def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
                 view.set_captured_electrodes(captured, data)
 
 
+def captured_electrodes(self: BlueprintFunctions, controller: ControllerView,
+                        all=False) -> NDArray[np.int_]:
+    view = controller.get_app().probe_view
+    if all:
+        captured = view.get_captured_electrodes_index(None, reset=False)
+    else:
+        captured = view.get_captured_electrodes_index(view.data_electrodes[ProbeDesp.STATE_USED], reset=False)
+
+    return np.unique(captured)
+
+
 def set_state_for_captured(self: BlueprintFunctions, controller: ControllerView,
                            state: int,
                            index: NDArray[np.int_] | NDArray[np.bool_] = None):
@@ -156,3 +180,20 @@ def set_category_for_captured(self: BlueprintFunctions, controller: ControllerVi
     if index is not None:
         capture_electrode(self, controller, index)
     controller.get_app().probe_view.set_category_for_captured(category)
+
+
+def refresh_selection(self: BlueprintFunctions, controller: ControllerView, selector: str = None):
+    view = controller.get_app().probe_view
+
+    old_select_args = dict(view.selecting_parameters)
+    if selector is not None:
+        view.selecting_parameters['selector'] = selector
+
+    self.apply_blueprint(view.electrodes)
+
+    try:
+        view.refresh_selection()
+        view.update_electrode()
+        self.set_channelmap(view.channelmap)
+    finally:
+        view.selecting_parameters = old_select_args

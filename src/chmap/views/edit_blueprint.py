@@ -144,6 +144,10 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         super().__init__(config, logger='chmap.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
         self.actions: dict[str, str | BlueprintScriptInfo] = {
+            'load': 'chmap.util.edit._actions:load_blueprint',
+            'move': 'chmap.util.edit._actions:move_blueprint',
+            'exchange': 'chmap.util.edit._actions:exchange_shank',
+            'pre-select': 'chmap.util.edit._actions:enable_electrode_as_pre_selected',
             'single': 'chmap.util.edit._actions:npx24_single_shank',
             'stripe': 'chmap.util.edit._actions:npx24_stripe',
             'half': 'chmap.util.edit._actions:npx24_half_density',
@@ -192,8 +196,10 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         try:
             script = self.get_script(name)
         except ImportError:
+            self.script_input.value_input = ''
             self.script_document.text = 'Import Fail'
         else:
+            self.script_input.value_input = ''
             head = script.script_signature()
             if (doc := script.script_doc()) is not None:
                 self.script_document.text = head + '\n' + doc
@@ -291,6 +297,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
 
         bp = BlueprintFunctions(probe, chmap)
         bp._controller = self
+        if (blueprint := self.cache_blueprint) is not None:
+            bp.set_blueprint(blueprint)
 
         self.logger.debug('run_script(%s)[%s]', script_name, script_input)
 

@@ -58,6 +58,73 @@ def npx24_one_eighth_density(bp: BlueprintFunctions, row: int = 0):
     bp.set_channelmap(utils.npx24_one_eighth_density(row, um=True))
 
 
+def move_blueprint(bp: BlueprintFunctions, y: int, shank: list[int] = None, update=False):
+    """\
+    Move blueprint upward or downward.
+
+    :param y: (int) um
+    :param shank: (list[int]=None) only particular shanks.
+    :param update: (bool) update channelmap to follow the blueprint change.
+    """
+    bp.check_probe()
+
+    if shank is None:
+        mask = None
+    else:
+        mask = np.zeros_like(bp.s, dtype=bool)
+        for s in shank:
+            np.logical_or(mask, bp.s == s, out=mask)
+
+    bp.set_blueprint(bp.move(bp.blueprint(), ty=y, mask=mask, axis=0, init=bp.CATE_UNSET))
+    if update:
+        bp.refresh_selection()
+
+
+def exchange_shank(bp: BlueprintFunctions, shank: list[int], update=False):
+    """\
+    Move blueprint between shanks.
+
+    Note: Each shank requires the same electrode number, and electrodes are ordered consistently.
+
+    :param shank: (list[int]): For N shank probe, it is an N-length list.
+        For example, `[3, 2, 1, 0]` gives a reverse-shank-ordered blueprint.
+    :param update: (bool) update channelmap to follow the blueprint change.
+    """
+    bp.check_probe()
+
+    ns = np.max(bp.s) + 1
+    if len(shank) != np.max(ns):
+        raise RuntimeError(f'not a {ns}-length list: {shank}')
+
+    p = bp.blueprint()
+    q = bp.new_blueprint()
+    for i, s in enumerate(shank):
+        q[bp.s == i] = p[bp.s == s]
+
+    bp.set_blueprint(q)
+    if update:
+        bp.refresh_selection()
+
+
+def load_blueprint(bp: BlueprintFunctions, filename: str):
+    """\
+    Load a blueprint file.
+
+    :param filename: (str) a numpy file '*.blueprint.npy'.
+    """
+    bp.check_probe()
+
+    bp.set_blueprint(bp.probe.load_blueprint(filename, bp.channelmap))
+
+
+def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
+    """\
+    Set captured electrodes as pre-selected category.
+    """
+    bp.check_probe()
+    bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
+
+
 def blueprint_simple_init_script_from_activity_data_with_a_threshold(bp: BlueprintFunctions, filename: str, threshold: float):
     """\
     :param filename: a numpy filepath, which shape Array[int, N, (shank, col, row, state, value)]

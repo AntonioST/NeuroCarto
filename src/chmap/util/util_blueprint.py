@@ -193,6 +193,9 @@ class BlueprintFunctions(Generic[M, E]):
         """blueprint."""
         return self._blueprint
 
+    def new_blueprint(self) -> BLUEPRINT:
+        return np.full_like(self.s, self.CATE_UNSET)
+
     def set_blueprint(self, blueprint: int | BLUEPRINT | list[E]):
         """
         set blueprint.
@@ -269,12 +272,12 @@ class BlueprintFunctions(Generic[M, E]):
         np.save(file, self.probe.save_blueprint(s))
 
     @blueprint_function
-    def set(self, blueprint: BLUEPRINT, mask: int | NDArray[np.bool_], category: int) -> BLUEPRINT:
+    def set(self, blueprint: BLUEPRINT, mask: int | NDArray[np.bool_] | NDArray[np.int_], category: int) -> BLUEPRINT:
         """
         Set *category* on the blueprint with a *mask*.
 
         :param blueprint:
-        :param mask:
+        :param mask: category value, electrode mask or electrode index
         :param category:
         :return: a (copied) blueprint
         """
@@ -289,37 +292,36 @@ class BlueprintFunctions(Generic[M, E]):
         return ret
 
     @blueprint_function
-    def unset(self, blueprint: BLUEPRINT, mask: int | NDArray[np.bool_]) -> BLUEPRINT:
+    def unset(self, blueprint: BLUEPRINT, mask: int | NDArray[np.bool_] | NDArray[np.int_]) -> BLUEPRINT:
         """
         unset electrodes in the *blueprint* with a *mask*.
 
         :param blueprint:
-        :param mask:
-        :return:
+        :param mask: category value, electrode mask or electrode index
+        :return: a (copied) blueprint
         """
         return self.set(blueprint, mask, self.CATE_UNSET)
 
     @doc_link()
-    def __setitem__(self, mask: int | NDArray[np.bool_], category: int | str):
+    def __setitem__(self, mask: int | NDArray[np.bool_] | NDArray[np.int_], category: int | str):
         """
         Set a *category* to the blueprint with a *mask*.
         The new *category* only apply on unset electrodes.
         If you want to overwrite the electrode's category, please use {#set()}.
 
-        :param mask:
+        :param mask: category value, electrode mask or electrode index
         :param category:
-        :return:
-        :see: {#merge()}
+        :see: {#merge()}, {#set()}
         """
         blueprint = self.blueprint()
         self.set_blueprint(self.merge(blueprint, self.set(blueprint, mask, category)))
 
-    def __delitem__(self, mask: int | NDArray[np.bool_]):
+    def __delitem__(self, mask: int | NDArray[np.bool_] | NDArray[np.int_]):
         """
         unset electrodes in the *blueprint* with a *mask*.
 
-        :param mask:
-        :return:
+        :param mask: category value, electrode mask or electrode index
+        :see: {#unset()}
         """
         self.set_blueprint(self.set(self.blueprint(), mask, self.CATE_UNSET))
 
@@ -359,7 +361,6 @@ class BlueprintFunctions(Generic[M, E]):
 
     def move(self, a: NDArray, *,
              tx: int = 0, ty: int = 0,
-             shanks: list[int] = None,
              mask: NDArray[np.bool_] = None,
              axis: int = 0,
              init: float = 0) -> NDArray:
@@ -369,28 +370,16 @@ class BlueprintFunctions(Generic[M, E]):
         :param a: Array[V, ..., N, ...], where N means all electrodes
         :param tx: x movement in um.
         :param ty: y movement in um.
-        :param shanks: move electrode only on given shanks
         :param mask: move electrode only in mask
         :param axis: index off N
         :param init: initial value
         :return: moved a (copied)
         """
         from .edit.moving import move
-        if shanks is None:
-            return move(self, a, tx=tx, ty=ty, mask=mask, axis=axis, init=init)
-
-        shank_mask = np.zeros_like(self.s, dtype=bool)
-        for s in shanks:
-            np.logical_or(shank_mask, self.s == s, out=shank_mask)
-
-        if mask is not None:
-            np.logical_and(shank_mask, mask, out=shank_mask)
-
-        return move(self, a, tx=tx, ty=ty, mask=shank_mask, axis=axis, init=init)
+        return move(self, a, tx=tx, ty=ty, mask=mask, axis=axis, init=init)
 
     def move_i(self, a: NDArray, *,
                tx: int = 0, ty: int = 0,
-               shanks: list[int] = None,
                mask: NDArray[np.bool_] = None,
                axis: int = 0,
                init: float = 0) -> NDArray:
@@ -400,24 +389,13 @@ class BlueprintFunctions(Generic[M, E]):
         :param a: Array[V, ..., N, ...], where N means electrodes
         :param tx: number of dx
         :param ty: number of dy
-        :param shanks: move electrode only on given shanks
         :param mask: move electrode only in mask
         :param axis: index off N
         :param init: initial value
         :return: moved a (copied)
         """
         from .edit.moving import move_i
-        if shanks is None:
-            return move_i(self, a, tx=tx, ty=ty, mask=mask, axis=axis, init=init)
-
-        shank_mask = np.zeros_like(self.s, dtype=bool)
-        for s in shanks:
-            np.logical_or(shank_mask, self.s == s, out=shank_mask)
-
-        if mask is not None:
-            np.logical_and(shank_mask, mask, out=shank_mask)
-
-        return move_i(self, a, tx=tx, ty=ty, mask=shank_mask, axis=axis, init=init)
+        return move_i(self, a, tx=tx, ty=ty, mask=mask, axis=axis, init=init)
 
     def find_clustering(self, blueprint: BLUEPRINT,
                         categories: int | list[int] = None, *,
@@ -539,7 +517,8 @@ class BlueprintFunctions(Generic[M, E]):
         BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView',
         RequestChannelmapTypeError='chmap.util.edit.actions.RequestChannelmapTypeError',
     )
-    def check_probe(self, probe: str | type[ProbeDesp], chmap_code: int = None, *, error=True):
+    def check_probe(self, probe: str | type[ProbeDesp] | None = None,
+                    chmap_code: int = None, *, error=True):
         """
         Check current used probe is type of *probe*.
 
@@ -547,6 +526,7 @@ class BlueprintFunctions(Generic[M, E]):
         and the request channelmap ({#new_channelmap()}) will be created when needed.
 
         :param probe: request probe. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
+            It `None`, checking a probe has created, and its type doesn't matter.
         :param chmap_code: request channelmap code
         :param error:
         :return: test success.
@@ -610,6 +590,13 @@ class BlueprintFunctions(Generic[M, E]):
         if (controller := self._controller) is not None:
             capture_electrode(self, controller, index, state)
 
+    def captured_electrodes(self, all=False) -> NDArray[np.int_]:
+        from .edit.actions import captured_electrodes
+        if (controller := self._controller) is not None:
+            return captured_electrodes(self, controller, all)
+        else:
+            return np.array([], dtype=int)
+
     @doc_link()
     def set_state_for_captured(self, state: int,
                                index: NDArray[np.int_] | NDArray[np.bool_] = None):
@@ -637,3 +624,13 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.actions import set_category_for_captured
         if (controller := self._controller) is not None:
             set_category_for_captured(self, controller, category, index)
+
+    def refresh_selection(self, selector: str = None):
+        """
+        refresh electrode selection base on current blueprint.
+
+        :param selector:
+        """
+        from .edit.actions import refresh_selection
+        if (controller := self._controller) is not None:
+            refresh_selection(self, controller, selector)
