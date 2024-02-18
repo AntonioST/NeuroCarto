@@ -27,3 +27,9 @@ def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
         # interm_download_dir=str(BRAIN_DIR.absolute()),
         check_latest=check_latest,
     )
+
+
+"""
+TODO bregma 10um, (ap, dv, ml)=(540 0 570) index
+
+"""

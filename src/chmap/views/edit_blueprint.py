@@ -41,12 +41,61 @@ __all__ = [
 missing = object()
 SCOPE = Literal['pure', 'parser', 'context']
 
+EXAMPLE_DOCUMENT = """\
+Document here.
+
+:param bp:
+:param a0: (type=default) parameter description
+:param a1: (int=0) as example.
+"""
+
+
+def format_html_doc(doc: str) -> str:
+    ret = doc.strip()
+    ret = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', ret)
+    ret = re.sub(r'\*(.+?)\*', r'<em>\1</em>', ret)
+    ret = re.sub(r':param\s+bp:.*?\n?', '', ret)
+    ret = re.sub(r'(?<=\n):param\s+(\w+):', r'<b>\1</b>:', ret)
+    ret = re.sub(r'\n +', '</p><p style="text-indent:2em;">', ret)
+    ret = re.sub(r'\n\n', '</p><br/><p>', ret)
+    ret = '<p>' + ret.replace('\n', '</p><p>') + '</p>'
+    return ret
+
+
+EXAMPLE_DOCUMENT_HTML = format_html_doc(EXAMPLE_DOCUMENT)
+
 
 class BlueprintScript(Protocol):
     """A protocol class  to represent a blueprint script function."""
 
+    @doc_link()
     def __call__(self, bp: BlueprintFunctions, *args, **kwargs) -> None:
         """
+
+        **Document script**
+
+        We use reStructuredText format by default, so we format the document into html
+        based on that rules.
+
+        .. code-block:: python
+
+            def example_script(bp: BlueprintFunctions, a0: str, a1:int=0):
+                \"""
+                {EXAMPLE_DOCUMENT}
+                \"""
+
+        * The line `:param bp:` will be removed.
+        * The line `:param PARA:` will be replaced as a bold font (`<b>`).
+        * The word `**WORD**` will be replaced as a bold font (`<b>`).
+        * The word `*WORD*` will be replaced as an italic font (`<em>`).
+
+        And it will look like:
+
+        .. raw:: html
+
+            <div class="highlight" style="padding: 10px;"><div style="font-family: monospace;">
+            {EXAMPLE_DOCUMENT_HTML}
+            </div></div>
 
         :param bp: script running context.
         :param args:
@@ -233,7 +282,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     @doc_link()
     def get_script(self, name: str | BlueprintScript | BlueprintScriptInfo) -> BlueprintScriptInfo:
         """
-        Get and load {BlueScript}.
+        Get and load {BlueprintScript}.
 
         If the corresponding module has changed, this function will try to reload it.
 
@@ -448,15 +497,3 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             ax.set_ylabel(None)
             ax.set_yticks([])
             ax.set_yticklabels([])
-
-
-def format_html_doc(doc: str) -> str:
-    ret = doc.strip()
-    ret = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', ret)
-    ret = re.sub(r'\*(.+?)\*', r'<em>\1</em>', ret)
-    ret = re.sub(r':param\s+bp:.*?\n?', '', ret)
-    ret = re.sub(r'(?<=\n):param\s+(\w+):', r'<b>\1</b>:', ret)
-    ret = re.sub(r'\n +', '</p><p style="text-indent:2em;">', ret)
-    ret = re.sub(r'\n\n', '</p><br/><p>', ret)
-    ret = '<p>' + ret.replace('\n', '</p><p>') + '</p>'
-    return ret

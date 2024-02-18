@@ -5,6 +5,7 @@ import inspect
 import os
 import re
 import sys
+import textwrap
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -204,17 +205,35 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
 
 
 def replace_doc_link(context: dict, doc: str) -> str:
-    if len(os.environ.get('SPHINX_BUILD', '')):
-        replace = functools.partial(sphinx_doc_link_replace, context)
-        return re.sub(r'\{([a-zA-Z_.]+)?(#([a-zA-Z_]+))?(\(\))?}', replace, doc)
+    if len(os.environ.get('SPHINX_BUILD', '')) or True:
+        replace = functools.partial(sphinx_doc_link_replace_ref, context)
+        doc = re.sub(r'\{(?P<module>[a-zA-Z_.]+)?(#(?P<attr>[a-zA-Z_]+))?(?P<func>\(\))?}', replace, doc)
+
+        replace = functools.partial(sphinx_doc_link_replace_word, context)
+        doc = re.sub(r'(?:(?<=^)|(?<=\n))(?P<indent> +)\{(?P<attr>[a-zA-Z_]+)}', replace, doc)
 
     return doc
 
 
-def sphinx_doc_link_replace(context: dict, m: re.Match) -> str:
-    k = m.group(1)
-    attr = m.group(3)
-    is_func = m.group(4)
+def sphinx_doc_link_replace_word(context: dict, m: re.Match) -> str:
+    indent = m.group('indent')
+    attr = m.group('attr')
+
+    try:
+        value = context[attr]
+    except KeyError:
+        return m.group()
+
+    if indent is None:
+        return value
+
+    return textwrap.indent(value, indent)
+
+
+def sphinx_doc_link_replace_ref(context: dict, m: re.Match) -> str:
+    k = m.group('module')
+    attr = m.group('attr')
+    is_func = m.group('func')
 
     if k is not None:
         old_k = k
@@ -234,7 +253,7 @@ def sphinx_doc_link_replace(context: dict, m: re.Match) -> str:
             elif isinstance(k, str) and k.startswith('chmap'):
                 k = f'~{k}'
             elif isinstance(k, str) and attr is None and is_func is None:
-                return k
+                return m.group()  # pass to sphinx_doc_link_replace_word
             else:
                 k = old_k
 

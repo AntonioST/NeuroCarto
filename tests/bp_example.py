@@ -18,9 +18,10 @@ from chmap.util.util_blueprint import BlueprintFunctions
 
 
 def my_blueprint_script_function(bp: BlueprintFunctions, a0: str, a1: int):
-    """\
+    """
     Script Document, which is used in GUI.
 
+    :param bp:
     :param a0: the first string argument
     :param a1: the second int argument
     """
