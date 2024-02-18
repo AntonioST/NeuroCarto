@@ -3,7 +3,7 @@ from numpy.typing import NDArray
 
 from chmap.util.util_blueprint import BlueprintFunctions
 
-__all__ = ['move', 'move_i', 'fill', 'extend']
+__all__ = ['move', 'move_i', 'fill', 'extend', 'reduce']
 
 
 def move(self: BlueprintFunctions, a: NDArray, *,
@@ -210,22 +210,8 @@ def extend(self: BlueprintFunctions,
         case _:
             raise TypeError()
 
-    def _step_as_range(step: int):
-        match step:
-            case 0:
-                return range(0, 1)
-            case step if bi:
-                step = abs(step)
-                return range(-step, step + 1)
-            case step if step > 0:
-                return range(1, step + 1)
-            case step if step < 0:
-                return range(step, 1)
-            case _:
-                raise RuntimeError()
-
-    x_steps = _step_as_range(step[0])
-    y_steps = _step_as_range(step[1])
+    x_steps = _step_as_range(step[0], bi)
+    y_steps = _step_as_range(step[1], bi)
 
     ret = blueprint.copy()
     unset = self.CATE_UNSET
@@ -237,17 +223,8 @@ def extend(self: BlueprintFunctions,
             continue
 
         area: NDArray[np.bool_] = clustering == cluster
-        if threshold is not None:
-            size = np.count_nonzero(area)
-            match threshold:
-                case int(threshold):
-                    if not (threshold <= size):
-                        continue
-                case (int(left), int(right)):
-                    if not (left <= size <= right):
-                        continue
-                case _:
-                    raise TypeError()
+        if threshold is not None and not _check_area_size(np.count_nonzero(area), threshold):
+            continue
 
         extend = np.zeros_like(area, dtype=bool)
         for x in x_steps:
@@ -261,3 +238,85 @@ def extend(self: BlueprintFunctions,
         ret[extend] = category
 
     return ret
+
+
+def reduce(self: BlueprintFunctions,
+           blueprint: NDArray[np.int_],
+           on: int,
+           step: int | tuple[int, int], *,
+           threshold: int | tuple[int, int] = None,
+           bi: bool = True) -> NDArray[np.int_]:
+    if len(blueprint) != len(self.s):
+        raise ValueError()
+
+    match threshold:
+        case None | int() | (int(), int()):
+            pass
+        case [int(), int()]:
+            threshold = tuple(threshold)
+        case _:
+            raise TypeError()
+
+    match step:
+        case int(step):
+            step = (0, step)
+        case (int(left), int(right)):
+            step = left, right
+        case _:
+            raise TypeError()
+
+    x_steps = _step_as_range(step[0], bi)
+    y_steps = _step_as_range(step[1], bi)
+
+    ret = blueprint.copy()
+    unset = self.CATE_UNSET
+
+    from .clustering import find_clustering
+    clustering = find_clustering(self, blueprint, [on])
+    for cluster in np.unique(clustering):
+        if cluster == 0:
+            continue
+
+        area: NDArray[np.bool_] = clustering == cluster
+        if threshold is not None and not _check_area_size(np.count_nonzero(area), threshold):
+            continue
+
+        # extend = np.zeros_like(area, dtype=bool)
+        # for x in x_steps:
+        #     for y in y_steps:
+        #         np.logical_or(move_i(self, area, tx=-x, ty=-y, mask=area, init=False), extend, out=extend)
+        #
+        # extend[area] = False
+        # if not overwrite:
+        #     extend[blueprint != unset] = False
+        #
+        # ret[extend] = category
+
+    return ret
+
+
+def _step_as_range(step: int, bi: bool):
+    match step:
+        case 0:
+            return range(0, 1)
+        case step if bi:
+            step = abs(step)
+            return range(-step, step + 1)
+        case step if step > 0:
+            return range(1, step + 1)
+        case step if step < 0:
+            return range(step, 1)
+        case _:
+            raise RuntimeError()
+
+
+def _check_area_size(area: int, threshold: int | tuple[int, int]) -> bool:
+    match threshold:
+        case int(threshold) if threshold >= 0:
+            return threshold <= area
+        case int(threshold) if threshold < 0:
+            return area <= -threshold
+        case (int(left), int(right)):
+            return left <= area <= right
+        case _:
+            raise TypeError()

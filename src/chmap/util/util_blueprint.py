@@ -471,14 +471,35 @@ class BlueprintFunctions(Generic[M, E]):
         :param on: on which category
         :param step: expend step on y or (x, y)
         :param category: use which category value
-        :param threshold: for area which size larger than threshold (threshold<=|area|)
-            or in range (threshold<=|area|<=threshold)
+        :param threshold: Positive value: for area which size larger than threshold (threshold<=area).
+            Negative value: for area which size smaller than threshold (area<=-threshold).
+            A tuple: for area which size between a range (threshold<=area<=threshold)
         :param bi: both position and negative steps direction
         :param overwrite: overwrite category value. By default, only change the unset electrode.
         :return:
         """
         from .edit.moving import extend
         return extend(self, blueprint, on, step, category, threshold=threshold, bi=bi, overwrite=overwrite)
+
+    @blueprint_function
+    def reduce(self, blueprint: BLUEPRINT,
+               on: int,
+               step: int | tuple[int, int], *,
+               threshold: int | tuple[int, int] = None,
+               bi: bool = True) -> BLUEPRINT:
+        """
+
+        :param blueprint: Array[category, N]
+        :param on: on which category
+        :param step: reduce step on y or (x, y)
+        :param threshold: Positive value: for area which size larger than threshold (threshold<=area).
+            Negative value: for area which size smaller than threshold (area<=-threshold).
+            A tuple: for area which size between a range (threshold<=area<=threshold)
+        :param bi: both position and negative steps direction
+        :return:
+        """
+        from .edit.moving import reduce
+        return reduce(self, blueprint, on, step, threshold=threshold, bi=bi)
 
     # ==================== #
     # data process methods #
