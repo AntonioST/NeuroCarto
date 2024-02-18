@@ -52,6 +52,7 @@ if __name__ == '__main__':
         '-C', 'res',
         '--debug',
         '--view=-',
+        '--view=blueprint',
         '--view=chmap.views.edit_blueprint:BlueprintScriptView',
         '--view=tests:main_blueprint_script:Tester',
     ]))

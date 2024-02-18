@@ -10,11 +10,9 @@ from typing import Protocol, TypedDict, Literal, TYPE_CHECKING, cast, NamedTuple
 
 import numpy as np
 from bokeh.models import Select, TextInput, PreText, Div
-from matplotlib.axes import Axes
-from matplotlib.transforms import Affine2D
 from numpy.typing import NDArray
 
-from chmap.config import parse_cli, ChannelMapEditorConfig
+from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import plot
 from chmap.util.bokeh_app import run_later
@@ -31,7 +29,7 @@ else:
     from typing_extensions import Self
 
 if TYPE_CHECKING:
-    from chmap.probe_npx.npx import ChannelMap, ProbeType
+    from chmap.probe_npx.npx import ChannelMap
 
 __all__ = [
     'BlueprintScriptView',
@@ -406,21 +404,23 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
 
     def plot_npx_channelmap(self):
         """Plot Neuropixels blueprint and electrode data."""
+        if (value := self.cache_data) is None:
+            return
+
         self.logger.debug('plot_npx_channelmap')
 
         chmap: ChannelMap = self.cache_chmap
         probe_type = chmap.probe_type
 
-        offset = -50
-        if self.cache_data is not None:
-            offset = -100
+        with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1), offset=-50) as ax:
+            data = np.vstack([
+                [it.x for it in self.cache_blueprint],
+                [it.y for it in self.cache_blueprint],
+                value
+            ]).T
 
-        with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1),
-                              offset=offset) as ax:
-            self._plot_npx_blueprint(ax, probe_type, self.cache_blueprint)
-            if self.cache_data is not None:
-                self._plot_npx_electrode(ax, probe_type, self.cache_blueprint, self.cache_data,
-                                         transform=Affine2D().translate(0.050, 0) + ax.transData)
+            plot.plot_electrode_block(ax, probe_type, data, electrode_unit='xyv', shank_width_scale=0.5)
+            plot.plot_probe_shape(ax, probe_type, color=None, label_axis=False)
 
             ax.set_xlabel(None)
             ax.set_xticks([])
@@ -428,31 +428,3 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             ax.set_ylabel(None)
             ax.set_yticks([])
             ax.set_yticklabels([])
-            if self.cache_data is not None:
-                xlim = ax.get_xlim()
-                ax.set_xlim(xlim[0], xlim[1] + 0.1)
-
-    def _plot_npx_blueprint(self, ax: Axes, probe_type: ProbeType, blueprint: list[E]):
-        plot.plot_category_area(ax, probe_type, blueprint, shank_width_scale=0.5)
-        plot.plot_probe_shape(ax, probe_type, color=None, label_axis=False)
-
-    def _plot_npx_electrode(self, ax: Axes, probe_type: ProbeType, blueprint: list[E], value: NDArray[np.float_], **kwargs):
-        data = np.vstack([
-            [it.x for it in blueprint],
-            [it.y for it in blueprint],
-            value
-        ]).T
-
-        plot.plot_electrode_block(ax, probe_type, data, electrode_unit='xyv', shank_width_scale=0.5, **kwargs)
-
-
-if __name__ == '__main__':
-    from chmap.main_bokeh import main
-
-    main(parse_cli([
-        *sys.argv[1:],
-        '-C', 'res',
-        '--debug',
-        '--view=-',
-        '--view=chmap.views.edit_blueprint:BlueprintScriptView',
-    ]))
