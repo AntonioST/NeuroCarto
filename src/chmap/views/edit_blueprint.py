@@ -3,13 +3,14 @@ from __future__ import annotations
 import collections
 import functools
 import inspect
+import re
 import sys
 import textwrap
 from pathlib import Path
 from typing import Protocol, TypedDict, Literal, TYPE_CHECKING, cast, NamedTuple
 
 import numpy as np
-from bokeh.models import Select, TextInput, PreText, Div
+from bokeh.models import Select, TextInput, Div
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
@@ -103,9 +104,12 @@ class BlueprintScriptInfo(NamedTuple):
         s = inspect.signature(self.script)
         return [it for i, it in enumerate(s.parameters) if i != 0]
 
-    def script_doc(self) -> str | None:
+    def script_doc(self, html=False) -> str | None:
         if (doc := self.script.__doc__) is not None:
-            return textwrap.dedent(doc)
+            ret = textwrap.dedent(doc)
+            if html:
+                ret = format_html_doc(ret)
+            return ret
         return None
 
     def __call__(self, bp: BlueprintFunctions, script_input: str):
@@ -152,6 +156,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             'quarter': 'chmap.util.edit._actions:npx24_quarter_density',
             '1-eighth': 'chmap.util.edit._actions:npx24_one_eighth_density',
         }
+        self._script_input_cache: dict[str, str] = {}
 
     @property
     def name(self) -> str:
@@ -163,17 +168,25 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
 
     script_select: Select
     script_input: TextInput
-    script_document: PreText
+    script_document: Div
 
     def _setup_content(self, **kwargs):
         btn = ButtonFactory(min_width=50, width_policy='min')
 
         self.script_select = Select(
-            value='', options=list(self.actions), width=100
+            value='', options=list(self.actions), width=150,
+            styles={'font-family': 'monospace'}
         )
         self.script_select.on_change('value', as_callback(self._on_script_select))
-        self.script_input = TextInput()
-        self.script_document = PreText(text="", )
+
+        self.script_input = TextInput(
+            width=400,
+            styles={'font-family': 'monospace'}
+        )
+        self.script_document = Div(
+            text="",
+            styles={'font-family': 'monospace'}
+        )
 
         from bokeh.layouts import row
         return [
@@ -187,22 +200,29 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             self.script_document
         ]
 
-    def _on_script_select(self, name: str):
+    def _on_script_select(self, old: str, name: str):
+        if len(old) > 0:
+            self._script_input_cache[old] = self.script_input.value_input
+
         if len(name) == 0:
             self.script_document.text = ''
+            self.script_input.value_input = ''
+            return
 
         try:
             script = self.get_script(name)
         except ImportError:
             self.script_input.value_input = ''
             self.script_document.text = 'Import Fail'
+            return
+
+        self.script_input.value_input = self._script_input_cache.get(name, '')
+
+        head = script.script_signature()
+        if (doc := script.script_doc(html=True)) is not None:
+            self.script_document.text = f'<p><b>{head}</b></p>' + doc
         else:
-            self.script_input.value_input = ''
-            head = script.script_signature()
-            if (doc := script.script_doc()) is not None:
-                self.script_document.text = head + '\n' + doc
-            else:
-                self.script_document.text = head
+            self.script_document.text = head
 
     def _on_run_script(self):
         script = self.script_select.value
@@ -428,3 +448,15 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             ax.set_ylabel(None)
             ax.set_yticks([])
             ax.set_yticklabels([])
+
+
+def format_html_doc(doc: str) -> str:
+    ret = doc.strip()
+    ret = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', ret)
+    ret = re.sub(r'\*(.+?)\*', r'<em>\1</em>', ret)
+    ret = re.sub(r':param\s+bp:.*?\n?', '', ret)
+    ret = re.sub(r'(?<=\n):param\s+(\w+):', r'<b>\1</b>:', ret)
+    ret = re.sub(r'\n +', '</p><p style="text-indent:2em;">', ret)
+    ret = re.sub(r'\n\n', '</p><br/><p>', ret)
+    ret = '<p>' + ret.replace('\n', '</p><p>') + '</p>'
+    return ret

@@ -6,9 +6,10 @@ from chmap.util.utils import TimeMarker
 
 
 def npx24_single_shank(bp: BlueprintFunctions, shank: int = 0, row: int = 0):
-    """\
+    """
     Make a block channelmap for 4-shank Neuropixels probe.
 
+    :param bp:
     :param shank: (int=0) on which shank.
     :param row: (int=0) start row in um.
     """
@@ -17,9 +18,10 @@ def npx24_single_shank(bp: BlueprintFunctions, shank: int = 0, row: int = 0):
 
 
 def npx24_stripe(bp: BlueprintFunctions, row: int = 0):
-    """\
+    """
     Make a block channelmap for 4-shank Neuropixels probe.
 
+    :param bp:
     :param row: (int=0) start row in um.
     """
     bp.check_probe(NpxProbeDesp, 24)
@@ -27,9 +29,10 @@ def npx24_stripe(bp: BlueprintFunctions, row: int = 0):
 
 
 def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] = 0, row: int = 0):
-    """\
-    Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in half density.
+    """
+    Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *half* density.
 
+    :param bp:
     :param shank: (int|[int, int]=0) on which shank/s.
     :param row: (int=0) start row in um.
     """
@@ -38,9 +41,10 @@ def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] = 0, row: 
 
 
 def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | None = None, row: int = 0):
-    """\
-    Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in quarter density.
+    """
+    Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *quarter* density.
 
+    :param bp:
     :param shank: (int|[int, int]=None) on which shank/s. use `None` for four shanks.
     :param row: (int=0) start row in um.
     """
@@ -49,9 +53,10 @@ def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | None 
 
 
 def npx24_one_eighth_density(bp: BlueprintFunctions, row: int = 0):
-    """\
-    Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in one-eighth density.
+    """
+    Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *one-eighth* density.
 
+    :param bp:
     :param row: (int=0) start row in um.
     """
     bp.check_probe(NpxProbeDesp, 24)
@@ -59,9 +64,10 @@ def npx24_one_eighth_density(bp: BlueprintFunctions, row: int = 0):
 
 
 def move_blueprint(bp: BlueprintFunctions, y: int, shank: list[int] = None, update=False):
-    """\
+    """
     Move blueprint upward or downward.
 
+    :param bp:
     :param y: (int) um
     :param shank: (list[int]=None) only particular shanks.
     :param update: (bool) update channelmap to follow the blueprint change.
@@ -81,11 +87,12 @@ def move_blueprint(bp: BlueprintFunctions, y: int, shank: list[int] = None, upda
 
 
 def exchange_shank(bp: BlueprintFunctions, shank: list[int], update=False):
-    """\
+    """
     Move blueprint between shanks.
 
-    Note: Each shank requires the same electrode number, and electrodes are ordered consistently.
+    *Note*: Each shank requires the same electrode number, and electrodes are ordered consistently.
 
+    :param bp:
     :param shank: (list[int]): For N shank probe, it is an N-length list.
         For example, `[3, 2, 1, 0]` gives a reverse-shank-ordered blueprint.
     :param update: (bool) update channelmap to follow the blueprint change.
@@ -107,9 +114,10 @@ def exchange_shank(bp: BlueprintFunctions, shank: list[int], update=False):
 
 
 def load_blueprint(bp: BlueprintFunctions, filename: str):
-    """\
+    """
     Load a blueprint file.
 
+    :param bp:
     :param filename: (str) a numpy file '*.blueprint.npy'.
     """
     bp.check_probe()
@@ -118,15 +126,19 @@ def load_blueprint(bp: BlueprintFunctions, filename: str):
 
 
 def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
-    """\
-    Set captured electrodes as pre-selected category.
+    """
+    Set captured electrodes as *pre-selected* category.
+
+    :param bp:
     """
     bp.check_probe()
     bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
 
 
 def blueprint_simple_init_script_from_activity_data_with_a_threshold(bp: BlueprintFunctions, filename: str, threshold: float):
-    """\
+    """
+
+    :param bp:
     :param filename: a numpy filepath, which shape Array[int, N, (shank, col, row, state, value)]
     :param threshold: (float) activities threshold to set FULL category
     """
