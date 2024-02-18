@@ -281,16 +281,14 @@ def reduce(self: BlueprintFunctions,
         if threshold is not None and not _check_area_size(np.count_nonzero(area), threshold):
             continue
 
-        # extend = np.zeros_like(area, dtype=bool)
-        # for x in x_steps:
-        #     for y in y_steps:
-        #         np.logical_or(move_i(self, area, tx=-x, ty=-y, mask=area, init=False), extend, out=extend)
-        #
-        # extend[area] = False
-        # if not overwrite:
-        #     extend[blueprint != unset] = False
-        #
-        # ret[extend] = category
+        inner = area.copy()
+        for x in x_steps:
+            for y in y_steps:
+                np.logical_and(move_i(self, area, tx=x, ty=y, mask=area, init=False), inner, out=inner)
+
+        remove = np.logical_and(area, ~inner)
+
+        ret[remove] = unset
 
     return ret
 

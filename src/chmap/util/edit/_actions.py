@@ -157,7 +157,7 @@ def blueprint_simple_init_script_from_activity_data_with_a_threshold(bp: Bluepri
 
     bp[np.isnan(data)] = X
     marker('NaN')
-    bp.reduce(X, 5, bi=False)
+    bp.reduce(X, 20, bi=False)
     marker('reduce')
     bp.fill(X, gap=None, threshold=10, unset=True)
     marker('reduce.fill')

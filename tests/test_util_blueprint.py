@@ -586,6 +586,85 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 1,
         ]))
 
+    def test_reduce(self):
+        bp = bp_from_shape((1, 7, 2))
+
+        blueprint = np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+        ])
+        self.assert_clustering(bp.reduce(blueprint, on=1, step=1), np.array([
+            0, 0,
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+            0, 0,
+        ]))
+
+    def test_reduce_small_area(self):
+        bp = bp_from_shape((1, 4, 2))
+
+        blueprint = np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            0, 0,
+        ])
+        self.assert_clustering(bp.reduce(blueprint, on=1, step=1), np.array([
+            0, 0,
+            0, 0,
+            0, 0,
+            0, 0,
+        ]))
+
+    def test_reduce_direction(self):
+        bp = bp_from_shape((1, 7, 2))
+
+        blueprint = np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+        ])
+        # Because the origin is located at button, the reduce direction is reversed here.
+        self.assert_clustering(bp.reduce(blueprint, on=1, step=1, bi=False), np.array([
+            0, 0,
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+        ]))
+
+        blueprint = np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+        ])
+        self.assert_clustering(bp.reduce(blueprint, on=1, step=-1, bi=False), np.array([
+            0, 0,
+            1, 1,
+            1, 1,
+            1, 1,
+            1, 1,
+            0, 0,
+            0, 0,
+        ]))
 
 if __name__ == '__main__':
     unittest.main()
