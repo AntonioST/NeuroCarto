@@ -54,7 +54,7 @@ def format_html_doc(doc: str) -> str:
     ret = doc.strip()
     ret = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', ret)
     ret = re.sub(r'\*(.+?)\*', r'<em>\1</em>', ret)
-    ret = re.sub(r':param\s+bp:.*?\n?', '', ret)
+    ret = re.sub(r':param\s+bp:.*?\n?', '\n', ret)
     ret = re.sub(r'(?<=\n):param\s+(\w+):', r'<b>\1</b>:', ret)
     ret = re.sub(r'\n +', '</p><p style="text-indent:2em;">', ret)
     ret = re.sub(r'\n\n', '</p><br/><p>', ret)

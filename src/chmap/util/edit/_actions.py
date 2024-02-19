@@ -137,6 +137,13 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
 
 def blueprint_simple_init_script_from_activity_data_with_a_threshold(bp: BlueprintFunctions, filename: str, threshold: float):
     """
+    Initial a blueprint based on the experimental activity data with a given threshold,
+    which follows:
+
+    * set NaN area as forbidden area.
+    * set full-density to the area which corresponding activity over the threshold.
+    * make the full-density area into rectangle by filling the gaps.
+    * extend the full-density area with half-density.
 
     :param bp:
     :param filename: a numpy filepath, which shape Array[int, N, (shank, col, row, state, value)]
