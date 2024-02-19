@@ -2,10 +2,12 @@ import logging
 import time
 from pathlib import Path
 
-from bokeh.models import DataTable, ColumnDataSource, TableColumn, TextInput, Div, CDSView, CustomJS
+import numpy as np
+from bokeh.models import DataTable, ColumnDataSource, TableColumn, TextInput, Div, CDSView, CustomJS, Toggle
+from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
-from chmap.util.bokeh_util import ButtonFactory, as_callback
+from chmap.util.bokeh_util import ButtonFactory, as_callback, new_help_button
 from .base import RecordStep, RecordView, R, ViewBase, ControllerView
 
 __all__ = ['RecordManager', 'HistoryView']
@@ -17,6 +19,7 @@ class RecordManager:
 
         self.views: list[RecordView] = []
         self.steps: list[RecordStep] = []
+        self.disable = False
         self._is_replaying = False
         self._view: HistoryView | None = None
 
@@ -27,7 +30,7 @@ class RecordManager:
         self.logger.debug('register %s', type(view).__name__)
 
         def add_record(record: R, category: str, description: str):
-            if not self._is_replaying:
+            if not self._is_replaying and not self.disable:
                 self._add_record(view, record, category, description)
 
         setattr(view, 'add_record', add_record)
@@ -51,14 +54,27 @@ class RecordManager:
         if (history := self._view) is not None:
             history.on_add_record(step)
 
-    def replay(self, reset=False):
+    def replay(self, *, reset=False, index: list[int] = None):
+        """
+
+        :param reset: Is it a reset replay?
+        :param index: only replay steps on given index.
+        :return:
+        """
         if self._is_replaying:
             raise RuntimeError()
 
         self._is_replaying = True
         try:
+            if index is None:
+                self.logger.debug('replay all steps')
+                steps = self.steps
+            else:
+                self.logger.debug('replay steps on %s', index)
+                steps = [self.steps[it] for it in index]
+
             for view in self.views:
-                view.replay_records(self.steps, reset=reset)
+                view.replay_records(steps, reset=reset)
         finally:
             self._is_replaying = False
 
@@ -95,11 +111,13 @@ class RecordManager:
 
 class HistoryView(ViewBase, ControllerView):
     history_step_data: ColumnDataSource
+    history_step_view: CDSView
 
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.history')
         self.manager: RecordManager | None = None
         self.history_step_data = ColumnDataSource(data=dict(source=[], category=[], action=[]))
+        self.history_step_view = CDSView()
 
     @property
     def name(self) -> str:
@@ -149,12 +167,17 @@ class HistoryView(ViewBase, ControllerView):
     # ============= #
 
     history_step_table: DataTable
+    source_filter: TextInput
+    category_filter: TextInput
+    disable_toggle: Toggle
+    description_filter: TextInput
 
     def _setup_content(self, **kwargs):
         new_btn = ButtonFactory(min_width=100, width_policy='min')
 
         self.history_step_table = DataTable(
             source=self.history_step_data,
+            view=self.history_step_view,
             columns=[
                 TableColumn(field='source', title='Source', width=100),
                 TableColumn(field='category', title='Category', width=100),
@@ -163,19 +186,107 @@ class HistoryView(ViewBase, ControllerView):
             width=500, height=300, reorderable=False, sortable=False,
         )
 
+        self.source_filter = TextInput(width=100)
+        self.source_filter.on_change('value', as_callback(self._on_filter_update))
+        self.category_filter = TextInput(width=100)
+        self.category_filter.on_change('value', as_callback(self._on_filter_update))
+        self.description_filter = TextInput(width=200)
+        self.description_filter.on_change('value', as_callback(self._on_filter_update))
+
+        replay_callback = TextInput(visible=False)
+        replay_callback.on_change('value', as_callback(self._on_replay))
+
+        # https://discourse.bokeh.org/t/get-the-number-of-elements-returned-by-a-cdsview-in-bokeh/11206/4
+        replay = new_btn('Replay', None)
+        replay.js_on_click(handler=CustomJS(args=dict(view=self.history_step_view, callback=replay_callback), code="""
+        callback.value = view._indices.join(',');
+        """))
+
+        self.disable_toggle = Toggle(label='Disable', min_width=100, width_policy='min')
+        self.disable_toggle.on_change('active', as_callback(self._on_disable))
+
         from bokeh.layouts import row, column
         return [
             row(
                 self.history_step_table,
                 column(
-                    new_btn('Replay', self.on_replay),
+                    replay,
                     new_btn('Save', self.save_history),
                     new_btn('Load', self.load_history),
                     new_btn('Delete', self.on_delete),
                     new_btn('Clear', self.on_clear),
+                    self.disable_toggle,
+                    replay_callback
                 )
-            )
+            ),
+            row(Div(text='<b>Filter</b>'),
+                self.source_filter, self.category_filter,
+                new_help_button("filter Source and Category. Exactly match. Use ',' to select multiple", position='top'),
+                self.description_filter,
+                new_help_button("filter Action. Any match. Use ',' to select multiple. Use '!' to inverse selection ", position='top')),
         ]
+
+    def _on_filter_update(self):
+        from bokeh.models import filters
+
+        value: str
+        selectors = []
+        if len(value := self.source_filter.value.strip()) > 0:
+            if ',' in value:
+                selectors.append(filters.UnionFilter(operands=[
+                    filters.GroupFilter(column_name='source', group=it.strip())
+                    for it in value.split(',')
+                ]))
+            else:
+                selectors.append(filters.GroupFilter(column_name='source', group=value))
+
+        if len(value := self.category_filter.value.strip()) > 0:
+            if ',' in value:
+                selectors.append(filters.UnionFilter(operands=[
+                    filters.GroupFilter(column_name='category', group=it.strip())
+                    for it in value.split(',')
+                ]))
+            else:
+                selectors.append(filters.GroupFilter(column_name='category', group=value))
+
+        if len(value := self.description_filter.value.strip()) > 0:
+            description = list(self.history_step_data.data['action'])
+            booleans = self._on_filter_description(description, value)
+            selectors.append(filters.BooleanFilter(booleans=list(booleans)))
+
+        if len(selectors) == 0:
+            self.history_step_view.filter = filters.AllIndices()
+        elif len(selectors) == 1:
+            self.history_step_view.filter = selectors[0]
+        else:
+            self.history_step_view.filter = filters.IntersectionFilter(operands=selectors)
+
+    def _on_filter_description(self, description: list[str], expr: str) -> NDArray[np.bool_]:
+        if ',' in expr:
+            return np.logical_and.reduce([
+                self._on_filter_description(description, _expr.strip())
+                for _expr in expr.split(',')
+            ], axis=0)
+
+        inverse = False
+        if expr.startswith('!'):
+            inverse = True
+            expr = expr[1:]
+
+        ret = np.array([expr in it for it in description])
+        if inverse:
+            ret = ~ret
+
+        return ret
+
+    def _on_replay(self, value: str):
+        if (manager := self.manager) is None:
+            return
+
+        index = list(map(int, value.split(',')))
+
+        manager.replay(reset=True, index=index)
+        self.get_app().on_probe_update()
 
     def on_replay(self):
         if (manager := self.manager) is None:
@@ -198,6 +309,10 @@ class HistoryView(ViewBase, ControllerView):
 
         manager.steps = []
         self.update_history_table()
+
+    def _on_disable(self, disable: bool):
+        if (manager := self.manager) is not None:
+            manager.disable = disable
 
     # ============== #
     # update methods #

@@ -22,12 +22,13 @@ class ButtonFactory(object):
     def __init__(self, **kwargs):
         self.__kwargs = kwargs
 
-    def __call__(self, label: str, callback: Callable[..., None], **kwargs) -> Button:
+    def __call__(self, label: str, callback: Callable[..., None] = None, **kwargs) -> Button:
         for k, v in self.__kwargs.items():
             kwargs.setdefault(k, v)
 
         btn = Button(label=label, **kwargs)
-        btn.on_click(callback)
+        if callback is not None:
+            btn.on_click(callback)
         return btn
 
 
@@ -37,7 +38,7 @@ class SliderFactory(object):
 
     def __call__(self, title: str,
                  slide: tuple[float, float, float] | tuple[float, float, float, float],
-                 callback: Callable[..., None], **kwargs) -> Slider:
+                 callback: Callable[..., None] = None, **kwargs) -> Slider:
         """
 
         :param title:
@@ -61,7 +62,8 @@ class SliderFactory(object):
                 raise TypeError()
 
         ret = Slider(title=title, start=start, end=end, step=step, value=value, **kwargs)
-        ret.on_change('value', as_callback(callback))
+        if callback is not None:
+            ret.on_change('value', as_callback(callback))
         return ret
 
 
