@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from pathlib import Path
 
@@ -221,9 +222,9 @@ class HistoryView(ViewBase, ControllerView):
             ),
             row(Div(text='<b>Filter</b>'),
                 self.source_filter, self.category_filter,
-                new_help_button("filter Source and Category. Exactly match. Use ',' to select multiple", position='top'),
+                new_help_button("Source and Category filter. Match exactly. Use ',' to select multiple", position='top'),
                 self.description_filter,
-                new_help_button("filter Action. Any match. Use ',' to select multiple. Use '!' to inverse selection ", position='top')),
+                new_help_button("Action filter. Match Any. Use '~', '&' or '|' to do selection inverse, intersect or union, respectively.", position='top')),
         ]
 
     def _on_filter_update(self):
@@ -232,22 +233,10 @@ class HistoryView(ViewBase, ControllerView):
         value: str
         selectors = []
         if len(value := self.source_filter.value.strip()) > 0:
-            if ',' in value:
-                selectors.append(filters.UnionFilter(operands=[
-                    filters.GroupFilter(column_name='source', group=it.strip())
-                    for it in value.split(',')
-                ]))
-            else:
-                selectors.append(filters.GroupFilter(column_name='source', group=value))
+            selectors.append(self._on_filter_category('source', value))
 
         if len(value := self.category_filter.value.strip()) > 0:
-            if ',' in value:
-                selectors.append(filters.UnionFilter(operands=[
-                    filters.GroupFilter(column_name='category', group=it.strip())
-                    for it in value.split(',')
-                ]))
-            else:
-                selectors.append(filters.GroupFilter(column_name='category', group=value))
+            selectors.append(self._on_filter_category('category', value))
 
         if len(value := self.description_filter.value.strip()) > 0:
             description = list(self.history_step_data.data['action'])
@@ -261,23 +250,27 @@ class HistoryView(ViewBase, ControllerView):
         else:
             self.history_step_view.filter = filters.IntersectionFilter(operands=selectors)
 
+    def _on_filter_category(self, column: str, value: str):
+        from bokeh.models import filters
+
+        if ',' in value:
+            return filters.UnionFilter(operands=[
+                filters.GroupFilter(column_name=column, group=it.strip())
+                for it in value.split(',')
+            ])
+        else:
+            return filters.GroupFilter(column_name=column, group=value)
+
     def _on_filter_description(self, description: list[str], expr: str) -> NDArray[np.bool_]:
-        if ',' in expr:
-            return np.logical_and.reduce([
-                self._on_filter_description(description, _expr.strip())
-                for _expr in expr.split(',')
-            ], axis=0)
+        old_expr = expr
+        expr = re.sub(r'([^ \t~|&^()]+)', r'_a("\1")', expr)
+        self.logger.debug('filter description "%s" -> "%s"', old_expr, expr)
 
-        inverse = False
-        if expr.startswith('!'):
-            inverse = True
-            expr = expr[1:]
+        def _a(word: str) -> NDArray[np.bool_]:
+            word = word.lower()
+            return np.array([word in it.lower() for it in description])
 
-        ret = np.array([expr in it for it in description])
-        if inverse:
-            ret = ~ret
-
-        return ret
+        return eval(expr, {}, dict(_a=_a))
 
     def _on_replay(self, value: str):
         if (manager := self.manager) is None:
