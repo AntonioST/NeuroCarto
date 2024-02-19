@@ -94,6 +94,7 @@ class BlueprintScript(Protocol):
         .. raw:: html
 
             <div class="highlight" style="padding: 10px;"><div style="font-family: monospace;">
+            <p><b>example_script(a0, a1)</b></p>
             {EXAMPLE_DOCUMENT_HTML}
             </div></div>
 
@@ -271,7 +272,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         if (doc := script.script_doc(html=True)) is not None:
             self.script_document.text = f'<p><b>{head}</b></p>' + doc
         else:
-            self.script_document.text = head
+            self.script_document.text = f'<b>{head}</b>'
 
     def _on_run_script(self):
         script = self.script_select.value

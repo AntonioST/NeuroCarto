@@ -8,7 +8,6 @@ It is an internal package for providing functions to the :class:`~chmap.util.uti
     :maxdepth: 1
     :caption: Blueprint functions:
 
-    util.edit.validation
     util.edit.clustering
     util.edit.data
     util.edit.moving
