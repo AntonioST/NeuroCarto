@@ -205,7 +205,7 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
 
 
 def replace_doc_link(context: dict, doc: str) -> str:
-    if len(os.environ.get('SPHINX_BUILD', '')) or True:
+    if len(os.environ.get('SPHINX_BUILD', '')):
         replace = functools.partial(sphinx_doc_link_replace_ref, context)
         doc = re.sub(r'\{(?P<module>[a-zA-Z_.]+)?(#(?P<attr>[a-zA-Z_]+))?(?P<func>\(\))?}', replace, doc)
 
