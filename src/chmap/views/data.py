@@ -88,17 +88,20 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
         """
 
         :param data: Array[float, [S,], Y, (x, y)]
-        :return: dict(x=[[x]], y=[[y]])
+        :return: dict(x=[array[x]], y=[array[y]])
         """
+        xx: list[NDArray[np.float_]]
+        yy: list[NDArray[np.float_]]
+
         if data.ndim == 2:  # (Y, (x, y))
-            xx = [list(data[:, 0])]
-            yy = [list(data[:, 1])]
+            xx = [data[:, 0]]
+            yy = [data[:, 1]]
         elif data.ndim == 3:  # (S, Y, (x, y))
             xx = []
             yy = []
             for _data in data:
-                xx.append(list(_data[:, 0]))
-                yy.append(list(_data[:, 1]))
+                xx.append(_data[:, 0])
+                yy.append(_data[:, 1])
         else:
             raise RuntimeError(f'{type(set).__name__}.data() return .ndim{data.ndim}')
 
