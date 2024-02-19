@@ -5,6 +5,7 @@ from typing import Any, TypedDict
 
 from bokeh.models import ColumnDataSource, GlyphRenderer, tools, UIElement, Div
 from bokeh.plotting import figure as Figure
+from typing_extensions import Required
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, E, M
@@ -17,12 +18,14 @@ __all__ = ['ProbeView']
 
 
 class ProbeViewAction(TypedDict, total=False):
-    action: str  # reset, set_state, set_category, channelmap, blueprint
+    action: Required[str]  # reset, set_state, set_category, channelmap, blueprint
 
     # action=reset
     code: int
 
-    # action=set_state, set_category, channelmap, blueprint
+    # action=set_state, set_category: captured electrode id
+    # action=channelmap: selected electrode id
+    # action=blueprint: all electrode's category values
     electrodes: list[int]
 
     # action=set_state
@@ -166,7 +169,7 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
 
         code = self.probe.channelmap_code(self.channelmap)
         desp = f'create new {self.probe.channelmap_description(code)}'
-        self.add_record(ProbeViewAction(action='reset', code=code), desp)
+        self.add_record(ProbeViewAction(action='reset', code=code), 'reset', desp)
 
     def _reset_electrode_state(self):
         for e in self.electrodes:
@@ -197,7 +200,7 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
             for e in self.electrodes
         ]
         self.add_record(ProbeViewAction(action='blueprint', electrodes=electrodes),
-                        'electrode selection blueprint')
+                        'selection', 'electrode selection blueprint')
 
         self.logger.debug('refresh_selection()')
         try:
@@ -218,7 +221,7 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
                 if e.state == ProbeDesp.STATE_USED
             ]
             self.add_record(ProbeViewAction(action='channelmap', electrodes=electrodes),
-                            'electrode selection result')
+                            'selection', 'electrode selection result')
 
     def get_electrodes(self, s: None | int | list[int] | ColumnDataSource, *, state: int = None) -> list[E]:
         """
@@ -399,7 +402,7 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
                 state_name = f'State[{state}]'
 
             self.add_record(ProbeViewAction(action='set_state', electrodes=captured, state=state),
-                            f'set {len(captured)} electrodes to {state_name}')
+                            'state', f'set {len(captured)} electrodes to {state_name}')
 
     @doc_link()
     def set_category_for_captured(self, category: int, electrodes: list[int | E] = None):
@@ -429,14 +432,16 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
                 category_name = f'Category[{category}]'
 
             self.add_record(ProbeViewAction(action='set_category', electrodes=captured, category=category),
-                            f'set {len(captured)} electrodes to {category_name}')
+                            'category', f'set {len(captured)} electrodes to {category_name}')
 
     # ============ #
     # replay steps #
     # ============ #
 
     def replay_records(self, records: list[RecordStep], *, reset=False):
-        for record in self._filter_records(records):
+        ret = self._filter_records(records)
+
+        for record in ret:
             self.logger.debug('replay %s', record.get('description', record['action']))
 
             match record:
@@ -455,18 +460,53 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
                     for e, c in zip(self.electrodes, electrodes):
                         e.category = c
 
+        return ret
+
     def _filter_records(self, records: list[RecordStep]) -> list[ProbeViewAction]:
         source = type(self).__name__
 
         ret = []
+        prev_blueprint = None
+        prev_channelmap = None
+
         for record in records:
             if record.source == source:
                 item = dict(record.record)
                 item['description'] = record.description
 
-                match record.record['action']:
-                    case 'reset':
+                match record.record:
+                    case {'action': 'reset'}:
                         ret = [item]
+                        prev_blueprint = None
+                        prev_channelmap = None
+
+                    case {'action': 'blueprint'}:
+                        # only keep last one
+                        if prev_blueprint is not None:
+                            ret.remove(prev_blueprint)
+                        ret.append(item)
+                        prev_blueprint = item
+
+                        # remove all blueprint setting
+                        for i in reversed(range(len(ret))):
+                            match ret[i]:
+                                case {'action': 'set_category'}:
+                                    del ret[i]
+
+                    case {'action': 'channelmap'}:
+                        # only keep last one
+                        if prev_channelmap is not None:
+                            ret.remove(prev_channelmap)
+
+                        ret.append(item)
+                        prev_channelmap = item
+
+                        # remove all state setting
+                        for i in reversed(range(len(ret))):
+                            match ret[i]:
+                                case {'action': 'set_state'}:
+                                    del ret[i]
+
                     case _:
                         ret.append(item)
 

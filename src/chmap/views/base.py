@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import logging
 import math
+import sys
 from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast, final, NamedTuple
 
 import numpy as np
@@ -15,6 +16,11 @@ from chmap.config import ChannelMapEditorConfig
 from chmap.util.bokeh_app import run_timeout, remove_timeout
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
 from chmap.util.utils import doc_link
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from chmap.main_bokeh import ChannelMapEditorApp
@@ -383,8 +389,25 @@ R = TypeVar('R')
 class RecordStep(NamedTuple):
     source: str
     time_stamp: float
+    category: str
     description: str
     record: R  # json-serialize
+
+    def __str__(self):
+        return f'RecordStep[{self.source}][{self.category}]{{{self.description}}}'
+
+    def as_dict(self) -> dict:
+        return self._asdict()
+
+    @classmethod
+    def from_dict(cls, record: dict) -> Self:
+        return RecordStep(
+            record['source'],
+            record['time_stamp'],
+            record['category'],
+            record['description'],
+            record['record'],
+        )
 
 
 class RecordView(Generic[R], metaclass=abc.ABCMeta):
@@ -394,7 +417,7 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
 
     @final
     @doc_link(RecordManager='chmap.views.record.RecordManager')
-    def add_record(self, record: R, description: str):
+    def add_record(self, record: R, category: str, description: str):
         """
 
         Implement note:
@@ -402,14 +425,16 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
             replaced by {RecordManager}.
 
         :param record: stored step. type should be json-serialize.
+        :param category: step category
+        :param description: step description
         """
         pass
 
     @abc.abstractmethod
     @doc_link(RecordManager='chmap.views.record.RecordManager')
-    def replay_records(self, records: list[RecordStep], *, reset=False):
+    def replay_records(self, records: list[RecordStep], *, reset=False) -> list[RecordStep] | None:
         """
-        Replay the records.
+        Replay the recorded steps.
 
         Use Note:
             Do not call this method directly, because it might cause
@@ -417,8 +442,9 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
 
             Use {RecordManager#replay()} instead.
 
-        :param records:
+        :param records: steps
         :param reset: reset view to the initial state?
+        :return: actually used steps. {RecordView} could decide which steps is necessary.
         """
         pass
 

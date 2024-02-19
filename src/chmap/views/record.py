@@ -1,10 +1,11 @@
+import logging
 import time
 from pathlib import Path
 
-from bokeh.models import DataTable, ColumnDataSource, TableColumn
+from bokeh.models import DataTable, ColumnDataSource, TableColumn, TextInput, Div, CDSView, CustomJS
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
-from chmap.util.bokeh_util import ButtonFactory
+from chmap.util.bokeh_util import ButtonFactory, as_callback
 from .base import RecordStep, RecordView, R, ViewBase, ControllerView
 
 __all__ = ['RecordManager', 'HistoryView']
@@ -12,6 +13,8 @@ __all__ = ['RecordManager', 'HistoryView']
 
 class RecordManager:
     def __init__(self):
+        self.logger = logging.getLogger('chmap.history')
+
         self.views: list[RecordView] = []
         self.steps: list[RecordStep] = []
         self._is_replaying = False
@@ -21,9 +24,11 @@ class RecordManager:
         if view in self.views:
             return
 
-        def add_record(record: R, description: str):
+        self.logger.debug('register %s', type(view).__name__)
+
+        def add_record(record: R, category: str, description: str):
             if not self._is_replaying:
-                self._add_record(view, record, description)
+                self._add_record(view, record, category, description)
 
         setattr(view, 'add_record', add_record)
         self.views.append(view)
@@ -34,11 +39,13 @@ class RecordManager:
         except ValueError:
             return
         else:
+            self.logger.debug('unregister %s', type(view).__name__)
             del self.views[i]
             setattr(view, 'add_record', RecordView.add_record)
 
-    def _add_record(self, view: RecordView[R], record: R, description: str):
-        step = RecordStep(type(view).__name__, time.time(), description, record)
+    def _add_record(self, view: RecordView[R], record: R, category: str, description: str):
+        step = RecordStep(type(view).__name__, time.time(), category, description, record)
+        self.logger.debug('get %s', step)
         self.steps.append(step)
 
         if (history := self._view) is not None:
@@ -56,6 +63,7 @@ class RecordManager:
             self._is_replaying = False
 
     def load_steps(self, file: str | Path, *, blacklist: list[str] = tuple()):
+        self.logger.debug('load history %s', file)
         self.steps = self._load_steps(file, blacklist=blacklist)
 
     def _load_steps(self, file: str | Path, *, blacklist: list[str] = tuple()) -> list[RecordStep]:
@@ -65,30 +73,21 @@ class RecordManager:
 
         steps = []
         for item in data:
-            source = item['source']
-            if source not in blacklist:
-                steps.append(
-                    RecordStep(
-                        source,
-                        item['time_stamp'],
-                        item['description'],
-                        item['record'],
-                    )
-                )
+            if item['source'] not in blacklist:
+                steps.append(RecordStep.from_dict(item))
 
         return steps
 
     def save_steps(self, file: str | Path, append=False):
+        self.logger.debug('save history %s', file)
+
         import json
 
         data = []
         if append and file.exists():
             data.extend(self._load_steps(file))
 
-        data.extend([
-            dict(source=it.source, time_stamp=it.time_stamp, description=it.description, record=it.record)
-            for it in self.steps
-        ])
+        data.extend([it.as_dict() for it in self.steps])
 
         with Path(file).open('w') as f:
             json.dump(data, f, indent=2)
@@ -100,7 +99,7 @@ class HistoryView(ViewBase, ControllerView):
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.history')
         self.manager: RecordManager | None = None
-        self.history_step_data = ColumnDataSource(data=dict(source=[], action=[]))
+        self.history_step_data = ColumnDataSource(data=dict(source=[], category=[], action=[]))
 
     @property
     def name(self) -> str:
@@ -121,6 +120,30 @@ class HistoryView(ViewBase, ControllerView):
             manager.save_steps(history_file, append=False)
             self.logger.debug(f'save history : %s', history_file)
 
+    def on_add_record(self, record: RecordStep):
+        self.history_step_data.stream(dict(
+            source=[record.source],
+            category=[record.category],
+            action=[record.description]
+        ))
+
+        self.set_status(f'history : {len(self.manager.steps)}', decay=10)
+
+    def update_history_table(self):
+        if (manager := self.manager) is None:
+            self.history_step_data.data = dict(source=[], category=[], action=[])
+            return
+
+        source = []
+        category = []
+        action = []
+        for i, record in enumerate(manager.steps):
+            source.append(record.source)
+            category.append(record.category)
+            action.append(record.description)
+
+        self.history_step_data.data = dict(source=source, category=category, action=action)
+
     # ============= #
     # UI components #
     # ============= #
@@ -133,10 +156,11 @@ class HistoryView(ViewBase, ControllerView):
         self.history_step_table = DataTable(
             source=self.history_step_data,
             columns=[
-                TableColumn(field='source', title='Source'),
+                TableColumn(field='source', title='Source', width=100),
+                TableColumn(field='category', title='Category', width=100),
                 TableColumn(field='action', title='Action'),
             ],
-            width=400, height=300, reorderable=False, sortable=False,
+            width=500, height=300, reorderable=False, sortable=False,
         )
 
         from bokeh.layouts import row, column
@@ -186,28 +210,6 @@ class HistoryView(ViewBase, ControllerView):
         else:
             self.manager._view = self
             self.update_history_table()
-
-    # ============== #
-    # notify methods #
-    # ============== #
-
-    def on_add_record(self, step: RecordStep):
-        self.update_history_table()
-        self.logger.debug('add record from %s', step.source)
-        self.set_status(f'history : {len(self.manager.steps)}', decay=10)
-
-    def update_history_table(self):
-        if (manager := self.manager) is None:
-            self.history_step_data.data = dict(source=[], action=[])
-            return
-
-        source = []
-        action = []
-        for record in manager.steps:
-            source.append(record.source)
-            action.append(record.description)
-
-        self.history_step_data.data = dict(source=source, action=action)
 
 
 if __name__ == '__main__':
