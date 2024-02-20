@@ -278,9 +278,9 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def channelmap_code(self, chmap: Any | None) -> int | None:
         """
-        identify a channelmap, and return correspond code.
+        identify a channelmap, and return corresponding code.
 
-        :param chmap: a channelmap instance
+        :param chmap: Any instance. It could be a channelmap instance.
         :return: a code from {#supported_type}. None if *chmap* is unknown or not supported.
         """
         pass
