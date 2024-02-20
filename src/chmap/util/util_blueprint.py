@@ -10,6 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.probe import ProbeDesp, M, E
+from chmap.util.edit.checking import use_probe
 from chmap.util.utils import doc_link
 
 if sys.version_info >= (3, 11):
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
     from chmap.views.base import ViewBase, ControllerView
     from chmap.util.edit.clustering import ClusteringEdges
 
-__all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function']
+__all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function', 'use_probe']
 
 BLUEPRINT = NDArray[np.int_]
 
@@ -31,6 +32,7 @@ def maybe_blueprint(self: BlueprintFunctions, a):
     return isinstance(a, np.ndarray) and a.shape == (n,) and np.issubdtype(a.dtype, np.integer)
 
 
+@doc_link(BlueprintFunctions='chmap.util.util_blueprint.BlueprintFunctions')
 def blueprint_function(func):
     """
     Decorate a blueprint function to make it is able to direct apply function on
@@ -40,12 +42,12 @@ def blueprint_function(func):
 
     If the first parameter blueprint is given, it works as usually. ::
 
-        func(blueprint, ...)
+        bp.func(blueprint, ...)
 
-    If the first parameter blueprint is omitted, use `blueprint()` as first arguments,
-    and use `set_blueprint()` after it returns. ::
+    If the first parameter blueprint is omitted, use {BlueprintFunctions#blueprint()} as first arguments,
+    and use {BlueprintFunctions#set_blueprint()} after it returns. ::
 
-        bp.set_blueprint(func(bp.blueprint(), ...))
+        bp.set_blueprint(bp.func(bp.blueprint(), ...))
 
     :param func:
     :return:
@@ -546,6 +548,9 @@ class BlueprintFunctions(Generic[M, E]):
         If it is managed by {BlueprintScriptView}, {RequestChannelmapTypeError} could be captured,
         and the request channelmap ({#new_channelmap()}) will be created when needed.
 
+        In another way, decorator {use_probe()} can be used to annotate the probe request on a script,
+        then {BlueprintScriptView} can handle the probe creating and checking before running the script.
+
         :param probe: request probe. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
             It `None`, checking a probe has created, and its type doesn't matter.
         :param chmap_code: request channelmap code
@@ -553,7 +558,7 @@ class BlueprintFunctions(Generic[M, E]):
         :return: test success.
         :raise RequestChannelmapTypeError: when check failed.
         """
-        from .edit.actions import check_probe, RequestChannelmapTypeError
+        from .edit.checking import check_probe, RequestChannelmapTypeError
 
         try:
             check_probe(self, probe, chmap_code)

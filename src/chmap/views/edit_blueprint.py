@@ -31,6 +31,7 @@ else:
 
 if TYPE_CHECKING:
     from chmap.probe_npx.npx import ChannelMap
+    from chmap.util.edit.checking import RequestChannelmapTypeRequest
 
 __all__ = [
     'BlueprintScriptView',
@@ -68,9 +69,25 @@ EXAMPLE_DOCUMENT_HTML = format_html_doc(EXAMPLE_DOCUMENT)
 class BlueprintScript(Protocol):
     """A protocol class  to represent a blueprint script function."""
 
-    @doc_link()
+    @doc_link(use_probe='chmap.util.edit.checking.use_probe')
     def __call__(self, bp: BlueprintFunctions, *args, **kwargs) -> None:
         """
+        **Command structure**
+
+        .. code-block:: python
+
+            def example_script(bp: BlueprintFunctions):
+                \"""Document\"""
+                bp.check_probe() # checking used probe
+                ...
+
+        **Available decorators**
+
+        {use_probe()}
+
+        ***Generator script*
+
+        (experimental feature)
 
         **Document script**
 
@@ -161,6 +178,10 @@ class BlueprintScriptInfo(NamedTuple):
                 ret = format_html_doc(ret)
             return ret
         return None
+
+    def script_use_probe(self) -> RequestChannelmapTypeRequest | None:
+        from chmap.util.edit.checking import get_use_probe
+        return get_use_probe(self.script)
 
     def __call__(self, bp: BlueprintFunctions, script_input: str):
         """
@@ -360,7 +381,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
                     probe: ProbeDesp[M, E],
                     chmap: M | None,
                     script_input: str) -> BlueprintFunctions:
-        from chmap.util.edit.actions import RequestChannelmapTypeError
+        from chmap.util.edit.checking import RequestChannelmapTypeError, check_probe
         script_name = script.script_name()
 
         bp = BlueprintFunctions(probe, chmap)
@@ -368,14 +389,23 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         if (blueprint := self.cache_blueprint) is not None:
             bp.set_blueprint(blueprint)
 
-        self.logger.debug('run_script(%s)[%s]', script_name, script_input)
+        request: RequestChannelmapTypeRequest | None
+        if (request := script.script_use_probe()) is not None:
+            if chmap is None and request.create:
+                self.logger.debug('run_script(%s) create probe %s[%d]', script_name, request.probe_name, request.code)
+                chmap = bp.new_channelmap(request.code)
+                return self._run_script(script, probe, chmap, script_input)
 
-        request: RequestChannelmapTypeError
+            if request.check:
+                check_probe(bp, request)
+
         try:
+            self.logger.debug('run_script(%s)[%s]', script_name, script_input)
             script(bp, script_input)
         except RequestChannelmapTypeError as e:
-            if chmap is None and e.check_probe(probe) and e.chmap_code is not None:
-                request = e
+            request = e.request
+            if chmap is None and request.match_probe(probe) and request.code is not None:
+                pass
             else:
                 raise
         else:
@@ -383,8 +413,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             return bp
 
         # from RequestChannelmapTypeError
-        self.logger.debug('run_script(%s) request %s[%d]', script_name, request.probe_name, request.chmap_code)
-        chmap = bp.new_channelmap(request.chmap_code)
+        self.logger.debug('run_script(%s) request %s[%d]', script_name, request.probe_name, request.code)
+        chmap = bp.new_channelmap(request.code)
 
         self.logger.debug('run_script(%s) rerun', script_name)
         return self._run_script(script, probe, chmap, script_input)
@@ -416,11 +446,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         else:
             self.actions.update(actions)
 
-        self.script_select.options = opts = list(self.actions)
-        try:
-            self.script_select.value = opts[0]
-        except IndexError:
-            self.script_select.value = ""
+        self.update_actions_select()
 
     def add_script(self, name: str, script: str):
         self.actions[name] = script
@@ -434,21 +460,56 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def start(self):
         self.restore_global_state(force=True)
 
+        # load scripts
+        for action in self.actions:
+            self.get_script(action)
+
     cache_probe: ProbeDesp[M, E] = None
     cache_chmap: M | None = None
     cache_blueprint: list[E] | None = None
     cache_data: NDArray[np.float_] | None = None
 
     def on_probe_update(self, probe: ProbeDesp, chmap: M | None = None, electrodes: list[E] | None = None):
+        update_select = (
+                (self.cache_probe is None)
+                or (probe is None)
+                or (self.cache_probe != probe)
+                or (self.cache_chmap is None)
+                or (chmap is None)
+                or (self.cache_chmap != chmap)
+        )
+
         self.cache_probe = probe
         self.cache_chmap = chmap
         self.cache_blueprint = electrodes
+
+        if update_select:
+            self.update_actions_select()
 
         from chmap.probe_npx.npx import ChannelMap
         if isinstance(chmap, ChannelMap):
             self.plot_npx_channelmap()
         else:
             self.set_image(None)
+
+    def update_actions_select(self):
+        opts = []
+
+        if (probe := self.cache_probe) is None:
+            opts = list(self.actions)
+        else:
+            for action in self.actions:
+                script = self.get_script(action)
+                if (request := script.script_use_probe()) is None:
+                    opts.append(action)
+                elif request.match_probe(probe, self.cache_chmap):
+                    opts.append(action)
+
+        self.script_select.options = opts
+        try:
+            self.script_select.value = opts[0]
+        except IndexError:
+            self.script_select.value = ""
 
     def on_data_update(self, probe: ProbeDesp[M, E], e: list[E], data: NDArray[np.float_] | None):
         if self.cache_probe is None:

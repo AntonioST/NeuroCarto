@@ -25,10 +25,13 @@ __all__ = [
     # profile
     'TimeMarker',
     # documenting
+    'SPHINX_BUILD',
     'doc_link'
 ]
 
 T = TypeVar('T')
+
+SPHINX_BUILD = len(os.environ.get('SPHINX_BUILD', '')) > 0
 
 
 def all_int(*x) -> bool:
@@ -205,7 +208,7 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
 
 
 def replace_doc_link(context: dict, doc: str) -> str:
-    if len(os.environ.get('SPHINX_BUILD', '')):
+    if SPHINX_BUILD:
         replace = functools.partial(sphinx_doc_link_replace_ref, context)
         doc = re.sub(r'\{(?P<module>[a-zA-Z_.]+)?(#(?P<attr>[a-zA-Z_]+))?(?P<func>\(\))?}', replace, doc)
 

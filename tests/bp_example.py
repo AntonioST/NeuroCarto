@@ -14,9 +14,10 @@ Global Config setting
     }
 """
 
-from chmap.util.util_blueprint import BlueprintFunctions
+from chmap.util.util_blueprint import BlueprintFunctions, use_probe
 
 
+@use_probe('test', check=False)
 def my_blueprint_script_function(bp: BlueprintFunctions, a0: str, a1: int):
     """
     Script Document, which is used in GUI.
