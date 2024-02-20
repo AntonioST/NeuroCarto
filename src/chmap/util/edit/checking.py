@@ -22,9 +22,9 @@ __all__ = [
 @doc_link()
 class RequestChannelmapTypeRequest(NamedTuple):
     """
-    **Do not create by yourself**. In order to use this, use {use_probe()} and {get_use_probe()} instead.
+    An annotation to indicate the probe request for a blueprint script.
 
-    An annotation to indicate a blueprint script's probe request.
+    **Do not create by yourself**. In order to use this, use {use_probe()} and {get_use_probe()} instead.
     """
 
     probe: str | type[ProbeDesp] | None
@@ -85,7 +85,7 @@ def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
               create: bool = None, check=True):
     """
     Decorate a blueprint script ({BlueprintScript}) to indicate this function
-    request a particular probe.
+    request a particular probe type.
 
     .. code-block:: python
 
@@ -93,12 +93,12 @@ def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
         def my_probe(bp: BlueprintFunctions):
             bp.check_probe('npx', 24) # no need anymore in common case.
 
-    If also allow {BlueprintScriptView} to filter suitable script.
+    If also allow {BlueprintScriptView} to filter suitable scripts for a probe.
 
     :param probe: probe type or its name
     :param code: channelmap code
     :param create: create the probe if there is no probe in the main figure.
-        It `True`, it requires *code* is not `None`.
+        If `True`, it requires *code* should be not `None`.
     :param check: check the current probe type automatically before entering the script.
     """
     if probe is None:
@@ -117,6 +117,7 @@ def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
     return _decorator
 
 
+@doc_link()
 def get_use_probe(func) -> RequestChannelmapTypeRequest | None:
     """
     Get {RequestChannelmapTypeRequest}.

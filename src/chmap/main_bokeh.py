@@ -720,6 +720,12 @@ class ChannelMapEditorApp(BokehApplication):
             self.on_probe_update()
 
     def log_message(self, *message, reset=False):
+        """
+        print messages at log area.
+
+        :param message: messages.
+        :param reset: reset text area.
+        """
         message = '\n'.join(message)
         self.logger.info(message)
 
@@ -730,6 +736,9 @@ class ChannelMapEditorApp(BokehApplication):
             self.message_area.value = message + '\n' + text
 
     def log_clear(self):
+        """
+        Clear log text area.
+        """
         self.message_area.value = ""
 
 

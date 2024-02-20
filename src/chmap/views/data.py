@@ -19,7 +19,15 @@ __all__ = ['DataView', 'DataHandler', 'Data1DView', 'FileDataView']
 
 
 class DataHandler:
+    """A data receiver view."""
+
     def on_data_update(self, probe: ProbeDesp[M, E], e: list[E], data: NDArray[np.float_] | None):
+        """
+
+        :param probe:
+        :param e: N-length electrodes
+        :param data: Array[float, N] electrode data.
+        """
         pass
 
 

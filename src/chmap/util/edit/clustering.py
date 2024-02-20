@@ -14,6 +14,10 @@ __all__ = ['ClusteringEdges', 'find_clustering', 'clustering_edges', 'edge_raste
 
 
 class ClusteringEdges(NamedTuple):
+    """
+    Edge of area.
+    """
+
     category: int
     shank: int
     edges: list[tuple[int, int, int]]  # [(x, y, corner)]
@@ -69,6 +73,7 @@ def find_clustering(self: BlueprintFunctions,
     """
     find electrode clustering with the same category.
 
+    :param self:
     :param blueprint: Array[category, N]
     :param categories: only for given categories.
     :param diagonal: does surrounding includes electrodes on diagonal?

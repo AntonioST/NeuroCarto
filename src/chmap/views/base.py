@@ -14,11 +14,14 @@ from numpy.typing import NDArray
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.bokeh_app import run_timeout, remove_timeout
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
-from chmap.util.utils import doc_link
+from chmap.util.utils import doc_link, SPHINX_BUILD
 
 if TYPE_CHECKING:
     from chmap.main_bokeh import ChannelMapEditorApp
     from chmap.probe import ProbeDesp, M, E
+elif SPHINX_BUILD:
+    ProbeDesp = 'chmap.probe.ProbeDesp'
+    ChannelMapEditorApp = 'chmap.main_bokeh.ChannelMapEditorApp'
 
 __all__ = [
     'ViewBase', 'ControllerView',
@@ -165,7 +168,7 @@ class ViewBase(metaclass=abc.ABCMeta):
 
     # noinspection PyUnusedLocal
     @final
-    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+    @doc_link()
     def log_message(self, *message: str, reset=False):
         """
         log message in {ChannelMapEditorApp}.
@@ -185,7 +188,7 @@ V = TypeVar('V', bound=ViewBase)
 
 class ControllerView:
     @final
-    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+    @doc_link()
     def get_app(self) -> ChannelMapEditorApp:
         """
 
@@ -198,7 +201,7 @@ class ControllerView:
         pass
 
     @final
-    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+    @doc_link()
     def get_view(self, view_type: str | type[V]) -> V | None:
         """
 
@@ -212,7 +215,7 @@ class ControllerView:
         return None
 
 
-@doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+@doc_link()
 class InvisibleView:
     """
     This view component's visible state is controlled by {ChannelMapEditorApp}.
@@ -308,7 +311,7 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
         pass
 
     @final
-    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+    @doc_link()
     def save_global_state(self, state: S = None, *, sync=False, force=False):
         """
         save state into global config.
@@ -324,7 +327,7 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
         pass
 
     @final
-    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+    @doc_link()
     def restore_global_state(self, *, reload=False, force=False):
         """
         read global config and invoke {StateView#restore_state()}.
@@ -361,7 +364,7 @@ class EditorView(DynamicView):
     """
 
     @final
-    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+    @doc_link()
     def update_probe(self):
         """
         notify GUI probe has updated.
