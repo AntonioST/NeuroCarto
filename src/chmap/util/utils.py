@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from types import FunctionType
-from typing import TypeVar
+from typing import TypeVar, Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -186,54 +186,52 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
     :return:
     """
     stack = inspect.stack()
-    g = {}
-    g.update({  # function scope
-        name: value
-        for name, value in stack[1].frame.f_locals.items()
-        if not name.startswith('_')
-    })
-    g.update({  # method scope
-        name: value
-        for name, value in stack[2].frame.f_locals.items()
-        if not name.startswith('_')
-    })
-    kwargs.update(g)
+    g = [kwargs, stack[1].frame.f_globals]
 
     def _decorator(func: T) -> T:
         if func.__doc__ is not None:
-            func.__doc__ = replace_doc_link(kwargs, func.__doc__)
+            func.__doc__ = replace_doc_link(g, func.__doc__)
         return func
 
     return _decorator
 
 
-def replace_doc_link(context: dict, doc: str) -> str:
+def replace_doc_link(context: list[dict], doc: str) -> str:
     if SPHINX_BUILD:
         replace = functools.partial(sphinx_doc_link_replace_ref, context)
-        doc = re.sub(r'\{(?P<module>[a-zA-Z_.]+)?(#(?P<attr>[a-zA-Z_]+))?(?P<func>\(\))?}', replace, doc)
+        doc = re.sub(r'\{(?P<module>[a-zA-Z0-9_.]+)?(#(?P<attr>[a-zA-Z0-9_]+))?(?P<func>\(\))?}', replace, doc)
 
         replace = functools.partial(sphinx_doc_link_replace_word, context)
-        doc = re.sub(r'(?:(?<=^)|(?<=\n))(?P<indent> +)\{(?P<attr>[a-zA-Z_]+)}', replace, doc)
+        doc = re.sub(r'(?:(?<=^)|(?<=\n))(?P<indent> *)\{(?P<attr>[a-zA-Z0-9_]+)}', replace, doc)
 
     return doc
 
 
-def sphinx_doc_link_replace_word(context: dict, m: re.Match) -> str:
+def sphinx_doc_link_get(context: list[dict], attr: str) -> Any:
+    for g in context:
+        try:
+            return g[attr]
+        except KeyError:
+            pass
+    raise KeyError
+
+
+def sphinx_doc_link_replace_word(context: list[dict], m: re.Match) -> str:
     indent = m.group('indent')
     attr = m.group('attr')
 
     try:
-        value = context[attr]
+        value = sphinx_doc_link_get(context, attr)
     except KeyError:
         return m.group()
 
-    if indent is None:
+    if indent is None or len(indent) == 0:
         return value
 
     return textwrap.indent(value, indent)
 
 
-def sphinx_doc_link_replace_ref(context: dict, m: re.Match) -> str:
+def sphinx_doc_link_replace_ref(context: list[dict], m: re.Match) -> str:
     k = m.group('module')
     attr = m.group('attr')
     is_func = m.group('func')
@@ -241,7 +239,7 @@ def sphinx_doc_link_replace_ref(context: dict, m: re.Match) -> str:
     if k is not None:
         old_k = k
         try:
-            k = context[k]
+            k = sphinx_doc_link_get(context, old_k)
         except KeyError:
             pass
         else:

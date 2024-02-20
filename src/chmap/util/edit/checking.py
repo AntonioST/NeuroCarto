@@ -19,7 +19,14 @@ __all__ = [
 ]
 
 
+@doc_link()
 class RequestChannelmapTypeRequest(NamedTuple):
+    """
+    **Do not create by yourself**. In order to use this, use {use_probe()} and {get_use_probe()} instead.
+
+    An annotation to indicate a blueprint script's probe request.
+    """
+
     probe: str | type[ProbeDesp] | None
     code: int | None
     create: bool = True
@@ -27,6 +34,7 @@ class RequestChannelmapTypeRequest(NamedTuple):
 
     @property
     def probe_name(self) -> str:
+        """Probe name"""
         if isinstance(self.probe, type):
             return self.probe.__name__
 
@@ -37,6 +45,13 @@ class RequestChannelmapTypeRequest(NamedTuple):
             raise RuntimeError()
 
     def match_probe(self, probe: ProbeDesp, chmap: Any | None = None) -> bool:
+        """
+        Does *probe* and *chmap* match this request?
+
+        :param probe:
+        :param chmap:
+        :return:
+        """
         if isinstance(self.probe, type):
             if not isinstance(probe, self.probe):
                 return False
@@ -83,7 +98,7 @@ def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
     :param probe: probe type or its name
     :param code: channelmap code
     :param create: create the probe if there is no probe in the main figure.
-        It requires *code* is not `None`.
+        It `True`, it requires *code* is not `None`.
     :param check: check the current probe type automatically before entering the script.
     """
     if probe is None:
@@ -103,6 +118,12 @@ def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
 
 
 def get_use_probe(func) -> RequestChannelmapTypeRequest | None:
+    """
+    Get {RequestChannelmapTypeRequest}.
+
+    :param func: blueprint script function
+    :return:
+    """
     return getattr(func, '__chmap_checking_use_probe__', None)
 
 

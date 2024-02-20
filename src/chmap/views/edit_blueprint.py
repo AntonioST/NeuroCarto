@@ -85,7 +85,7 @@ class BlueprintScript(Protocol):
 
         {use_probe()}
 
-        ***Generator script*
+        ***Generator script**
 
         (experimental feature)
 
