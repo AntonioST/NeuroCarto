@@ -594,6 +594,11 @@ class BlueprintFunctions(Generic[M, E]):
         if (controller := self._controller) is not None:
             draw(self, controller, a, view=view)
 
+    def set_status_line(self, message: str, *, decay: float = None):
+        from .edit.actions import set_status_line
+        if (controller := self._controller) is not None:
+            set_status_line(controller, message, decay=decay)
+
     def log_message(self, *message: str):
         """
         Send messages to log area in GUI.

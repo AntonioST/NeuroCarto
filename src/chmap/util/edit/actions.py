@@ -11,6 +11,7 @@ from chmap.views.data import DataHandler
 __all__ = [
     'new_channelmap',
     'log_message',
+    'set_status_line',
     'draw',
     'capture_electrode',
     'captured_electrodes',
@@ -29,6 +30,11 @@ def new_channelmap(controller: ControllerView, code: int | str) -> Any:
 def log_message(controller: ControllerView, *message: str):
     if isinstance(controller, ViewBase):
         controller.log_message(*message)
+
+
+def set_status_line(controller: ControllerView, message: str, *, decay: float = None):
+    if isinstance(controller, ViewBase):
+        controller.set_status(message, decay=decay)
 
 
 def draw(self: BlueprintFunctions, controller: ControllerView,

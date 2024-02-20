@@ -14,10 +14,9 @@ Global Config setting
     }
 """
 
-from chmap.util.util_blueprint import BlueprintFunctions, use_probe
+from chmap.util.util_blueprint import BlueprintFunctions
 
 
-@use_probe('test', check=False)
 def my_blueprint_script_function(bp: BlueprintFunctions, a0: str, a1: int):
     """
     Script Document, which is used in GUI.
@@ -29,5 +28,18 @@ def my_blueprint_script_function(bp: BlueprintFunctions, a0: str, a1: int):
     bp.check_probe("npx", 24)
 
     bp.log_message(f'{a0=}', f'{a1=}')
+
+    bp.log_message('done')
+
+
+def example_generator_function(bp: BlueprintFunctions):
+    """
+    Generator script example.
+
+    :param bp:
+    """
+    for i in range(10):
+        bp.set_status_line(f'{i} second')
+        yield 1
 
     bp.log_message('done')
