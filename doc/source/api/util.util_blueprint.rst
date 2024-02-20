@@ -2,7 +2,7 @@ chmap.util.util_blueprint
 =========================
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Blueprint functions:
 
     util.edit

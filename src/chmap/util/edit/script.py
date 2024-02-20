@@ -69,14 +69,14 @@ class BlueprintScript(Protocol):
 
         {use_probe()}
 
-        ***Generator script**
+        **Generator script**
 
-        Blueprint script function could be a generator by using 'yield' keyword.
-        Yielding a number to indicate the caller wait for a given seconds.
+        Blueprint script function could be a generator by using `yield` keyword.
+        Yielding a number to indicate the caller to wait for a given seconds.
         During running, the "Run" button will become "Stop", in order to interrupt the
         running.
 
-        When interrupted, a KeyboardInterrupt will be raised. Blueprint script function
+        When interrupted, a `KeyboardInterrupt` will be raised. Blueprint script function
         can capture it for cleanup purpose, and then reraise it to the caller to let it
         handle the interrupting message.
         Otherwise, the caller will considered this script has a normal exit.
