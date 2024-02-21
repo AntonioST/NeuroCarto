@@ -133,21 +133,21 @@ def install_view(app: ChannelMapEditorApp, view: V) -> V:
             app.logger.debug('save_global_state(%s)', type(view).__name__)
 
             if sync:
-                app.save_global_config(direct=False)
+                app.save_user_config(direct=False)
             else:
                 if state is None:
                     state = cast(StateView, view).save_state()
-                app.global_views_config[type(view).__name__] = state
-                app.save_global_config(direct=True)
+                app.user_views_config[type(view).__name__] = state
+                app.save_user_config(direct=True)
 
     def restore_global_state(*, reload=False, force=False):
         app.logger.debug('restore_global_state(%s)', type(view).__name__)
 
         if reload:
-            app.load_global_config(reset=False)
+            app.load_user_config(reset=False)
 
         try:
-            config = app.global_views_config[type(view).__name__]
+            config = app.user_views_config[type(view).__name__]
         except KeyError:
             if force:
                 cast(StateView, view).restore_state({})

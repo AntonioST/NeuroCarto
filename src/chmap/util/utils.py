@@ -9,7 +9,7 @@ import textwrap
 import time
 from collections.abc import Callable
 from pathlib import Path
-from types import FunctionType
+from types import FunctionType, ModuleType
 from typing import TypeVar, Any
 
 import numpy as np
@@ -172,6 +172,8 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
     * `{class}` : `:class:~`
     * `{class#attr}` : `:attr:~`
     * `{class#meth()}` : `:meth:~`
+    * `{module#class}` : `:class:~`
+    * `{module#func()}` : `:func:~`
     * `{#attr}` : `:attr:~`
     * `{#meth()}` : `:meth:~`
     * `{func()}` : `:func:~`
@@ -243,6 +245,12 @@ def sphinx_doc_link_replace_ref(context: list[dict], m: re.Match) -> str:
         except KeyError:
             pass
         else:
+            if isinstance(k, ModuleType):
+                module = k.__name__
+                if attr is not None:
+                    k = f'{module}.{attr}'
+                    attr = None
+
             if isinstance(k, type):
                 module = k.__module__
                 name = k.__name__

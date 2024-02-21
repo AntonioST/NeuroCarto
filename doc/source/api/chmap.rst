@@ -8,11 +8,17 @@ Chmap package
     main_bokeh
     main_bokeh_multi
     config
+    files
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Probe Abstract:
+
     probe
 
 .. toctree::
     :maxdepth: 1
-    :caption: Probe:
+    :caption: Probe Implementation:
 
     probe_npx
 
