@@ -8,6 +8,7 @@ from bokeh.models import DataTable, ColumnDataSource, TableColumn, TextInput, Di
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
+from chmap.files import user_cache_file
 from chmap.util.bokeh_util import ButtonFactory, as_callback, new_help_button
 from .base import RecordStep, RecordView, R, ViewBase, ControllerView
 
@@ -116,6 +117,7 @@ class HistoryView(ViewBase, ControllerView):
 
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.history')
+        self._config = config
         self.manager: RecordManager | None = None
         self.history_step_data = ColumnDataSource(data=dict(source=[], category=[], action=[]))
         self.history_step_view = CDSView()
@@ -125,7 +127,7 @@ class HistoryView(ViewBase, ControllerView):
         return 'History'
 
     def get_history_file(self) -> Path:  # TODO make it selectable
-        return self.get_app().cache_file('history.json')
+        return user_cache_file(self._config, 'history.json')
 
     def load_history(self):
         if (manager := self.manager) is not None and (history_file := self.get_history_file()).exists():

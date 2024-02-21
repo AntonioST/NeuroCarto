@@ -9,6 +9,7 @@ from .util.utils import doc_link
 __all__ = [
     'user_config_dir',
     'user_cache_dir',
+    'user_cache_file',
     'user_data_dir',
     'user_config_file',
     'load_user_config',
@@ -77,6 +78,13 @@ def user_cache_dir(config: ChannelMapEditorConfig) -> Path:
             pass
 
     return Path.home() / '.chmap/cache'
+
+
+def user_cache_file(config: ChannelMapEditorConfig, filename: str) -> Path:
+    if config.debug:
+        return Path(f'.chmap.{filename}')
+
+    return user_cache_dir(config) / filename
 
 
 def user_data_dir(config: ChannelMapEditorConfig) -> Path:
