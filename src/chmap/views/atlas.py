@@ -4,7 +4,6 @@ from typing import get_args, TypedDict, Final
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div, CheckboxGroup
-from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
@@ -12,7 +11,7 @@ from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
 from chmap.util.atlas_struct import Structures
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
-from chmap.views.base import StateView, BoundView, BoundaryState
+from chmap.views.base import Figure, StateView, BoundView, BoundaryState
 
 __all__ = ['AtlasBrainView', 'AtlasBrainViewState']
 

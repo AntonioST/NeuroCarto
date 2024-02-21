@@ -113,7 +113,7 @@ def new_parser() -> argparse.ArgumentParser:
     #
     gp = ap.add_argument_group('Bokeh Application')
     gp.add_argument('--config-file', metavar='FILE', type=Path, default=None, dest='config_file',
-                    help='global config file.')
+                    help='user config file.')
     gp.add_argument('--view', metavar='MODULE:NAME', type=str, default=list(), action='append', dest='extra_view',
                     help='install extra views in right panel')
     gp.add_argument('--server-address', metavar='URL', default=None, dest='server_address',

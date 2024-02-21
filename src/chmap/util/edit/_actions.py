@@ -1,10 +1,12 @@
 import numpy as np
 
 from chmap.probe_npx import NpxProbeDesp, utils
+from chmap.util.edit.checking import use_probe
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import TimeMarker
 
 
+@use_probe(NpxProbeDesp, 24)
 def npx24_single_shank(bp: BlueprintFunctions, shank: int = 0, row: int = 0):
     """
     Make a block channelmap for 4-shank Neuropixels probe.
@@ -13,10 +15,10 @@ def npx24_single_shank(bp: BlueprintFunctions, shank: int = 0, row: int = 0):
     :param shank: (int=0) on which shank.
     :param row: (int=0) start row in um.
     """
-    bp.check_probe(NpxProbeDesp, 24)
     bp.set_channelmap(utils.npx24_single_shank(shank, row, um=True))
 
 
+@use_probe(NpxProbeDesp, 24)
 def npx24_stripe(bp: BlueprintFunctions, row: int = 0):
     """
     Make a block channelmap for 4-shank Neuropixels probe.
@@ -24,10 +26,10 @@ def npx24_stripe(bp: BlueprintFunctions, row: int = 0):
     :param bp:
     :param row: (int=0) start row in um.
     """
-    bp.check_probe(NpxProbeDesp, 24)
     bp.set_channelmap(utils.npx24_stripe(row, um=True))
 
 
+@use_probe(NpxProbeDesp, 24)
 def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] = 0, row: int = 0):
     """
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *half* density.
@@ -36,10 +38,10 @@ def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] = 0, row: 
     :param shank: (int|[int, int]=0) on which shank/s.
     :param row: (int=0) start row in um.
     """
-    bp.check_probe(NpxProbeDesp, 24)
     bp.set_channelmap(utils.npx24_half_density(shank, row, um=True))
 
 
+@use_probe(NpxProbeDesp, 24)
 def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | None = None, row: int = 0):
     """
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *quarter* density.
@@ -48,10 +50,10 @@ def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | None 
     :param shank: (int|[int, int]=None) on which shank/s. use `None` for four shanks.
     :param row: (int=0) start row in um.
     """
-    bp.check_probe(NpxProbeDesp, 24)
     bp.set_channelmap(utils.npx24_quarter_density(shank, row, um=True))
 
 
+@use_probe(NpxProbeDesp, 24)
 def npx24_one_eighth_density(bp: BlueprintFunctions, row: int = 0):
     """
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *one-eighth* density.
@@ -59,7 +61,6 @@ def npx24_one_eighth_density(bp: BlueprintFunctions, row: int = 0):
     :param bp:
     :param row: (int=0) start row in um.
     """
-    bp.check_probe(NpxProbeDesp, 24)
     bp.set_channelmap(utils.npx24_one_eighth_density(row, um=True))
 
 
@@ -135,16 +136,22 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
     bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
 
 
+@use_probe(NpxProbeDesp, create=False)
 def blueprint_simple_init_script_from_activity_data_with_a_threshold(bp: BlueprintFunctions, filename: str, threshold: float):
     """
+    Initial a blueprint based on the experimental activity data with a given threshold,
+    which follows:
+
+    * set NaN area as forbidden area.
+    * set full-density to the area which corresponding activity over the threshold.
+    * make the full-density area into rectangle by filling the gaps.
+    * extend the full-density area with half-density.
 
     :param bp:
     :param filename: a numpy filepath, which shape Array[int, N, (shank, col, row, state, value)]
     :param threshold: (float) activities threshold to set FULL category
     """
     marker = TimeMarker(disable=False)
-    bp.check_probe(NpxProbeDesp)
-    marker('check_probe')
 
     bp.log_message(f'{filename=}', f'{threshold=}')
     marker('log args')

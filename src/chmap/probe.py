@@ -10,21 +10,24 @@ from typing import TypeVar, Generic, Any, ClassVar, TYPE_CHECKING
 import numpy as np
 from numpy.typing import NDArray
 
-from chmap.util.utils import import_name, doc_link
-
-if TYPE_CHECKING:
-    from chmap.config import ChannelMapEditorConfig
-    from chmap.views.base import ViewBase
+from chmap.util.utils import import_name, doc_link, SPHINX_BUILD
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
+if TYPE_CHECKING:
+    from chmap.config import ChannelMapEditorConfig
+    from chmap.views.base import ViewBase
+elif SPHINX_BUILD:
+    ProbeDesp = 'chmap.probe.ProbeDesp'
+    ChannelMapEditorApp = 'chmap.main_bokeh.ChannelMapEditorApp'
+
 __all__ = ['ProbeDesp', 'ElectrodeDesp', 'get_probe_desp']
 
 
-@doc_link(ProbeDesp='chmap.probe.ProbeDesp')
+@doc_link()
 def get_probe_desp(name: str) -> type[ProbeDesp]:
     """Get probe describer.
 
@@ -154,7 +157,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+    @doc_link()
     def supported_type(self) -> dict[str, int]:
         """
         All supported probe type.
@@ -173,7 +176,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+    @doc_link()
     def possible_states(self) -> dict[str, int]:
         """
         All possible exported electrode state.
@@ -192,7 +195,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
+    @doc_link()
     def possible_categories(self) -> dict[str, int]:
         """
         All possible exported electrode categories.
@@ -246,9 +249,11 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def channelmap_file_suffix(self) -> str:
+    def channelmap_file_suffix(self) -> list[str]:
         """
         The filename extension for supported channelmap.
+
+        The first suffix in returned list is considered the primary one.
 
         :return: file extension, like ".imro".
         """
@@ -278,9 +283,9 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def channelmap_code(self, chmap: Any | None) -> int | None:
         """
-        identify a channelmap, and return correspond code.
+        identify a channelmap, and return corresponding code.
 
-        :param chmap: a channelmap instance
+        :param chmap: Any instance. It could be a channelmap instance.
         :return: a code from {#supported_type}. None if *chmap* is unknown or not supported.
         """
         pass

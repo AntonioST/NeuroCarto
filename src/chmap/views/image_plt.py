@@ -12,12 +12,11 @@ from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING, NamedT
 import matplotlib.pyplot as plt
 import numpy as np
 from bokeh.models import UIElement
-from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.utils import doc_link
-from chmap.views.base import DynamicView, ViewBase
+from chmap.views.base import Figure, DynamicView, ViewBase
 from chmap.views.image import ImageView, ImageHandler
 from chmap.views.image_npy import NumpyImageHandler
 

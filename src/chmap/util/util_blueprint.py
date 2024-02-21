@@ -10,7 +10,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.probe import ProbeDesp, M, E
-from chmap.util.utils import doc_link
+from chmap.util.edit.checking import use_probe
+from chmap.util.utils import doc_link, SPHINX_BUILD
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -21,9 +22,18 @@ if TYPE_CHECKING:
     from chmap.views.base import ViewBase, ControllerView
     from chmap.util.edit.clustering import ClusteringEdges
 
-__all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function']
+    BLUEPRINT = NDArray[np.int_]
 
-BLUEPRINT = NDArray[np.int_]
+elif SPHINX_BUILD:
+    ViewBase = 'chmap.views.base.ViewBase'
+    ProbeView = 'chmap.views.probe.ProbeView'
+
+
+    class BLUEPRINT:
+        """Prevent sphinx from printing BLUEPRINT as `ndarray[int64]`"""
+        pass
+
+__all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function', 'use_probe']
 
 
 def maybe_blueprint(self: BlueprintFunctions, a):
@@ -31,6 +41,7 @@ def maybe_blueprint(self: BlueprintFunctions, a):
     return isinstance(a, np.ndarray) and a.shape == (n,) and np.issubdtype(a.dtype, np.integer)
 
 
+@doc_link(BlueprintFunctions='chmap.util.util_blueprint.BlueprintFunctions')
 def blueprint_function(func):
     """
     Decorate a blueprint function to make it is able to direct apply function on
@@ -40,12 +51,12 @@ def blueprint_function(func):
 
     If the first parameter blueprint is given, it works as usually. ::
 
-        func(blueprint, ...)
+        bp.func(blueprint, ...)
 
-    If the first parameter blueprint is omitted, use `blueprint()` as first arguments,
-    and use `set_blueprint()` after it returns. ::
+    If the first parameter blueprint is omitted, use {BlueprintFunctions#blueprint()} as first arguments,
+    and use {BlueprintFunctions#set_blueprint()} after it returns. ::
 
-        bp.set_blueprint(func(bp.blueprint(), ...))
+        bp.set_blueprint(bp.func(bp.blueprint(), ...))
 
     :param func:
     :return:
@@ -70,6 +81,66 @@ def blueprint_function(func):
 class BlueprintFunctions(Generic[M, E]):
     """
     Provide blueprint manipulating functions. Used by {BlueprintScriptView}.
+
+    **channelmap functions**
+
+    .. hlist::
+        :columns: 2
+
+        * {#check_probe()}
+        * {#add_electrodes()}
+        * {#del_electrodes()}
+        * {#selected_electrodes()}
+        * {#set_channelmap()}
+
+    **blueprint functions**
+
+    .. hlist::
+        :columns: 2
+
+        * {#blueprint()}
+        * {#new_blueprint()}
+        * {#set_blueprint()}
+        * {#apply_blueprint()}
+        * {#load_blueprint()}
+        * {#save_blueprint()}
+        * {#set()}
+        * {#unset()}
+        * {#__setitem__()}
+        * {#__delitem__()}
+        * {#merge()}
+        * {#move()}
+        * {#move_i()}
+        * {#find_clustering()}
+        * {#clustering_edges()}
+        * {#edge_rastering()}
+        * {#fill()}
+        * {#extend()}
+        * {#reduce()}
+
+    **electrode data processing**
+
+    .. hlist::
+        :columns: 2
+
+        * {#load_data()}
+        * {#interpolate_nan()}
+        * {#draw()}
+
+    **UI communicating functions**
+
+    .. hlist::
+        :columns: 2
+
+        * {#set_status_line()}
+        * {#log_message()}
+        * {#new_channelmap()}
+        * {#capture_electrode()}
+        * {#captured_electrodes()}
+        * {#set_state_for_captured()}
+        * {#set_category_for_captured()}
+        * {#refresh_selection()}
+
     """
 
     CATE_UNSET: int
@@ -131,11 +202,14 @@ class BlueprintFunctions(Generic[M, E]):
     # channelmap functions #
     # ==================== #
 
+    @doc_link()
     def add_electrodes(self, e: int | list[int] | NDArray[np.int_] | NDArray[np.bool_], *, overwrite=True):
         """
+         Add electrode(s) *e* into the current channelmap.
 
         :param e: electrode index, index list, index array or index mask.
         :param overwrite: overwrite previous selected electrode.
+        :see: {ProbeDesp#add_electrode()}
         """
         electrodes = self.probe.all_electrodes(self.channelmap)
         if isinstance(e, (int, np.integer)):
@@ -148,10 +222,13 @@ class BlueprintFunctions(Generic[M, E]):
         for t in e:
             self.probe.add_electrode(self.channelmap, t, overwrite=overwrite)
 
+    @doc_link()
     def del_electrodes(self, e: int | list[int] | NDArray[np.int_] | NDArray[np.bool_]):
         """
+        delete electrode(s) *e* from the current channelmap.
 
         :param e: electrode index, index list, index array or index mask.
+        :see: {ProbeDesp#del_electrode()}
         """
         electrodes = self.probe.all_electrodes(self.channelmap)
         if isinstance(e, (int, np.integer)):
@@ -164,10 +241,13 @@ class BlueprintFunctions(Generic[M, E]):
         for t in e:
             self.probe.del_electrode(self.channelmap, t)
 
+    @doc_link()
     def selected_electrodes(self) -> NDArray[np.int_]:
         """
+        The selected electrodes in the current channelmap.
 
         :return: electrode index array
+        :see: {ProbeDesp#all_channels()}
         """
         ret = []
 
@@ -181,6 +261,11 @@ class BlueprintFunctions(Generic[M, E]):
         return np.unique(ret)
 
     def set_channelmap(self, chmap: M):
+        """
+        Apply the channelmap on the current channelmap.
+
+        :param chmap:
+        """
         self.probe.clear_electrode(self.channelmap)
         for t in self.probe.all_channels(chmap):
             self.probe.add_electrode(self.channelmap, t)
@@ -194,6 +279,7 @@ class BlueprintFunctions(Generic[M, E]):
         return self._blueprint
 
     def new_blueprint(self) -> BLUEPRINT:
+        """new empty blueprint array."""
         return np.full_like(self.s, self.CATE_UNSET)
 
     def set_blueprint(self, blueprint: int | BLUEPRINT | list[E]):
@@ -242,6 +328,7 @@ class BlueprintFunctions(Generic[M, E]):
 
     def load_blueprint(self, file: str | Path) -> BLUEPRINT:
         """
+        Load the blueprint from the **file**.
 
         :param file: file.blueprint.npy
         :return:
@@ -255,6 +342,13 @@ class BlueprintFunctions(Generic[M, E]):
         return self._blueprint
 
     def save_blueprint(self, file: str | Path, blueprint: BLUEPRINT = None):
+        """
+        Save blueprint to the **file**.
+
+        :param file:
+        :param blueprint:
+        :return:
+        """
         if blueprint is None:
             blueprint = self._blueprint
         else:
@@ -316,6 +410,7 @@ class BlueprintFunctions(Generic[M, E]):
         blueprint = self.blueprint()
         self.set_blueprint(self.merge(blueprint, self.set(blueprint, mask, category)))
 
+    @doc_link()
     def __delitem__(self, mask: int | NDArray[np.bool_] | NDArray[np.int_]):
         """
         unset electrodes in the *blueprint* with a *mask*.
@@ -371,8 +466,8 @@ class BlueprintFunctions(Generic[M, E]):
         :param tx: x movement in um.
         :param ty: y movement in um.
         :param mask: move electrode only in mask
-        :param axis: index off N
-        :param init: initial value
+        :param axis: index of N
+        :param init: initial value V for *a*.
         :return: moved a (copied)
         """
         from .edit.moving import move
@@ -390,8 +485,8 @@ class BlueprintFunctions(Generic[M, E]):
         :param tx: number of dx
         :param ty: number of dy
         :param mask: move electrode only in mask
-        :param axis: index off N
-        :param init: initial value
+        :param axis: index of N
+        :param init: initial value V for *a*.
         :return: moved a (copied)
         """
         from .edit.moving import move_i
@@ -419,7 +514,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param blueprint:
         :param categories:
-        :return: list of {ClusteringEdges}
+        :return: list of edge
         """
         from .edit.clustering import clustering_edges
         return clustering_edges(self, blueprint, categories)
@@ -465,7 +560,7 @@ class BlueprintFunctions(Generic[M, E]):
                bi: bool = True,
                overwrite: bool = False) -> BLUEPRINT:
         """
-        extend the area occupied by category *on* with *category*.
+        extend the area occupied by the category *on* with *category*.
 
         :param blueprint: Array[category, N]
         :param on: on which category
@@ -488,6 +583,7 @@ class BlueprintFunctions(Generic[M, E]):
                threshold: int | tuple[int, int] = None,
                bi: bool = True) -> BLUEPRINT:
         """
+        reduce the area occupied by the category *on*.
 
         :param blueprint: Array[category, N]
         :param on: on which category
@@ -517,8 +613,8 @@ class BlueprintFunctions(Generic[M, E]):
 
            Array[int, E, (shank, col, row, state, category)]
 
-        :param file:
-        :return:
+        :param file: data file
+        :return: data array.
         """
         from .edit.data import load_data
         return load_data(self, file)
@@ -526,6 +622,14 @@ class BlueprintFunctions(Generic[M, E]):
     def interpolate_nan(self, a: NDArray[np.float_],
                         kernel: int | tuple[int, int] = 1,
                         f: str | Callable[[NDArray[np.float_]], float] = 'mean') -> NDArray[np.float_]:
+        """
+        Interpolate the NaN value in the data *a*.
+
+        :param a:
+        :param kernel: kernel size.
+        :param f: interpolate method. Default use mean.
+        :return:
+        """
         from .edit.data import interpolate_nan
         return interpolate_nan(self, a, kernel, f)
 
@@ -546,6 +650,9 @@ class BlueprintFunctions(Generic[M, E]):
         If it is managed by {BlueprintScriptView}, {RequestChannelmapTypeError} could be captured,
         and the request channelmap ({#new_channelmap()}) will be created when needed.
 
+        In another way, decorator {use_probe()} can be used to annotate the probe request on a script,
+        then {BlueprintScriptView} can handle the probe creating and checking before running the script.
+
         :param probe: request probe. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
             It `None`, checking a probe has created, and its type doesn't matter.
         :param chmap_code: request channelmap code
@@ -553,7 +660,7 @@ class BlueprintFunctions(Generic[M, E]):
         :return: test success.
         :raise RequestChannelmapTypeError: when check failed.
         """
-        from .edit.actions import check_probe, RequestChannelmapTypeError
+        from .edit.checking import check_probe, RequestChannelmapTypeError
 
         try:
             check_probe(self, probe, chmap_code)
@@ -564,12 +671,14 @@ class BlueprintFunctions(Generic[M, E]):
         else:
             return True
 
+    @doc_link()
     def new_channelmap(self, code: int | str) -> M:
         """
         Create a new channelmap with type *code*.
 
         :param code: channelmap type code.
         :return: new channelmap instance.
+        :see: {ProbeView#reset()}
         """
         from .edit.actions import new_channelmap
         if (controller := self._controller) is not None:
@@ -589,16 +698,31 @@ class BlueprintFunctions(Generic[M, E]):
         if (controller := self._controller) is not None:
             draw(self, controller, a, view=view)
 
+    @doc_link()
+    def set_status_line(self, message: str, *, decay: float = None):
+        """
+
+        :param message: message
+        :param decay: after give seconds, clear the message.
+        :see: {ViewBase#set_status()}
+        """
+        from .edit.actions import set_status_line
+        if (controller := self._controller) is not None:
+            set_status_line(controller, message, decay=decay)
+
+    @doc_link(ChannelMapEditorApp='chmap.main_bokeh.ChannelMapEditorApp')
     def log_message(self, *message: str):
         """
         Send messages to log area in GUI.
 
         :param message:
+        :see: {ChannelMapEditorApp#log_message()}
         """
         from .edit.actions import log_message
         if (controller := self._controller) is not None:
             log_message(controller, *message)
 
+    @doc_link()
     def capture_electrode(self, index: NDArray[np.int_] | NDArray[np.bool_],
                           state: list[int] = None):
         """
@@ -606,15 +730,23 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param index: index (Array[E, N]) or bool (Array[bool, E]) array.
         :param state: restrict electrodes on given states.
+        :see: {ProbeView#set_captured_electrodes()}
         """
         from .edit.actions import capture_electrode
         if (controller := self._controller) is not None:
             capture_electrode(self, controller, index, state)
 
+    @doc_link()
     def captured_electrodes(self, all=False) -> NDArray[np.int_]:
+        """
+
+        :param all: Included forbidden electrodes?
+        :return: index of captured electrodes.
+        :see: {ProbeView#get_captured_electrodes_index()}
+        """
         from .edit.actions import captured_electrodes
         if (controller := self._controller) is not None:
-            return captured_electrodes(self, controller, all)
+            return captured_electrodes(controller, all)
         else:
             return np.array([], dtype=int)
 
@@ -627,6 +759,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param state: a state value
         :param index: index (Array[E, N]) or bool (Array[bool, E]) array.
         :see: {#capture_electrode()}
+        :see: {ProbeView#set_state_for_captured()}
         """
         from .edit.actions import set_state_for_captured
         if (controller := self._controller) is not None:
@@ -641,16 +774,19 @@ class BlueprintFunctions(Generic[M, E]):
         :param category: a category value
         :param index: index (Array[E, N]) or bool (Array[bool, E]) array.
         :see: {#capture_electrode()}
+        :see: {ProbeView#set_category_for_captured()}
         """
         from .edit.actions import set_category_for_captured
         if (controller := self._controller) is not None:
             set_category_for_captured(self, controller, category, index)
 
+    @doc_link()
     def refresh_selection(self, selector: str = None):
         """
         refresh electrode selection base on current blueprint.
 
         :param selector:
+        :see: {ProbeView#refresh_selection()}
         """
         from .edit.actions import refresh_selection
         if (controller := self._controller) is not None:

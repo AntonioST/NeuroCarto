@@ -30,3 +30,16 @@ def my_blueprint_script_function(bp: BlueprintFunctions, a0: str, a1: int):
     bp.log_message(f'{a0=}', f'{a1=}')
 
     bp.log_message('done')
+
+
+def example_generator_function(bp: BlueprintFunctions):
+    """
+    Generator script example.
+
+    :param bp:
+    """
+    for i in range(10):
+        bp.set_status_line(f'{i} second')
+        yield 1
+
+    bp.log_message('done')

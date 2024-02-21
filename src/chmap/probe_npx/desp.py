@@ -62,11 +62,17 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         return [NpxReferenceControl, ElectrodeDensityDataView, ElectrodeEfficiencyData]
 
     @property
-    def channelmap_file_suffix(self) -> str:
-        return '.imro'
+    def channelmap_file_suffix(self) -> list[str]:
+        return ['.imro', '.meta']
 
     def load_from_file(self, file: Path) -> ChannelMap:
-        return ChannelMap.from_imro(file)
+        match file.suffix:
+            case '.imro':
+                return ChannelMap.from_imro(file)
+            case '.meta':
+                return ChannelMap.from_meta(file)
+            case _:
+                raise RuntimeError()
 
     def save_to_file(self, chmap: ChannelMap, file: Path):
         chmap.save_imro(file)

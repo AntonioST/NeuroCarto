@@ -1,5 +1,4 @@
 import functools
-import os
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -8,7 +7,6 @@ from bokeh.application.application import SessionContext
 from bokeh.events import MenuItemClick
 from bokeh.io import curdoc
 from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, TextAreaInput, UIElement
-from bokeh.plotting import figure as Figure
 from bokeh.themes import Theme
 
 from chmap.config import ChannelMapEditorConfig, parse_cli, setup_logger
@@ -18,11 +16,12 @@ from chmap.util.bokeh_util import ButtonFactory, col_layout, as_callback, new_he
 from chmap.util.utils import TimeMarker, doc_link
 from chmap.views import *
 from chmap.views.record import RecordManager
+from . import files
 
 __all__ = ['ChannelMapEditorApp', 'main']
 
 
-class ChannelMapEditorAppConfig(TypedDict, total=False):
+class ChannelMapEditorUserConfig(TypedDict, total=False):
     theme: str | dict[str, Any] | None
     views: list[str]
     history: bool
@@ -42,8 +41,8 @@ class ChannelMapEditorApp(BokehApplication):
     probe: ProbeDesp[M, Any]
     """probe describer"""
 
-    global_views_config: dict[str, Any] = {}
-    """view configuration"""
+    user_views_config: dict[str, Any] = {}
+    """user view configuration"""
 
     right_panel_views_config: dict[str, Any] = {}
     """view configuration, channelmap depended"""
@@ -66,127 +65,75 @@ class ChannelMapEditorApp(BokehApplication):
     # load/save imro files #
     # ==================== #
 
-    def global_config_file(self) -> Path:
-        """
-        Get global (user) config filepath.
-
-        :return: filepath.
-        """
-        if (ret := self.config.config_file) is not None:
-            if ret.is_dir():
-                ret = ret / 'chmap.config.json'
-            return ret
-
-        if self.config.debug:
-            return Path('.') / '.chmap.config.json'
-
-        # https://wiki.archlinux.org/title/XDG_Base_Directory
-        # https://stackoverflow.com/a/3250952
-        if (d := os.environ.get('XDG_CONFIG_HOME', None)) is not None:
-            return Path(d) / 'chmap/chmap.config.json'
-        elif (d := os.environ.get('APPDATA', None)) is not None:
-            return Path(d) / 'chmap/chmap.config.json'
-
-        # https://stackoverflow.com/a/1857
-        import platform
-        match platform.system():
-            case 'Linux':
-                return Path.home() / '.config/chmap/chmap.config.json'
-            case 'Windows':
-                pass
-            case 'Darwin':
-                pass
-
-        return Path.home() / '.chmap/chmap.config.json'
-
-    def cache_file(self, filename: str) -> Path:
-        if self.config.debug:
-            return Path('.') / f'.chmap.{filename}'
-
-        if (d := os.environ.get('XDG_CACHE_HOME', None)) is not None:
-            return Path(d) / 'chmap' / filename
-        elif (d := os.environ.get('APPDATA', None)) is not None:
-            return Path(d) / 'chmap' / filename
-
-        import platform
-        match platform.system():
-            case 'Linux':
-                return Path.home() / '.cache/chmap' / filename
-            case 'Windows':
-                pass
-            case 'Darwin':
-                pass
-
-        return Path.home() / '.chmap/cache' / filename
-
     @doc_link()
-    def load_global_config(self, *, reset=False) -> dict[str, Any]:
+    def load_user_config(self, *, reset=False) -> dict[str, Any]:
         """
-        load global (user) config.
+        load user config.
 
-        :param reset: reset global config. Otherwise, just update dict.
+        :param reset: reset user config. Otherwise, just update dict.
         :return:
-        :see: {#global_config_file()}
+        :see: {files#load_user_config()}
         """
-        file = self.global_config_file()
-        if not file.exists():
-            self.logger.debug('global config not found: %s', file)
-            return self.global_views_config
+        file = files.user_config_file(self.config)
 
-        import json
-        with file.open('r') as f:
-            data = dict(json.load(f))
-            self.logger.debug('load global config : %s', file)
+        try:
+            data = files.load_user_config(self.config)
+        except FileNotFoundError as e:
+            self.logger.debug('user config not found: %s', file, exc_info=e)
+            return self.user_views_config
+        except IOError as e:
+            self.logger.debug('bad user config: %s', file, exc_info=e)
+            return self.user_views_config
+        else:
+            self.logger.debug('load user config : %s', file)
 
         if reset:
-            self.global_views_config.update(data)
+            self.user_views_config.update(data)
         else:
-            self.global_views_config = data
+            self.user_views_config = data
 
-        return self.global_views_config
+        return self.user_views_config
 
     @doc_link()
-    def save_global_config(self, direct=False):
+    def save_user_config(self, direct=False):
         """
-        save global (user) config.
+        save user config.
 
         :param direct: Do not update configurations from {GlobalStateView}.
-        :see: {#global_config_file()}
+        :see: {files#save_user_config()}
         """
         if not direct:
             for view in self.right_panel_views:
                 if isinstance(view, GlobalStateView) and (state := view.save_state(local=False)) is not None:
                     self.logger.debug('on_save() config %s', type(view).__name__)
-                    self.global_views_config[type(view).__name__] = state
+                    self.user_views_config[type(view).__name__] = state
 
-        import json
-        file = self.global_config_file()
-        file.parent.mkdir(parents=True, exist_ok=True)
-        with file.open('w') as f:
-            json.dump(self.global_views_config, f, indent=2)
-            self.logger.debug(f'save global config : %s', file)
+        file = files.save_user_config(self.config, self.user_views_config)
+        self.logger.debug(f'save user config : %s', file)
 
-    def get_app_global_config(self) -> ChannelMapEditorAppConfig:
+    def get_editor_userconfig(self) -> ChannelMapEditorUserConfig:
         """
-        get app config from global (user) config.
+        get editor config from user config.
+
         :return:
         """
         try:
-            app_config: ChannelMapEditorAppConfig = self.global_views_config[type(self).__name__]
+            app_config: ChannelMapEditorUserConfig = self.user_views_config[type(self).__name__]
         except KeyError:
-            self.global_views_config[type(self).__name__] = app_config = ChannelMapEditorAppConfig()
-            self.save_global_config(direct=True)
+            self.user_views_config[type(self).__name__] = app_config = ChannelMapEditorUserConfig()
+            self.save_user_config(direct=True)
 
         return app_config
 
+    @doc_link()
     def list_chmap_files(self) -> list[Path]:
         """
         List channelmap files under chmap-dir (`-C`, `--chmap-dir`).
 
         :return: list of files
+        :see: {files#list_channelmap_files()}
         """
-        pattern = '*' + self.probe.channelmap_file_suffix
-        return list(sorted(self.config.chmap_root.glob(pattern), key=Path.name.__get__))
+        return files.list_channelmap_files(self.config, self.probe)
 
     def get_chmap_file(self, name: str) -> Path:
         """
@@ -195,13 +142,9 @@ class ChannelMapEditorApp(BokehApplication):
         :param name: filename. it should be the filename under chmap-dir.
             Otherwise, it needs to contain '/' to load from/save into other place.
         :return: saving path.
+        :see: {files#get_channelmap_file()}
         """
-        if '/' in name:
-            p = Path(name)
-        else:
-            p = self.config.chmap_root / name
-
-        return p.with_suffix(self.probe.channelmap_file_suffix)
+        return files.get_channelmap_file(self.config, self.probe, name)
 
     @doc_link()
     def load_chmap(self, name: str | Path) -> M:
@@ -245,14 +188,9 @@ class ChannelMapEditorApp(BokehApplication):
 
         :param chmap: filename. See {#get_chmap_file()} for more details.
         :return: saving path.
+        :see: {files#get_blueprint_file()}
         """
-        if isinstance(chmap, str):
-            imro_file = self.get_chmap_file(chmap)
-        elif isinstance(chmap, Path) and chmap.name.endswith('.blueprint.npy'):
-            return chmap
-        else:
-            imro_file = chmap
-        return imro_file.with_suffix('.blueprint.npy')
+        return files.get_blueprint_file(self.config, self.probe, chmap)
 
     @doc_link()
     def load_blueprint(self, chmap: str | Path) -> bool:
@@ -272,6 +210,10 @@ class ChannelMapEditorApp(BokehApplication):
         except FileNotFoundError as e:
             self.log_message(f'File not found : {file}')
             self.logger.warning(f'blueprint file not found : %s', file, exc_info=e)
+            return False
+        except BaseException as e:
+            self.log_message(f'load blueprint fail : {file}')
+            self.logger.warning(f'load blueprint file fail : %s', file, exc_info=e)
             return False
         else:
             self.log_message(f'load blueprint : {file.name}')
@@ -305,15 +247,9 @@ class ChannelMapEditorApp(BokehApplication):
 
         :param chmap: filename. See {#get_chmap_file()} for more details.
         :return: saving path.
+        :see: {files#get_view_config_file()}
         """
-        if isinstance(chmap, str):
-            imro_file = self.get_chmap_file(chmap)
-        elif isinstance(chmap, Path) and chmap.name.endswith('.config.json'):
-            return chmap
-        else:
-            imro_file = chmap
-
-        return imro_file.with_suffix('.config.json')
+        return files.get_view_config_file(self.config, self.probe, chmap)
 
     @doc_link()
     def load_view_config(self, chmap: str | Path, *, reset=False) -> dict[str, Any]:
@@ -330,14 +266,19 @@ class ChannelMapEditorApp(BokehApplication):
             return self.right_panel_views_config
 
         import json
-        with file.open('r') as f:
-            data = dict(json.load(f))
+        try:
+            with file.open('r') as f:
+                data = dict(json.load(f))
+        except json.JSONDecodeError as e:
+            self.logger.warning('bad view config file %s', file.name, exc_info=e)
+            self.log_message(f'bad config : {file.name}')
+        else:
             self.log_message(f'load config : {file.name}')
 
-        if reset:
-            self.right_panel_views_config.update(data)
-        else:
-            self.right_panel_views_config = data
+            if reset:
+                self.right_panel_views_config.update(data)
+            else:
+                self.right_panel_views_config = data
 
         return self.right_panel_views_config
 
@@ -378,12 +319,12 @@ class ChannelMapEditorApp(BokehApplication):
 
     def index(self):
         self.logger.debug('index')
-        self.load_global_config(reset=True)
+        self.load_user_config(reset=True)
 
-        if self.get_app_global_config().get('history', True):
+        if self.get_editor_userconfig().get('history', True):
             self.record_manager = RecordManager()
 
-        if (theme := self.get_app_global_config().get('theme', None)) is not None:
+        if (theme := self.get_editor_userconfig().get('theme', None)) is not None:
             try:
                 self._set_theme(theme)
             except BaseException as e:
@@ -545,7 +486,7 @@ class ChannelMapEditorApp(BokehApplication):
 
         ext = []
 
-        ext.extend(self.get_app_global_config().get('views', ['blueprint', 'atlas']))
+        ext.extend(self.get_editor_userconfig().get('views', ['blueprint', 'atlas']))
         ext.extend(config.extra_view)
 
         if '-' in ext:
@@ -569,7 +510,7 @@ class ChannelMapEditorApp(BokehApplication):
 
     def cleanup(self, context: SessionContext):
         super().cleanup(context)
-        self.save_global_config()
+        self.save_user_config()
 
     # ========= #
     # callbacks #
@@ -624,7 +565,7 @@ class ChannelMapEditorApp(BokehApplication):
             self.logger.warning(f'channelmap file not found : %s', file, exc_info=x)
             return
 
-        self.output_imro.value_input = file.stem
+        self.output_imro.value_input = file.stem.replace('.', '_')
 
         self.probe_view.reset(chmap)
         self.load_blueprint(file)
@@ -649,15 +590,22 @@ class ChannelMapEditorApp(BokehApplication):
         if preselect is None:
             preselect = self.input_imro.value
 
-        imro_list = [f.stem for f in self.list_chmap_files()]
-        self.input_imro.options = [""] + imro_list
+        file_list = self.list_chmap_files()
+        if len(self.probe.channelmap_file_suffix) == 1:
+            opt_list = [(str(f), f.stem) for f in file_list]
+        else:
+            opt_list = [(str(f), f.name) for f in file_list]
 
-        if preselect in imro_list:
+        self.input_imro.options = [""] + opt_list
+
+        name_list = [it[1] for it in opt_list]
+
+        if preselect in name_list:
             self.input_imro.value = preselect
         else:
             self.input_imro.value = ""
 
-        self.output_imro.completions = imro_list
+        self.output_imro.completions = name_list
 
     def on_save(self):
         name = self.output_imro.value_input
@@ -749,6 +697,12 @@ class ChannelMapEditorApp(BokehApplication):
             self.on_probe_update()
 
     def log_message(self, *message, reset=False):
+        """
+        print messages at log area.
+
+        :param message: messages.
+        :param reset: reset text area.
+        """
         message = '\n'.join(message)
         self.logger.info(message)
 
@@ -759,6 +713,9 @@ class ChannelMapEditorApp(BokehApplication):
             self.message_area.value = message + '\n' + text
 
     def log_clear(self):
+        """
+        Clear log text area.
+        """
         self.message_area.value = ""
 
 

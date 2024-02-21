@@ -1,19 +1,24 @@
+from __future__ import annotations
+
 from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
-from chmap.probe import ProbeDesp, get_probe_desp
+from chmap.probe import ProbeDesp
 from chmap.util.util_blueprint import BlueprintFunctions
-from chmap.util.utils import doc_link
+from chmap.util.utils import SPHINX_BUILD, doc_link
 from chmap.views.base import ViewBase, ControllerView
 from chmap.views.data import DataHandler
 
+if SPHINX_BUILD:
+    ViewBase = 'chmap.views.base.ViewBase'
+    ProbeView = 'chmap.views.probe.ProbeView'
+
 __all__ = [
-    'RequestChannelmapTypeError',
-    'check_probe',
     'new_channelmap',
     'log_message',
+    'set_status_line',
     'draw',
     'capture_electrode',
     'captured_electrodes',
@@ -23,122 +28,44 @@ __all__ = [
 ]
 
 
-class RequestChannelmapTypeError(RuntimeError):
-    def __init__(self, probe: str | type[ProbeDesp] | None, chmap_code: int | None):
-        """
-
-        :param probe: request probe type.
-        :param chmap_code: request channelmap code
-        """
-        self.probe = probe
-        self.chmap_code = chmap_code
-
-        if probe is None:
-            message = 'Require a probe'
-        elif isinstance(probe, str):
-            message = f'Request Probe[{probe}]'
-        else:
-            message = f'Request {probe.__name__}'
-
-        if chmap_code is not None:
-            message += f'[{chmap_code}].'
-        else:
-            message += '.'
-
-        super().__init__(message)
-
-    @property
-    def probe_name(self) -> str:
-        if isinstance(self.probe, type):
-            return self.probe.__name__
-
-        elif isinstance(self.probe, str):
-            return self.probe
-
-        else:
-            raise RuntimeError()
-
-    def check_probe(self, probe: ProbeDesp) -> bool:
-        if isinstance(self.probe, type):
-            return isinstance(probe, self.probe)
-
-        elif isinstance(probe, str):
-            return type(probe).__name__ == self.probe
-
-        else:
-            raise RuntimeError()
-
-
 @doc_link()
-def check_probe(self: BlueprintFunctions,
-                probe: str | type[ProbeDesp] | None = None,
-                chmap_code: int = None):
-    """
-    check request probe type and channelmap code.
-
-    :param self:
-    :param probe: request probe type. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
-        It `None`, checking a probe has created, and its type doesn't matter.
-    :param chmap_code: request channelmap code
-    :raise RequestChannelmapTypeError: when check failed.
-    """
-    current_probe = self.probe
-    current_chmap = self.channelmap
-
-    if probe is None:
-        if current_chmap is None:
-            raise RequestChannelmapTypeError(probe, chmap_code)
-        return
-
-    elif isinstance(probe, type):
-        test = isinstance(current_probe, probe)
-
-    elif isinstance(probe, str):
-        test = type(current_probe).__name__ == probe
-        if not test:
-            try:
-                probe_type = get_probe_desp(probe)
-            except BaseException:
-                pass
-            else:
-                probe = probe_type
-                test = isinstance(current_probe, probe)
-    else:
-        raise TypeError()
-
-    if test and chmap_code is not None:
-        if (code := self.probe.channelmap_code(current_chmap)) is None:
-            test = False
-        else:
-            test = chmap_code == code
-
-    if not test:
-        raise RequestChannelmapTypeError(probe, chmap_code)
-
-
 def new_channelmap(controller: ControllerView, code: int | str) -> Any:
+    """{ProbeView#reset()}"""
     app = controller.get_app()
     app.on_new(code)
     return app.probe_view.channelmap
 
 
+@doc_link()
 def log_message(controller: ControllerView, *message: str):
+    """{ViewBase#log_message()}"""
     if isinstance(controller, ViewBase):
         controller.log_message(*message)
 
 
+@doc_link()
+def set_status_line(controller: ControllerView, message: str, *, decay: float = None):
+    """{ViewBase#set_status()}"""
+    if isinstance(controller, ViewBase):
+        controller.set_status(message, decay=decay)
+
+
+@doc_link()
 def draw(self: BlueprintFunctions, controller: ControllerView,
          a: NDArray[np.float_] | None, *,
          view: str | type[ViewBase] = None):
+    """{DataHandler#on_data_update()}"""
     if isinstance(controller, DataHandler):
         controller.on_data_update(self.probe, self.probe.all_electrodes(self.channelmap), a)
     elif isinstance(view_target := controller.get_view(view), DataHandler):
         view_target.on_data_update(self.probe, self.probe.all_electrodes(self.channelmap), a)
 
 
+@doc_link()
 def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
                       index: NDArray[np.int_] | NDArray[np.bool_],
                       state: list[int] = None):
+    """{ProbeView#set_captured_electrodes()}"""
     electrodes = self.probe.all_electrodes(self.channelmap)
     captured = [electrodes[int(it)] for it in np.arange(len(self.s))[index]]
 
@@ -155,8 +82,9 @@ def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
                 view.set_captured_electrodes(captured, data)
 
 
-def captured_electrodes(self: BlueprintFunctions, controller: ControllerView,
-                        all=False) -> NDArray[np.int_]:
+@doc_link()
+def captured_electrodes(controller: ControllerView, all=False) -> NDArray[np.int_]:
+    """{ProbeView#get_captured_electrodes_index()}"""
     view = controller.get_app().probe_view
     if all:
         captured = view.get_captured_electrodes_index(None, reset=False)
@@ -166,23 +94,29 @@ def captured_electrodes(self: BlueprintFunctions, controller: ControllerView,
     return np.unique(captured)
 
 
+@doc_link()
 def set_state_for_captured(self: BlueprintFunctions, controller: ControllerView,
                            state: int,
                            index: NDArray[np.int_] | NDArray[np.bool_] = None):
+    """{ProbeView#set_state_for_captured()}"""
     if index is not None:
         capture_electrode(self, controller, index)
     controller.get_app().probe_view.set_state_for_captured(state)
 
 
+@doc_link()
 def set_category_for_captured(self: BlueprintFunctions, controller: ControllerView,
                               category: int,
                               index: NDArray[np.int_] | NDArray[np.bool_] = None):
+    """{ProbeView#set_category_for_captured()}"""
     if index is not None:
         capture_electrode(self, controller, index)
     controller.get_app().probe_view.set_category_for_captured(category)
 
 
+@doc_link()
 def refresh_selection(self: BlueprintFunctions, controller: ControllerView, selector: str = None):
+    """{ProbeView#refresh_selection()}"""
     view = controller.get_app().probe_view
 
     old_select_args = dict(view.selecting_parameters)

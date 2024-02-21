@@ -8,7 +8,8 @@ It is an internal package for providing functions to the :class:`~chmap.util.uti
     :maxdepth: 1
     :caption: Blueprint functions:
 
-    util.edit.validation
+    util.edit.script
+    util.edit.checking
     util.edit.clustering
     util.edit.data
     util.edit.moving
@@ -29,20 +30,15 @@ Prepare a python file `example.py` with following contents.
 .. code-block:: python
 
     from chmap.util.util_blueprint import BlueprintFunctions
-    def my_blueprint_script_function(bp: BlueprintFunctions, arg: str):
-        """\
-        Script Document, which is used in GUI.
-        input: "A0,A1"
-        A0: (str) the first string argument
-        A1: (int) the second int argument
+    def my_blueprint_script_function(bp: BlueprintFunctions, a0: str, a1: int):
         """
-        # check script input: arg
-        args = [it.strip() for it in arg.split(',')]
-        a0 = bp.arg.get_value('a0', args, 0)
-        a1 = bp.arg.get_value('a1', args, 1, int)
-        bp.log_message(f'{a0=}', f'{a1=}')
+        Script Document, which is used in GUI.
 
-        ...
+        :param bp:
+        :param a0: (str) the first string argument
+        :param a1: (int) the second int argument
+        """
+        bp.log_message(f'{a0=}', f'{a1=}')
 
 Add `example.py` into `chmap.config.json`.
 

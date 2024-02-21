@@ -1,12 +1,18 @@
 chmap.util.util_blueprint
 =========================
 
-.. automodule:: chmap.util.util_blueprint
-   :members:
-   :undoc-members:
-
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Blueprint functions:
 
     util.edit
+
+Classes
+-------
+
+.. automodule:: chmap.util.util_blueprint
+   :members:
+   :undoc-members:
+   :special-members: __setitem__, __delitem__
+
+

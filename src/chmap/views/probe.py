@@ -4,7 +4,6 @@ from collections.abc import Iterable
 from typing import Any, TypedDict
 
 from bokeh.models import ColumnDataSource, GlyphRenderer, tools, UIElement, Div
-from bokeh.plotting import figure as Figure
 from typing_extensions import Required
 
 from chmap.config import ChannelMapEditorConfig
@@ -12,7 +11,7 @@ from chmap.probe import ProbeDesp, E, M
 from chmap.util.bokeh_app import run_timeout
 from chmap.util.bokeh_util import as_callback
 from chmap.util.utils import TimeMarker, doc_link
-from chmap.views.base import ViewBase, RecordView, RecordStep
+from chmap.views.base import Figure, ViewBase, RecordView, RecordStep
 
 __all__ = ['ProbeView']
 
