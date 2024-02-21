@@ -556,7 +556,7 @@ class ChannelMapEditorApp(BokehApplication):
             self.logger.warning(f'channelmap file not found : %s', file, exc_info=x)
             return
 
-        self.output_imro.value_input = file.stem
+        self.output_imro.value_input = file.stem.replace('.', '_')
 
         self.probe_view.reset(chmap)
         self.load_blueprint(file)
@@ -583,11 +583,13 @@ class ChannelMapEditorApp(BokehApplication):
 
         file_list = self.list_chmap_files()
         if len(self.probe.channelmap_file_suffix) == 1:
-            name_list = [f.stem for f in file_list]
+            opt_list = [(str(f), f.stem) for f in file_list]
         else:
-            name_list = [f.name for f in file_list]
+            opt_list = [(str(f), f.name) for f in file_list]
 
-        self.input_imro.options = [""] + name_list
+        self.input_imro.options = [""] + opt_list
+
+        name_list = [it[1] for it in opt_list]
 
         if preselect in name_list:
             self.input_imro.value = preselect

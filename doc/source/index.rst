@@ -13,7 +13,14 @@ Features
 --------
 
 - [x] Read/Visualize/Modify/Write Neuropixels channelmap files (``*.imro``).
+
+  - [x] Read Neuropixels channelmap files from other supported file format in GUI.
+  - [x] (Experimental) set bad electrodes
+
 - [x] Read SpikeGLX meta file (``*.meta``).
+
+  - [x] Read Neuropixels probe serial number
+
 - [x] Read/Visualize/Modify/Write Blueprint (a blueprint for generating a channelmap by a programming way).
 - [x] Show Atlas mouse brain as a background image.
 
@@ -32,6 +39,7 @@ Features
   - [x] give an example script to initial a blueprint based on an experimental data.
 
 - [x] (Experimental) Record/Save/Load/Replay channelmap manipulate steps (branch ``record-steps``)
+
 
 
 Contents

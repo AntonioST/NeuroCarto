@@ -66,7 +66,13 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         return ['.imro', '.meta']
 
     def load_from_file(self, file: Path) -> ChannelMap:
-        return ChannelMap.from_imro(file)
+        match file.suffix:
+            case '.imro':
+                return ChannelMap.from_imro(file)
+            case '.meta':
+                return ChannelMap.from_meta(file)
+            case _:
+                raise RuntimeError()
 
     def save_to_file(self, chmap: ChannelMap, file: Path):
         chmap.save_imro(file)

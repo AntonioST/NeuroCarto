@@ -221,7 +221,10 @@ def get_channelmap_file(config: ChannelMapEditorConfig, probe: ProbeDesp, filena
     else:
         p = channelmap_root(config) / filename
 
-    return p.with_suffix(probe.channelmap_file_suffix[0])
+    suffixes = probe.channelmap_file_suffix
+    if p.suffix not in suffixes:
+        p = p.with_suffix(suffixes[0])
+    return p
 
 
 @doc_link()
