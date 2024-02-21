@@ -7,6 +7,9 @@ from .probe import ProbeDesp
 from .util.utils import doc_link
 
 __all__ = [
+    'user_config_dir',
+    'user_cache_dir',
+    'user_data_dir',
     'user_config_file',
     'load_user_config',
     'save_user_config',
@@ -20,6 +23,89 @@ __all__ = [
 USER_CONFIG_FILENAME = 'chmap.config.json'
 
 
+def user_config_dir(config: ChannelMapEditorConfig) -> Path:
+    """
+
+    :param config:
+    :return: directory
+    """
+    if config.debug:
+        return Path('.')
+
+    # https://wiki.archlinux.org/title/XDG_Base_Directory
+    # https://stackoverflow.com/a/3250952
+    if (d := os.environ.get('XDG_CONFIG_HOME', None)) is not None:
+        return Path(d) / 'chmap'
+    elif (d := os.environ.get('APPDATA', None)) is not None:
+        return Path(d) / 'chmap'
+
+    # https://stackoverflow.com/a/1857
+    import platform
+    match platform.system():
+        case 'Linux':
+            return Path.home() / '.config/chmap'
+        case 'Windows':
+            pass
+        case 'Darwin':
+            pass
+
+    return Path.home() / '.chmap'
+
+
+def user_cache_dir(config: ChannelMapEditorConfig) -> Path:
+    """
+
+    :param config:
+    :return: directory
+    """
+    if config.debug:
+        return Path('.')
+
+    # https://wiki.archlinux.org/title/XDG_Base_Directory
+    # https://stackoverflow.com/a/3250952
+    if (d := os.environ.get('XDG_CACHE_HOME', None)) is not None:
+        return Path(d) / 'chmap'
+
+    # https://stackoverflow.com/a/1857
+    import platform
+    match platform.system():
+        case 'Linux':
+            return Path.home() / '.cache/chmap'
+        case 'Windows':
+            pass
+        case 'Darwin':
+            pass
+
+    return Path.home() / '.chmap/cache'
+
+
+def user_data_dir(config: ChannelMapEditorConfig) -> Path:
+    """
+
+    :param config:
+    :return: directory
+    """
+    if config.debug:
+        return Path('.')
+
+    # https://wiki.archlinux.org/title/XDG_Base_Directory
+    # https://stackoverflow.com/a/3250952
+    if (d := os.environ.get('XDG_DATA_HOME', None)) is not None:
+        return Path(d) / 'chmap'
+
+    # https://stackoverflow.com/a/1857
+    import platform
+    match platform.system():
+        case 'Linux':
+            return Path.home() / '.local/share/chmap'
+        case 'Windows':
+            pass
+        case 'Darwin':
+            pass
+
+    return Path.home() / '.chmap/share'
+
+
 @doc_link()
 def user_config_file(config: ChannelMapEditorConfig) -> Path:
     """
@@ -29,6 +115,7 @@ def user_config_file(config: ChannelMapEditorConfig) -> Path:
     * When `--debug`, use `.{USER_CONFIG_FILENAME}` at current working directory.
 
     :return: filepath.
+    :see: {#user_config_dir()}
     """
     if (ret := config.config_file) is not None:
         if ret.is_dir():
@@ -38,24 +125,7 @@ def user_config_file(config: ChannelMapEditorConfig) -> Path:
     if config.debug:
         return Path('.') / f'.{USER_CONFIG_FILENAME}'
 
-    # https://wiki.archlinux.org/title/XDG_Base_Directory
-    # https://stackoverflow.com/a/3250952
-    if (d := os.environ.get('XDG_CONFIG_HOME', None)) is not None:
-        return Path(d) / 'chmap' / USER_CONFIG_FILENAME
-    elif (d := os.environ.get('APPDATA', None)) is not None:
-        return Path(d) / 'chmap' / USER_CONFIG_FILENAME
-
-    # https://stackoverflow.com/a/1857
-    import platform
-    match platform.system():
-        case 'Linux':
-            return Path.home() / '.config/chmap' / USER_CONFIG_FILENAME
-        case 'Windows':
-            pass
-        case 'Darwin':
-            pass
-
-    return Path.home() / '.chmap' / USER_CONFIG_FILENAME
+    return user_config_dir(config) / USER_CONFIG_FILENAME
 
 
 @doc_link()
@@ -123,8 +193,16 @@ def list_channelmap_files(config: ChannelMapEditorConfig, probe: ProbeDesp) -> l
     :return: list of files.
     :see: {channelmap_root()}
     """
-    pattern = '*' + probe.channelmap_file_suffix
-    return list(sorted(channelmap_root(config).glob(pattern), key=Path.name.__get__))
+    # Python glob doesn't support `*.{A,B}` pattern.
+    root = channelmap_root(config)
+
+    ret = []
+    suffixes = probe.channelmap_file_suffix
+    for suffix in suffixes:
+        pattern = '*' + suffix
+        ret.extend(root.glob(pattern))
+
+    return list(sorted(ret, key=Path.name.__get__))
 
 
 @doc_link()
@@ -143,7 +221,7 @@ def get_channelmap_file(config: ChannelMapEditorConfig, probe: ProbeDesp, filena
     else:
         p = channelmap_root(config) / filename
 
-    return p.with_suffix(probe.channelmap_file_suffix)
+    return p.with_suffix(probe.channelmap_file_suffix[0])
 
 
 @doc_link()

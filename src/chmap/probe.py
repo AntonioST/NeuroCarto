@@ -249,9 +249,11 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def channelmap_file_suffix(self) -> str:
+    def channelmap_file_suffix(self) -> list[str]:
         """
         The filename extension for supported channelmap.
+
+        The first suffix in returned list is considered the primary one.
 
         :return: file extension, like ".imro".
         """

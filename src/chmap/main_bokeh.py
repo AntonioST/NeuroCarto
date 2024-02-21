@@ -581,15 +581,20 @@ class ChannelMapEditorApp(BokehApplication):
         if preselect is None:
             preselect = self.input_imro.value
 
-        imro_list = [f.stem for f in self.list_chmap_files()]
-        self.input_imro.options = [""] + imro_list
+        file_list = self.list_chmap_files()
+        if len(self.probe.channelmap_file_suffix) == 1:
+            name_list = [f.stem for f in file_list]
+        else:
+            name_list = [f.name for f in file_list]
 
-        if preselect in imro_list:
+        self.input_imro.options = [""] + name_list
+
+        if preselect in name_list:
             self.input_imro.value = preselect
         else:
             self.input_imro.value = ""
 
-        self.output_imro.completions = imro_list
+        self.output_imro.completions = name_list
 
     def on_save(self):
         name = self.output_imro.value_input
