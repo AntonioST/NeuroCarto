@@ -13,4 +13,6 @@ Classes
 .. automodule:: chmap.util.util_blueprint
    :members:
    :undoc-members:
+   :special-members: __setitem__, __delitem__
+
 

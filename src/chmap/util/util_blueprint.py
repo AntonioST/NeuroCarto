@@ -81,6 +81,66 @@ def blueprint_function(func):
 class BlueprintFunctions(Generic[M, E]):
     """
     Provide blueprint manipulating functions. Used by {BlueprintScriptView}.
+
+    **channelmap functions**
+
+    .. hlist::
+        :columns: 2
+
+        * {#check_probe()}
+        * {#add_electrodes()}
+        * {#del_electrodes()}
+        * {#selected_electrodes()}
+        * {#set_channelmap()}
+
+    **blueprint functions**
+
+    .. hlist::
+        :columns: 2
+
+        * {#blueprint()}
+        * {#new_blueprint()}
+        * {#set_blueprint()}
+        * {#apply_blueprint()}
+        * {#load_blueprint()}
+        * {#save_blueprint()}
+        * {#set()}
+        * {#unset()}
+        * {#__setitem__()}
+        * {#__delitem__()}
+        * {#merge()}
+        * {#move()}
+        * {#move_i()}
+        * {#find_clustering()}
+        * {#clustering_edges()}
+        * {#edge_rastering()}
+        * {#fill()}
+        * {#extend()}
+        * {#reduce()}
+
+    **electrode data processing**
+
+    .. hlist::
+        :columns: 2
+
+        * {#load_data()}
+        * {#interpolate_nan()}
+        * {#draw()}
+
+    **UI communicating functions**
+
+    .. hlist::
+        :columns: 2
+
+        * {#set_status_line()}
+        * {#log_message()}
+        * {#new_channelmap()}
+        * {#capture_electrode()}
+        * {#captured_electrodes()}
+        * {#set_state_for_captured()}
+        * {#set_category_for_captured()}
+        * {#refresh_selection()}
+
     """
 
     CATE_UNSET: int
@@ -350,6 +410,7 @@ class BlueprintFunctions(Generic[M, E]):
         blueprint = self.blueprint()
         self.set_blueprint(self.merge(blueprint, self.set(blueprint, mask, category)))
 
+    @doc_link()
     def __delitem__(self, mask: int | NDArray[np.bool_] | NDArray[np.int_]):
         """
         unset electrodes in the *blueprint* with a *mask*.
@@ -405,8 +466,8 @@ class BlueprintFunctions(Generic[M, E]):
         :param tx: x movement in um.
         :param ty: y movement in um.
         :param mask: move electrode only in mask
-        :param axis: index off N
-        :param init: initial value
+        :param axis: index of N
+        :param init: initial value V for *a*.
         :return: moved a (copied)
         """
         from .edit.moving import move
@@ -424,8 +485,8 @@ class BlueprintFunctions(Generic[M, E]):
         :param tx: number of dx
         :param ty: number of dy
         :param mask: move electrode only in mask
-        :param axis: index off N
-        :param init: initial value
+        :param axis: index of N
+        :param init: initial value V for *a*.
         :return: moved a (copied)
         """
         from .edit.moving import move_i
