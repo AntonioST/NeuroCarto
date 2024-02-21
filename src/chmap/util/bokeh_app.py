@@ -4,12 +4,11 @@ import abc
 import functools
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import bokeh.io
 from bokeh.document import Document
 from bokeh.model import Model
-from bokeh.plotting import figure as Figure
 from bokeh.server.server import Server
 
 from chmap.util.utils import doc_link
@@ -25,10 +24,11 @@ __all__ = [
     'run_later',
     'run_timeout',
     'run_periodic',
-    'run_server',
     'remove_timeout',
     'remove_periodic',
-    'Figure'
+    'run_server',
+    'get_server_config',
+    'BokehServerConfig'
 ]
 
 
@@ -131,6 +131,40 @@ def remove_periodic(callback: PeriodicCallback) -> bool:
         return True
 
 
+class BokehServerConfig(TypedDict, total=False):
+    address: str
+    port: int
+    num_procs: int
+
+
+def get_server_config(config: ChannelMapEditorConfig) -> BokehServerConfig:
+    """
+    Read 'BokehServer' config from user config file.
+
+    :param config:
+    :return:
+    """
+    from bokeh.resources import DEFAULT_SERVER_PORT
+    from chmap.files import load_user_config
+
+    try:
+        server_config = BokehServerConfig(load_user_config(config)['BokehServer'])
+    except (FileNotFoundError, IOError, KeyError):
+        server_config = BokehServerConfig()
+
+    server_config.setdefault('address', None)
+    server_config.setdefault('port', DEFAULT_SERVER_PORT)
+    server_config.setdefault('num_procs', 1)
+
+    if config.server_address is not None:
+        server_config['address'] = config.server_address
+
+    if config.server_port is not None:
+        server_config['port'] = config.server_port
+
+    return server_config
+
+
 @doc_link()
 def run_server(handlers: BokehApplication | dict[str, BokehApplication],
                config: ChannelMapEditorConfig):
@@ -152,14 +186,8 @@ def run_server(handlers: BokehApplication | dict[str, BokehApplication],
         for path, app in handlers.items():
             logger.debug('service map %s -> %s', path, type(app).__name__)
 
-    if (port := config.server_port) is None:
-        from bokeh.resources import DEFAULT_SERVER_PORT
-        port = DEFAULT_SERVER_PORT
-
-    server = Server({
-        p: h.setup
-        for p, h in handlers.items()
-    }, address=config.server_address, port=port, num_procs=1)
+    server = Server({p: h.setup for p, h in handlers.items()},
+                    **get_server_config(config))
 
     logger.debug('starting service')
     server.start()

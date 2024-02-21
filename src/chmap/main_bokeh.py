@@ -7,7 +7,6 @@ from bokeh.application.application import SessionContext
 from bokeh.events import MenuItemClick
 from bokeh.io import curdoc
 from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, TextAreaInput, UIElement
-from bokeh.plotting import figure as Figure
 from bokeh.themes import Theme
 
 from chmap.config import ChannelMapEditorConfig, parse_cli, setup_logger
@@ -78,6 +77,9 @@ class ChannelMapEditorApp(BokehApplication):
             data = files.load_user_config(self.config)
         except FileNotFoundError as e:
             self.logger.debug('user config not found: %s', file, exc_info=e)
+            return self.user_views_config
+        except IOError as e:
+            self.logger.debug('bad user config: %s', file, exc_info=e)
             return self.user_views_config
         else:
             self.logger.debug('load user config : %s', file)
@@ -206,6 +208,10 @@ class ChannelMapEditorApp(BokehApplication):
             self.log_message(f'File not found : {file}')
             self.logger.warning(f'blueprint file not found : %s', file, exc_info=e)
             return False
+        except BaseException as e:
+            self.log_message(f'load blueprint fail : {file}')
+            self.logger.warning(f'load blueprint file fail : %s', file, exc_info=e)
+            return False
         else:
             self.log_message(f'load blueprint : {file.name}')
 
@@ -257,14 +263,19 @@ class ChannelMapEditorApp(BokehApplication):
             return self.right_panel_views_config
 
         import json
-        with file.open('r') as f:
-            data = dict(json.load(f))
+        try:
+            with file.open('r') as f:
+                data = dict(json.load(f))
+        except json.JSONDecodeError as e:
+            self.logger.warning('bad view config file %s', file.name, exc_info=e)
+            self.log_message(f'bad config : {file.name}')
+        else:
             self.log_message(f'load config : {file.name}')
 
-        if reset:
-            self.right_panel_views_config.update(data)
-        else:
-            self.right_panel_views_config = data
+            if reset:
+                self.right_panel_views_config.update(data)
+            else:
+                self.right_panel_views_config = data
 
         return self.right_panel_views_config
 

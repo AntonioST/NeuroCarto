@@ -64,7 +64,8 @@ def load_user_config(config: ChannelMapEditorConfig) -> dict[str, Any]:
 
     :param config:
     :return: user config dictionary
-    :raise FileNotFoundError:
+    :raise FileNotFoundError: config file does not exist.
+    :raise IOError: wrap json.JSONDecodeError
     :see: {#user_config_file()}
     """
     import json
@@ -73,8 +74,12 @@ def load_user_config(config: ChannelMapEditorConfig) -> dict[str, Any]:
     if not file.exists():
         raise FileNotFoundError(file)
 
-    with file.open('r') as f:
-        data = dict(json.load(f))
+    try:
+        with file.open('r') as f:
+            data = dict(json.load(f))
+    except json.JSONDecodeError as e:
+        raise IOError(file) from e
+
     return data
 
 
