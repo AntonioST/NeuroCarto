@@ -10,6 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.util.utils import all_int, as_set, align_arr, doc_link
+from .meta import NpxMeta
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -249,7 +250,8 @@ class ChannelMap:
     __match_args__ = 'probe_type',
 
     def __init__(self, probe_type: int | str | ProbeType | ChannelMap,
-                 electrodes: list[Electrode] = None):
+                 electrodes: list[Electrode] = None, *,
+                 meta: NpxMeta = None):
         """
 
         :param probe_type: probe type code, ProbeType or a ChannelMap for coping.
@@ -260,6 +262,8 @@ class ChannelMap:
             probe_type = chmap.probe_type
             if electrodes is None:
                 electrodes = chmap._electrodes
+            if meta is None:
+                meta = chmap.meta
 
         if isinstance(probe_type, (int, str)):
             probe_type = PROBE_TYPE[probe_type]
@@ -269,6 +273,7 @@ class ChannelMap:
         self.probe_type: Final = probe_type
         self._electrodes: Final[list[Electrode | None]] = [None] * probe_type.n_channels
         self._reference = 0
+        self.meta: NpxMeta | None = meta
 
         if electrodes is not None:
             for e in electrodes:

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
+from .meta import NpxMeta
 from .npx import *
 
 if TYPE_CHECKING:
@@ -129,7 +130,15 @@ def load_meta(path: str | Path) -> ChannelMap:
     path = Path(path)
     if path.suffix != '.meta':
         raise RuntimeError()
-    return ChannelMap.parse(_load_meta(path)['~imroTbl'])
+
+    data = _load_meta(path)
+
+    meta = NpxMeta(serial_number=data['imDatPrb_sn'], imro_table=data['~imroTbl'])
+    meta.update(data)
+
+    ret = ChannelMap.parse(meta['imro_table'])
+    ret.meta = meta
+    return ret
 
 
 def load_imro(path: str | Path) -> ChannelMap:
@@ -177,7 +186,12 @@ def from_probe(probe: Probe) -> ChannelMap:
     cr[:, 0] //= probe_type.c_space
     cr[:, 1] //= probe_type.r_space
 
+    meta = NpxMeta(serial_number=probe.serial_number)
+    meta.update(probe.annotations)
+
     ret = ChannelMap(probe_type)
+    ret.meta = meta
+
     for ss, (cc, rr) in zip(s, cr):
         ret.add_electrode((ss, cc, rr))
     return ret
