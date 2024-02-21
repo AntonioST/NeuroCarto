@@ -3,14 +3,13 @@ from typing import TypedDict, Final, get_args, Literal
 import matplotlib.pyplot as plt
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement, Select, Slider, MultiChoice, Div
-from bokeh.plotting import figure as Figure
 from iblatlas.atlas import AllenAtlas
 from iblatlas.regions import BrainRegions
 from numpy.typing import NDArray
 
 from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.util.bokeh_util import as_callback, ButtonFactory, SliderFactory, is_recursive_called, new_help_button
-from chmap.views.base import BoundView, StateView, BoundaryState
+from chmap.views.base import Figure, BoundView, StateView, BoundaryState
 from chmap.views.image_plt import get_current_plt_image
 
 __all__ = ['IblAtlasBrainView', 'IblAtlasBrainViewState']

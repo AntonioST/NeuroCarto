@@ -6,14 +6,13 @@ from pathlib import Path
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement
-from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import is_recursive_called, PathAutocompleteInput
-from chmap.views.base import ViewBase, DynamicView, InvisibleView
+from chmap.views.base import Figure, ViewBase, DynamicView, InvisibleView
 
 __all__ = ['DataView', 'DataHandler', 'Data1DView', 'FileDataView']
 

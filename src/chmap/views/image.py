@@ -8,13 +8,12 @@ from typing import TypedDict
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, TextInput, Tooltip
-from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import SliderFactory, is_recursive_called, PathAutocompleteInput, as_callback, new_help_button
-from chmap.views.base import BoundView, StateView, BoundaryState
+from chmap.views.base import Figure, BoundView, StateView, BoundaryState
 
 if sys.version_info >= (3, 11):
     from typing import Self

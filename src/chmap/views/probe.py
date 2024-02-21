@@ -2,14 +2,13 @@ from collections.abc import Iterable
 from typing import Any
 
 from bokeh.models import ColumnDataSource, GlyphRenderer, tools, UIElement, Div
-from bokeh.plotting import figure as Figure
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, E, M
 from chmap.util.bokeh_app import run_timeout
 from chmap.util.bokeh_util import as_callback
 from chmap.util.utils import TimeMarker, doc_link
-from chmap.views import ViewBase
+from chmap.views import Figure, ViewBase
 
 __all__ = ['ProbeView']
 

@@ -3,11 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from bokeh.models import ColumnDataSource, GlyphRenderer
-from bokeh.plotting import figure as Figure
 
 from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.util.util_blueprint import BlueprintFunctions
-from chmap.views.base import ViewBase, InvisibleView, DynamicView
+from chmap.views.base import Figure, ViewBase, InvisibleView, DynamicView
 
 if TYPE_CHECKING:
     from chmap.probe_npx.npx import ChannelMap

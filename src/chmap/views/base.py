@@ -6,8 +6,7 @@ import math
 from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast, final
 
 import numpy as np
-from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch, Div
-from bokeh.models import tools
+from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch, Div, tools
 from bokeh.plotting import figure as Figure
 from numpy.typing import NDArray
 
@@ -24,6 +23,7 @@ elif SPHINX_BUILD:
     ChannelMapEditorApp = 'chmap.main_bokeh.ChannelMapEditorApp'
 
 __all__ = [
+    'Figure',
     'ViewBase', 'ControllerView',
     'StateView', 'GlobalStateView',
     'DynamicView', 'EditorView',
