@@ -425,6 +425,7 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
     @doc_link(RecordManager='chmap.views.record.RecordManager')
     def add_record(self, record: R, category: str, description: str):
         """
+        add a record into history.
 
         Implement note:
             do not overwrite this function, because this method will be

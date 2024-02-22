@@ -333,7 +333,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.load_user_config(reset=True)
 
         if self.get_editor_userconfig().get('history', True):
-            self.record_manager = RecordManager(self.config)
+            self.record_manager = RecordManager(self, self.config)
 
         if (theme := self.get_editor_userconfig().get('theme', None)) is not None:
             try:

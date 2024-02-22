@@ -4,7 +4,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, TYPE_CHECKING
 
 import numpy as np
 from bokeh.models import DataTable, ColumnDataSource, TableColumn, TextInput, Div, CDSView, CustomJS, Toggle, Button, AutocompleteInput
@@ -12,10 +12,13 @@ from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.files import user_cache_file
+from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import ButtonFactory, as_callback, is_recursive_called
 from chmap.util.utils import doc_link
 from .base import RecordStep, RecordView, R, ViewBase, ControllerView, InvisibleView
 
+if TYPE_CHECKING:
+    from chmap.main_bokeh import ChannelMapEditorApp
 __all__ = ['RecordManager', 'HistoryView']
 
 
@@ -85,8 +88,9 @@ class RecordManager:
 
     """
 
-    def __init__(self, config: ChannelMapEditorConfig):
+    def __init__(self, app: ChannelMapEditorApp, config: ChannelMapEditorConfig):
         self.logger = logging.getLogger('chmap.history')
+        self._app = app
         self._config = config
 
         self.views: list[RecordView] = []
@@ -194,12 +198,14 @@ class RecordManager:
         if self._is_replaying:
             raise RuntimeError()
 
+        #
         if name is None:
             history = self.history
             name = history.name
         else:
             history = self._history[name]
 
+        #
         if index is None:
             self.logger.debug('replay history[%s] all steps', name)
             steps = list(history.steps)
@@ -207,16 +213,10 @@ class RecordManager:
             self.logger.debug('replay history[%s] steps on %s', name, index)
             steps = history.filter(index)
 
-        self._is_replaying = True
-        try:
-            self._replay(steps, reset=reset)
-        finally:
-            self._is_replaying = False
-
-    def _replay(self, steps: list[RecordStep], *, reset=False):
-        actual = []
-
         self.logger.debug('replay %d steps', len(steps))
+
+        #
+        actual = []
         for view in self.views:
             for step in view.filter_records(steps, reset=reset):
                 actual.append((step.time_stamp, view, step))
@@ -224,9 +224,31 @@ class RecordManager:
         actual.sort()
         self.logger.debug('replay filtered %d steps', len(steps))
 
-        for _, view, step in actual:
-            self.logger.debug('replay %s[%s] %s', step.source, step.category, step.description)
+        #
+        self._is_replaying = True
+        self._replay_callback(actual)
+
+    def _replay_callback(self, steps: list[tuple[float, RecordView, RecordStep]]):
+        if len(steps) == 0:
+            return self._replay_finish(None)
+
+        _, view, step = steps.pop(0)
+        self.logger.debug('replay %s[%s] %s', step.source, step.category, step.description)
+        try:
             view.replay_record(step)
+        except BaseException as e:
+            return self._replay_finish(e)
+        else:
+            run_later(self._replay_callback, steps)
+
+    def _replay_finish(self, e: BaseException = None):
+        self._is_replaying = False
+
+        if e is not None:
+            self.logger.warning('replay error', exc_info=e)
+            self._app.log_message('replay error. stop.')
+
+        self._app.on_probe_update()
 
     # ================= #
     # save/load history #
@@ -366,7 +388,7 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
             self.history_step_data.data = dict(source=[], category=[], action=[])
             return
 
-        self.save_input.completions = names = manager.list_history_names()
+        self.save_input.completions = list(sorted(manager.list_history_names()))
 
         source = []
         category = []
@@ -547,7 +569,6 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
         index = list(map(int, value.split(',')))
 
         manager.replay(reset=True, index=index)
-        self.get_app().on_probe_update()
 
     def on_replay(self):
         if (manager := self.manager) is None:
@@ -555,7 +576,6 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
 
         self.logger.debug('replay')
         manager.replay(reset=True)
-        self.get_app().on_probe_update()
 
     def on_delete(self):
         selected = list(self.history_step_data.selected.indices)
