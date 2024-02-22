@@ -22,6 +22,7 @@ class DataHandler:
 
     def on_data_update(self, probe: ProbeDesp[M, E], e: list[E], data: NDArray[np.float_] | None):
         """
+        Receive electrode data.
 
         :param probe:
         :param e: N-length electrodes

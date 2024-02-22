@@ -6,6 +6,7 @@ from typing import TypedDict, TYPE_CHECKING, Generator
 import numpy as np
 from bokeh.models import Select, TextInput, Div, Button
 from numpy.typing import NDArray
+from typing_extensions import Required
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
@@ -15,7 +16,8 @@ from chmap.util.bokeh_util import ButtonFactory, as_callback
 from chmap.util.edit.script import BlueprintScript, BlueprintScriptInfo
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import doc_link
-from chmap.views.base import EditorView, GlobalStateView, ControllerView
+from chmap.views import RecordStep
+from chmap.views.base import EditorView, GlobalStateView, ControllerView, RecordView
 from chmap.views.data import DataHandler
 from chmap.views.image_plt import PltImageView
 
@@ -34,7 +36,24 @@ class BlueprintScriptState(TypedDict):
     actions: dict[str, str]
 
 
-class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView, GlobalStateView[BlueprintScriptState]):
+class BlueprintScriptAction(TypedDict, total=False):
+    action: Required[str]  # script, reset, interrupt
+
+    # action=script, interrupt
+    script_name: str
+
+    # action=script
+    script_args: str
+
+    # action=interrupt
+    interrupt: int
+
+    # other
+    description: str
+
+
+class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
+                          RecordView[BlueprintScriptAction], GlobalStateView[BlueprintScriptState]):
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
@@ -49,7 +68,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             'quarter': 'chmap.util.edit._actions:npx24_quarter_density',
             '1-eighth': 'chmap.util.edit._actions:npx24_one_eighth_density',
         }
-        self._running_script: dict[str, Generator | KeyboardInterrupt] = {}
+        self._running_script: dict[str, Generator | type[KeyboardInterrupt]] = {}
         self._script_input_cache: dict[str, str] = {}
 
     @property
@@ -135,7 +154,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         script = self.script_select.value
         if script in self._running_script:
             self.logger.debug('run_script(%s) interrupt', script)
-            self._running_script[script] = KeyboardInterrupt()
+            self._running_script[script] = KeyboardInterrupt
         else:
             arg = self.script_input.value_input
             if len(script):
@@ -152,6 +171,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
 
         self.log_message('reset blueprint')
         run_later(self.update_probe)
+        self.add_record(BlueprintScriptAction(action='reset'),
+                        'reset', 'reset blueprint')
 
     # ========= #
     # load/save #
@@ -214,7 +235,11 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         else:
             self.set_image(None)
 
+    @doc_link()
     def update_actions_select(self):
+        """
+        Update {#script_select}'s content that only keep probe-suitable blueprint scripts.
+        """
         opts = []
 
         if (probe := self.cache_probe) is None:
@@ -317,12 +342,14 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         return script
 
     @doc_link()
-    def run_script(self, script: str | BlueprintScript | BlueprintScriptInfo, script_input: str = None):
+    def run_script(self, script: str | BlueprintScript | BlueprintScriptInfo, script_input: str = None, *,
+                   interrupt_at: int = None):
         """
         Run a blueprint script.
 
         :param script: script name, script path or a {BlueprintScript}
         :param script_input: script input text.
+        :param interrupt_at: **Do not use**. Record replay used parameter.
         """
         probe = self.get_app().probe
 
@@ -349,8 +376,11 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         if script_input is None:
             script_input = self.script_input.value_input
 
+        self.add_record(BlueprintScriptAction(action='script', script_name=script.name, script_args=script_input),
+                        "script", f"script {script.name}")
+
         try:
-            bp = self._run_script(script, probe, self.cache_chmap, script_input)
+            bp = self._run_script(script, probe, self.cache_chmap, script_input, interrupt_at=interrupt_at)
         except BaseException as e:
             self.logger.warning('run_script(%s) fail', script.name, exc_info=e)
             self.log_message(f'run script {script.name} fail')
@@ -369,7 +399,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def _run_script(self, script: BlueprintScriptInfo,
                     probe: ProbeDesp[M, E],
                     chmap: M | None,
-                    script_input: str) -> BlueprintFunctions | None:
+                    script_input: str, *,
+                    interrupt_at: int = None) -> BlueprintFunctions | None:
         from chmap.util.edit.checking import RequestChannelmapTypeError, check_probe
 
         bp = BlueprintFunctions(probe, chmap)
@@ -399,7 +430,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         else:
             if inspect.isgenerator(ret):
                 self.logger.debug('run_script(%s) return generator', script.name)
-                return self._run_script_generator(bp, script, ret)
+                return self._run_script_generator(bp, script, ret, interrupt_at=interrupt_at)
             else:
                 self.logger.debug('run_script(%s) done', script.name)
                 self.set_status(f'{script.name} finished', decay=3)
@@ -415,12 +446,25 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def _run_script_generator(self, bp: BlueprintFunctions,
                               script: BlueprintScriptInfo,
                               gen: Generator[float | None, None, None],
-                              counter: int = 0):
+                              counter: int = 0, *,
+                              interrupt_at: int = None):
+        is_interrupted = False
+        if self._running_script.get(script.name, None) is KeyboardInterrupt:
+            is_interrupted = True
+        elif interrupt_at is not None and counter >= interrupt_at:
+            is_interrupted = True
+
         try:
-            if isinstance((interrupt := self._running_script.get(script.name, None)), KeyboardInterrupt):
-                gen.throw(interrupt)
+            if is_interrupted:
+                # We are replaying in different update cycle, so RecordManager's internal flag is reset.
+                # Thus, we need to block recording by myself.
+                if interrupt_at is None:
+                    self.add_record(BlueprintScriptAction(action='script', script_name=script.name, interrupt=counter),
+                                    "script", f"interrupt script {script.name}")
+
+                gen.throw(KeyboardInterrupt())
             else:
-                return self._run_script_generator_next(bp, script, gen, counter)
+                return self._run_script_generator_next(bp, script, gen, counter, interrupt_at=interrupt_at)
 
         except KeyboardInterrupt:
             return self._run_script_generator_interrupt(script)
@@ -433,7 +477,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def _run_script_generator_next(self, bp: BlueprintFunctions,
                                    script: BlueprintScriptInfo,
                                    gen: Generator[float | None, None, None],
-                                   counter: int = 0):
+                                   counter: int = 0, *,
+                                   interrupt_at: int = None):
         self._running_script[script.name] = gen
         self._set_script_run_button_status(script.name)
 
@@ -441,9 +486,9 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         self.logger.debug('run_script(%s) yield[%d]', script.name, counter)
 
         if ret is None:
-            run_later(self._run_script_generator, bp, script, gen, counter + 1)
+            run_later(self._run_script_generator, bp, script, gen, counter + 1, interrupt_at=interrupt_at)
         else:
-            run_timeout(int(ret * 1000), self._run_script_generator, bp, script, gen, counter + 1)
+            run_timeout(int(ret * 1000), self._run_script_generator, bp, script, gen, counter + 1, interrupt_at=interrupt_at)
 
     def _run_script_generator_interrupt(self, script: BlueprintScriptInfo):
         try:
@@ -466,3 +511,50 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         self._set_script_run_button_status(script.name)
 
         self._run_script_done(bp, script)
+
+    # ============= #
+    # record replay #
+    # ============= #
+
+    def replay_records(self, records: list[RecordStep], *, reset=False):
+        ret = self._filter_records(records)
+
+        if reset:
+            self.reset_blueprint()
+
+        for record in ret:
+            self.logger.debug('replay %s', record.get('description', record['action']))
+
+            match record:
+                case {'action': 'reset'}:
+                    self.reset_blueprint()
+                case {'action': 'script', 'script_name': script_name, 'script_args': script_args}:
+                    interrupt_at = record.get('interrupt', None)
+                    self.run_script(script_name, script_args, interrupt_at=interrupt_at)
+
+    def _filter_records(self, records: list[RecordStep]) -> list[BlueprintScriptAction]:
+        source = type(self).__name__
+
+        ret = []
+        last = {}
+        for record in records:
+            if record.source == source:
+                item = dict(record.record)
+                item['description'] = record.description
+
+                match record.record:
+                    case {'action': 'reset'}:
+                        ret.append(item)
+
+                    case {'action': 'script', 'script_name': script_name}:
+                        ret.append(item)
+                        last[script_name] = item
+
+                    case {'action': 'interrupt', 'script_name': script_name, 'interrupt': interrupt_at}:
+                        try:
+                            # merge interrupt action to the previous corresponding action.
+                            last[script_name]['interrupt'] = interrupt_at
+                        except KeyError:
+                            pass
+
+        return ret
