@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 from chmap.config import ChannelMapEditorConfig, parse_cli
 from chmap.files import user_cache_file
 from chmap.util.bokeh_util import ButtonFactory, as_callback, is_recursive_called
+from chmap.util.utils import doc_link
 from .base import RecordStep, RecordView, R, ViewBase, ControllerView, InvisibleView
 
 __all__ = ['RecordManager', 'HistoryView']
@@ -54,8 +55,39 @@ class NamedHistory(NamedTuple):
 
 
 class RecordManager:
-    def __init__(self):
+    """
+    Record history manger.
+
+    **History file**
+
+    use 'history.json' under cache folder (#user_cache_file()).
+
+    If ``--debug``, use ``.chmap.history.json`` at current working directory.
+
+    **History json**
+
+    .. code-block :: json
+
+        {
+          "name": {
+            "frozen": false,
+            "steps": [
+              {
+                "source": "RecordView", // any RecordView[R]
+                "time_stamp": 0, // unix_time
+                "category": "category",
+                "description": "description",
+                "record": {} // R
+              }
+            ]
+          }
+        }
+
+    """
+
+    def __init__(self, config: ChannelMapEditorConfig):
         self.logger = logging.getLogger('chmap.history')
+        self._config = config
 
         self.views: list[RecordView] = []
         self._history: dict[str, NamedHistory] = {}
@@ -83,9 +115,16 @@ class RecordManager:
         return ret
 
     def has_history(self, name: str) -> bool:
+        """Does history *name* exist?"""
         return name in self._history
 
     def get_history(self, name: str) -> NamedHistory:
+        """
+
+        :param name: history name.
+        :return:
+        :raise KeyError: history *name* does not exist.
+        """
         return self._history[name]
 
     def clear_history(self, name: str = None) -> bool:
@@ -179,14 +218,28 @@ class RecordManager:
     # save/load history #
     # ================= #
 
-    def load_history(self, file: str | Path, *, reset=False):
+    def get_history_file(self) -> Path:
+        return user_cache_file(self._config, 'history.json')
+
+    @doc_link()
+    def load_history(self, file: str | Path = None, *, reset=False):
         """
+        load history from *file*.
 
         :param file: history json file.
         :param reset: reset history. Otherwise, update it.
-        :return: {name: list[RecordStep]}
+        :raise FileNotFoundError: history file does not exist
+        :see: {#get_history_file()}
         """
+        if file is None:
+            file = self.get_history_file()
+        else:
+            file = Path(file)
+
         self.logger.debug('load history from %s', file)
+        if not file.exists():
+            raise FileNotFoundError(file)
+
         import json
         with Path(file).open() as f:
             data = json.load(f)
@@ -205,7 +258,22 @@ class RecordManager:
         else:
             self._history.update(ret)
 
-    def save_history(self, file: str | Path):
+    @doc_link()
+    def save_history(self, file: str | Path = None):
+        """
+        save history into *file*.
+
+        :param file: history json file.
+        :raise FileExistsError: when the *file* is a directory.
+        :see: {#get_history_file()}
+        """
+        if file is None:
+            file = self.get_history_file()
+        else:
+            file = Path(file)
+            if file.is_dir():
+                raise FileExistsError(f'It is a directory : {file}')
+
         self.logger.debug('save history %s', file)
 
         import json
@@ -218,6 +286,7 @@ class RecordManager:
             for name, history in self._history.items()
         }
 
+        file.parent.mkdir(parents=True, exist_ok=True)
         with Path(file).open('w') as f:
             json.dump(data, f, indent=2)
 
@@ -237,23 +306,36 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
     def name(self) -> str:
         return 'History'
 
-    def get_history_file(self) -> Path:
-        return user_cache_file(self._config, 'history.json')
-
+    @doc_link()
     def load_history(self):
-        if (manager := self.manager) is not None and (history_file := self.get_history_file()).exists():
-            self.log_message('load history')
-            manager.load_history(history_file)
-            manager.name = self.save_input.value
-            self.update_history_table()
+        """
+        load history.
 
+        :see: {RecordManager#load_history()}
+        """
+        if (manager := self.manager) is not None:
+            self.log_message('load history')
+            try:
+                manager.load_history()
+            except FileNotFoundError:
+                pass
+            else:
+                manager.name = self.save_input.value
+                self.update_history_table()
+
+    @doc_link()
     def save_history(self):
+        """
+        save history.
+
+        :see: {RecordManager#save_history()}
+        """
         if (manager := self.manager) is not None:
             self.log_message('save history')
-            history_file = self.get_history_file()
-            history_file.parent.mkdir(parents=True, exist_ok=True)
-            manager.save_history(history_file)
-            self.logger.debug(f'save history : %s', history_file)
+            try:
+                manager.save_history()
+            except FileExistsError as e:
+                self.logger.warning('save fail', exc_info=e)
 
     def on_add_record(self, record: RecordStep):
         self.history_step_data.stream(dict(
@@ -271,8 +353,6 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
             return
 
         self.save_input.completions = names = manager.list_history_names()
-        if len(self.save_input.value) == 0 and len(names) > 0:
-            self.save_input.value = names[0]
 
         source = []
         category = []
@@ -360,7 +440,7 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
                     self.save_input,
                     replay,
                     new_btn('Save', self.save_history),
-                    new_btn('Load', self.load_history),
+                    # new_btn('Load', self.load_history),
                     self.delete_btn,
                     self.clear_btn,
                     self.disable_toggle,
@@ -497,7 +577,7 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
             self.log_message('app history feature is disabled')
         else:
             self.manager._view = self
-            self.update_history_table()
+            self.load_history()
 
 
 if __name__ == '__main__':

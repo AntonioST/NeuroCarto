@@ -41,5 +41,6 @@ chmap.views
     :caption: Advance Views:
 
     views.edit_blueprint
+    views.record
     views.utils
 

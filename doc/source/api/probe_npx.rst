@@ -8,6 +8,7 @@ chmap.probe_npx
     probe_npx.npx
     probe_npx.desp
     probe_npx.io
+    probe_npx.meta
     probe_npx.select
     probe_npx.stat
     probe_npx.plot
