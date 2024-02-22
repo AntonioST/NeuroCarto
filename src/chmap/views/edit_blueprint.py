@@ -252,9 +252,11 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
                 elif request.match_probe(probe, self.cache_chmap):
                     opts.append(action)
 
+        current_select = self.script_select.value
         self.script_select.options = opts
         try:
-            self.script_select.value = opts[0]
+            if current_select not in opts:
+                self.script_select.value = opts[0]
         except IndexError:
             self.script_select.value = ""
 
@@ -430,7 +432,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         else:
             if inspect.isgenerator(ret):
                 self.logger.debug('run_script(%s) return generator', script.name)
-                return self._run_script_generator(bp, script, ret, interrupt_at=interrupt_at)
+                self._run_script_generator(bp, script, ret, interrupt_at=interrupt_at)
+                return None
             else:
                 self.logger.debug('run_script(%s) done', script.name)
                 self.set_status(f'{script.name} finished', decay=3)
@@ -459,12 +462,13 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
                 # We are replaying in different update cycle, so RecordManager's internal flag is reset.
                 # Thus, we need to block recording by myself.
                 if interrupt_at is None:
-                    self.add_record(BlueprintScriptAction(action='script', script_name=script.name, interrupt=counter),
+                    self.add_record(BlueprintScriptAction(action='interrupt', script_name=script.name, interrupt=counter),
                                     "script", f"interrupt script {script.name}")
 
                 gen.throw(KeyboardInterrupt())
             else:
-                return self._run_script_generator_next(bp, script, gen, counter, interrupt_at=interrupt_at)
+                self._run_script_generator_next(bp, script, gen, counter, interrupt_at=interrupt_at)
+                return
 
         except KeyboardInterrupt:
             return self._run_script_generator_interrupt(script)
@@ -520,7 +524,6 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         source = type(self).__name__
 
         ret = []
-
         last = {}
         for record in records:
             if record.source == source:
@@ -529,6 +532,9 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
                         ret.append(record)
 
                     case {'action': 'script', 'script_name': script_name}:
+                        # copy, because we may modify 'interrupt' term.
+                        record = record.with_record(dict(record.record))
+
                         ret.append(record)
                         last[script_name] = record
 

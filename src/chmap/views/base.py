@@ -399,6 +399,9 @@ class RecordStep(NamedTuple):  # Generic[R]
     def __str__(self):
         return f'RecordStep[{self.source}][{self.category}]{{{self.description}}}'
 
+    def with_record(self, record: R) -> Self:
+        return self._replace(record=record)
+
     def as_dict(self) -> dict:
         return self._asdict()
 
