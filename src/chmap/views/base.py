@@ -389,7 +389,7 @@ class EditorView(DynamicView):
 R = TypeVar('R')
 
 
-class RecordStep(NamedTuple):
+class RecordStep(NamedTuple):  # Generic[R]
     source: str
     time_stamp: float
     category: str
@@ -433,11 +433,24 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
         """
         pass
 
+    def filter_records(self, records: list[RecordStep], *, reset=False) -> list[RecordStep]:
+        """
+        Filter records which source came from itself.
+
+        It is also used to modify the *records* and return the equivalence steps.
+
+        :param records:
+        :param reset: reset view to the initial state? If so, you can add extra action in return.
+        :return: filtered records
+        """
+        name = type(self).__name__
+        return [it for it in records if it.source == name]
+
     @abc.abstractmethod
     @doc_link(RecordManager='chmap.views.record.RecordManager')
-    def replay_records(self, records: list[RecordStep], *, reset=False) -> list[RecordStep] | None:
+    def replay_record(self, record: RecordStep):
         """
-        Replay the recorded steps.
+        Replay the record step.
 
         Use Note:
             Do not call this method directly, because it might cause
@@ -445,9 +458,7 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
 
             Use {RecordManager#replay()} instead.
 
-        :param records: steps
-        :param reset: reset view to the initial state?
-        :return: actually used steps. {RecordView} could decide which steps is necessary.
+        :param record:
         """
         pass
 

@@ -209,10 +209,24 @@ class RecordManager:
 
         self._is_replaying = True
         try:
-            for view in self.views:
-                view.replay_records(steps, reset=reset)
+            self._replay(steps, reset=reset)
         finally:
             self._is_replaying = False
+
+    def _replay(self, steps: list[RecordStep], *, reset=False):
+        actual = []
+
+        self.logger.debug('replay %d steps', len(steps))
+        for view in self.views:
+            for step in view.filter_records(steps, reset=reset):
+                actual.append((step.time_stamp, view, step))
+
+        actual.sort()
+        self.logger.debug('replay filtered %d steps', len(steps))
+
+        for _, view, step in actual:
+            self.logger.debug('replay %s[%s] %s', step.source, step.category, step.description)
+            view.replay_record(step)
 
     # ================= #
     # save/load history #
@@ -422,6 +436,7 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
         replay = new_btn('Replay', None)
         replay.js_on_click(handler=CustomJS(args=dict(view=self.history_step_view, callback=replay_callback), code="""
         callback.value = view._indices.join(',');
+        callback.value = ""; // reset
         """))
 
         # buttons
@@ -525,7 +540,7 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
             self.update_history_table()
 
     def _on_replay(self, value: str):
-        if (manager := self.manager) is None:
+        if (manager := self.manager) is None or len(value) == 0:
             return
 
         self.logger.debug('replay')

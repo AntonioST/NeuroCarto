@@ -23,6 +23,7 @@ __all__ = [
     'import_name',
     'get_import_file',
     # profile
+    'line_mark',
     'TimeMarker',
     # documenting
     'SPHINX_BUILD',
@@ -140,6 +141,18 @@ def get_import_file(module_path: str, root: str = None) -> Path | None:
             if (p := Path(root) / module_path).exists():
                 return p
     return None
+
+
+def line_mark(message: str):
+    frame = inspect.stack()[1]
+    filename = frame.filename
+    try:
+        filename = filename[filename.index('chmap/'):]
+    except ValueError:
+        pass
+
+    filename = filename.replace('.py', '').replace('/', '.')
+    print(filename, f'@{frame.lineno}', f'{frame.function}()', '::', message)
 
 
 class TimeMarker:

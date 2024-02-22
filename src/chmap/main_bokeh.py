@@ -56,6 +56,10 @@ class ChannelMapEditorApp(BokehApplication):
         self.record_manager: RecordManager | None = None
         self.logger.debug('get get_probe_desp() -> %s', type(self.probe).__name__)
 
+        # when user config has bad format, do not save current user config
+        # to prevent from overwriting.
+        self._not_save_user_config = False
+
     @property
     def title(self) -> str:
         f = self.config.probe_family.upper()
@@ -82,9 +86,11 @@ class ChannelMapEditorApp(BokehApplication):
             self.logger.debug('user config not found: %s', file, exc_info=e)
             return self.user_views_config
         except IOError as e:
+            self._not_save_user_config = True
             self.logger.debug('bad user config: %s', file, exc_info=e)
             return self.user_views_config
         else:
+            self._not_save_user_config = False
             self.logger.debug('load user config : %s', file)
 
         if reset:
@@ -108,8 +114,11 @@ class ChannelMapEditorApp(BokehApplication):
                     self.logger.debug('on_save() config %s', type(view).__name__)
                     self.user_views_config[type(view).__name__] = state
 
-        file = files.save_user_config(self.config, self.user_views_config)
-        self.logger.debug(f'save user config : %s', file)
+        if self._not_save_user_config:
+            self.logger.warning(f'save user config is blocked')
+        else:
+            file = files.save_user_config(self.config, self.user_views_config)
+            self.logger.debug(f'save user config : %s', file)
 
     def get_editor_userconfig(self) -> ChannelMapEditorUserConfig:
         """
@@ -117,9 +126,11 @@ class ChannelMapEditorApp(BokehApplication):
 
         :return:
         """
+        name = type(self).__name__
         try:
-            app_config: ChannelMapEditorUserConfig = self.user_views_config[type(self).__name__]
+            app_config: ChannelMapEditorUserConfig = self.user_views_config[name]
         except KeyError:
+            self.logger.debug('no "%s" in user config, add a default one.', name)
             self.user_views_config[type(self).__name__] = app_config = ChannelMapEditorUserConfig()
             self.save_user_config(direct=True)
 

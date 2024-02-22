@@ -33,9 +33,6 @@ class ProbeViewAction(TypedDict, total=False):
     # action=set_category
     category: int
 
-    # other
-    description: str
-
 
 class ProbeView(ViewBase, RecordView[ProbeViewAction]):
     """
@@ -437,31 +434,7 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
     # replay steps #
     # ============ #
 
-    def replay_records(self, records: list[RecordStep], *, reset=False):
-        ret = self._filter_records(records)
-
-        for record in ret:
-            self.logger.debug('replay %s', record.get('description', record['action']))
-
-            match record:
-                case {'action': 'reset', 'code': code}:
-                    self.reset(code)
-                case {'action': 'set_state', 'electrodes': electrodes, 'state': state}:
-                    self.set_state_for_captured(state, electrodes)
-                case {'action': 'set_category', 'electrodes': electrodes, 'category': category}:
-                    self.set_category_for_captured(category, electrodes)
-                case {'action': 'channelmap', 'electrodes': electrodes}:
-                    self.reset(self.channelmap)
-                    for e in electrodes:
-                        self.probe.add_electrode(self.channelmap, self.electrodes[e], overwrite=True)
-                    self._reset_electrode_state()
-                case {'action': 'blueprint', 'electrodes': electrodes}:
-                    for e, c in zip(self.electrodes, electrodes):
-                        e.category = c
-
-        return ret
-
-    def _filter_records(self, records: list[RecordStep]) -> list[ProbeViewAction]:
+    def filter_records(self, records: list[RecordStep], *, reset=False) -> list[RecordStep]:
         source = type(self).__name__
 
         ret = []
@@ -470,12 +443,9 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
 
         for record in records:
             if record.source == source:
-                item = dict(record.record)
-                item['description'] = record.description
-
                 match record.record:
                     case {'action': 'reset'}:
-                        ret = [item]
+                        ret = [record]
                         prev_blueprint = None
                         prev_channelmap = None
 
@@ -483,8 +453,8 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
                         # only keep last one
                         if prev_blueprint is not None:
                             ret.remove(prev_blueprint)
-                        ret.append(item)
-                        prev_blueprint = item
+                        ret.append(record)
+                        prev_blueprint = record
 
                         # remove all blueprint setting
                         for i in reversed(range(len(ret))):
@@ -497,8 +467,8 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
                         if prev_channelmap is not None:
                             ret.remove(prev_channelmap)
 
-                        ret.append(item)
-                        prev_channelmap = item
+                        ret.append(record)
+                        prev_channelmap = record
 
                         # remove all state setting
                         for i in reversed(range(len(ret))):
@@ -507,6 +477,25 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
                                     del ret[i]
 
                     case _:
-                        ret.append(item)
+                        ret.append(record)
 
         return ret
+
+    def replay_record(self, record: RecordStep):
+        self.logger.debug('replay %s', record.description)
+
+        match record.record:
+            case {'action': 'reset', 'code': code}:
+                self.reset(code)
+            case {'action': 'set_state', 'electrodes': electrodes, 'state': state}:
+                self.set_state_for_captured(state, electrodes)
+            case {'action': 'set_category', 'electrodes': electrodes, 'category': category}:
+                self.set_category_for_captured(category, electrodes)
+            case {'action': 'channelmap', 'electrodes': electrodes}:
+                self.reset(self.channelmap)
+                for e in electrodes:
+                    self.probe.add_electrode(self.channelmap, self.electrodes[e], overwrite=True)
+                self._reset_electrode_state()
+            case {'action': 'blueprint', 'electrodes': electrodes}:
+                for e, c in zip(self.electrodes, electrodes):
+                    e.category = c

@@ -364,7 +364,6 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
         if image_data is None:
             self.data_image.data = dict(image=[], dw=[], dh=[], x=[], y=[])
-            self.visible = False
         else:
             self.data_image.data = self.transform_image_data(image_data)
 

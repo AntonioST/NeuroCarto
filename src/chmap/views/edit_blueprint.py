@@ -377,7 +377,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             script_input = self.script_input.value_input
 
         self.add_record(BlueprintScriptAction(action='script', script_name=script.name, script_args=script_input),
-                        "script", f"script {script.name}")
+                        "script", f"{script.name}({script_input})")
 
         try:
             bp = self._run_script(script, probe, self.cache_chmap, script_input, interrupt_at=interrupt_at)
@@ -516,45 +516,37 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     # record replay #
     # ============= #
 
-    def replay_records(self, records: list[RecordStep], *, reset=False):
-        ret = self._filter_records(records)
-
-        if reset:
-            self.reset_blueprint()
-
-        for record in ret:
-            self.logger.debug('replay %s', record.get('description', record['action']))
-
-            match record:
-                case {'action': 'reset'}:
-                    self.reset_blueprint()
-                case {'action': 'script', 'script_name': script_name, 'script_args': script_args}:
-                    interrupt_at = record.get('interrupt', None)
-                    self.run_script(script_name, script_args, interrupt_at=interrupt_at)
-
-    def _filter_records(self, records: list[RecordStep]) -> list[BlueprintScriptAction]:
+    def filter_records(self, records: list[RecordStep], *, reset=False) -> list[RecordStep]:
         source = type(self).__name__
 
         ret = []
+
         last = {}
         for record in records:
             if record.source == source:
-                item = dict(record.record)
-                item['description'] = record.description
-
                 match record.record:
                     case {'action': 'reset'}:
-                        ret.append(item)
+                        ret.append(record)
 
                     case {'action': 'script', 'script_name': script_name}:
-                        ret.append(item)
-                        last[script_name] = item
+                        ret.append(record)
+                        last[script_name] = record
 
                     case {'action': 'interrupt', 'script_name': script_name, 'interrupt': interrupt_at}:
+                        # merge interrupt action to the previous corresponding action.
                         try:
-                            # merge interrupt action to the previous corresponding action.
-                            last[script_name]['interrupt'] = interrupt_at
+                            last[script_name].record['interrupt'] = interrupt_at
                         except KeyError:
                             pass
 
         return ret
+
+    def replay_record(self, record: RecordStep):
+        self.logger.debug('replay %s', record.description)
+
+        match record.record:
+            case {'action': 'reset'}:
+                self.reset_blueprint()
+            case {'action': 'script', 'script_name': script_name, 'script_args': script_args} as step:
+                interrupt_at = step.get('interrupt', None)
+                self.run_script(script_name, script_args, interrupt_at=interrupt_at)
