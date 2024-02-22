@@ -57,6 +57,7 @@ class NamedHistory(NamedTuple):
         return False
 
 
+@doc_link()
 class RecordManager:
     """
     Record history manger.
@@ -477,7 +478,7 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
                     self.save_input,
                     replay,
                     new_btn('Save', self.save_history),
-                    # new_btn('Load', self.load_history),
+                    # new_btn('Load', self.load_history), # auto-load on start
                     self.delete_btn,
                     self.clear_btn,
                     self.disable_toggle,
@@ -532,34 +533,36 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
         return eval(expr, {}, dict(_a=_a))
 
     def _on_save_name_change(self, old: str, name: str):
-        if (manager := self.manager) is not None:
-            if len(name) == 0:
-                self.log_message(f'change default history')
+        if (manager := self.manager) is None:
+            return
+
+        if len(name) == 0:
+            self.log_message(f'change default history')
+        else:
+            self.log_message(f'change history {name}')
+
+        copy = not manager.has_history(name)
+
+        manager.name = name
+
+        history = manager.history
+        if history.frozen:
+            self.delete_btn.disabled = True
+            self.clear_btn.disabled = True
+        else:
+            self.delete_btn.disabled = False
+            self.clear_btn.disabled = False
+
+        if copy:
+            try:
+                from_history = manager.get_history(old)
+            except KeyError:
+                pass
             else:
-                self.log_message(f'change history {name}')
+                self.logger.debug('copy history from %s', old)
+                history.append(from_history)
 
-            copy = not manager.has_history(name)
-
-            manager.name = name
-
-            history = manager.history
-            if history.frozen:
-                self.delete_btn.disabled = True
-                self.clear_btn.disabled = True
-            else:
-                self.delete_btn.disabled = False
-                self.clear_btn.disabled = False
-
-            if copy:
-                try:
-                    from_history = manager.get_history(old)
-                except KeyError:
-                    pass
-                else:
-                    self.logger.debug('copy history from %s', old)
-                    history.append(from_history)
-
-            self.update_history_table()
+        self.update_history_table()
 
     def _on_replay(self, value: str):
         if (manager := self.manager) is None or len(value) == 0:
@@ -586,17 +589,19 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
                 self.update_history_table()
 
     def on_clear(self):
-        if (manager := self.manager) is not None:
-            self.logger.debug('clear')
+        if (manager := self.manager) is None:
+            return
 
-            is_empty = manager.history.size == 0
+        self.logger.debug('clear')
 
-            if manager.clear_history():
-                if is_empty:
-                    self.logger.debug('remove')
-                    self.save_input.value = ''
-                else:
-                    self.update_history_table()
+        is_empty = manager.history.size == 0
+
+        if manager.clear_history():
+            if is_empty:
+                self.logger.debug('remove')
+                self.save_input.value = ''
+            else:
+                self.update_history_table()
 
     def _on_disable(self, disable: bool):
         if (manager := self.manager) is not None:

@@ -38,7 +38,7 @@ Features
 
   - [x] give an example script to initial a blueprint based on an experimental data.
 
-- [x] (Experimental) Record/Save/Load/Replay channelmap manipulate steps (branch ``record-steps``)
+- [x] (Experimental) Record/Save/Load/Replay channelmap manipulate steps (``--view=history``)
 
 
 

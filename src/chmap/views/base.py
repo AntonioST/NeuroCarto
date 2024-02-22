@@ -391,10 +391,15 @@ R = TypeVar('R')
 
 class RecordStep(NamedTuple):  # Generic[R]
     source: str
+    """(class) name of the source RecordView"""
     time_stamp: float
+    """action time stamp in unix time"""
     category: str
+    """action category"""
     description: str
-    record: R  # json-serialize
+    """action description"""
+    record: R
+    """json-serialize"""
 
     def __str__(self):
         return f'RecordStep[{self.source}][{self.category}]{{{self.description}}}'
@@ -459,7 +464,6 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
         Use Note:
             Do not call this method directly, because it might cause
             {#add_record()} be invoked during the replay.
-
             Use {RecordManager#replay()} instead.
 
         :param record:
