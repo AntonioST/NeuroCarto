@@ -19,6 +19,7 @@ from .base import RecordStep, RecordView, R, ViewBase, ControllerView, Invisible
 
 if TYPE_CHECKING:
     from chmap.main_bokeh import ChannelMapEditorApp
+
 __all__ = ['RecordManager', 'HistoryView']
 
 
@@ -239,8 +240,11 @@ class RecordManager:
             view.replay_record(step)
         except BaseException as e:
             return self._replay_finish(e)
-        else:
-            run_later(self._replay_callback, steps)
+
+        if step.source == 'ProbeView':
+            self._app.on_probe_update()
+
+        run_later(self._replay_callback, steps)
 
     def _replay_finish(self, e: BaseException = None):
         self._is_replaying = False

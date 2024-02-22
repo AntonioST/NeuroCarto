@@ -1,20 +1,21 @@
 import re
 from pathlib import Path
-from typing import cast, Literal
+from typing import cast, Literal, TypedDict
 
 from bokeh.models import UIElement, Select, TextInput
+from typing_extensions import Required
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ElectrodeDesp
 from chmap.util.bokeh_util import as_callback, ButtonFactory, new_help_button
-from chmap.views.base import ViewBase, DynamicView, InvisibleView, EditorView
+from chmap.views.base import ViewBase, DynamicView, InvisibleView, EditorView, RecordView, RecordStep
 from .desp import NpxProbeDesp
 from .npx import ChannelMap, ProbeType, ReferenceInfo
 
 __all__ = ['NpxReferenceControl', 'NpxBadElectrodesView']
 
 
-class NpxReferenceControl(ViewBase, DynamicView):
+class NpxReferenceControl(ViewBase, DynamicView, RecordView[int]):
 
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.npx_ref')
@@ -74,6 +75,8 @@ class NpxReferenceControl(ViewBase, DynamicView):
             self.log_message(f'set reference({item})')
             chmap.reference = ref.code
 
+            self.add_record(ref.code, 'reference', f'set reference to {item}')
+
     def update_reference_select_options(self):
         if (probe := self._probe) is None:
             return
@@ -98,8 +101,25 @@ class NpxReferenceControl(ViewBase, DynamicView):
             case _:
                 return 'unknown'
 
+    # ============= #
+    # record replay #
+    # ============= #
 
-class NpxBadElectrodesView(ViewBase, InvisibleView, EditorView):
+    def replay_record(self, record: RecordStep):
+        self.logger.debug('replay %s', record.description)
+
+        ref = int(record.record)
+        self.reference_select.value = self.reference_select.options[ref]
+
+
+class NpxBadElectrodesAction(TypedDict, total=False):
+    action: Required[str]  # save,load,set
+
+    # action=save,load,set?
+    serial_number: str
+
+
+class NpxBadElectrodesView(ViewBase, InvisibleView, EditorView, RecordView[NpxBadElectrodesAction]):
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.npx_bad')
 
@@ -227,6 +247,9 @@ class NpxBadElectrodesView(ViewBase, InvisibleView, EditorView):
 
             self.set_status('loaded', decay=5)
             self.update_probe()
+
+            self.add_record(NpxBadElectrodesAction(action='load', serial_number=serial_number),
+                            'bad', 'set bad electrodes as forbidden')
         else:
             self.logger.debug('nothing to set')
 
@@ -244,13 +267,21 @@ class NpxBadElectrodesView(ViewBase, InvisibleView, EditorView):
         self.save_bad_electrodes(serial_number, bad_electrodes)
         self.set_status('saved', decay=5)
 
+        self.add_record(NpxBadElectrodesAction(action='save', serial_number=serial_number),
+                        'bad', 'save forbidden as bad electrodes')
+
     def _on_serial_number(self, serial_number: str):
         if len(serial_number) == 0:
+            self.add_record(NpxBadElectrodesAction(action='set'),
+                            'set', 'clear probe serial number')
+
             return
 
         match self.check_serial_number(serial_number):
             case None:
                 self.set_status('acknowledged', decay=5)
+                self.add_record(NpxBadElectrodesAction(action='set', serial_number=serial_number),
+                                'set', 'set probe serial number')
             case 'not-exist':
                 self.set_status('No bad electrodes data')
             case 'bad-format':
@@ -270,3 +301,24 @@ class NpxBadElectrodesView(ViewBase, InvisibleView, EditorView):
         else:
             self.serial_number_input.value = ""
             self._blueprint = None
+
+    # ============= #
+    # record replay #
+    # ============= #
+
+    def replay_record(self, record: RecordStep):
+        self.logger.debug('replay %s', record.description)
+
+        serial_number = record.record.get('serial_number', None)
+        match record.record:
+            case {'action': 'load'} if serial_number is not None:
+                self.serial_number_input.value_input = serial_number
+                self._on_load()
+            case {'action': 'save'} if serial_number is not None:
+                self.serial_number_input.value_input = serial_number
+                self._on_save()
+            case {'action': 'set'}:
+                if serial_number is not None:
+                    self.serial_number_input.value_input = serial_number
+                else:
+                    self.serial_number_input.value_input = ''
