@@ -33,11 +33,11 @@ def get_probe_desp(name: str) -> type[ProbeDesp]:
 
     Naming rules (finding in order):
 
-    * a module path `MODULE:NAME`, import MODULE and use NAME.
+    * a module path ``MODULE:NAME``, import MODULE and use NAME.
     * (following rule does not specific which {ProbeDesp} subtype, find the first matched.)
-    * a probe family name, which can be found in module `chmap.probe_NAME`.
-    * a probe family name, which can be found in module `chmap.NAME`.
-    * a module name, which can be found in module `NAME`.
+    * a probe family name, which can be found in module ``chmap.probe_NAME``.
+    * a probe family name, which can be found in module ``chmap.NAME``.
+    * a module name, which can be found in module ``NAME``.
 
     :param name: probe family name.
     :return: type of {ProbeDesp}.
@@ -389,7 +389,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         An error raised when:
 
-        * Either *chmap* or *e* is in incorrect state. For example, *e* is `None`.
+        * Either *chmap* or *e* is in incorrect state. For example, *e* is ``None``.
         * *chmap* is complete, and it doesn't allow to add any additional electrode.
         * *chmap* is incomplete, but it doesn't allow to add *e* due to probe restriction.
 
@@ -430,9 +430,9 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         The default implement only consider simple case, so it won't work once
         any following points break:
 
-        * type E has no-arg `__init__`
+        * type E has no-arg ``__init__``
         * type E has any attribute name start with '_'
-        * type E overwrite `__getattr__`, `__setattr__`
+        * type E overwrite ``__getattr__``, ``__setattr__``
 
         :param electrodes:
         :return:
@@ -450,8 +450,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         This method's implementation should follow the rules in most cases:
 
-        * `probe_rule(M, e, e)` should return `False`
-        * `probe_rule(M, e1, e2) == probe_rule(M, e2, e1)`
+        * ``probe_rule(M, e, e)`` should return ``False``
+        * ``probe_rule(M, e1, e2) == probe_rule(M, e2, e1)``
 
         :param chmap: channelmap type. It is a reference.
         :param e1: an electrode.
@@ -505,7 +505,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         Restore blueprint, included all electrode information from a numpy array *a*.
 
-        If *chmap* is a `list[E]`, it indicates only restore the information only for
+        If *chmap* is a ``list[E]``, it indicates only restore the information only for
         this electrode subset.
 
         :param a: saved category matrix, or a saved '.npy' file path

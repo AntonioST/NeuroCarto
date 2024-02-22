@@ -33,7 +33,7 @@ def load_select(selector: str) -> ElectrodeSelector:
     """
     Load a Neuropixels electrode selector.
 
-    :param selector: `module_path:name`
+    :param selector: ``module_path:name``
     :return:
     :see: {import_name()}
     """

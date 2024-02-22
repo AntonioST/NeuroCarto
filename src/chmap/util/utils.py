@@ -76,10 +76,10 @@ def as_set(x, n: int) -> set[int]:
 def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
     """
 
-    Module Path: `[ROOT:]MODULE:NAME`, where
+    Module Path: ``[ROOT:]MODULE:NAME``, where
 
     ROOT:
-        a filepath insert into `sys.path`.
+        a filepath insert into ``sys.path``.
     MODULE:
         module path
     NAME:
@@ -163,22 +163,22 @@ class TimeMarker:
 
 def doc_link(**kwargs: str) -> Callable[[T], T]:
     """
-    A decorator to replace the text with pattern `{CLASS}`
-    into sphinx cross-reference link (if environment variable `SPHINX_BUILD` is set)
+    A decorator to replace the text with pattern ``{CLASS}``
+    into sphinx cross-reference link (if environment variable ``SPHINX_BUILD`` is set)
     in the function document.
 
     Match rules:
 
-    * `{class}` : `:class:~`
-    * `{class#attr}` : `:attr:~`
-    * `{class#meth()}` : `:meth:~`
-    * `{module#class}` : `:class:~`
-    * `{module#func()}` : `:func:~`
-    * `{#attr}` : `:attr:~`
-    * `{#meth()}` : `:meth:~`
-    * `{func()}` : `:func:~`
-    * `{VAR}` : if VAR is a str, use its str content.
-    * `{...}` : do not replace
+    * ``{class}`` : ``:class:~``
+    * ``{class#attr}`` : ``:attr:~``
+    * ``{class#meth()}`` : ``:meth:~``
+    * ``{module#class}`` : ``:class:~``
+    * ``{module#func()}`` : ``:func:~``
+    * ``{#attr}`` : ``:attr:~``
+    * ``{#meth()}`` : ``:meth:~``
+    * ``{func()}`` : ``:func:~``
+    * ``{VAR}`` : if VAR is a str, use its str content.
+    * ``{...}`` : do not replace
 
     Limitation:
 

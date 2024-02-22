@@ -300,7 +300,7 @@ def npx24_quarter_density(shank: int | tuple[int, int] | None = None,
       0▕▖▏▕ ▏▕ ▏▕ ▏  0▕▖▏▕ ▏▕▝▏▕ ▏  0▕▖▏▕▗▏▕▘▏▕▝▏
         ╹  ╹  ╹  ╹     ╹  ╹  ╹  ╹     ╹  ╹  ╹  ╹
 
-    Note: `npx24_quarter_density(shank=0)` remain 64 electrodes unset.
+    Note: ``npx24_quarter_density(shank=0)`` remain 64 electrodes unset.
 
     :param shank:
     :param row: beginning row from tip.
@@ -455,10 +455,10 @@ def print_probe(chmap: ChannelMap | list[ChannelMap], *,
     print probe in string.
 
     :param chmap: a {ChannelMap} instance, or a list of {ChannelMap}
-    :param file: io, or `print`
+    :param file: io, or ``print``
     :param truncate: truncate rows without electrodes
     :param um: print depth from tip in um, instead of row.
-    :return: a string when *file* is `None`. Otherwise, return `None`
+    :return: a string when *file* is ``None``. Otherwise, return ``None``
     """
     return_str = file is None
     if file is None:

@@ -46,9 +46,9 @@ class ChannelMapEditorAppMulti(BokehApplication):
 
         Allow arguments:
 
-        * `probe`
-        * `selector`
-        * `view` (multiple times)
+        * ``probe``
+        * ``selector``
+        * ``view`` (multiple times)
 
         :param args: http request arguments.
         :return: new config

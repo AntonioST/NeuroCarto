@@ -128,7 +128,7 @@ class ChannelMapEditorApp(BokehApplication):
     @doc_link()
     def list_chmap_files(self) -> list[Path]:
         """
-        List channelmap files under chmap-dir (`-C`, `--chmap-dir`).
+        List channelmap files under chmap-dir (``-C``, ``--chmap-dir``).
 
         :return: list of files
         :see: {files#list_channelmap_files()}
@@ -322,7 +322,7 @@ class ChannelMapEditorApp(BokehApplication):
         self.load_user_config(reset=True)
 
         if self.get_editor_userconfig().get('history', True):
-            self.record_manager = RecordManager()
+            self.record_manager = RecordManager(self.config)
 
         if (theme := self.get_editor_userconfig().get('theme', None)) is not None:
             try:

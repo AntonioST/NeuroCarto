@@ -27,10 +27,11 @@ if TYPE_CHECKING:
 elif SPHINX_BUILD:
     ViewBase = 'chmap.views.base.ViewBase'
     ProbeView = 'chmap.views.probe.ProbeView'
+    NpxProbeDesp = 'chmap.probe_npx.desp.NpxProbeDesp'
 
 
     class BLUEPRINT:
-        """Prevent sphinx from printing BLUEPRINT as `ndarray[int64]`"""
+        """Prevent sphinx from printing BLUEPRINT as ``ndarray[int64]``"""
         pass
 
 __all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function', 'use_probe']
@@ -47,7 +48,7 @@ def blueprint_function(func):
     Decorate a blueprint function to make it is able to direct apply function on
     internal blueprint.
 
-    The function should have a signature `(blueprint, ...) -> blueprint`.
+    The function should have a signature ``(blueprint, ...) -> blueprint``.
 
     If the first parameter blueprint is given, it works as usually. ::
 
@@ -432,7 +433,7 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Merge two blueprints. The latter blueprint won't overwrite the former result.
 
-        `merge(blueprint)` works like `merge(blueprint(), blueprint)`.
+        ``merge(blueprint)`` works like ``merge(blueprint(), blueprint)``.
 
         :param blueprint: Array[category, N]
         :param other: blueprint Array[category, N]
@@ -544,7 +545,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param blueprint: Array[category, N]
         :param categories: fill area occupied by categories.
         :param threshold: only consider area which size larger than threshold.
-        :param gap: fill the gap below (abs(y) <= gap). Use `None`, fill an area as a rectangle.
+        :param gap: fill the gap below (abs(y) <= gap). Use ``None``, fill an area as a rectangle.
         :param unset: unset small area (depends on threshold)
         :return: blueprint Array[category, N]
         """
@@ -609,7 +610,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         Because E's category is expected as an int, this view also take it as an int by default.
 
-        For the Neuropixels, `NpxProbeDesp` use the numpy array in this form:
+        For the Neuropixels, {NpxProbeDesp} use the numpy array in this form:
 
            Array[int, E, (shank, col, row, state, category)]
 
@@ -654,7 +655,7 @@ class BlueprintFunctions(Generic[M, E]):
         then {BlueprintScriptView} can handle the probe creating and checking before running the script.
 
         :param probe: request probe. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
-            It `None`, checking a probe has created, and its type doesn't matter.
+            It ``None``, checking a probe has created, and its type doesn't matter.
         :param chmap_code: request channelmap code
         :param error:
         :return: test success.

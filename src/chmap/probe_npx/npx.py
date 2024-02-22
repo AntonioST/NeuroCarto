@@ -327,7 +327,7 @@ class ChannelMap:
         """
         To a pandas dataframe.
 
-        Use `-1` to fill empty channels.
+        Use ``-1`` to fill empty channels.
 
         ::
 
@@ -346,7 +346,7 @@ class ChannelMap:
         """
         To a polars dataframe.
 
-        Use `null` to fill empty channels.
+        Use ``null`` to fill empty channels.
 
         ::
 

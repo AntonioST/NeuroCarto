@@ -210,7 +210,7 @@ def to_pandas(chmap: ChannelMap) -> pd.DataFrame:
     """
     To a pandas dataframe.
 
-    Use `-1` to fill empty channels.
+    Use ``-1`` to fill empty channels.
 
     ::
 
@@ -244,7 +244,7 @@ def to_polars(chmap: ChannelMap) -> pl.DataFrame:
     """
     To a polars dataframe.
 
-    Use `null` to fill empty channels.
+    Use ``null`` to fill empty channels.
 
     ::
 

@@ -71,12 +71,12 @@ class BlueprintScript(Protocol):
 
         **Generator script**
 
-        Blueprint script function could be a generator by using `yield` keyword.
+        Blueprint script function could be a generator by using ``yield`` keyword.
         Yielding a number to indicate the caller to wait for a given seconds.
         During running, the "Run" button will become "Stop", in order to interrupt the
         running.
 
-        When interrupted, a `KeyboardInterrupt` will be raised. Blueprint script function
+        When interrupted, a ``KeyboardInterrupt`` will be raised. Blueprint script function
         can capture it for cleanup purpose, and then reraise it to the caller to let it
         handle the interrupting message.
         Otherwise, the caller will considered this script has a normal exit.
@@ -105,10 +105,10 @@ class BlueprintScript(Protocol):
                 {EXAMPLE_DOCUMENT}
                 \"""
 
-        * The line `:param bp:` will be removed.
-        * The line `:param PARA:` will be replaced as a bold font (`<b>`).
-        * The word `**WORD**` will be replaced as a bold font (`<b>`).
-        * The word `*WORD*` will be replaced as an italic font (`<em>`).
+        * The line ``:param bp:`` will be removed.
+        * The line ``:param PARA:`` will be replaced as a bold font (``<b>``).
+        * The word ``**WORD**`` will be replaced as a bold font (``<b>``).
+        * The word ``*WORD*`` will be replaced as an italic font (``<em>``).
 
         And it will look like:
 

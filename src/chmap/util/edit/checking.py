@@ -98,7 +98,7 @@ def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
     :param probe: probe type or its name
     :param code: channelmap code
     :param create: create the probe if there is no probe in the main figure.
-        If `True`, it requires *code* should be not `None`.
+        If ``True``, it requires *code* should be not ``None``.
     :param check: check the current probe type automatically before entering the script.
     """
     if probe is None:
@@ -160,7 +160,7 @@ def check_probe(self: BlueprintFunctions,
 
     :param self:
     :param probe: request probe type. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
-        It `None`, checking a probe has created, and its type doesn't matter.
+        It ``None``, checking a probe has created, and its type doesn't matter.
     :param code: request channelmap code
     :raise RequestChannelmapTypeError: when check failed.
     """

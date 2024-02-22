@@ -12,6 +12,7 @@ from chmap.probe import ElectrodeDesp
 from chmap.util.util_numpy import index_of, closest_point_index, same_index
 from .desp import NpxProbeDesp
 from .npx import ChannelMap, ProbeType
+from ..util.utils import doc_link
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -270,8 +271,6 @@ class ElectrodeMatData(NamedTuple):
                           Array[V:float, S, C, R] (electrode_unit='raw')
         :param electrode_unit:
         :param reduce: function (Array[V, ?]) -> V used when data has same (s, x, y) position
-        :param kernel: interpolate missing data (NaN) between channels.
-            It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
         :return: ElectrodeMatData
         """
         if electrode_unit == 'raw':
@@ -562,12 +561,13 @@ class ElectrodeMatData(NamedTuple):
                 shank=self.shank[used]
             )
 
+    @doc_link(interpolate_nan='chmap.util.util_numpy.interpolate_nan')
     def interpolate_nan(self, kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]]) -> Self:
         """
 
         :param kernel: interpolate missing data (NaN) between channels.
-            It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
-            Default (when use `True`) is `(0, 1)`.
+            It is pass to {interpolate_nan()}.
+            Default (when use ``True``) is ``(0, 1)``.
         :return:
         """
         if not callable(kernel):
@@ -707,7 +707,7 @@ def plot_electrode_block(ax: Axes,
     :param height: max height (mm) of probe need to plot
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param fill: fill rectangle
-    :param kwargs: pass to Rectangle(kwargs) or ax.imshow(kwargs).
+    :param kwargs: pass to ``Rectangle(kwargs)`` or ``ax.imshow(kwargs)``.
     """
     from matplotlib.patches import Rectangle
 
@@ -892,6 +892,7 @@ def plot_electrode_grid(ax: Axes,
         ax.plot([np.nan], [np.nan], color=color, label=label, **kwargs)
 
 
+@doc_link(interpolate_nan='chmap.util.util_numpy.interpolate_nan')
 def plot_channelmap_matrix(ax: Axes,
                            chmap: ChannelMap,
                            data: NDArray[np.float_], *,
@@ -908,8 +909,8 @@ def plot_channelmap_matrix(ax: Axes,
     :param data: Array[V:float, C] or Array[float, C', (C, V)]
     :param shank_list: show shank in order
     :param kernel: interpolate missing data (NaN) between channels.
-        It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
-        Default (when use `True`) is `(0, 1)`.
+        It is pass to {interpolate_nan()}.
+        Default (when use ``True``) is ``(0, 1)``.
     :param reduce: function used when data has same (s, x, y) position
     :param cmap: colormap used in ax.imshow(cmap)
     :param shank_gap_color:
@@ -937,6 +938,7 @@ def plot_channelmap_matrix(ax: Axes,
     )
 
 
+@doc_link(interpolate_nan='chmap.util.util_numpy.interpolate_nan')
 def plot_electrode_matrix(ax: Axes,
                           probe: ProbeType,
                           electrode: NDArray[np.float_] | ElectrodeMatData,
@@ -947,7 +949,7 @@ def plot_electrode_matrix(ax: Axes,
                           cmap='magma',
                           shank_gap_color: str | None = 'w',
                           **kwargs) -> ScalarMappable:
-    """:meth:`Axes.imshow` the electrode data matrix.
+    """``ax.imshow`` the electrode data matrix.
 
     :param ax:
     :param probe: probe type
@@ -957,8 +959,8 @@ def plot_electrode_matrix(ax: Axes,
     :param electrode_unit:
     :param shank_list: show shank in order
     :param kernel: interpolate missing data (NaN) between channels.
-        It is pass to :func:`chmap.util.util_numpy.interpolate_nan(space)`.
-        Default (when use `True`) is `(0, 1)`.
+        It is pass to {interpolate_nan()}.
+        Default (when use ``True``) is ``(0, 1)``.
     :param reduce: function used when data has same (s, x, y) position
     :param cmap: colormap used in ax.imshow(cmap)
     :param shank_gap_color: color of shank gao line. Use None to disable plotting.

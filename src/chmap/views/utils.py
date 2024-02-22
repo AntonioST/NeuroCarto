@@ -29,15 +29,15 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
 
     Recognised type:
 
-    * `None` skip
+    * ``None`` skip
     * {ViewBase} or it subtype
     * {ImageHandler} or subtype, wrap with {ImageView}.
-    * literal `'file'` for {FileImageView}
-    * literal `'atlas'` for {AtlasBrainView}
-    * literal `'blueprint'` for {BlueprintView}
-    * literal `'script'` for {BlueprintScriptView}
+    * literal ``'file'`` for {FileImageView}
+    * literal ``'atlas'`` for {AtlasBrainView}
+    * literal ``'blueprint'`` for {BlueprintView}
+    * literal ``'script'`` for {BlueprintScriptView}
     * image filepath
-    * `str` in pattern: `[PATH:]module.path:attribute` in type listed above.
+    * ``str`` in pattern: ``[PATH:]module.path:attribute`` in type listed above.
 
     :param config:
     :param view_type:

@@ -407,7 +407,7 @@ def get_current_plt_image(fg=None, **kwargs) -> NDArray[np.uint]:
     Save matplotlib figure into numpy array.
 
     :param fg: matplotlib Figure.
-    :param kwargs: `fg.savefig(kwargs)`, except parameters *format* and *dpi*.
+    :param kwargs: ``fg.savefig(kwargs)``, except parameters *format* and *dpi*.
     :return: a numpy array.
     """
     if fg is None:

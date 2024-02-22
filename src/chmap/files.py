@@ -119,8 +119,8 @@ def user_config_file(config: ChannelMapEditorConfig) -> Path:
     """
     Get user config filepath.
 
-    * When `--config-file` is given, use it.
-    * When `--debug`, use `.{USER_CONFIG_FILENAME}` at current working directory.
+    * When ``--config-file`` is given, use it.
+    * When ``--debug``, use ``.{USER_CONFIG_FILENAME}`` at current working directory.
 
     :return: filepath.
     :see: {#user_config_dir()}
@@ -201,7 +201,7 @@ def list_channelmap_files(config: ChannelMapEditorConfig, probe: ProbeDesp) -> l
     :return: list of files.
     :see: {channelmap_root()}
     """
-    # Python glob doesn't support `*.{A,B}` pattern.
+    # Python glob doesn't support *.{A,B} pattern.
     root = channelmap_root(config)
 
     ret = []

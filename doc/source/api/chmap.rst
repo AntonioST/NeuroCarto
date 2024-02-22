@@ -62,7 +62,7 @@ Numpy Array
 
   We can document the `__getitem__` of a numpy array as::
 
-    __getitem__(self: Array[V, N], mark: Array[bool, N]) -> Array[V, M]:
+    def __getitem__(self: Array[V, N], mark: Array[bool, N]) -> Array[V, M]:
         """
         V : any value type
         N : N-length array

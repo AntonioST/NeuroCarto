@@ -47,7 +47,7 @@ def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | None 
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *quarter* density.
 
     :param bp:
-    :param shank: (int|[int, int]=None) on which shank/s. use `None` for four shanks.
+    :param shank: (int|[int, int]=None) on which shank/s. use ``None`` for four shanks.
     :param row: (int=0) start row in um.
     """
     bp.set_channelmap(utils.npx24_quarter_density(shank, row, um=True))
@@ -95,7 +95,7 @@ def exchange_shank(bp: BlueprintFunctions, shank: list[int], update=False):
 
     :param bp:
     :param shank: (list[int]): For N shank probe, it is an N-length list.
-        For example, `[3, 2, 1, 0]` gives a reverse-shank-ordered blueprint.
+        For example, ``[3, 2, 1, 0]`` gives a reverse-shank-ordered blueprint.
     :param update: (bool) update channelmap to follow the blueprint change.
     """
     bp.check_probe()
