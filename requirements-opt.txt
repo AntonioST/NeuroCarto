@@ -5,6 +5,3 @@ Pillow
 tifffile
 pandas
 polars
-
-# for develop
-coverage

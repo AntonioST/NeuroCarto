@@ -168,10 +168,11 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
-    def channelmap_description(self, code: int) -> str | None:
-        for name, _code in self.supported_type.items():
-            if code == _code:
-                return name
+    def channelmap_description(self, code: int | None) -> str | None:
+        if code is not None:
+            for name, _code in self.supported_type.items():
+                if code == _code:
+                    return name
         return None
 
     @property

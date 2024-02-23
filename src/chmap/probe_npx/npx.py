@@ -250,7 +250,7 @@ class ChannelMap:
     __match_args__ = 'probe_type',
 
     def __init__(self, probe_type: int | str | ProbeType | ChannelMap,
-                 electrodes: list[Electrode] = None, *,
+                 electrodes: list[E | None] = None, *,
                  meta: NpxMeta = None):
         """
 
@@ -270,7 +270,7 @@ class ChannelMap:
         elif not isinstance(probe_type, ProbeType):
             raise TypeError()
 
-        self.probe_type: Final = probe_type
+        self.probe_type: Final[ProbeType] = probe_type
         self._electrodes: Final[list[Electrode | None]] = [None] * probe_type.n_channels
         self._reference = 0
         self.meta: NpxMeta | None = meta
@@ -278,7 +278,9 @@ class ChannelMap:
         if electrodes is not None:
             for e in electrodes:
                 if e is not None:
-                    self.add_electrode(e).copy(e)
+                    t = self.add_electrode(e)
+                    if isinstance(e, Electrode):
+                        t.copy(e)
 
     # ========= #
     # load/save #
@@ -745,7 +747,7 @@ class Electrodes(Sized, Iterable[Electrode]):
                     if e is not None:
                         e.copy(value)
                 return [e for e in self._electrodes if e is not None]
-            case (shank, column, row) if all_int(shank, column, row):
+            case (shank, column, row) if all_int(shank, column, row):  # type: ignore
                 for e in self._electrodes:
                     if e is not None and e.shank == shank and e.column == column and e.row == row:
                         e.copy(value)
@@ -921,9 +923,9 @@ def e2cr(probe_type: ProbeType, e):
     match e:
         case e if all_int(e):
             e = int(e)
-        case (s, e) if all_int(s, e):
+        case (s, e) if all_int(s, e):  # type: ignore
             e = int(e)
-        case (s, c, r) if all_int(s, c, r):
+        case (s, c, r) if all_int(s, c, r):  # type: ignore
             return int(c), int(r)
         case Electrode(column=c, row=r):
             return c, r
@@ -963,10 +965,10 @@ def cr2e(probe_type: ProbeType, p):
     match p:
         case e if all_int(e):
             return int(e)
-        case (c, r) if all_int(c, r):
+        case (c, r) if all_int(c, r):  # type: ignore
             c = int(c)
             r = int(r)
-        case (s, c, r) if all_int(s, c, r):
+        case (s, c, r) if all_int(s, c, r):  # type: ignore
             c = int(c)
             r = int(r)
         case Electrode(column=c, row=r):

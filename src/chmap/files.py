@@ -204,7 +204,7 @@ def list_channelmap_files(config: ChannelMapEditorConfig, probe: ProbeDesp) -> l
     # Python glob doesn't support *.{A,B} pattern.
     root = channelmap_root(config)
 
-    ret = []
+    ret: list[Path] = []
     suffixes = probe.channelmap_file_suffix
     for suffix in suffixes:
         pattern = '*' + suffix

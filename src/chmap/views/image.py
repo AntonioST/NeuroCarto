@@ -4,7 +4,7 @@ import abc
 import logging
 import sys
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, Final
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, TextInput, Tooltip
@@ -39,8 +39,8 @@ class ImageHandler(metaclass=abc.ABCMeta):
     """
 
     def __init__(self, filename: str | None):
-        self.filename: str | None = filename
-        self._resolution = (1, 1)
+        self.filename: Final[str | None] = filename
+        self._resolution: tuple[float, float] = (1.0, 1.0)
 
     @abc.abstractmethod
     def __len__(self) -> int:
@@ -80,6 +80,11 @@ class ImageHandler(metaclass=abc.ABCMeta):
     @classmethod
     def from_numpy(cls, filename: str | Path, image: NDArray[np.uint] = None) -> Self:
         logger = logging.getLogger('chmap.image')
+
+        filename = str(filename)
+        if image is None:
+            image = np.load(filename)
+
         from .image_npy import NumpyImageHandler
         logger.debug('from numpy %s', image.shape)
         return NumpyImageHandler(image, filename)
@@ -94,10 +99,14 @@ class ImageHandler(metaclass=abc.ABCMeta):
         logger = logging.getLogger('chmap.image')
         from PIL import Image
         from .image_npy import NumpyImageHandler
+
+        filename = str(filename)
         logger.debug('from file %s', filename)
         image = np.asarray(Image.open(filename, mode='r'))
+
         w, h, _ = image.shape
         image = np.flipud(image.view(dtype=np.uint32).reshape((w, h)))
+
         logger.debug('as image %s', image.shape)
         return NumpyImageHandler(image, filename)
 
@@ -106,8 +115,11 @@ class ImageHandler(metaclass=abc.ABCMeta):
         logger = logging.getLogger('chmap.image')
         import tifffile
         from .image_npy import NumpyImageHandler
+
+        filename = str(filename)
         logger.debug('from file %s', filename)
         image = tifffile.TiffFile(filename, mode='r').asarray()  # TODO memmap?
+
         logger.debug('as image %s', image.shape)
         return NumpyImageHandler(image, filename)
 
@@ -148,20 +160,20 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
     @property
     def width(self) -> float:
         try:
-            return self._image.width
+            return self._image.width  # type: ignore
         except (TypeError, AttributeError):
             return 0
 
     @property
     def height(self) -> float:
         try:
-            return self._image.height
+            return self._image.height  # type: ignore
         except (TypeError, AttributeError):
             return 0
 
     def set_image_handler(self, image: ImageHandler | None):
         self._image = image
-        if (filename := image.filename) is not None:
+        if image is not None and (filename := image.filename) is not None:
             self.set_status(filename)
 
         if (slider := self.index_slider) is not None:
@@ -183,12 +195,15 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         if (image := self.image) is None:
             return None
 
-        self.logger.debug('save(%s)', image.filename)
+        if (filename := image.filename) is None:
+            return None
+
+        self.logger.debug('save(%s)', filename)
         boundary = self.get_boundary_state()
         resolution = image.resolution
 
         return ImageViewState(
-            filename=image.filename,
+            filename=filename,
             index=self._index,
             resolution_w=resolution[0],
             resolution_h=resolution[1],
@@ -217,7 +232,9 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         desp = 'drag image'
         if (image := self._image) is not None:
             desp = f'drag {image.filename}'
-        self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=desp)
+
+        if boundary_color is not None:
+            self.setup_boundary(f, boundary_color=boundary_color, boundary_desp=desp)
 
     def setup_image(self, f: Figure):
         self.render_image = f.image_rgba(
@@ -311,18 +328,20 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         if is_recursive_called() or r == '':
             return
 
-        if isinstance(r, str):
-            f = self.get_resolution_value(r)
-        else:
-            f = float(r)
-            f = (f, f)
+        match r:
+            case str():
+                f = self.get_resolution_value(r)
+            case float(f):
+                f = (f, f)
+            case _:
+                raise TypeError()
 
         if f is None:
             if (image := self.image) is None:
                 self.resolution_input.value = ''
             else:
-                r = image.resolution
-                self.resolution_input.value = f'{r[0]},{r[1]}'
+                f = image.resolution
+                self.resolution_input.value = f'{f[0]},{f[1]}'
         else:
             if (image := self.image) is not None:
                 image.resolution = f
@@ -349,11 +368,14 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         if is_recursive_called():
             return
 
+        if (image := self.image) is None:
+            return
+
         if isinstance(image_data, int) or isinstance(image_data, np.integer):
             self._index = index = int(image_data)
 
             try:
-                image_data = self.image[index]
+                image_data = image[index]
             except (IndexError, TypeError) as e:
                 return
 
@@ -449,7 +471,7 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
         if (image := self.image) is None:
             return
 
-        if state is None:
+        if state is None and image.filename is not None:
             try:
                 state = self.image_config[image.filename]
                 self.logger.debug('restore(%s)', image.filename)
@@ -463,4 +485,5 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
                     self.update_boundary_transform(s=1)
                 return
 
-        super().restore_current_state(state)
+        if state is not None:
+            super().restore_current_state(state)

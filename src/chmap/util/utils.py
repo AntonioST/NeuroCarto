@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from types import FunctionType, ModuleType
-from typing import TypeVar, Any
+from typing import TypeVar, Any, TypeGuard
 
 import numpy as np
 from numpy.typing import NDArray
@@ -35,7 +35,7 @@ T = TypeVar('T')
 SPHINX_BUILD = len(os.environ.get('SPHINX_BUILD', '')) > 0
 
 
-def all_int(*x) -> bool:
+def all_int(*x) -> TypeGuard[int]:
     for xx in x:
         if not isinstance(xx, (int, np.integer)):
             return False
@@ -97,7 +97,7 @@ def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
         root, _, module_path = module_path.partition(':')
         return import_name(desp, module_path, root, reload=reload)
 
-    module, _, name = module_path.partition(':')
+    module_path, _, name = module_path.partition(':')
     if len(name) == 0:
         raise ValueError(f'not a {desp} pattern "module_path:name" : {module_path}')
 
@@ -106,7 +106,7 @@ def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
         if root is not None:
             sys.path.insert(0, root)
 
-        module = importlib.import_module(module)
+        module = importlib.import_module(module_path)
         if reload:
             module = importlib.reload(module)
     finally:
@@ -131,14 +131,14 @@ def get_import_file(module_path: str, root: str = None) -> Path | None:
         root, _, module_path = module_path.partition(':')
         return get_import_file(module_path, root)
 
-    module, _, _ = module_path.partition(':')
-    module_path = Path(module.replace('.', '/') + '.py')
+    module_path, _, _ = module_path.partition(':')
+    module_file = Path(module_path.replace('.', '/') + '.py')
     if root is not None:
-        if (p := Path(root) / module_path).exists():
+        if (p := Path(root) / module_file).exists():
             return p
     else:
         for root in sys.path:
-            if (p := Path(root) / module_path).exists():
+            if (p := Path(root) / module_file).exists():
                 return p
     return None
 

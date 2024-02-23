@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, TypedDict
+from typing import Any, TypedDict, Generic, TYPE_CHECKING
 
 from bokeh.models import ColumnDataSource, GlyphRenderer, tools, UIElement, Div
 from typing_extensions import Required
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.probe import ProbeDesp, E, M
+from chmap.probe import ProbeDesp, M, E
 from chmap.util.bokeh_app import run_timeout
 from chmap.util.bokeh_util import as_callback
 from chmap.util.utils import TimeMarker, doc_link
 from chmap.views.base import Figure, ViewBase, RecordView, RecordStep
+
+if TYPE_CHECKING:
+    from bokeh.server.callbacks import TimeoutCallback
 
 __all__ = ['ProbeView']
 
@@ -34,7 +37,7 @@ class ProbeViewAction(TypedDict, total=False):
     category: int
 
 
-class ProbeView(ViewBase, RecordView[ProbeViewAction]):
+class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
     """
     Probe view.
     """
@@ -139,15 +142,19 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
     # actions #
     # ======= #
 
-    def reset(self, chmap: int | M = None):
+    def reset(self, chmap: int | M | None = None):
         """
         Reset channelmap.
 
         :param chmap: channelmap code
         """
         if chmap is None:
-            self.logger.debug('reset()')
-            channelmap = self.probe.new_channelmap(self.channelmap)
+            if (current := self.channelmap) is not None:
+                self.logger.debug('reset()')
+                channelmap = self.probe.new_channelmap(current)
+            else:
+                return
+
         elif isinstance(chmap, int):
             self.logger.debug('reset(%d)', chmap)
             channelmap = self.probe.new_channelmap(chmap)
@@ -163,7 +170,9 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
         for i, e in enumerate(self.electrodes):  # type: int, E
             self._e2i[e] = i
 
-        code = self.probe.channelmap_code(self.channelmap)
+        if (code := self.probe.channelmap_code(self.channelmap)) is None:
+            raise RuntimeError('un-reachable')
+
         desp = f'create new {self.probe.channelmap_description(code)}'
         self.add_record(ProbeViewAction(action='reset', code=code), 'reset', desp)
 
@@ -240,7 +249,7 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
             case list():
                 ret = [electrodes[it] for it in s]
             case _ if isinstance(s, ColumnDataSource):
-                ret = [electrodes[it] for it in s.data['e']]
+                ret = [electrodes[it] for it in s.data['e']]  # type: ignore
             case _:
                 raise TypeError()
 
@@ -295,8 +304,8 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
             s = [ii for ii, ie in enumerate(e) if ie in i]
             d.selected.indices = s
 
-    _captured_electrodes = []
-    _captured_callback = None
+    _captured_electrodes: list[E] = []
+    _captured_callback: TimeoutCallback | None = None
 
     def _on_capture(self, state: int):
         selected = self.get_captured_electrodes(self.data_electrodes[state])
@@ -341,8 +350,9 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
         :param s: selected electrode set
         :param invalid: extend the highlight set to include co-electrodes
         """
-        if invalid:
-            s = self.probe.invalid_electrodes(self.channelmap, s, self.electrodes)
+        if invalid and (current := self.channelmap) is not None:
+            assert self.electrodes is not None
+            s = self.probe.invalid_electrodes(current, s, self.electrodes)
 
         self.update_electrode_position(self.data_highlight, s)
 
@@ -354,39 +364,43 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
         :param state: new state. value in {ProbeDesp#STATE_USED}, {ProbeDesp#STATE_UNUSED}
         :param electrodes: captured electrodes.
         """
-        captured = []
+        if (channelmap := self.channelmap) is None:
+            return
 
         if state not in (ProbeDesp.STATE_USED, ProbeDesp.STATE_UNUSED):
             return
 
+        captured = []
         if electrodes is not None:
             for e in electrodes:
                 if isinstance(e, int):
-                    i, e = e, self.electrodes[e]
+                    if (_electrodes := self.electrodes) is None:
+                        return
+                    i, e = e, _electrodes[e]
                 else:
                     i, e = self._e2i[e], e
 
                 if state == ProbeDesp.STATE_USED:
-                    self.probe.add_electrode(self.channelmap, e, overwrite=True)
+                    self.probe.add_electrode(channelmap, e, overwrite=True)
                 elif state == ProbeDesp.STATE_UNUSED:
-                    self.probe.del_electrode(self.channelmap, e)
+                    self.probe.del_electrode(channelmap, e)
 
                 captured.append(i)
 
         elif state == ProbeDesp.STATE_USED:
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
                 captured.append(self._e2i[e])
-                self.probe.add_electrode(self.channelmap, e)
+                self.probe.add_electrode(channelmap, e)
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
                 captured.append(self._e2i[e])
-                self.probe.add_electrode(self.channelmap, e, overwrite=True)
+                self.probe.add_electrode(channelmap, e, overwrite=True)
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True):
                 captured.append(self._e2i[e])
 
         elif state == ProbeDesp.STATE_UNUSED:
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True):
                 captured.append(self._e2i[e])
-                self.probe.del_electrode(self.channelmap, e)
+                self.probe.del_electrode(channelmap, e)
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
                 captured.append(self._e2i[e])
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
@@ -408,11 +422,14 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
         :param category: category value from {ProbeDesp}.CATE_*
         :param electrodes: captured electrodes.
         """
+        if (current := self.electrodes) is None:
+            return []
+
         captured = []
         if electrodes is not None:
             for e in electrodes:
                 if isinstance(e, int):
-                    i, e = e, self.electrodes[e]
+                    i, e = e, current[e]
                 else:
                     i, e = self._e2i[e], e
 
@@ -492,10 +509,15 @@ class ProbeView(ViewBase, RecordView[ProbeViewAction]):
             case {'action': 'set_category', 'electrodes': electrodes, 'category': category}:
                 self.set_category_for_captured(category, electrodes)
             case {'action': 'channelmap', 'electrodes': electrodes}:
-                self.reset(self.channelmap)
-                for e in electrodes:
-                    self.probe.add_electrode(self.channelmap, self.electrodes[e], overwrite=True)
-                self._reset_electrode_state()
-            case {'action': 'blueprint', 'electrodes': electrodes}:
-                for e, c in zip(self.electrodes, electrodes):
-                    e.category = c
+                if (channelmap := self.channelmap) is not None:
+                    assert self.electrodes is not None
+
+                    self.reset(channelmap)
+                    for i in electrodes:  # type: int
+                        self.probe.add_electrode(channelmap, self.electrodes[i], overwrite=True)
+                    self._reset_electrode_state()
+
+            case {'action': 'blueprint', 'electrodes': categories}:
+                if (electrodes := self.electrodes) is not None:
+                    for e, c in zip(electrodes, categories):  # type: E, int
+                        e.category = c

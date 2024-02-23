@@ -37,7 +37,7 @@ class BokehApplication(metaclass=abc.ABCMeta):
 
     logger: logging.Logger
 
-    def __init__(self, *, logger: str | logging.Logger = None):
+    def __init__(self, *, logger: str | logging.Logger | None = None):
         if isinstance(logger, str):
             self.logger = logging.getLogger(logger)
         elif isinstance(logger, logging.Logger):
@@ -148,7 +148,7 @@ def get_server_config(config: ChannelMapEditorConfig) -> BokehServerConfig:
     from chmap.files import load_user_config
 
     try:
-        server_config = BokehServerConfig(load_user_config(config)['BokehServer'])
+        server_config = load_user_config(config)['BokehServer']
     except (FileNotFoundError, IOError, KeyError):
         server_config = BokehServerConfig()
 

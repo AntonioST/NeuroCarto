@@ -297,8 +297,12 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
         :param boundary: image boundary. May from {get_current_plt_boundary()}
         :param offset: x or (x, y) offset. When you don't want the image 100% aligned to the probe origin.
         """
-        self.set_status('update image ...')
-        self.set_image_handler(NumpyImageHandler(image))
+        if image is None:
+            self.set_status('clean image ...')
+            self.set_image_handler(None)
+        else:
+            self.set_status('update image ...')
+            self.set_image_handler(NumpyImageHandler(image))
 
         if boundary is None:
             self.update_boundary_transform()

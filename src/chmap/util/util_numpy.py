@@ -22,9 +22,9 @@ def is_sorted(a: NDArray[np.number], strict=False) -> bool:
     :return:
     """
     if strict:
-        return np.all(a[:-1] < a[1:])
+        return bool(np.all(a[:-1] < a[1:]))
     else:
-        return np.all(a[:-1] <= a[1:])
+        return bool(np.all(a[:-1] <= a[1:]))
 
 
 def same_index(a: NDArray[np.number]) -> list[NDArray[np.int_]]:
@@ -83,7 +83,7 @@ def _same_index_d(d: NDArray[np.number]) -> NDArray[np.int_]:
     return np.unique(j)
 
 
-def closest_point_index(a: NDArray[np.number], p: NDArray[np.number] | list[float], v: float) -> int | None:
+def closest_point_index(a: NDArray[np.float_], p: NDArray[np.float_] | list[float], v: float) -> int | None:
     p = np.asarray(p)
 
     an, ad = a.shape
@@ -93,7 +93,7 @@ def closest_point_index(a: NDArray[np.number], p: NDArray[np.number] | list[floa
     o = np.sqrt(np.sum((a - p) ** 2, axis=1))
     i = np.argmin(o)
     if o[i] <= v:
-        return i
+        return int(i)
     else:
         return None
 

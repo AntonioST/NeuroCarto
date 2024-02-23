@@ -40,7 +40,17 @@ class Structures:
         ])
 
     def __getitem__(self, item: STRUCTURE | ACRONYM) -> Structure:
-        return self._structure[item]
+        if isinstance(item, str):
+            return self._structure[item]
+
+        elif isinstance(item, int):
+            for _, structure in self._structure.items():
+                if structure.id == item:
+                    return structure
+
+            raise KeyError(item)
+        else:
+            raise TypeError()
 
     @property
     def regions(self) -> list[ACRONYM]:

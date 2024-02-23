@@ -471,7 +471,7 @@ def print_probe(chmap: ChannelMap | list[ChannelMap], *,
         ret = _print_probe(chmap, um=um)
 
     else:
-        ret: list[tuple[str, int]] = []
+        ret = []
 
         for i, _chmap in enumerate(chmap):
             if i == 0:
@@ -501,6 +501,8 @@ def print_probe(chmap: ChannelMap | list[ChannelMap], *,
 
     if return_str:
         return file.getvalue()
+
+    return None
 
 
 _PRINT_PROBE_UNICODE_SYMBOL = {

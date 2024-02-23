@@ -49,7 +49,7 @@ class ViewBase(metaclass=abc.ABCMeta):
     logger: logging.Logger
 
     # noinspection PyUnusedLocal
-    def __init__(self, config: ChannelMapEditorConfig, *, logger: str | logging.Logger = None):
+    def __init__(self, config: ChannelMapEditorConfig, *, logger: str | logging.Logger | None = None):
         if isinstance(logger, str):
             self.logger = logging.getLogger(logger)
         elif isinstance(logger, logging.Logger):
@@ -91,7 +91,7 @@ class ViewBase(metaclass=abc.ABCMeta):
         self._setup_render(f, **kwargs)
 
         from bokeh.layouts import row, column
-        ret = []
+        ret: list[UIElement] = []
         title = row(self._setup_title(**kwargs))
         ret.append(title)
 
@@ -205,7 +205,7 @@ class ControllerView:
 
         :return:
         """
-        pass
+        raise RuntimeError()
 
     @final
     @doc_link()
@@ -219,7 +219,7 @@ class ControllerView:
         :param view_type:
         :return:
         """
-        return None
+        raise RuntimeError()
 
 
 @doc_link()
@@ -504,7 +504,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     render_boundary: GlyphRenderer  # boundary drawing
 
     def __init__(self, config: ChannelMapEditorConfig, *,
-                 logger: str | logging.Logger = None):
+                 logger: str | logging.Logger | None = None):
         super().__init__(config, logger=logger)
 
         self.data_boundary = ColumnDataSource(data=dict(x=[0], y=[0], w=[0], h=[0], r=[0], sx=[1], sy=[1]))
@@ -632,21 +632,21 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     def get_boundary_state(self) -> BoundaryState:
         """Get current boundary parameters."""
         data = self.data_boundary.data
-        dx = float(data['x'][0])
-        dy = float(data['y'][0])
-        w = float(data['w'][0])
-        h = float(data['h'][0])
-        rt = float(data['r'][0])
+        dx = float(data['x'][0])  # type: ignore
+        dy = float(data['y'][0])  # type: ignore
+        w = float(data['w'][0])  # type: ignore
+        h = float(data['h'][0])  # type: ignore
+        rt = float(data['r'][0])  # type: ignore
         ow = self.width
         oh = self.height
 
         if ow == 0:
-            sx = 1
+            sx = 1.0
         else:
             sx = w / ow
 
         if oh == 0:
-            sy = 1
+            sy = 1.0
         else:
             sy = h / oh
 

@@ -53,7 +53,7 @@ class SliderFactory(object):
         match slide:
             case (start, end, step):
                 if start <= 0 <= end:
-                    value = 0
+                    value = type(start)(0)
                 else:
                     value = start
             case (start, end, step, value):
@@ -175,9 +175,9 @@ class PathAutocompleteInput:
         self._root = root.absolute()
         self._mode = mode
         self._accept = accept
-        self._path: Path = None
-        self._complete_root = None
-        self._callback: Callable[[Path], None] = callback
+        self._path: Path | None = None
+        self._complete_root: Path | None = None
+        self._callback: Callable[[Path], None] | None = callback
 
         self._set_complete(self._root)
 
@@ -249,7 +249,8 @@ class PathAutocompleteInput:
         from chmap.util.bokeh_app import run_later
         if value == '':
             self._path = None
-            run_later(self._callback, None)
+            if self._callback is not None:
+                run_later(self._callback, None)
         else:
             f = self._root / value
             self._path = f
