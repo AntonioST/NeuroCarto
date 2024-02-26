@@ -100,7 +100,7 @@ def closest_point_index(a: NDArray[np.float_], p: float | list[float] | NDArray[
 
         an, ad = a.shape
         if p.shape != (ad,):
-            raise ValueError()
+            raise ValueError(f'{a.shape=}[1] != {p.shape}')
     else:
         raise RuntimeError()
 

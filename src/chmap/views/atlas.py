@@ -99,7 +99,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
         self.data_region = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
-        self.data_labels = ColumnDataSource(data=dict(x=[], y=[], label=[], ap=[], dv=[], ml=[]))
+        self.data_labels = ColumnDataSource(data=dict(i=[], x=[], y=[], label=[], ap=[], dv=[], ml=[]))
 
         self._brain_view: SliceView | None = None
         self._brain_slice: SlicePlane | None = None
@@ -178,9 +178,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             description='Atlas labels',
             renderers=[self.render_labels],
             tooltips=[
-                ('Label', '@label'),
-                ("probe (x,y)", "(@x, @y)"),
-                ("bregma (ap,dv,ml)", "(@ap, @dv, @ml)"),
+                ("bregma (ap,dv,ml) mm", "(@ap, @dv, @ml)"),
+                ("probe (x,y) um", "(@x, @y)"),
+                ('Label', '[@i] @label'),
             ]
         ))
 
@@ -378,7 +378,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def clear_labels(self):
         """Clear all labels"""
         self._labels = []
-        self.data_labels.data = dict(x=[], y=[], label=[], ap=[], dv=[], ml=[])
+        self.data_labels.data = dict(i=[], x=[], y=[], label=[], ap=[], dv=[], ml=[])
 
     def len_label(self) -> int:
         """number of the labels"""
@@ -442,7 +442,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         self._labels.append(label)
 
         if i is None:
-            self.data_labels.stream(self._transform_labels([label]))
+            self.data_labels.stream(self._transform_labels([label], start=len(self._labels)))
         else:
             self.del_label(i)
 
@@ -465,14 +465,53 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def update_label_position(self):
         self.data_labels.data = self._transform_labels(self._labels)
 
-    def _transform_labels(self, labels: list[Label]) -> dict:
+    def _transform_labels(self, labels: list[Label], start: int = 0) -> dict:
         if (n := len(labels)) == 0:
-            return dict(x=[], y=[], label=[], ap=[], dv=[], ml=[])
+            return dict(i=[], x=[], y=[], label=[], ap=[], dv=[], ml=[])
 
+        ii = list(range(start, start + n))
         o = np.array([it.ref for it in labels])  # Array[ref:int, N]
         p = np.array([it.pos for it in labels]).T  # Array[float, 3, N]
         t = [it.text for it in labels]
 
+        a, a_ = self._prepare_affine_matrix()
+
+        origin = REFERENCE['bregma'][self.brain_view.brain.atlas_name]
+
+        qp = np.zeros_like(p)  # Array[float, 3, N]
+        qb = np.zeros((3, n), dtype=float)  # Array[float, 3, N]
+        for i, ref in enumerate(LABEL_REFS):
+            if not np.any(mask := o == i):
+                continue
+
+            match ref:
+                case 'probe':
+                    q = p[:, mask]  # Array[float, 3, N']
+                    qp[:, mask] = q
+                    qb[:, mask] = self._image2bregma(a_ @ q, origin)
+
+                case 'image':
+                    q = p[:, mask]  # Array[float, 3, N']
+                    qp[:, mask] = a @ q
+                    qb[:, mask] = self._image2bregma(q, origin)
+
+                case 'bregma':
+                    q = p[:, mask]  # Array[float, (ap,dv,ml), N']
+                    qb[:, mask] = q
+                    qp[:, mask] = a @ self._bregma2image(q, origin)
+
+                case str(bregma):
+                    q = p[:, mask]  # Array[float, (ap,dv,ml), N']
+                    qb[:, mask] = q
+                    qp[:, mask] = a @ self._bregma2image(q, REFERENCE[bregma][self.brain_view.brain.atlas_name])
+
+        return dict(i=ii, x=qp[0], y=qp[1], label=t, ap=qb[0], dv=qb[1], ml=qb[2])
+
+    def _prepare_affine_matrix(self) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+        """
+
+        :return: tuple of (A, A^-1)
+        """
         boundary = self.get_boundary_state()
         dx = boundary['dx']
         dy = boundary['dy']
@@ -484,60 +523,35 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             [1, 0, dx],
             [0, 1, dy],
             [0, 0, 1],
-        ])
+        ], dtype=float)
         td_ = np.array([
             [1, 0, -dx],
             [0, 1, -dy],
             [0, 0, 1],
-        ])
+        ], dtype=float)
         cos = np.cos(rt)
         sin = np.sin(rt)
         tr = np.array([
             [cos, -sin, 0],
             [sin, cos, 0],
             [0, 0, 1],
-        ])
+        ], dtype=float)
         tr_ = np.array([
             [cos, sin, 0],
             [-sin, cos, 0],
             [0, 0, 1],
-        ])
-        ts = np.array(([
+        ], dtype=float)
+        ts = np.array([
             [sx, 0, 0],
             [0, sy, 0],
             [0, 0, 1],
-        ]))
-        ts_ = np.array(([
+        ], dtype=float)
+        ts_ = np.array([
             [1 / sx, 0, 0],
             [0, 1 / sy, 0],
             [0, 0, 1],
-        ]))
-
-        origin = REFERENCE['bregma'][self.brain_view.brain.atlas_name]
-
-        qp = np.zeros_like(p)  # Array[float, 3, N]
-        qb = np.zeros((3, n), dtype=float)  # Array[float, 3, N]
-        for i, ref in enumerate(LABEL_REFS):
-            if not np.any(mask := o == i):
-                continue
-
-            match ref:  # TODO scaling
-                case 'probe':
-                    q = p[:, mask]  # Array[float, 3, N']
-                    qp[:, mask] = q
-                    qb[:, mask] = self._image2bregma(tr_ @ td_ @ q, origin)
-
-                case 'image':
-                    q = p[:, mask]  # Array[float, 3, N']
-                    qp[:, mask] = td @ tr @ q
-                    qb[:, mask] = self._image2bregma(q, origin)
-
-                case str(bregma):
-                    q = p[:, mask]  # Array[float, (ap,dv,ml), N']
-                    qb[:, mask] = q
-                    qp[:, mask] = td @ tr @ self._bregma2image(q, REFERENCE[bregma][self.brain_view.brain.atlas_name])
-
-        return dict(x=qp[0], y=qp[1], label=t, ap=qb[0], dv=qb[1], ml=qb[2])
+        ], dtype=float)
+        return td @ ts @ tr, tr_ @ ts_ @ td_
 
     def _image2bregma(self, q: NDArray[np.float_], origin: tuple[float, float, float]) -> NDArray[np.float_]:
         """
