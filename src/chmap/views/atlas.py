@@ -1,19 +1,32 @@
 from __future__ import annotations
 
-from typing import get_args, TypedDict, Final
+from typing import get_args, TypedDict, Final, NamedTuple
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div, CheckboxGroup, tools
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain
+from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain, REFERENCE
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
 from chmap.util.atlas_struct import Structures
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
 from chmap.views.base import Figure, StateView, BoundView, BoundaryState
 
 __all__ = ['AtlasBrainView', 'AtlasBrainViewState']
+
+LABEL_REFS = ['probe', 'image', 'bregma']
+
+
+class Label(NamedTuple):
+    text: str
+    pos: tuple[float, float, float]
+    """position, either (x, y, 1) or (ap, dv, ml) depends on origin"""
+    ref: int
+
+    @property
+    def origin(self) -> str:
+        return LABEL_REFS[self.ref]
 
 
 class AtlasBrainViewState(TypedDict, total=False):
@@ -82,10 +95,11 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         self.logger.debug('init(%s)', config.atlas_name)
         self.brain = get_atlas_brain(config.atlas_name, config.atlas_root)
         self._structure = Structures.of(self.brain)
+        self._labels: list[Label] = []
 
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
         self.data_region = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
-        self.data_labels = ColumnDataSource(data=dict(x=[], y=[], label=[]))
+        self.data_labels = ColumnDataSource(data=dict(x=[], y=[], label=[], ap=[], dv=[], ml=[]))
 
         self._brain_view: SliceView | None = None
         self._brain_slice: SlicePlane | None = None
@@ -165,7 +179,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             renderers=[self.render_labels],
             tooltips=[
                 ('Label', '@label'),
-                ("(x,y)", "($x, $y)"),
+                ("probe (x,y)", "(@x, @y)"),
+                ("bregma (ap,dv,ml)", "(@ap, @dv, @ml)"),
             ]
         ))
 
@@ -362,11 +377,12 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
     def clear_labels(self):
         """Clear all labels"""
-        self.data_labels.data = dict(x=[], y=[], label=[])
+        self._labels = []
+        self.data_labels.data = dict(x=[], y=[], label=[], ap=[], dv=[], ml=[])
 
     def len_label(self) -> int:
         """number of the labels"""
-        return len(self.data_labels.data['label'])
+        return len(self._labels)
 
     def get_label(self, i: int) -> str:
         """
@@ -376,26 +392,59 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         :return: label text
         :raises IndexError: index *i* out of bound
         """
-        return self.data_labels.data['label'][i]
+        return self._labels[i].text
 
-    def index_label(self, text: str) -> int:
+    def index_label(self, text: str) -> int | None:
         """
         Find index of a label which its content equals to *text*.
 
         :param text: label text
-        :return: label index
-        :raises ValueError:
+        :return: label index. ``None`` if not found.
         """
-        return self.data_labels.data['label'].index(text)
+        for i, label in enumerate(self._labels):
+            if label.text == text:
+                return i
+        return None
 
-    def add_label(self, text: str, pos: tuple[float, float]):
+    def add_label(self, text: str,
+                  pos: tuple[float, float] | tuple[float, float, float],
+                  origin: str = 'bregma', *, replace=True):
         """
         Add a label.
 
         :param text: label text
         :param pos: label position
+        :param origin: origin reference point
+        :param replace: replace label which has same text content
         """
-        self.data_labels.stream(dict(x=[pos[0]], y=[pos[1]], label=[text]))
+        try:
+            ref = LABEL_REFS.index(origin)
+        except ValueError:
+            ref = None
+
+        if ref is None:
+            try:
+                REFERENCE[origin][self.brain_view.brain.atlas_name]
+            except KeyError as e:
+                raise ValueError(f'unknown origin type : {origin}') from e
+
+            ref = len(LABEL_REFS)
+            LABEL_REFS.append(origin)
+
+        i: int | None = None
+        if replace:
+            i = self.index_label(text)
+
+        if len(pos) == 2:
+            pos = (*pos, 1.0)
+
+        label = Label(text, pos, ref)
+        self._labels.append(label)
+
+        if i is None:
+            self.data_labels.stream(self._transform_labels([label]))
+        else:
+            self.del_label(i)
 
     def del_label(self, index: int | list[int]):
         """
@@ -410,17 +459,122 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             return
 
         index = set(index)
+        self._labels = [it for i, it in enumerate(self._labels) if i not in index]
+        self.update_label_position()
 
-        data = self.data_labels.data
-        x = data['x']
-        y = data['y']
-        t = data['label']
+    def update_label_position(self):
+        self.data_labels.data = self._transform_labels(self._labels)
 
-        x = [it for i, it in enumerate(x) if i in index]
-        y = [it for i, it in enumerate(y) if i in index]
-        t = [it for i, it in enumerate(t) if i in index]
+    def _transform_labels(self, labels: list[Label]) -> dict:
+        if (n := len(labels)) == 0:
+            return dict(x=[], y=[], label=[], ap=[], dv=[], ml=[])
 
-        self.data_labels.data = dict(x=x, y=y, label=t)
+        o = np.array([it.ref for it in labels])  # Array[ref:int, N]
+        p = np.array([it.pos for it in labels]).T  # Array[float, 3, N]
+        t = [it.text for it in labels]
+
+        boundary = self.get_boundary_state()
+        dx = boundary['dx']
+        dy = boundary['dy']
+        sx = boundary['sx']
+        sy = boundary['sy']
+        rt = np.deg2rad(boundary['rt'])
+
+        td = np.array([
+            [1, 0, dx],
+            [0, 1, dy],
+            [0, 0, 1],
+        ])
+        td_ = np.array([
+            [1, 0, -dx],
+            [0, 1, -dy],
+            [0, 0, 1],
+        ])
+        cos = np.cos(rt)
+        sin = np.sin(rt)
+        tr = np.array([
+            [cos, -sin, 0],
+            [sin, cos, 0],
+            [0, 0, 1],
+        ])
+        tr_ = np.array([
+            [cos, sin, 0],
+            [-sin, cos, 0],
+            [0, 0, 1],
+        ])
+        ts = np.array(([
+            [sx, 0, 0],
+            [0, sy, 0],
+            [0, 0, 1],
+        ]))
+        ts_ = np.array(([
+            [1 / sx, 0, 0],
+            [0, 1 / sy, 0],
+            [0, 0, 1],
+        ]))
+
+        origin = REFERENCE['bregma'][self.brain_view.brain.atlas_name]
+
+        qp = np.zeros_like(p)  # Array[float, 3, N]
+        qb = np.zeros((3, n), dtype=float)  # Array[float, 3, N]
+        for i, ref in enumerate(LABEL_REFS):
+            if not np.any(mask := o == i):
+                continue
+
+            match ref:  # TODO scaling
+                case 'probe':
+                    q = p[:, mask]  # Array[float, 3, N']
+                    qp[:, mask] = q
+                    qb[:, mask] = self._image2bregma(tr_ @ td_ @ q, origin)
+
+                case 'image':
+                    q = p[:, mask]  # Array[float, 3, N']
+                    qp[:, mask] = td @ tr @ q
+                    qb[:, mask] = self._image2bregma(q, origin)
+
+                case str(bregma):
+                    q = p[:, mask]  # Array[float, (ap,dv,ml), N']
+                    qb[:, mask] = q
+                    qp[:, mask] = td @ tr @ self._bregma2image(q, REFERENCE[bregma][self.brain_view.brain.atlas_name])
+
+        return dict(x=qp[0], y=qp[1], label=t, ap=qb[0], dv=qb[1], ml=qb[2])
+
+    def _image2bregma(self, q: NDArray[np.float_], origin: tuple[float, float, float]) -> NDArray[np.float_]:
+        """
+
+        :param q: Array[um:float, (x, y, 1), N]
+        :param origin: (ap, dv, ml) in um
+        :return: Array[mm:float, (ap, dv, ml), N]
+        """
+        cx = self.width / 2
+        cy = self.height / 2
+        q[0] = q[0] + cx
+        q[1] = cy - q[1]
+        q = self.brain_slice.coor_on(q[(0, 1), :].T, um=True).T  # Array[int, (ap,dv,ml), N]
+        q = q * self.brain_view.resolution  # Array[um:float, (ap,dv,ml), N]
+        q[0] = origin[0] - q[0]
+        q[1] = q[1] - origin[1]
+        q[2] = q[2] - origin[2]
+        return q / 1000  # Array[mm:float, (ap,dv,ml), N]
+
+    def _bregma2image(self, q: NDArray[np.float_], origin: tuple[float, float, float]) -> NDArray[np.float_]:
+        """
+
+        :param q: Array[mm:float, (ap, dv, ml), N]
+        :param origin: (ap, dv, ml) in um
+        :return: Array[um:float, (x, y, 1), N]
+        """
+        cx = self.width / 2
+        cy = self.height / 2
+        q[0] = origin[0] - q[0] * 1000
+        q[1] = origin[1] + q[1] * 1000
+        q[2] = origin[2] + q[2] * 1000
+        q = self.brain_view.project(q.T, um=True).T  # Array[int, (p,x,y), N]
+        q = q[(1, 2, 0), :] * self.brain_view.resolution  # Array[float, (x,y,p), N]
+        q[0] = q[0] - cx
+        q[1] = cy - q[1]
+        q[2] = 1
+        return q
 
     # ================== #
     # SliceView updating #
@@ -495,7 +649,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
                 self.rotate_hor_slider.value = plane.dw * view.resolution
                 self.rotate_ver_slider.value = plane.dh * view.resolution
-                self.boundary_rotate_slider.value = float(np.deg2rad(plane.rot))
             except AttributeError:
                 pass
 
@@ -511,6 +664,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
     def on_boundary_transform(self, state: BoundaryState):
         super().on_boundary_transform(state)
+
         if (plane := self._brain_slice) is not None:
             self.update_image(plane.image)
 
@@ -526,6 +680,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             self.data_brain.data = self.transform_image_data(np.flipud(image_data))
 
         self.update_region_image()
+        self.update_label_position()
 
     def update_region_image(self):
         if len(self._regions) == 0 or (plane := self._brain_slice) is None:

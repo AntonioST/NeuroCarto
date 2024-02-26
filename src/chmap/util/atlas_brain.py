@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 else:
     BrainGlobeAtlas = Any
 
-__all__ = ['get_atlas_brain', 'BrainGlobeAtlas']
+__all__ = ['get_atlas_brain', 'BrainGlobeAtlas', 'REFERENCE']
 
 
 def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
@@ -29,4 +29,13 @@ def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
     )
 
 
-
+REFERENCE = {
+    # name: {}
+    'bregma': {
+        # name: (ap, dv, ml) um
+        # (540 0 570) index for 10 um
+        'allen_mouse_10um': (5400, 0, 5700),
+        'allen_mouse_25um': (5400, 0, 5700),
+        'allen_mouse_50um': (5400, 0, 5700),
+    }
+}

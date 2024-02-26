@@ -664,9 +664,9 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         """
         Image transforming updating handle.
 
-        :param p: position (x, y)
+        :param p: center position (x, y)
         :param s: scaling (sx, sy)
-        :param rt: rotating
+        :param rt: rotating degree
         """
         if is_recursive_called():
             return

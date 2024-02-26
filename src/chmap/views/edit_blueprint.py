@@ -101,7 +101,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             width=400,
             styles={'font-family': 'monospace'}
         )
-        self.script_input.on_change('value', as_callback(self._on_run_script))
+        # Mouse exit event also invoke updating handle, which this event doesn't we want
+        # self.script_input.on_change('value', as_callback(self._on_run_script))
 
         #
         self.script_document = Div(

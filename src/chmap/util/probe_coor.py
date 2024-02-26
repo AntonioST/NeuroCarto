@@ -6,6 +6,7 @@ from typing import NamedTuple, TYPE_CHECKING
 import numpy as np
 
 from chmap.util.atlas_slice import SLICE, SliceView, SlicePlane
+from chmap.util.util_numpy import closest_point_index
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -14,33 +15,40 @@ else:
 
 if TYPE_CHECKING:
     from chmap.util.atlas_brain import BrainGlobeAtlas
+    from chmap.util.util_blueprint import BlueprintFunctions
+    from chmap.views.base import BoundaryState
 
 __all__ = [
     'ProbeCoordinate',
     'get_slice_view',
     'new_slice_view',
-    'get_plane_at'
+    'get_plane_at',
+    'get_transform_state'
 ]
-
-BREGMA = (5400, 0, 5700)  # um
-"""
-TODO bregma 10um, (ap, dv, ml)=(540 0 570) index
-
-"""
 
 
 class ProbeCoordinate(NamedTuple):
-    x: float  # ap (um)
-    y: float  # dv (um)
-    z: float  # ml (um)
-    s: int = 0  # i-th shank
+    x: float
+    """ap (um)"""
+    y: float
+    """dv (um)"""
+    z: float
+    """ml (um)"""
+    s: int = 0
+    """i-th shank"""
 
-    rx: float = 0  # shank s x-axis rotate degree
-    ry: float = 0  # shank s y-axis rotate degree
-    rz: float = 0  # shank s z-axis rotate degree
+    rx: float = 0
+    """shank s x-axis rotate degree"""
+    ry: float = 0
+    """shank s y-axis rotate degree"""
+    rz: float = 0
+    """shank s z-axis rotate degree"""
 
-    depth: float = 0  # shank s insert depth
-    direction: tuple[float, float, float] | None = None  # shank direction (ap, dv, ml)
+    depth: float = 0
+    """shank s insert depth (um)"""
+
+    direction: tuple[float, float, float] | None = None
+    """shank direction (ap, dv, ml)"""
 
     def shank_at(self, s: int) -> Self:
         if self.direction is None:
@@ -56,18 +64,23 @@ class ProbeCoordinate(NamedTuple):
         return self.shank_at(-self.s)
 
     @classmethod
-    def from_bregma(cls, ap: float, ml: float, dv: float = 0, **kwargs) -> Self:
+    def from_bregma(cls, atlas_name: str, ap: float, ml: float, dv: float = 0, **kwargs) -> Self:
         """
 
+        :param atlas_name: atlas brain name
         :param ap: um
         :param ml: um
         :param dv: um
         :param kwargs: {ProbeCoordinate}'s other parameters.
         :return:
+        :raises KeyError:
         """
-        x = BREGMA[0] - ap
-        y = BREGMA[1] + dv
-        z = BREGMA[2] - ml
+        from chmap.util.atlas_brain import REFERENCE
+        bregma = REFERENCE['bregma'][atlas_name]
+
+        x = bregma[0] - ap
+        y = bregma[1] + dv
+        z = bregma[2] - ml
         return ProbeCoordinate(x, y, z, **kwargs)
 
 
@@ -107,3 +120,31 @@ def get_plane_at(view: SliceView, pc: ProbeCoordinate) -> SlicePlane:
     a = np.deg2rad([pc.rx, pc.ry, pc.rz])
     r = view.angle_offset(tuple(a))
     return view.plane_at((pc.x, pc.y, pc.z), um=True).with_rotate(r)
+
+
+def get_transform_state(bp: BlueprintFunctions, plane: SlicePlane, pc: ProbeCoordinate) -> BoundaryState | None:
+    # TODO
+    match plane.slice_name:
+        case 'coronal':
+            rot = -pc.rx
+        case 'sagittal':
+            rot = pc.rz
+        case 'transverse':
+            rot = -pc.ry
+        case _:
+            raise RuntimeError('un-reachable')
+
+    electrode_s = bp.s == pc.s
+    electrode_x = bp.x[electrode_s]  # Array[um:float, N]
+    electrode_y = bp.y[electrode_s]  # Array[um:float, N]
+
+    if (i := closest_point_index(electrode_y, pc.depth, bp.dy * 2)) is None:
+        # cannot find nearest electrode position
+        return None
+
+    x = electrode_x[i]
+    y = electrode_y[i]
+
+    cx = x - plane.ax
+    cy = y - plane.ay
+    return dict(dx=cx, dy=cy, rt=rot)

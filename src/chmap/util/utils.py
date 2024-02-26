@@ -17,7 +17,7 @@ from numpy.typing import NDArray
 
 __all__ = [
     # pattern match utils
-    'all_int',
+    'all_int', 'all_float',
     'align_arr', 'as_set',
     # dynamic import
     'import_name',
@@ -42,7 +42,14 @@ def all_int(*x) -> TypeGuard[int]:
     return True
 
 
-def align_arr(*x: int | NDArray[np.int_]) -> list[NDArray[np.int_]]:
+def all_float(*x) -> TypeGuard[float]:
+    for xx in x:
+        if not isinstance(xx, (int, float, np.number)):
+            return False
+    return True
+
+
+def align_arr(*x: int | NDArray) -> list[NDArray]:
     if len(x) < 2:
         raise RuntimeError('not enough inputs')
 

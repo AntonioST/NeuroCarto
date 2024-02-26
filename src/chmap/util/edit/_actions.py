@@ -145,33 +145,44 @@ def atlas_label(bp: BlueprintFunctions, command: str, *args):
     Set labels on atlas brain image.
 
     commands:
+    * _clear :  clear labels
+    * _delete,i,... :  delete labels
+    * text,ap,dv,ml : add text on (ap,dv,ml) and use bregma as origin.
+    * text,x,y[,ref] : add text on (x,y[,z]) and use reference as origin ('probe' as default).
 
-    * ``/clear`` clear labels
-    * ``/delete,i,...`` delete labels
-    * ``text,x,y`` add text on (x,y)
+    reference:
+    * 'bregma' : origin at bregma of the brain, use (ap,dv,ml) mm.
+    * 'probe' : origin at shank-0-probe-tip, use (x,y) um.
+    * 'image' : origin at center of the image, use (x,y) um.
 
     :param bp:
     :param command: command text
     :param args: command args
     """
     match (command, args):
-        case ('/clear', ()):
+        case ('_clear', ()):
             bp.atlas_clear_labels()
-        case ('/clear', _):
-            raise RuntimeError(f'unknown /clear args : {args}')
-        case ('/delete', ()):
+        case ('_clear', _):
+            raise RuntimeError(f'unknown _clear args : {args}')
+        case ('_delete', ()):
             bp.log_message('missing delete index or text')
-        case ('/delete', (arg, )):
+        case ('_delete', (arg, )):
             bp.atlas_del_label(arg)
-        case ('/delete', args):
+        case ('_delete', args):
             bp.atlas_del_label(list(args))
-        case str() if command.startswith('/'):
+        case str() if command.startswith('_'):
             raise RuntimeError(f'unknown command : {command}')
-        case (str(text), (int(x) | float(x), int(y) | float(y)) as pos):
-            bp.atlas_add_label(text, pos)
-        case (str(text), ()):
+        case (str(text), (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml))):
+            bp.atlas_add_label(text, (ap, dv, ml), 'bregma')
+        case (str(text), (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml), 'bregma')):
+            bp.atlas_add_label(text, (ap, dv, ml), 'bregma')
+        case (str(text), (int(x) | float(x), int(y) | float(y))):
+            bp.atlas_add_label(text, (x, y), 'probe')
+        case (str(text), (int(x) | float(x), int(y) | float(y), str(ref))):
+            bp.atlas_add_label(text, (x, y), ref)
+        case (str(), ()):
             raise RuntimeError('missing position')
-        case (str(text), pos):
+        case (str(), pos):
             raise RuntimeError(f'unknown position : {pos}')
         case _:
             raise TypeError()
@@ -183,7 +194,8 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
                                                  rx: float = 0, ry: float = 0, rz: float = 0,
                                                  depth: float = 0,
                                                  ref: Literal['bregma'] = 'bregma',
-                                                 direction: Literal['+ap', '-ap', '+ml', '-ml'] = None):
+                                                 direction: Literal['+ap', '-ap', '+ml', '-ml'] = None,
+                                                 label: str = None):
     """
     Adjust atlas mouse brain image to corresponding probe coordinate.
 
@@ -198,10 +210,11 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
     :param depth: (mm:float=0) probe insert depth.
     :param ref: (str in ['bregma'] = 'bregma') origin reference.
     :param direction: (str in ['+ap', '-ap', '+ml', '-ml'] = None) direction of the probe faced
+    :param label: label text
     """
     from chmap.views.atlas import AtlasBrainView
     from chmap.probe_npx.npx import ChannelMap
-    from chmap.util.probe_coor import ProbeCoordinate, new_slice_view, get_plane_at
+    from chmap.util.probe_coor import ProbeCoordinate, new_slice_view, get_plane_at, get_transform_state
 
     #
     if (view := bp.use_view(AtlasBrainView)) is None:
@@ -233,7 +246,8 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
         ml *= 1000
         dv *= 1000
         depth *= 1000
-        coor = ProbeCoordinate.from_bregma(ap, ml, dv, s=shank, depth=depth, direction=direction)
+        name = view.brain_view.brain.atlas_name
+        coor = ProbeCoordinate.from_bregma(name, ap, ml, dv, s=shank, depth=depth, direction=direction)
     else:
         raise ValueError(f'unknown reference : {ref}')
 
@@ -243,7 +257,19 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
 
     #
     brain_slice = get_plane_at(brain_view, coor)
-    view.update_brain_slice(brain_slice)
+    view.update_brain_slice(brain_slice, update_image=False)
+
+    #
+    transform = get_transform_state(bp, brain_slice, coor)
+    view.update_boundary_transform(p=(transform["dx"], transform['dy']), rt=transform['rt'])
+
+    #
+    if label is not None:
+        res = brain_slice.resolution
+        ax = brain_slice.ax * res - brain_slice.width / 2
+        ay = brain_slice.ay * res - brain_slice.height / 2
+
+        bp.atlas_add_label(label, (ax, ay), 'image')
 
 
 @use_probe(NpxProbeDesp, create=False)

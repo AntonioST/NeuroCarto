@@ -140,13 +140,15 @@ def refresh_selection(self: BlueprintFunctions, controller: ControllerView, sele
 
 
 @doc_link()
-def atlas_add_label(controller: ControllerView, text: str, pos: tuple[float, float]):
+def atlas_add_label(controller: ControllerView, text: str,
+                    pos: tuple[float, float] | tuple[float, float, float],
+                    origin: str = 'bregma', *, replace=True):
     """{AtlasBrainView#add_label()}"""
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is None:
         return
 
-    view.add_label(text, pos)
+    view.add_label(text, pos, origin, replace=replace)
 
 
 @doc_link()
@@ -165,17 +167,15 @@ def atlas_del_label(controller: ControllerView, i: int | str | list[int | str]):
                 if isinstance(it, int):
                     ii.append(it)
                 elif isinstance(it, str):
-                    try:
-                        ii.append(view.index_label(it))
-                    except ValueError:
-                        pass
+                    if (it := view.index_label(it)) is not None:
+                        ii.append(it)
                 else:
                     raise TypeError()
         case str(text):
-            try:
-                ii = [view.index_label(text)]
-            except ValueError:
+            if (it := view.index_label(text)) is None:
                 return
+
+            ii = [it]
         case _:
             raise TypeError()
 
