@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import collections
 import functools
+import html
 import inspect
 import re
 import sys
@@ -24,6 +25,7 @@ __all__ = [
     'BlueprintScript',
     'BlueprintScriptInfo',
     'format_html_doc',
+    'script_html_doc',
 ]
 
 EXAMPLE_DOCUMENT = """\
@@ -36,7 +38,7 @@ Document here.
 
 
 def format_html_doc(doc: str) -> str:
-    ret = doc.strip()
+    ret = html.escape(doc.strip())
     ret = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', ret)
     ret = re.sub(r'\*(.+?)\*', r'<em>\1</em>', ret)
     ret = re.sub(r':param\s+bp:.*?\n?', '\n', ret)
@@ -166,37 +168,6 @@ class BlueprintScriptInfo(NamedTuple):
     def script_name(self) -> str:
         return self.script.__name__
 
-    def script_signature(self) -> str:
-        name = self.script.__name__
-        p = ', '.join(self.script_parameters())
-        return f'{name}({p})'
-
-    def script_parameters(self) -> list[str]:
-        s = inspect.signature(self.script)
-
-        ret = []
-        for i, it in enumerate(s.parameters):
-            if i != 0:
-                match s.parameters[it].kind:
-                    case inspect.Parameter.VAR_POSITIONAL:
-                        ret.append(f'*{it}')
-                    case inspect.Parameter.VAR_KEYWORD:
-                        ret.append(f'**{it}')
-                    case inspect.Parameter.KEYWORD_ONLY:
-                        ret.append(f'{it}=')
-                    case _:
-                        ret.append(it)
-
-        return ret
-
-    def script_doc(self, html=False) -> str | None:
-        if (doc := self.script.__doc__) is not None:
-            ret = textwrap.dedent(doc)
-            if html:
-                ret = format_html_doc(ret)
-            return ret
-        return None
-
     def script_use_probe(self) -> RequestChannelmapTypeRequest | None:
         from chmap.util.edit.checking import get_use_probe
         return get_use_probe(self.script)
@@ -224,3 +195,55 @@ class BlueprintScriptInfo(NamedTuple):
                 return key
 
         return eval(f'__script_func__({script_input})', {}, Missing(__script_func__=functools.partial(self.script, bp)))
+
+
+def script_signature(script: BlueprintScriptInfo) -> str:
+    s = inspect.signature(script.script)
+
+    name = script.script.__name__
+
+    p = []
+    for i, it in enumerate(s.parameters):
+        if i != 0:
+            match s.parameters[it].kind:
+                case inspect.Parameter.VAR_POSITIONAL:
+                    p.append(f'*{it}')
+                case inspect.Parameter.VAR_KEYWORD:
+                    p.append(f'**{it}')
+                case inspect.Parameter.KEYWORD_ONLY:
+                    p.append(f'{it}=')
+                case _:
+                    p.append(it)
+
+    p = ', '.join(p)
+    return f'{name}({p})'
+
+
+def script_doc(script: BlueprintScriptInfo, html=False) -> str | None:
+    if (doc := script.script.__doc__) is not None:
+        ret = textwrap.dedent(doc)
+        if html:
+            ret = format_html_doc(ret)
+        return ret
+    return None
+
+
+def script_html_doc(script: BlueprintScriptInfo) -> str:
+    head = script_signature(script)
+    if (doc := script_doc(script, html=True)) is None:
+        return f'<b>{head}</b>'
+
+    return f"""
+    <div style="padding-left: 2em">
+        <style type="text/css">
+            p.chmap-script-head+div.chmap-script-doc {{
+                display: none;
+            }}
+            p.chmap-script-head:hover+div.chmap-script-doc {{
+                display: block;
+            }}
+        </style>
+        <p class="chmap-script-head"><b>{head}</b></p>
+        <div class="chmap-script-doc" style="padding-left: 1em">{doc}</div>
+    </div>
+"""

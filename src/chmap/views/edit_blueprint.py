@@ -13,7 +13,7 @@ from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import plot
 from chmap.util.bokeh_app import run_later, run_timeout
 from chmap.util.bokeh_util import ButtonFactory, as_callback
-from chmap.util.edit.script import BlueprintScript, BlueprintScriptInfo
+from chmap.util.edit.script import BlueprintScript, BlueprintScriptInfo, script_html_doc
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import doc_link
 from chmap.views import RecordStep
@@ -142,12 +142,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             return
 
         self.script_input.value_input = self._script_input_cache.get(name, '')
-
-        head = script.script_signature()
-        if (doc := script.script_doc(html=True)) is not None:
-            self.script_document.text = f'<p><b>{head}</b></p>' + doc
-        else:
-            self.script_document.text = f'<b>{head}</b>'
+        self.script_document.text = script_html_doc(script)
 
         self._set_script_run_button_status(name)
 
