@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.edit.checking import use_probe
 from chmap.util.utils import doc_link, SPHINX_BUILD
+from chmap.views.base import ViewBase, ControllerView, V
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -19,13 +20,11 @@ else:
     from typing_extensions import Self
 
 if TYPE_CHECKING:
-    from chmap.views.base import ViewBase, ControllerView
     from chmap.util.edit.clustering import ClusteringEdges
 
     BLUEPRINT = NDArray[np.int_]
 
 elif SPHINX_BUILD:
-    ViewBase = 'chmap.views.base.ViewBase'
     ProbeView = 'chmap.views.probe.ProbeView'
     NpxProbeDesp = 'chmap.probe_npx.desp.NpxProbeDesp'
 
@@ -671,6 +670,21 @@ class BlueprintFunctions(Generic[M, E]):
             return False
         else:
             return True
+
+    def use_view(self, view: str | type[V]) -> V | None:
+        """
+        Get corresponding {ViewBase} instance if activated.
+
+        Implement note:
+            Avoiding import V at the global that might cause ``ImportError``,
+            either using type name or using local import.
+
+        :param view: view type or its type name.
+        :return:
+        """
+        if (controller := self._controller) is not None:
+            return controller.get_view(view)
+        return None
 
     @doc_link()
     def new_channelmap(self, code: int | str) -> M:

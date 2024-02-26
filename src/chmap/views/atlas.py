@@ -111,6 +111,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
     @property
     def brain_view(self) -> SliceView:
+        assert self._brain_view is not None
         return self._brain_view
 
     @property
@@ -324,7 +325,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def start(self):
         self._on_checkbox_active([])
 
-        if self.brain_view is None:
+        if self._brain_view is None:
             try:
                 view = self.slice_select.value
             except AttributeError:
@@ -407,6 +408,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
                 self.rotate_hor_slider.value = plane.dw * view.resolution
                 self.rotate_ver_slider.value = plane.dh * view.resolution
+                self.boundary_rotate_slider.value = float(np.deg2rad(plane.rot))
             except AttributeError:
                 pass
 

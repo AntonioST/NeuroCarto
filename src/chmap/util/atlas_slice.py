@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import abc
 import math
-from typing import Literal, TypeVar, Final, overload, NamedTuple, get_args
+from typing import Literal, TypeVar, Final, overload, NamedTuple, get_args, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
-from chmap.util.atlas_brain import BrainGlobeAtlas
 from chmap.util.utils import all_int, align_arr
+
+if TYPE_CHECKING:
+    from chmap.util.atlas_brain import BrainGlobeAtlas
 
 __all__ = ['SLICE', 'SliceView', 'SlicePlane']
 
@@ -17,7 +19,7 @@ T = TypeVar('T')
 
 XY = tuple[int, int]
 PXY = tuple[int, int, int]  # (plane, x, y)
-COOR = tuple[int, int, int]  # (ap, dv, ml)
+COOR = tuple[int, int, int] | tuple[float, float, float]  # (ap, dv, ml)
 
 
 class SliceView(metaclass=abc.ABCMeta):
@@ -59,6 +61,7 @@ class SliceView(metaclass=abc.ABCMeta):
         else:
             reference = brain.reference
 
+        self.brain = brain
         self.name = name
         self.reference = reference
         self.resolution = int(brain.resolution[get_args(SLICE).index(name)])
@@ -231,11 +234,11 @@ class SliceView(metaclass=abc.ABCMeta):
         y_frame = np.round(np.linspace(-v, v, self.height)).astype(int)
         return np.add.outer(y_frame, x_frame)
 
-    def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
+    def angle_offset(self, a: tuple[float, float, float]) -> tuple[float, int, int]:
         """plane index offset according to angle difference *a*.
 
         :param a: radian rotation of (ap, dv, ml)-axis.
-        :return: tuple of (dw, dh)
+        :return: tuple of (rot, dw, dh)
         """
         raise RuntimeError()
 
@@ -248,7 +251,8 @@ class SliceView(metaclass=abc.ABCMeta):
         """
         dw = dh = 0
         match c:
-            case SlicePlane(plane, ax, ay, dw, dh, _):
+            case SlicePlane(plane, ax, ay, _, dw, dh, _):
+                # XXX ignore rot?
                 pass
             case c if all_int(c):
                 if um:
@@ -268,7 +272,7 @@ class SliceView(metaclass=abc.ABCMeta):
             case _:
                 raise TypeError()
 
-        return SlicePlane(plane, ax, ay, dw, dh, self)
+        return SlicePlane(plane, ax, ay, 0, dw, dh, self)
 
 
 class CoronalView(SliceView):
@@ -289,12 +293,11 @@ class CoronalView(SliceView):
     def project_index(self) -> tuple[int, int, int]:
         return 0, 2, 1  # p=AP, x=ML, y=DV
 
-    def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
-        ry = a[1]
-        rz = a[2]
-        dw = int(-self.width * math.tan(ry) / 2)  # ml
-        dh = int(self.height * math.tan(rz) / 2)  # dv
-        return dw, dh
+    def angle_offset(self, a: tuple[float, float, float]) -> tuple[float, int, int]:
+        rx, ry, rz = a
+        dw = int(-self.width * math.tan(ry) / 2)
+        dh = int(self.height * math.tan(rz) / 2)
+        return -rx, dw, dh
 
 
 class SagittalView(SliceView):
@@ -314,12 +317,11 @@ class SagittalView(SliceView):
     def project_index(self) -> tuple[int, int, int]:
         return 2, 0, 1  # p=ML, x=AP, y=DV
 
-    def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
-        rx = a[0]
-        ry = a[1]
-        dw = int(-self.width * math.tan(ry) / 2)  # ap
-        dh = int(self.height * math.tan(rx) / 2)  # dv
-        return dw, dh
+    def angle_offset(self, a: tuple[float, float, float]) -> tuple[float, int, int]:
+        rx, ry, rz = a
+        dw = int(-self.width * math.tan(ry) / 2)
+        dh = int(self.height * math.tan(rx) / 2)
+        return rz, dw, dh
 
 
 class TransverseView(SliceView):
@@ -339,12 +341,11 @@ class TransverseView(SliceView):
     def project_index(self) -> tuple[int, int, int]:
         return 1, 2, 0  # p=DV, x=ML, y=AP
 
-    def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
-        rx = a[0]
-        ry = a[1]
-        dw = int(-self.width * math.tan(ry) / 2)  # ml
-        dh = int(self.height * math.tan(rx) / 2)  # ap
-        return dw, dh
+    def angle_offset(self, a: tuple[float, float, float]) -> tuple[float, int, int]:
+        rx, ry, rz = a
+        dw = int(-self.width * math.tan(rx) / 2)
+        dh = int(self.height * math.tan(rz) / 2)
+        return -ry, dw, dh
 
 
 class SlicePlane(NamedTuple):
@@ -353,8 +354,9 @@ class SlicePlane(NamedTuple):
     plane: int  # anchor frame
     ax: int  # anchor x
     ay: int  # anchor y
-    dw: int
-    dh: int
+    rot: float  # degree
+    dw: int  # plane difference on left/right edge and the center
+    dh: int  # plane difference on top/bottom edge and the center
     slice: SliceView
 
     @property
@@ -428,13 +430,23 @@ class SlicePlane(NamedTuple):
     def with_offset(self, dw: int, dh: int) -> 'SlicePlane':
         return self._replace(dw=dw, dh=dh)
 
-    def with_rotate(self, a: tuple[float, float]) -> 'SlicePlane':
+    def with_rotate(self, a: tuple[float, float] | tuple[float, float, float]) -> 'SlicePlane':
         """plane index offset according to angle difference *a*.
 
         :param a: (vertical, horizontal)-axis radian rotation.
-        :return: tuple of (dw, dh)
+        :return: tuple of (dw, dh) or (rot, dw, dh)
         """
-        rx, ry = a
+        match a:
+            case (rx, ry):
+                rot = 0
+            case (rot, rx, ry):
+                pass
+            case _:
+                raise TypeError()
+
         dw = int(-self.width * math.tan(rx) / 2)
         dh = int(self.height * math.tan(ry) / 2)
-        return self.with_offset(dw, dh)
+        ret = self.with_offset(dw, dh)
+        if rot != 0:
+            ret = ret._replace(rot=rot)
+        return ret

@@ -67,6 +67,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             'half': 'chmap.util.edit._actions:npx24_half_density',
             'quarter': 'chmap.util.edit._actions:npx24_quarter_density',
             '1-eighth': 'chmap.util.edit._actions:npx24_one_eighth_density',
+            'probe-coor': 'chmap.util.edit._actions:adjust_atlas_mouse_brain_to_probe_coordinate',
         }
         self._running_script: dict[str, Generator | type[KeyboardInterrupt]] = {}
         self._script_input_cache: dict[str, str] = {}
@@ -87,21 +88,27 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def _setup_content(self, **kwargs):
         btn = ButtonFactory(min_width=50, width_policy='min')
 
+        #
         self.script_select = Select(
             value='', options=list(self.actions), width=150,
             styles={'font-family': 'monospace'}
         )
         self.script_select.on_change('value', as_callback(self._on_script_select))
 
+        #
         self.script_input = TextInput(
             width=400,
             styles={'font-family': 'monospace'}
         )
+        self.script_input.on_change('value', as_callback(self._on_run_script))
+
+        #
         self.script_document = Div(
             text="",
             styles={'font-family': 'monospace'}
         )
 
+        #
         self.script_run = btn('Run', self._on_run_script)
 
         from bokeh.layouts import row
@@ -203,7 +210,9 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def start(self):
         self.restore_global_state(force=True)
 
-        # load scripts
+        run_later(self._load_scripts)
+
+    def _load_scripts(self):
         for action in self.actions:
             self.get_script(action)
 

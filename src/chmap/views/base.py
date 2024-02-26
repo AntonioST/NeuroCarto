@@ -198,6 +198,7 @@ class ControllerView:
     @doc_link()
     def get_app(self) -> ChannelMapEditorApp:
         """
+        Get {ChannelMapEditorApp} instance.
 
         Implement note:
             do not overwrite this function, because this method will be
@@ -211,12 +212,13 @@ class ControllerView:
     @doc_link()
     def get_view(self, view_type: str | type[V]) -> V | None:
         """
+        Get corresponding {ViewBase} instance if activated.
 
         Implement note:
             do not overwrite this function, because this method will be
             replaced by {ChannelMapEditorApp}.
 
-        :param view_type:
+        :param view_type: view type or its type name.
         :return:
         """
         raise RuntimeError()

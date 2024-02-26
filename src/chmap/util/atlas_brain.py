@@ -29,7 +29,4 @@ def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
     )
 
 
-"""
-TODO bregma 10um, (ap, dv, ml)=(540 0 570) index
 
-"""

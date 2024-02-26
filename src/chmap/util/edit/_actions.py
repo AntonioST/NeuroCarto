@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Literal
+
 import numpy as np
 
 from chmap.probe_npx import NpxProbeDesp, utils
@@ -134,6 +138,75 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
     """
     bp.check_probe()
     bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
+
+
+def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
+                                                 ap: float, ml: float, dv: float = 0,
+                                                 shank: int = 0,
+                                                 rx: float = 0, ry: float = 0, rz: float = 0,
+                                                 depth: float = 0,
+                                                 ref: Literal['bregma'] = 'bregma',
+                                                 direction: Literal['+ap', '-ap', '+ml', '-ml'] = None):
+    """
+    Adjust atlas mouse brain image to corresponding probe coordinate.
+
+    :param bp:
+    :param ap: (mm:float) ap from the *ref*.
+    :param ml: (mm:float) ml from the *ref*.
+    :param dv: (mm:float=0) dv from the *ref*.
+    :param shank: (int=0) s-th shank coordinate
+    :param rx: (degree:float=0) ignored. get supported in the future.
+    :param ry: (degree:float=0) ignored. get supported in the future.
+    :param rz: (degree:float=0) ignored. get supported in the future.
+    :param depth: (mm:float=0) probe insert depth.
+    :param ref: (str in ['bregma'] = 'bregma') origin reference.
+    :param direction: (str in ['+ap', '-ap', '+ml', '-ml'] = None) direction of the probe faced
+    """
+    from chmap.views.atlas import AtlasBrainView
+    from chmap.probe_npx.npx import ChannelMap
+    from chmap.util.probe_coor import ProbeCoordinate, new_slice_view, get_plane_at
+
+    #
+    if (view := bp.use_view(AtlasBrainView)) is None:
+        return
+
+    #
+    if direction is not None:
+        if isinstance(bp.channelmap, ChannelMap):
+            s_space = bp.channelmap.probe_type.s_space
+
+            match direction:
+                case '+ap':
+                    direction = (0, 0, -s_space)
+                case '-ap':
+                    direction = (0, 0, s_space)
+                case '+ml':
+                    direction = (s_space, 0, 0)
+                case '-ml':
+                    direction = (-s_space, 0, 0)
+                case _:
+                    raise ValueError(f'unknown direction expression : {direction}')
+        else:
+            bp.log_message('ignore direction')
+            direction = None
+
+    #
+    if ref == 'bregma':
+        ap *= 1000
+        ml *= 1000
+        dv *= 1000
+        depth *= 1000
+        coor = ProbeCoordinate.from_bregma(ap, ml, dv, s=shank, depth=depth, direction=direction)
+    else:
+        raise ValueError(f'unknown reference : {ref}')
+
+    #
+    brain_view = new_slice_view(view.brain_view, coor)
+    view.update_brain_view(brain_view)
+
+    #
+    brain_slice = get_plane_at(brain_view, coor)
+    view.update_brain_slice(brain_slice)
 
 
 @use_probe(NpxProbeDesp, create=False)
