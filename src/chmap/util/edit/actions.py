@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -11,9 +11,12 @@ from chmap.util.utils import SPHINX_BUILD, doc_link
 from chmap.views.base import ViewBase, ControllerView
 from chmap.views.data import DataHandler
 
-if SPHINX_BUILD:
+if TYPE_CHECKING:
+    from chmap.views.atlas import AtlasBrainView
+elif SPHINX_BUILD:
     ViewBase = 'chmap.views.base.ViewBase'
     ProbeView = 'chmap.views.probe.ProbeView'
+    AtlasBrainView = 'chmap.views.atlas.AtlasBrainView'
 
 __all__ = [
     'new_channelmap',
@@ -25,6 +28,9 @@ __all__ = [
     'set_state_for_captured',
     'set_category_for_captured',
     'refresh_selection',
+    'atlas_add_label',
+    'atlas_del_label',
+    'atlas_clear_labels'
 ]
 
 
@@ -131,3 +137,55 @@ def refresh_selection(self: BlueprintFunctions, controller: ControllerView, sele
         self.set_channelmap(view.channelmap)
     finally:
         view.selecting_parameters = old_select_args
+
+
+@doc_link()
+def atlas_add_label(controller: ControllerView, text: str, pos: tuple[float, float]):
+    """{AtlasBrainView#add_label()}"""
+    view: AtlasBrainView
+    if (view := controller.get_view('AtlasBrainView')) is None:
+        return
+
+    view.add_label(text, pos)
+
+
+@doc_link()
+def atlas_del_label(controller: ControllerView, i: int | str | list[int | str]):
+    """{AtlasBrainView#del_label()}"""
+    view: AtlasBrainView
+    if (view := controller.get_view('AtlasBrainView')) is None:
+        return
+
+    match i:
+        case int(i):
+            ii = [i]
+        case list(tmp):
+            ii = []
+            for it in tmp:
+                if isinstance(it, int):
+                    ii.append(it)
+                elif isinstance(it, str):
+                    try:
+                        ii.append(view.index_label(it))
+                    except ValueError:
+                        pass
+                else:
+                    raise TypeError()
+        case str(text):
+            try:
+                ii = [view.index_label(text)]
+            except ValueError:
+                return
+        case _:
+            raise TypeError()
+
+    view.del_label(ii)
+
+
+@doc_link()
+def atlas_clear_labels(controller: ControllerView):
+    """{AtlasBrainView#clear_labels()}"""
+    view: AtlasBrainView
+    if (view := controller.get_view('AtlasBrainView')) is None:
+        return
+    view.clear_labels()

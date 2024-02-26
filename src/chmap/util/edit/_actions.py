@@ -140,6 +140,43 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
     bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
 
 
+def atlas_label(bp: BlueprintFunctions, command: str, *args):
+    """
+    Set labels on atlas brain image.
+
+    commands:
+
+    * ``/clear`` clear labels
+    * ``/delete,i,...`` delete labels
+    * ``text,x,y`` add text on (x,y)
+
+    :param bp:
+    :param command: command text
+    :param args: command args
+    """
+    match (command, args):
+        case ('/clear', ()):
+            bp.atlas_clear_labels()
+        case ('/clear', _):
+            raise RuntimeError(f'unknown /clear args : {args}')
+        case ('/delete', ()):
+            bp.log_message('missing delete index or text')
+        case ('/delete', (arg, )):
+            bp.atlas_del_label(arg)
+        case ('/delete', args):
+            bp.atlas_del_label(list(args))
+        case str() if command.startswith('/'):
+            raise RuntimeError(f'unknown command : {command}')
+        case (str(text), (int(x) | float(x), int(y) | float(y)) as pos):
+            bp.atlas_add_label(text, pos)
+        case (str(text), ()):
+            raise RuntimeError('missing position')
+        case (str(text), pos):
+            raise RuntimeError(f'unknown position : {pos}')
+        case _:
+            raise TypeError()
+
+
 def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
                                                  ap: float, ml: float, dv: float = 0,
                                                  shank: int = 0,

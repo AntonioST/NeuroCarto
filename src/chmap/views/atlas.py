@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import get_args, TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div, CheckboxGroup
+from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div, CheckboxGroup, tools
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
@@ -73,6 +73,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     data_region: ColumnDataSource
     render_region: GlyphRenderer
 
+    data_labels: ColumnDataSource
+    render_labels: GlyphRenderer
+
     def __init__(self, config: ChannelMapEditorConfig, *, logger: str = 'chmap.view.atlas'):
         super().__init__(config, logger=logger)
 
@@ -82,6 +85,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
         self.data_region = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
+        self.data_labels = ColumnDataSource(data=dict(x=[], y=[], label=[]))
 
         self._brain_view: SliceView | None = None
         self._brain_slice: SlicePlane | None = None
@@ -135,6 +139,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                       palette: str = 'Greys256',
                       palette_region: str = 'Turbo256',
                       boundary_color: str = 'black',
+                      label_spot_color: str = 'cyan',
                       **kwargs):
         self.render_brain = f.image(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
@@ -146,7 +151,23 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             palette=palette_region, level="image", global_alpha=0.3, syncable=False,
         )
 
+        self.render_labels = f.scatter(
+            x='x', y='y', source=self.data_labels,
+            size=10, color=label_spot_color,
+        )
+        # TODO future feature: on_tap -> move to a particular plane index.
+
         self.setup_boundary(f, boundary_color=boundary_color, boundary_desp='drag atlas brain image')
+
+        # toolbar
+        f.tools.append(tools.HoverTool(
+            description='Atlas labels',
+            renderers=[self.render_labels],
+            tooltips=[
+                ('Label', '@label'),
+                ("(x,y)", "($x, $y)"),
+            ]
+        ))
 
     def _setup_title(self, **kwargs) -> list[UIElement]:
         ret = super()._setup_title(**kwargs)
@@ -334,6 +355,72 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             self.update_brain_view(view)
         elif (plane := self._brain_slice) is not None:
             self.update_image(plane.image)
+
+    # ====== #
+    # Labels #
+    # ====== #
+
+    def clear_labels(self):
+        """Clear all labels"""
+        self.data_labels.data = dict(x=[], y=[], label=[])
+
+    def len_label(self) -> int:
+        """number of the labels"""
+        return len(self.data_labels.data['label'])
+
+    def get_label(self, i: int) -> str:
+        """
+        Get the label text at index *i*.
+
+        :param i: index
+        :return: label text
+        :raises IndexError: index *i* out of bound
+        """
+        return self.data_labels.data['label'][i]
+
+    def index_label(self, text: str) -> int:
+        """
+        Find index of a label which its content equals to *text*.
+
+        :param text: label text
+        :return: label index
+        :raises ValueError:
+        """
+        return self.data_labels.data['label'].index(text)
+
+    def add_label(self, text: str, pos: tuple[float, float]):
+        """
+        Add a label.
+
+        :param text: label text
+        :param pos: label position
+        """
+        self.data_labels.stream(dict(x=[pos[0]], y=[pos[1]], label=[text]))
+
+    def del_label(self, index: int | list[int]):
+        """
+        Remove labels.
+
+        :param index: index, list of index.
+        """
+        if isinstance(index, int):
+            index = [index]
+
+        if len(index) == 0:
+            return
+
+        index = set(index)
+
+        data = self.data_labels.data
+        x = data['x']
+        y = data['y']
+        t = data['label']
+
+        x = [it for i, it in enumerate(x) if i in index]
+        y = [it for i, it in enumerate(y) if i in index]
+        t = [it for i, it in enumerate(t) if i in index]
+
+        self.data_labels.data = dict(x=x, y=y, label=t)
 
     # ================== #
     # SliceView updating #

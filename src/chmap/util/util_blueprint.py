@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 elif SPHINX_BUILD:
     ProbeView = 'chmap.views.probe.ProbeView'
     NpxProbeDesp = 'chmap.probe_npx.desp.NpxProbeDesp'
+    AtlasBrainView = 'chmap.views.atlas.AtlasBrainView'
 
 
     class BLUEPRINT:
@@ -806,3 +807,39 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.actions import refresh_selection
         if (controller := self._controller) is not None:
             refresh_selection(self, controller, selector)
+
+    @doc_link()
+    def atlas_add_label(self, text: str, pos: tuple[float, float] = None):
+        """
+        Add a label on atlas brain image.
+
+        :param text: text content.
+        :param pos: text position
+        :see: {AtlasBrainView#add_label()}
+        """
+        from .edit.actions import atlas_add_label
+        if (controller := self._controller) is not None:
+            atlas_add_label(controller, text, pos)
+
+    @doc_link()
+    def atlas_del_label(self, i: int | str | list[int | str]):
+        """
+        Remove labels from atlas brain image.
+
+        :param i: index, or label text or list of them.
+        :see: {AtlasBrainView#del_label()}
+        """
+        from .edit.actions import atlas_del_label
+        if (controller := self._controller) is not None:
+            atlas_del_label(controller, i)
+
+    @doc_link()
+    def atlas_clear_labels(self):
+        """
+        Clear all labels
+
+        :see: {AtlasBrainView#clear_labels()}
+        """
+        from .edit.actions import atlas_clear_labels
+        if (controller := self._controller) is not None:
+            atlas_clear_labels(controller)
