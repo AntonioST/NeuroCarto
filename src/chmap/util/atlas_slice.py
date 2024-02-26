@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import abc
 import math
+import sys
 from typing import Literal, TypeVar, Final, overload, NamedTuple, get_args, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 from chmap.util.utils import all_int, align_arr, all_float
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from chmap.util.atlas_brain import BrainGlobeAtlas
@@ -462,14 +468,17 @@ class SlicePlane(NamedTuple):
         else:
             return self.slice.coor_on(self.plane_idx_at(o[:, 0], o[:, 1], um=um), o, um=um)
 
-    def with_anchor(self, x: int, y: int) -> 'SlicePlane':
+    def with_plane(self, plane: int) -> Self:
+        return self._replace(plane=plane)
+
+    def with_anchor(self, x: int, y: int) -> Self:
         plane = self.plane_idx_at(x, y)
         return self._replace(plane=plane, ax=x, ay=y)
 
-    def with_offset(self, dw: int, dh: int) -> 'SlicePlane':
+    def with_offset(self, dw: int, dh: int) -> Self:
         return self._replace(dw=dw, dh=dh)
 
-    def with_rotate(self, a: tuple[float, float]) -> 'SlicePlane':
+    def with_rotate(self, a: tuple[float, float]) -> Self:
         """plane index offset according to angle difference *a*.
 
         :param a: (vertical, horizontal)-axis radian rotation.

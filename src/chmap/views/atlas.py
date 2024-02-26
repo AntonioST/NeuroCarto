@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import get_args, TypedDict, Final, NamedTuple
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div, CheckboxGroup, tools
+from bokeh.events import DoubleTap
+from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div, CheckboxGroup, tools, Range
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
@@ -11,9 +12,10 @@ from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain, REFERENCE
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
 from chmap.util.atlas_struct import Structures
 from chmap.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
+from chmap.util.util_numpy import closest_point_index
 from chmap.views.base import Figure, StateView, BoundView, BoundaryState
 
-__all__ = ['AtlasBrainView', 'AtlasBrainViewState']
+__all__ = ['AtlasBrainView', 'AtlasBrainViewState', 'Label']
 
 LABEL_REFS = ['probe', 'image', 'bregma']
 
@@ -149,12 +151,18 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     checkbox_group: CheckboxGroup
     checkbox_groups: dict[str, UIElement]
 
+    _figure_x_range: Range = None
+    _figure_y_range: Range = None
+
     def _setup_render(self, f: Figure,
                       palette: str = 'Greys256',
                       palette_region: str = 'Turbo256',
                       boundary_color: str = 'black',
                       label_spot_color: str = 'cyan',
                       **kwargs):
+        self._figure_x_range = f.x_range
+        self._figure_y_range = f.y_range
+
         self.render_brain = f.image(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,
             palette=palette, level="image", global_alpha=0.5, syncable=False,
@@ -169,7 +177,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             x='x', y='y', source=self.data_labels,
             size=10, color=label_spot_color,
         )
-        # TODO future feature: on_tap -> move to a particular plane index.
+        f.on_event(DoubleTap, self._on_label_tap)
 
         self.setup_boundary(f, boundary_color=boundary_color, boundary_desp='drag atlas brain image')
 
@@ -260,7 +268,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if is_recursive_called():
             return
 
-        old = self.brain_slice
         view = self.brain_view
         if view.name == 'sagittal':
             d = view.n_plane * view.resolution / 2
@@ -268,11 +275,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         else:
             p = int(s / view.resolution)
 
-        plane = view.plane_at(p)
-        if old is not None:
-            plane = plane.with_offset(old.dw, old.dh)
-
-        self.update_brain_slice(plane)
+        self.update_brain_slice(p)
 
     def _on_checkbox_active(self, active: list[int]):
         for i, n in enumerate(self.checkbox_group.labels):
@@ -311,6 +314,17 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         }
 
         self.update_region_image()
+
+    def _on_label_tap(self, tap: DoubleTap):
+        if (label := self.find_label((tap.x, tap.y))) is not None:
+            if label.origin == 'bregma':
+                origin = REFERENCE['bregma'][self.brain_view.brain.atlas_name]
+                ap, dv, ml = label.pos
+                ap = origin[0] - ap * 1000
+                dv = origin[1] + dv * 1000
+                ml = origin[2] + ml * 1000
+                p, _, _ = self.brain_view.project((ap, dv, ml), um=True)
+                self.update_brain_slice(p)
 
     # ========= #
     # load/save #
@@ -393,6 +407,26 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         :raises IndexError: index *i* out of bound
         """
         return self._labels[i].text
+
+    def find_label(self, pos: tuple[float, float]) -> Label | None:
+        """
+        Find a label around the given position.
+
+        :param pos: (x, y) um
+        :return: found label
+        """
+        data = self.data_labels.data
+        if len(x := data['x']) == 0:
+            return
+
+        dx = (self._figure_x_range.end - self._figure_x_range.start) / 30
+        dy = (self._figure_y_range.end - self._figure_y_range.start) / 30
+        th = min(dx, dy)
+
+        labels = np.vstack([x, data['y']]).T
+        if (i := closest_point_index(labels, pos, th)) is not None:
+            return self._labels[i]
+        return None
 
     def index_label(self, text: str) -> int | None:
         """
@@ -631,7 +665,10 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         view = self.brain_view
 
         if isinstance(plane, int):
-            plane = view.plane(plane)
+            if (_slice := self._brain_slice) is not None:
+                plane = _slice.with_plane(plane)
+            else:
+                plane = view.plane(plane)
 
         self._brain_slice: SlicePlane = plane
         # self.logger.debug('slice_plane(%d)', plane.plane)
