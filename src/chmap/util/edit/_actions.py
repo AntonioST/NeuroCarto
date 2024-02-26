@@ -196,7 +196,8 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
                                                  depth: float = 0,
                                                  ref: Literal['bregma'] = 'bregma',
                                                  direction: Literal['+ap', '-ap', '+ml', '-ml'] = None,
-                                                 label: str = None):
+                                                 label: str = None,
+                                                 label_color: str = 'cyan'):
     """
     Adjust atlas mouse brain image to corresponding probe coordinate.
 
@@ -223,10 +224,29 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
 
     #
     if direction is not None:
-        if isinstance(bp.channelmap, ChannelMap):
-            s_space = bp.channelmap.probe_type.s_space
+        if bp.channelmap is None:
+            bp.log_message('ignore direction, due to channelmap is missing.')
+        else:
+            if isinstance(bp.channelmap, ChannelMap):
+                s_space = bp.channelmap.probe_type.s_space
+            else:
+                # estimate shank space based on x position
+                # TODO does any probe break this rule?
+                x = []
+                for s in np.unique(bp.s):
+                    x.append(np.min(bp.x[bp.s == s]))
+
+                if len(x) == 0:
+                    direction = None
+                    s_space = 0
+                else:
+                    s_space = np.mean(np.diff(np.unique(x)))
+
+                del x
 
             match direction:
+                case None:
+                    pass
                 case '+ap':
                     direction = (0, 0, -s_space)
                 case '-ap':
@@ -237,18 +257,14 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
                     direction = (-s_space, 0, 0)
                 case _:
                     raise ValueError(f'unknown direction expression : {direction}')
-        else:
-            bp.log_message('ignore direction')
-            direction = None
 
     #
     if ref == 'bregma':
-        ap *= 1000
-        ml *= 1000
-        dv *= 1000
-        depth *= 1000
         name = view.brain_view.brain.atlas_name
-        coor = ProbeCoordinate.from_bregma(name, ap, ml, dv, s=shank, depth=depth, direction=direction)
+        coor = ProbeCoordinate.from_bregma(
+            name, ap * 1000, ml * 1000, dv * 1000, s=shank,
+            rx=rx, ry=ry, rz=rz,
+            depth=depth * 1000, direction=direction)
     else:
         raise ValueError(f'unknown reference : {ref}')
 
@@ -266,11 +282,7 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
 
     #
     if label is not None:
-        res = brain_slice.resolution
-        ax = brain_slice.ax * res - brain_slice.width / 2
-        ay = brain_slice.ay * res - brain_slice.height / 2
-
-        bp.atlas_add_label(label, (ax, ay), 'image')
+        bp.atlas_add_label(label, (ap, dv, ml), origin=ref, color=label_color)
 
 
 @use_probe(NpxProbeDesp, create=False)

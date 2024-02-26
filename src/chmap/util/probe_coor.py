@@ -64,19 +64,20 @@ class ProbeCoordinate(NamedTuple):
         return self.shank_at(-self.s)
 
     @classmethod
-    def from_bregma(cls, atlas_name: str, ap: float, ml: float, dv: float = 0, **kwargs) -> Self:
+    def from_bregma(cls, atlas_name: str, ap: float, ml: float, dv: float = 0, ref: str = 'bregma', **kwargs) -> Self:
         """
 
         :param atlas_name: atlas brain name
         :param ap: um
         :param ml: um
         :param dv: um
+        :param ref: reference origin, default use 'bregma'
         :param kwargs: {ProbeCoordinate}'s other parameters.
         :return:
         :raises KeyError:
         """
         from chmap.util.atlas_brain import REFERENCE
-        bregma = REFERENCE['bregma'][atlas_name]
+        bregma = REFERENCE[ref][atlas_name]
 
         x = bregma[0] - ap
         y = bregma[1] + dv
@@ -134,17 +135,21 @@ def get_transform_state(bp: BlueprintFunctions, plane: SlicePlane, pc: ProbeCoor
         case _:
             raise RuntimeError('un-reachable')
 
-    electrode_s = bp.s == pc.s
-    electrode_x = bp.x[electrode_s]  # Array[um:float, N]
-    electrode_y = bp.y[electrode_s]  # Array[um:float, N]
+    if bp.channelmap is None:
+        cx = cy = 0
+    else:
+        electrode_s = bp.s == pc.s
+        electrode_x = bp.x[electrode_s]  # Array[um:float, N]
+        electrode_y = bp.y[electrode_s]  # Array[um:float, N]
 
-    if (i := closest_point_index(electrode_y, pc.depth, bp.dy * 2)) is None:
-        # cannot find nearest electrode position
-        return None
+        if (i := closest_point_index(electrode_y, pc.depth, bp.dy * 2)) is None:
+            # cannot find nearest electrode position
+            return None
 
-    x = electrode_x[i]
-    y = electrode_y[i]
+        x = electrode_x[i]
+        y = electrode_y[i]
 
-    cx = x - plane.ax
-    cy = y - plane.ay
+        cx = x - plane.ax
+        cy = y - plane.ay
+
     return dict(dx=cx, dy=cy, rt=rot)
