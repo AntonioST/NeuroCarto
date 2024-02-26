@@ -140,7 +140,7 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
     bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
 
 
-def atlas_label(bp: BlueprintFunctions, command: str, *args):
+def atlas_label(bp: BlueprintFunctions, command: str, *args, color='cyan'):
     """
     Set labels on atlas brain image.
 
@@ -158,6 +158,7 @@ def atlas_label(bp: BlueprintFunctions, command: str, *args):
     :param bp:
     :param command: command text
     :param args: command args
+    :param color: label color
     """
     match (command, args):
         case ('_clear', ()):
@@ -173,13 +174,13 @@ def atlas_label(bp: BlueprintFunctions, command: str, *args):
         case str() if command.startswith('_'):
             raise RuntimeError(f'unknown command : {command}')
         case (str(text), (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml))):
-            bp.atlas_add_label(text, (ap, dv, ml), 'bregma')
+            bp.atlas_add_label(text, (ap, dv, ml), origin='bregma', color=color)
         case (str(text), (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml), 'bregma')):
-            bp.atlas_add_label(text, (ap, dv, ml), 'bregma')
+            bp.atlas_add_label(text, (ap, dv, ml), origin='bregma', color=color)
         case (str(text), (int(x) | float(x), int(y) | float(y))):
-            bp.atlas_add_label(text, (x, y), 'probe')
+            bp.atlas_add_label(text, (x, y), origin='probe', color=color)
         case (str(text), (int(x) | float(x), int(y) | float(y), str(ref))):
-            bp.atlas_add_label(text, (x, y), ref)
+            bp.atlas_add_label(text, (x, y), origin=ref, color=color)
         case (str(), ()):
             raise RuntimeError('missing position')
         case (str(), pos):

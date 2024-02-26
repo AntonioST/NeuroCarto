@@ -809,20 +809,21 @@ class BlueprintFunctions(Generic[M, E]):
             refresh_selection(self, controller, selector)
 
     @doc_link()
-    def atlas_add_label(self, text: str, pos: tuple[float, float] | tuple[float, float, float] = None,
-                        origin: str = 'bregma', *, replace=True):
+    def atlas_add_label(self, text: str, pos: tuple[float, float] | tuple[float, float, float] = None, *,
+                        origin: str = 'bregma', color: str = 'cyan', replace=True):
         """
         Add a label on atlas brain image.
 
         :param text: text content.
         :param pos: text position
         :param origin: origin reference point
+        :param color: label color
         :param replace: replace label which has same text content
         :see: {AtlasBrainView#add_label()}
         """
         from .edit.actions import atlas_add_label
         if (controller := self._controller) is not None:
-            atlas_add_label(controller, text, pos, origin, replace=replace)
+            atlas_add_label(controller, text, pos, origin=origin, color=color, replace=replace)
 
     @doc_link()
     def atlas_del_label(self, i: int | str | list[int | str]):

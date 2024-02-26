@@ -25,6 +25,7 @@ class Label(NamedTuple):
     pos: tuple[float, float, float]
     """position, either (x, y, 1) or (ap, dv, ml) depends on origin"""
     ref: int
+    color: str
 
     @property
     def origin(self) -> str:
@@ -101,7 +102,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
         self.data_region = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
-        self.data_labels = ColumnDataSource(data=dict(i=[], x=[], y=[], label=[], ap=[], dv=[], ml=[]))
+        self.data_labels = ColumnDataSource(data=dict(i=[], x=[], y=[], label=[], color=[], ap=[], dv=[], ml=[]))
 
         self._brain_view: SliceView | None = None
         self._brain_slice: SlicePlane | None = None
@@ -158,7 +159,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                       palette: str = 'Greys256',
                       palette_region: str = 'Turbo256',
                       boundary_color: str = 'black',
-                      label_spot_color: str = 'cyan',
                       **kwargs):
         self._figure_x_range = f.x_range
         self._figure_y_range = f.y_range
@@ -174,8 +174,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         )
 
         self.render_labels = f.scatter(
-            x='x', y='y', source=self.data_labels,
-            size=10, color=label_spot_color,
+            x='x', y='y', color='color', source=self.data_labels, size=10,
         )
         f.on_event(DoubleTap, self._on_label_tap)
 
@@ -392,7 +391,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def clear_labels(self):
         """Clear all labels"""
         self._labels = []
-        self.data_labels.data = dict(i=[], x=[], y=[], label=[], ap=[], dv=[], ml=[])
+        self.data_labels.data = dict(i=[], x=[], y=[], label=[], color=[], ap=[], dv=[], ml=[])
 
     def len_label(self) -> int:
         """number of the labels"""
@@ -441,14 +440,17 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         return None
 
     def add_label(self, text: str,
-                  pos: tuple[float, float] | tuple[float, float, float],
-                  origin: str = 'bregma', *, replace=True):
+                  pos: tuple[float, float] | tuple[float, float, float], *,
+                  origin: str = 'bregma',
+                  color: str = 'cyan',
+                  replace=True):
         """
         Add a label.
 
         :param text: label text
         :param pos: label position
         :param origin: origin reference point
+        :param color: label color
         :param replace: replace label which has same text content
         """
         try:
@@ -472,7 +474,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if len(pos) == 2:
             pos = (*pos, 1.0)
 
-        label = Label(text, pos, ref)
+        label = Label(text, pos, ref, color)
         self._labels.append(label)
 
         if i is None:
@@ -501,12 +503,13 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
     def _transform_labels(self, labels: list[Label], start: int = 0) -> dict:
         if (n := len(labels)) == 0:
-            return dict(i=[], x=[], y=[], label=[], ap=[], dv=[], ml=[])
+            return dict(i=[], x=[], y=[], label=[], color=[], ap=[], dv=[], ml=[])
 
         ii = list(range(start, start + n))
         o = np.array([it.ref for it in labels])  # Array[ref:int, N]
         p = np.array([it.pos for it in labels]).T  # Array[float, 3, N]
         t = [it.text for it in labels]
+        c = [it.color for it in labels]
 
         a, a_ = self._prepare_affine_matrix()
 
@@ -539,7 +542,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                     qb[:, mask] = q
                     qp[:, mask] = a @ self._bregma2image(q, REFERENCE[bregma][self.brain_view.brain.atlas_name])
 
-        return dict(i=ii, x=qp[0], y=qp[1], label=t, ap=qb[0], dv=qb[1], ml=qb[2])
+        return dict(i=ii, x=qp[0], y=qp[1], label=t, color=c, ap=qb[0], dv=qb[1], ml=qb[2])
 
     def _prepare_affine_matrix(self) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
         """

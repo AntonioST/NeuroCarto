@@ -141,14 +141,14 @@ def refresh_selection(self: BlueprintFunctions, controller: ControllerView, sele
 
 @doc_link()
 def atlas_add_label(controller: ControllerView, text: str,
-                    pos: tuple[float, float] | tuple[float, float, float],
-                    origin: str = 'bregma', *, replace=True):
+                    pos: tuple[float, float] | tuple[float, float, float], *,
+                    origin: str = 'bregma', color: str = 'cyan', replace=True):
     """{AtlasBrainView#add_label()}"""
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is None:
         return
 
-    view.add_label(text, pos, origin, replace=replace)
+    view.add_label(text, pos, origin=origin, color=color, replace=replace)
 
 
 @doc_link()

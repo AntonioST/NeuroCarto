@@ -173,7 +173,21 @@ class BlueprintScriptInfo(NamedTuple):
 
     def script_parameters(self) -> list[str]:
         s = inspect.signature(self.script)
-        return [it for i, it in enumerate(s.parameters) if i != 0]
+
+        ret = []
+        for i, it in enumerate(s.parameters):
+            if i != 0:
+                match s.parameters[it].kind:
+                    case inspect.Parameter.VAR_POSITIONAL:
+                        ret.append(f'*{it}')
+                    case inspect.Parameter.VAR_KEYWORD:
+                        ret.append(f'**{it}')
+                    case inspect.Parameter.KEYWORD_ONLY:
+                        ret.append(f'{it}=')
+                    case _:
+                        ret.append(it)
+
+        return ret
 
     def script_doc(self, html=False) -> str | None:
         if (doc := self.script.__doc__) is not None:
