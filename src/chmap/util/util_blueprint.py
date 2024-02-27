@@ -90,6 +90,7 @@ class BlueprintFunctions(Generic[M, E]):
         :columns: 2
 
         * {#check_probe()}
+        * {#new_channelmap()}
         * {#add_electrodes()}
         * {#del_electrodes()}
         * {#selected_electrodes()}
@@ -129,6 +130,34 @@ class BlueprintFunctions(Generic[M, E]):
         * {#interpolate_nan()}
         * {#draw()}
 
+    **Probe view functions**
+
+    Call methods from {ProbeView}.
+
+    .. hlist::
+        :columns: 2
+
+        * {#capture_electrode()}
+        * {#captured_electrodes()}
+        * {#set_state_for_captured()}
+        * {#set_category_for_captured()}
+        * {#refresh_selection()}
+
+    **Atlas Brain image view functions**
+
+    Call methods from {AtlasBrainView}.
+
+    .. hlist::
+        :columns: 2
+
+        * {#atlas_add_label()}
+        * {#atlas_del_label()}
+        * {#atlas_clear_labels()}
+        * {#atlas_set_transform()}
+        * {#atlas_set_anchor()}
+        * {#atlas_new_probe()}
+        * {#atlas_set_anchor_on_probe()}
+
     **UI communicating functions**
 
     .. hlist::
@@ -136,12 +165,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         * {#set_status_line()}
         * {#log_message()}
-        * {#new_channelmap()}
-        * {#capture_electrode()}
-        * {#captured_electrodes()}
-        * {#set_state_for_captured()}
-        * {#set_category_for_captured()}
-        * {#refresh_selection()}
+        * {#use_view()}
 
     """
 

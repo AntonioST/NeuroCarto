@@ -14,6 +14,8 @@ It is an internal package for providing functions to the :class:`~chmap.util.uti
     util.edit.data
     util.edit.moving
     util.edit.surrounding
+    util.edit.probe
+    util.edit.atlas
     util.edit.actions
     util.edit.debug
 

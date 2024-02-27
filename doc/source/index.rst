@@ -24,8 +24,8 @@ Features
 - [x] Read/Visualize/Modify/Write Blueprint (a blueprint for generating a channelmap by a programming way).
 - [x] Show Atlas mouse brain as a background image.
 
-  - [ ] utilities functions for controlling the atlas image.
-  - [ ] probe coordinate functions
+  - [x] utilities functions for controlling the atlas image.
+  - [x] probe coordinate functions
 
 - [x] Customize electrode selection and probe kind.
 - [x] Show channel efficiency and electrode density.

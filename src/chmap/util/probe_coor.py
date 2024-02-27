@@ -70,14 +70,14 @@ def get_plane_at(view: SliceView, pc: ProbeCoordinate) -> SlicePlane:
 
 
 def prepare_affine_matrix(dx: float, dy: float, sx: float, sy: float, rt: float) -> NDArray[np.float_]:
-    """
+    r"""
 
     :param dx: x-axis offset
     :param dy: y-axis offset
     :param sx: x-axis scaling
     :param sy: y-axis scaling
     :param rt: rotate in degree
-    :return: A
+    :return: :math:`A_{3 \times 3}`
     """
     rt = np.deg2rad(rt)
 
@@ -103,14 +103,14 @@ def prepare_affine_matrix(dx: float, dy: float, sx: float, sy: float, rt: float)
 
 
 def prepare_affine_matrix_both(dx: float, dy: float, sx: float, sy: float, rt: float) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
-    """
+    r"""
 
     :param dx: x-axis offset
     :param dy: y-axis offset
     :param sx: x-axis scaling
     :param sy: y-axis scaling
     :param rt: rotate in degree
-    :return: tuple of (A, A^-1)
+    :return: tuple of (:math:`A_{3 \times 3}`, :math:`A_{3 \times 3}^{-1}`)
     """
     rt = np.deg2rad(rt)
 

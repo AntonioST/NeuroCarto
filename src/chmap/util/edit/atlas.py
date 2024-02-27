@@ -95,7 +95,7 @@ def atlas_set_anchor(controller: ControllerView,
 
 
 @doc_link()
-def atlas_new_probe(controller: ControllerView | None,
+def atlas_new_probe(controller: ControllerView,
                     ap: float, dv: float, ml: float,
                     shank: int = 0,
                     rx: float = 0, ry: float = 0, rz: float = 0,
