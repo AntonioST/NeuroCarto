@@ -2,13 +2,21 @@ from __future__ import annotations
 
 import abc
 import math
-from typing import Literal, TypeVar, Final, overload, NamedTuple, get_args
+import sys
+from typing import Literal, TypeVar, Final, overload, NamedTuple, get_args, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
-from chmap.util.atlas_brain import BrainGlobeAtlas
-from chmap.util.utils import all_int, align_arr
+from chmap.util.utils import all_int, align_arr, all_float
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
+if TYPE_CHECKING:
+    from chmap.util.atlas_brain import BrainGlobeAtlas
 
 __all__ = ['SLICE', 'SliceView', 'SlicePlane']
 
@@ -17,7 +25,7 @@ T = TypeVar('T')
 
 XY = tuple[int, int]
 PXY = tuple[int, int, int]  # (plane, x, y)
-COOR = tuple[int, int, int]  # (ap, dv, ml)
+COOR = tuple[int, int, int] | tuple[float, float, float]  # (ap, dv, ml)
 
 
 class SliceView(metaclass=abc.ABCMeta):
@@ -59,9 +67,18 @@ class SliceView(metaclass=abc.ABCMeta):
         else:
             reference = brain.reference
 
+        self.brain = brain
+        """Atlas brain"""
+
         self.name = name
+        """slice plane projection"""
+
         self.reference = reference
+        """Image Array[uint, AP, DV, ML]"""
+
         self.resolution = int(brain.resolution[get_args(SLICE).index(name)])
+        """um/pixel"""
+
         self.grid_y, self.grid_x = np.mgrid[0:self.height, 0:self.width]
 
     def __str__(self):
@@ -149,67 +166,88 @@ class SliceView(metaclass=abc.ABCMeta):
         return image[self.coor_on(o, (self.grid_x, self.grid_y))]
 
     @overload
-    def coor_on(self, plane: int, o: XY) -> COOR:
+    def coor_on(self, plane: int, o: XY | tuple[float, float], *, um=False) -> COOR:
         pass
 
     @overload
-    def coor_on(self, plane: int | NDArray[np.int_], o: tuple[NDArray[np.int_], NDArray[np.int_]]) -> tuple[NDArray[np.int_], NDArray[np.int_], NDArray[np.int_]]:
+    def coor_on(self, plane: int | NDArray[np.int_], o: tuple[NDArray, NDArray], *, um=False) -> tuple[NDArray[np.int_], NDArray[np.int_], NDArray[np.int_]]:
         pass
 
     @overload
-    def coor_on(self, plane: int | NDArray[np.int_], o: NDArray[np.int_]) -> NDArray[np.int_]:
+    def coor_on(self, plane: int | NDArray[np.int_], o: NDArray[np.int_], *, um=False) -> NDArray[np.int_]:
         pass
 
-    def coor_on(self, plane, o):
+    def coor_on(self, plane, o, *, um=False):
         """map slice point (x, y) at plane *plane* back to volume point (ap, dv, ml).
 
         :param plane: plane number of array
-        :param o: tuple of (x, y) or Array[int, N, (x, y)]
-        :return: (ap, dv, ml) or Array[int, N, (ap, dv, ml)]
+        :param o: tuple of (x, y) or Array[int|float, N, (x, y)]
+        :param um: use um?
+        :return: index (ap, dv, ml) or Array[int, N, (ap, dv, ml)]
         """
         pidx, xidx, yidx = self.project_index
         match o:
-            case (x, y) if all_int(plane, x, y):
+            case (x, y) if not um and all_int(plane, x, y):
                 ret = [0, 0, 0]
                 ret[pidx] = plane
                 ret[xidx] = x
                 ret[yidx] = y
                 return tuple(ret)
+
+            case (x, y) if um and all_int(plane) and all_float(x, y):
+                ret = [0, 0, 0]
+                ret[pidx] = plane
+                ret[xidx] = int(x / self.resolution)
+                ret[yidx] = int(y / self.resolution)
+                return tuple(ret)
+
             case (x, y):
                 plane, x, y = align_arr(plane, x, y)
+                if um:
+                    plane = plane.astype(int)
+                    x = (x / self.resolution).astype(int)
+                    y = (y / self.resolution).astype(int)
+
                 ret = [0, 0, 0]
                 ret[pidx] = plane
                 ret[xidx] = x
                 ret[yidx] = y
                 return tuple(ret)
+
             case _ if isinstance(o, np.ndarray):
                 ret = np.zeros((len(o), 3), dtype=int)
                 ret[:, pidx] = plane
-                ret[:, xidx] = o[:, 0]
-                ret[:, yidx] = o[:, 1]
+                ret[:, xidx] = o[:, 0] if not um else (o[:, 0] / self.resolution).astype(int)
+                ret[:, yidx] = o[:, 1] if not um else (o[:, 1] / self.resolution).astype(int)
                 return ret
             case _:
                 raise TypeError()
 
     @overload
-    def project(self, t: COOR) -> PXY:
+    def project(self, t: COOR, *, um=False) -> PXY:
         pass
 
     @overload
-    def project(self, t: NDArray[np.int_]) -> NDArray[np.int_]:
+    def project(self, t: NDArray, *, um=False) -> NDArray[np.int_]:
         pass
 
-    def project(self, t):
+    def project(self, t, *, um=False):
         """project volume point (ap, dv, ml) onto slice point (plane, x, y)
 
         :param t:  (ap, dv, ml) or Array[int, [N,], (ap, dv, ml)].
+        :param um: use um?
         :return: (plane, x, y) or Array[int, [N,], (plane, x, y)]
         """
         p, x, y = self.project_index
         match t:
-            case (ap, dv, ml) if all_int(ap, dv, ml):
+            case (ap, dv, ml) if not um and all_int(ap, dv, ml):
                 return int(t[p]), int(t[x]), int(t[y])
+            case (ap, dv, ml) if um and all_float(ap, dv, ml):
+                res = self.resolution
+                return int(t[p] / res), int(t[x] / res), int(t[y] / res)
             case _ if isinstance(t, np.ndarray):
+                if um:
+                    t = (t / self.resolution).astype(int)
                 match t.ndim:
                     case 1:
                         return t[((p, x, y),)]
@@ -235,7 +273,7 @@ class SliceView(metaclass=abc.ABCMeta):
         """plane index offset according to angle difference *a*.
 
         :param a: radian rotation of (ap, dv, ml)-axis.
-        :return: tuple of (dw, dh)
+        :return: tuple of (rot, dw, dh)
         """
         raise RuntimeError()
 
@@ -290,10 +328,9 @@ class CoronalView(SliceView):
         return 0, 2, 1  # p=AP, x=ML, y=DV
 
     def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
-        ry = a[1]
-        rz = a[2]
-        dw = int(-self.width * math.tan(ry) / 2)  # ml
-        dh = int(self.height * math.tan(rz) / 2)  # dv
+        rx, ry, rz = a
+        dw = int(-self.width * math.tan(ry) / 2)
+        dh = int(self.height * math.tan(rz) / 2)
         return dw, dh
 
 
@@ -315,10 +352,9 @@ class SagittalView(SliceView):
         return 2, 0, 1  # p=ML, x=AP, y=DV
 
     def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
-        rx = a[0]
-        ry = a[1]
-        dw = int(-self.width * math.tan(ry) / 2)  # ap
-        dh = int(self.height * math.tan(rx) / 2)  # dv
+        rx, ry, rz = a
+        dw = int(-self.width * math.tan(ry) / 2)
+        dh = int(self.height * math.tan(rx) / 2)
         return dw, dh
 
 
@@ -340,10 +376,9 @@ class TransverseView(SliceView):
         return 1, 2, 0  # p=DV, x=ML, y=AP
 
     def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
-        rx = a[0]
-        ry = a[1]
-        dw = int(-self.width * math.tan(ry) / 2)  # ml
-        dh = int(self.height * math.tan(rx) / 2)  # ap
+        rx, ry, rz = a
+        dw = int(-self.width * math.tan(rx) / 2)
+        dh = int(self.height * math.tan(rz) / 2)
         return dw, dh
 
 
@@ -351,10 +386,10 @@ class SlicePlane(NamedTuple):
     """Just a wrapper of SliceView that keep the information of volume point (ap, dv, ml) and rotate (dw, dh)."""
 
     plane: int  # anchor frame
-    ax: int  # anchor x
-    ay: int  # anchor y
-    dw: int
-    dh: int
+    ax: int  # anchor x index
+    ay: int  # anchor y index
+    dw: int  # plane difference on left/right edge and the center
+    dh: int  # plane difference on top/bottom edge and the center
     slice: SliceView
 
     @property
@@ -367,10 +402,12 @@ class SlicePlane(NamedTuple):
 
     @property
     def width(self) -> float:
+        """width (um) in this view"""
         return self.slice.width_um
 
     @property
     def height(self) -> float:
+        """height (um) in this view"""
         return self.slice.height_um
 
     @property
@@ -386,53 +423,76 @@ class SlicePlane(NamedTuple):
         return self.plane + offset - offset[self.ay, self.ax]
 
     @overload
-    def plane_idx_at(self, x: int, y: int) -> int:
+    def plane_idx_at(self, x: int | float, y: int | float, *, um=False) -> int:
         pass
 
     @overload
-    def plane_idx_at(self, x: NDArray[np.int_], y: NDArray[np.int_]) -> NDArray[np.int_]:
+    def plane_idx_at(self, x: NDArray[np], y: NDArray[np], *, um=False) -> NDArray[np.int_]:
         pass
 
-    def plane_idx_at(self, x, y):
+    def plane_idx_at(self, x, y, *, um=False):
+        if self.dw == self.dh == 0:
+            return self.plane
+
+        match (x, y):
+            case (x, y) if not um and all_int(x, y):
+                pass
+            case (x, y) if um and all_float(x, y):
+                res = self.resolution
+                x = int(x / res)
+                y = int(y / res)
+            case _:
+                x, y = align_arr(x, y)
+                if um:
+                    res = self.resolution
+                    x = (x / res)
+                    y = (y / res)
+                x = x.astype(int)
+                y = y.astype(int)
+
+        # TODO extrapolation
         return self.plane_offset[y, x]
 
     @overload
-    def coor_on(self, o: XY = None) -> COOR:
+    def coor_on(self, o: XY | tuple[float, float] = None, *, um=False) -> COOR:
         pass
 
     @overload
-    def coor_on(self, o: tuple[NDArray[np.int_], NDArray[np.int_]]) -> tuple[NDArray[np.int_], NDArray[np.int_], NDArray[np.int_]]:
+    def coor_on(self, o: tuple[NDArray, NDArray], *, um=False) -> tuple[NDArray[np.int_], NDArray[np.int_], NDArray[np.int_]]:
         pass
 
     @overload
-    def coor_on(self, o: NDArray[np.int_]) -> NDArray[np.int_]:
+    def coor_on(self, o: NDArray, *, um=False) -> NDArray[np.int_]:
         pass
 
-    def coor_on(self, o=None):
+    def coor_on(self, o=None, *, um=False):
         """
 
-        :param o: tuple (x,y) or Array[int, [N,], (x, y)] position
-        :return:
+        :param o: tuple (x,y) or Array[int|float, [N,], (x, y)] position
+        :return:  index (ap, dv, ml) or Array[int, N, (ap, dv, ml)]
         """
         if o is None:
-            return self.slice.coor_on(self.plane_idx_at(self.ax, self.ay), (self.ax, self.ay))
+            return self.slice.coor_on(self.plane_idx_at(self.ax, self.ay), (self.ax, self.ay), um=um)
         elif isinstance(o, tuple):
-            return self.slice.coor_on(self.plane_idx_at(o[0], o[1]), o)
+            return self.slice.coor_on(self.plane_idx_at(o[0], o[1], um=um), o, um=um)
         else:
-            return self.slice.coor_on(self.plane_idx_at(o[:, 0], o[:, 1]), o)
+            return self.slice.coor_on(self.plane_idx_at(o[:, 0], o[:, 1], um=um), o, um=um)
 
-    def with_anchor(self, x: int, y: int) -> 'SlicePlane':
+    def with_plane(self, plane: int) -> Self:
+        return self._replace(plane=plane)
+
+    def with_anchor(self, x: int, y: int) -> Self:
         plane = self.plane_idx_at(x, y)
         return self._replace(plane=plane, ax=x, ay=y)
 
-    def with_offset(self, dw: int, dh: int) -> 'SlicePlane':
+    def with_offset(self, dw: int, dh: int) -> Self:
         return self._replace(dw=dw, dh=dh)
 
-    def with_rotate(self, a: tuple[float, float]) -> 'SlicePlane':
+    def with_rotate(self, a: tuple[float, float]) -> Self:
         """plane index offset according to angle difference *a*.
 
         :param a: (vertical, horizontal)-axis radian rotation.
-        :return: tuple of (dw, dh)
+        :return: tuple of (dw, dh) or (rot, dw, dh)
         """
         rx, ry = a
         dw = int(-self.width * math.tan(rx) / 2)

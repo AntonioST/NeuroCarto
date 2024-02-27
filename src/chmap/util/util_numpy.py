@@ -83,14 +83,34 @@ def _same_index_d(d: NDArray[np.number]) -> NDArray[np.int_]:
     return np.unique(j)
 
 
-def closest_point_index(a: NDArray[np.float_], p: NDArray[np.float_] | list[float], v: float) -> int | None:
-    p = np.asarray(p)
+def closest_point_index(a: NDArray[np.float_], p: float | list[float] | NDArray[np.float_], v: float) -> int | None:
+    """
 
-    an, ad = a.shape
-    if p.shape != (ad,):
-        raise ValueError()
+    :param a: Array[V:float, N[, D]]
+    :param p: V or Array[V:float, D]
+    :param v: V threshold
+    :return: N index
+    """
 
-    o = np.sqrt(np.sum((a - p) ** 2, axis=1))
+    if a.ndim == 1:
+        p = float(p)
+
+    elif a.ndim == 2:
+        p = np.asarray(p)
+
+        an, ad = a.shape
+        if p.shape != (ad,):
+            raise ValueError(f'{a.shape=}[1] != {p.shape}')
+    else:
+        raise RuntimeError()
+
+    if a.ndim == 1:
+        o = np.abs(a - p)
+    elif a.ndim == 2:
+        o = np.sqrt(np.sum((a - p) ** 2, axis=1))
+    else:
+        raise RuntimeError()
+
     i = np.argmin(o)
     if o[i] <= v:
         return int(i)

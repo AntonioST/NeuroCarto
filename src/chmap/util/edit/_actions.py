@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 
 from chmap.probe_npx import NpxProbeDesp, utils
@@ -134,6 +136,89 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
     """
     bp.check_probe()
     bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
+
+
+def atlas_label(bp: BlueprintFunctions, command: str, *args, color='cyan'):
+    """
+    Set labels on atlas brain image.
+
+    commands:
+    * _clear :  clear labels
+    * _delete,i,... :  delete labels
+    * text,ap,dv,ml : add text on (ap,dv,ml) and use bregma as origin.
+    * text,x,y[,ref] : add text on (x,y[,z]) and use reference as origin ('probe' as default).
+
+    reference:
+    * 'bregma' : origin at bregma of the brain, use (ap,dv,ml) mm.
+    * 'probe' : origin at shank-0-probe-tip, use (x,y) um.
+    * 'image' : origin at center of the image, use (x,y) um.
+
+    :param bp:
+    :param command: command text
+    :param args: command args
+    :param color: label color
+    """
+    match (command, args):
+        case ('_clear', ()):
+            bp.atlas_clear_labels()
+        case ('_clear', _):
+            raise RuntimeError(f'unknown _clear args : {args}')
+        case ('_delete', ()):
+            bp.log_message('missing delete index or text')
+        case ('_delete', (arg, )):
+            bp.atlas_del_label(arg)
+        case ('_delete', args):
+            bp.atlas_del_label(list(args))
+        case str() if command.startswith('_'):
+            raise RuntimeError(f'unknown command : {command}')
+        case (str(text), (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml))):
+            bp.atlas_add_label(text, (ap, dv, ml), origin='bregma', color=color)
+        case (str(text), (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml), 'bregma')):
+            bp.atlas_add_label(text, (ap, dv, ml), origin='bregma', color=color)
+        case (str(text), (int(x) | float(x), int(y) | float(y))):
+            bp.atlas_add_label(text, (x, y), origin='probe', color=color)
+        case (str(text), (int(x) | float(x), int(y) | float(y), str(ref))):
+            bp.atlas_add_label(text, (x, y), origin=ref, color=color)
+        case (str(), ()):
+            raise RuntimeError('missing position')
+        case (str(), pos):
+            raise RuntimeError(f'unknown position : {pos}')
+        case _:
+            raise TypeError()
+
+
+def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
+                                                 ap: float, ml: float, dv: float = 0,
+                                                 shank: int = 0,
+                                                 rx: float = 0, ry: float = 0, rz: float = 0,
+                                                 depth: float = 0,
+                                                 ref: str = 'bregma',
+                                                 label: str = None,
+                                                 color: str = 'cyan'):
+    """
+    Adjust atlas mouse brain image to corresponding probe coordinate.
+
+    :param bp:
+    :param ap: (mm:float) ap from the *ref*.
+    :param ml: (mm:float) ml from the *ref*.
+    :param dv: (mm:float=0) dv from the *ref*.
+    :param shank: (int=0) s-th shank coordinate
+    :param rx: (degree:float=0) ap rotating.
+    :param ry: (degree:float=0) dv rotating.
+    :param rz: (degree:float=0) ml rotating.
+    :param depth: (mm:float=0) probe insert depth.
+    :param ref: (str in ['bregma'] = 'bregma') origin reference.
+    :param label: label text
+    :param color: label color
+    """
+    coor = bp.atlas_new_probe(ap * 1000, dv * 1000, ml * 1000, shank=shank, rx=rx, ry=ry, rz=rz, depth=depth * 1000, ref=ref)
+    if coor is None:
+        return
+
+    bp.atlas_set_anchor_on_probe(coor)
+
+    if label is not None:
+        bp.atlas_add_label(label, (ap, dv, ml), origin=ref, color=color)
 
 
 @use_probe(NpxProbeDesp, create=False)

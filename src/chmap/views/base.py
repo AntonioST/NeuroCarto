@@ -198,6 +198,7 @@ class ControllerView:
     @doc_link()
     def get_app(self) -> ChannelMapEditorApp:
         """
+        Get {ChannelMapEditorApp} instance.
 
         Implement note:
             do not overwrite this function, because this method will be
@@ -211,12 +212,13 @@ class ControllerView:
     @doc_link()
     def get_view(self, view_type: str | type[V]) -> V | None:
         """
+        Get corresponding {ViewBase} instance if activated.
 
         Implement note:
             do not overwrite this function, because this method will be
             replaced by {ChannelMapEditorApp}.
 
-        :param view_type:
+        :param view_type: view type or its type name.
         :return:
         """
         raise RuntimeError()
@@ -509,6 +511,10 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
 
         self.data_boundary = ColumnDataSource(data=dict(x=[0], y=[0], w=[0], h=[0], r=[0], sx=[1], sy=[1]))
 
+    # ========== #
+    # properties #
+    # ========== #
+
     @property
     @abc.abstractmethod
     def width(self) -> float:
@@ -520,6 +526,10 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     def height(self) -> float:
         """Height of image"""
         pass
+
+    # ============= #
+    # UI components #
+    # ============= #
 
     def setup_boundary(self, f: Figure, *,
                        boundary_color: str = 'black',
@@ -629,6 +639,10 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
 
         self.update_boundary_transform(p=(x, y), s=(sx, sy))
 
+    # ================ #
+    # boundary methods #
+    # ================ #
+
     def get_boundary_state(self) -> BoundaryState:
         """Get current boundary parameters."""
         data = self.data_boundary.data
@@ -655,6 +669,22 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     def reset_boundary(self):
         self.update_boundary_transform(p=(0, 0), s=1, rt=0)
 
+    def set_anchor_to(self, p: tuple[float, float], a: tuple[float, float] = (0, 0)):
+        """
+        Update boundary transform to move *a* onto *p*.
+
+        :param p: target point on figure. figure (probe) origin as origin.
+        :param a: anchor point on image, center point as origin.
+        """
+        from chmap.util.probe_coor import prepare_affine_matrix
+
+        state = self.get_boundary_state()
+        t = prepare_affine_matrix(dx=0, dy=0, sx=state['sx'], sy=state['sy'], rt=state['rt'])
+        q = t @ [a[0], a[1], 1]  # transformed anchor point
+        dx = float(p[0] - q[0])
+        dy = float(p[1] - q[1])
+        self.update_boundary_transform(p=(dx, dy))
+
     def update_boundary_transform(self, *,
                                   p: tuple[float, float] = None,
                                   s: float | tuple[float, float] = None,
@@ -662,9 +692,9 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         """
         Image transforming updating handle.
 
-        :param p: position (x, y)
+        :param p: center position (x, y)
         :param s: scaling (sx, sy)
-        :param rt: rotating
+        :param rt: rotating degree
         """
         if is_recursive_called():
             return
@@ -730,6 +760,10 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
             self.boundary_rotate_slider.value = state['rt']
         except AttributeError:
             pass
+
+    # ============== #
+    # helper methods #
+    # ============== #
 
     @doc_link()
     def transform_image_data(self, image: NDArray[np.uint], boundary: BoundaryState = None) -> dict[str, Any]:

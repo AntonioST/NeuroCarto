@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import TypedDict, TYPE_CHECKING, Generator
+from typing import TypedDict, TYPE_CHECKING, Generator, ClassVar
 
 import numpy as np
 from bokeh.models import Select, TextInput, Div, Button
@@ -13,7 +13,7 @@ from chmap.probe import ProbeDesp, M, E
 from chmap.probe_npx import plot
 from chmap.util.bokeh_app import run_later, run_timeout
 from chmap.util.bokeh_util import ButtonFactory, as_callback
-from chmap.util.edit.script import BlueprintScript, BlueprintScriptInfo
+from chmap.util.edit.script import BlueprintScript, BlueprintScriptInfo, script_html_doc
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import doc_link
 from chmap.views import RecordStep
@@ -54,21 +54,28 @@ class BlueprintScriptAction(TypedDict, total=False):
 
 class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
                           RecordView[BlueprintScriptAction], GlobalStateView[BlueprintScriptState]):
+    BUILTIN_ACTIONS: ClassVar[dict[str, str]] = {
+        'load': 'chmap.util.edit._actions:load_blueprint',
+        'move': 'chmap.util.edit._actions:move_blueprint',
+        'exchange': 'chmap.util.edit._actions:exchange_shank',
+        'pre-select': 'chmap.util.edit._actions:enable_electrode_as_pre_selected',
+        'single': 'chmap.util.edit._actions:npx24_single_shank',
+        'stripe': 'chmap.util.edit._actions:npx24_stripe',
+        'half': 'chmap.util.edit._actions:npx24_half_density',
+        'quarter': 'chmap.util.edit._actions:npx24_quarter_density',
+        '1-eighth': 'chmap.util.edit._actions:npx24_one_eighth_density',
+        'label': 'chmap.util.edit._actions:atlas_label',
+        'probe-coor': 'chmap.util.edit._actions:adjust_atlas_mouse_brain_to_probe_coordinate',
+    }
+
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
-        self.actions: dict[str, str | BlueprintScriptInfo] = {
-            'load': 'chmap.util.edit._actions:load_blueprint',
-            'move': 'chmap.util.edit._actions:move_blueprint',
-            'exchange': 'chmap.util.edit._actions:exchange_shank',
-            'pre-select': 'chmap.util.edit._actions:enable_electrode_as_pre_selected',
-            'single': 'chmap.util.edit._actions:npx24_single_shank',
-            'stripe': 'chmap.util.edit._actions:npx24_stripe',
-            'half': 'chmap.util.edit._actions:npx24_half_density',
-            'quarter': 'chmap.util.edit._actions:npx24_quarter_density',
-            '1-eighth': 'chmap.util.edit._actions:npx24_one_eighth_density',
-        }
+        self.actions: dict[str, str | BlueprintScriptInfo] = dict(self.BUILTIN_ACTIONS)
+
+        # long-running (as a generator) script control.
         self._running_script: dict[str, Generator | type[KeyboardInterrupt]] = {}
+
         self._script_input_cache: dict[str, str] = {}
 
     @property
@@ -87,21 +94,28 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def _setup_content(self, **kwargs):
         btn = ButtonFactory(min_width=50, width_policy='min')
 
+        #
         self.script_select = Select(
             value='', options=list(self.actions), width=150,
             styles={'font-family': 'monospace'}
         )
         self.script_select.on_change('value', as_callback(self._on_script_select))
 
+        #
         self.script_input = TextInput(
             width=400,
             styles={'font-family': 'monospace'}
         )
+        # Mouse exit event also invoke updating handle, which this event doesn't we want
+        # self.script_input.on_change('value', as_callback(self._on_run_script))
+
+        #
         self.script_document = Div(
             text="",
             styles={'font-family': 'monospace'}
         )
 
+        #
         self.script_run = btn('Run', self._on_run_script)
 
         from bokeh.layouts import row
@@ -133,12 +147,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             return
 
         self.script_input.value_input = self._script_input_cache.get(name, '')
-
-        head = script.script_signature()
-        if (doc := script.script_doc(html=True)) is not None:
-            self.script_document.text = f'<p><b>{head}</b></p>' + doc
-        else:
-            self.script_document.text = f'<b>{head}</b>'
+        self.script_document.text = script_html_doc(script)
 
         self._set_script_run_button_status(name)
 
@@ -203,7 +212,9 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def start(self):
         self.restore_global_state(force=True)
 
-        # load scripts
+        run_later(self._load_scripts)
+
+    def _load_scripts(self):
         for action in self.actions:
             self.get_script(action)
 
