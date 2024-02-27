@@ -138,15 +138,15 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
     bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
 
 
-def atlas_label(bp: BlueprintFunctions, command: str, *args, color='cyan'):
+def atlas_label(bp: BlueprintFunctions, *args, color='cyan'):
     """
     Set labels on atlas brain image.
 
     commands:
-    * _clear :  clear labels
-    * _delete,i,... :  delete labels
-    * text,ap,dv,ml : add text on (ap,dv,ml) and use bregma as origin.
-    * text,x,y[,ref] : add text on (x,y[,z]) and use reference as origin ('probe' as default).
+    * clear :  clear labels
+    * delete,i,... :  delete labels
+    * ap,dv,ml,text : add text on (ap,dv,ml) and use bregma as origin.
+    * x,y,text[,ref] : add text on (x,y[,z]) and use reference as origin ('probe' as default).
 
     reference:
     * 'bregma' : origin at bregma of the brain, use (ap,dv,ml) mm.
@@ -154,37 +154,36 @@ def atlas_label(bp: BlueprintFunctions, command: str, *args, color='cyan'):
     * 'image' : origin at center of the image, use (x,y) um.
 
     :param bp:
-    :param command: command text
     :param args: command args
     :param color: label color
     """
-    match (command, args):
-        case ('_clear', ()):
+    match args:
+        case ():
+            return
+
+        case ('clear', ):
             bp.atlas_clear_labels()
-        case ('_clear', _):
-            raise RuntimeError(f'unknown _clear args : {args}')
-        case ('_delete', ()):
+        case ('clear', _):
+            raise RuntimeError(f'unknown clear args : {args}')
+
+        case ('delete', ):
             bp.log_message('missing delete index or text')
-        case ('_delete', (arg, )):
+        case ('delete', arg):
             bp.atlas_del_label(arg)
-        case ('_delete', args):
+        case ('delete', *args):
             bp.atlas_del_label(list(args))
-        case str() if command.startswith('_'):
+
+        case (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml), text):
+            bp.atlas_add_label(str(text), (ap, dv, ml), origin='bregma', color=color)
+
+        case (int(x) | float(x), int(y) | float(y), text):
+            bp.atlas_add_label(str(text), (x, y), origin='probe', color=color)
+
+        case (int(x) | float(x), int(y) | float(y), text, str(ref)):
+            bp.atlas_add_label(str(text), (x, y), origin=ref, color=color)
+
+        case (command, *_):
             raise RuntimeError(f'unknown command : {command}')
-        case (str(text), (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml))):
-            bp.atlas_add_label(text, (ap, dv, ml), origin='bregma', color=color)
-        case (str(text), (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml), 'bregma')):
-            bp.atlas_add_label(text, (ap, dv, ml), origin='bregma', color=color)
-        case (str(text), (int(x) | float(x), int(y) | float(y))):
-            bp.atlas_add_label(text, (x, y), origin='probe', color=color)
-        case (str(text), (int(x) | float(x), int(y) | float(y), str(ref))):
-            bp.atlas_add_label(text, (x, y), origin=ref, color=color)
-        case (str(), ()):
-            raise RuntimeError('missing position')
-        case (str(), pos):
-            raise RuntimeError(f'unknown position : {pos}')
-        case _:
-            raise TypeError()
 
 
 def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
