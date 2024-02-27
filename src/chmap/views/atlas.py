@@ -8,6 +8,7 @@ from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElem
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
+from chmap.util import probe_coor
 from chmap.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain, REFERENCE
 from chmap.util.atlas_slice import SlicePlane, SLICE, SliceView
 from chmap.util.atlas_struct import Structures
@@ -511,7 +512,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         t = [it.text for it in labels]
         c = [it.color for it in labels]
 
-        a, a_ = self._prepare_affine_matrix()
+        boundary = self.get_boundary_state()
+        a, a_ = probe_coor.prepare_affine_matrix_both(**boundary)
 
         origin = REFERENCE['bregma'][self.brain_view.brain.atlas_name]
 
@@ -543,52 +545,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                     qp[:, mask] = a @ self._bregma2image(q, REFERENCE[bregma][self.brain_view.brain.atlas_name])
 
         return dict(i=ii, x=qp[0], y=qp[1], label=t, color=c, ap=qb[0], dv=qb[1], ml=qb[2])
-
-    def _prepare_affine_matrix(self) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
-        """
-
-        :return: tuple of (A, A^-1)
-        """
-        boundary = self.get_boundary_state()
-        dx = boundary['dx']
-        dy = boundary['dy']
-        sx = boundary['sx']
-        sy = boundary['sy']
-        rt = np.deg2rad(boundary['rt'])
-
-        td = np.array([
-            [1, 0, dx],
-            [0, 1, dy],
-            [0, 0, 1],
-        ], dtype=float)
-        td_ = np.array([
-            [1, 0, -dx],
-            [0, 1, -dy],
-            [0, 0, 1],
-        ], dtype=float)
-        cos = np.cos(rt)
-        sin = np.sin(rt)
-        tr = np.array([
-            [cos, -sin, 0],
-            [sin, cos, 0],
-            [0, 0, 1],
-        ], dtype=float)
-        tr_ = np.array([
-            [cos, sin, 0],
-            [-sin, cos, 0],
-            [0, 0, 1],
-        ], dtype=float)
-        ts = np.array([
-            [sx, 0, 0],
-            [0, sy, 0],
-            [0, 0, 1],
-        ], dtype=float)
-        ts_ = np.array([
-            [1 / sx, 0, 0],
-            [0, 1 / sy, 0],
-            [0, 0, 1],
-        ], dtype=float)
-        return td @ ts @ tr, tr_ @ ts_ @ td_
 
     def _image2bregma(self, q: NDArray[np.float_], origin: tuple[float, float, float]) -> NDArray[np.float_]:
         """

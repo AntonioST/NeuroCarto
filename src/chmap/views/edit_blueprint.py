@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import TypedDict, TYPE_CHECKING, Generator
+from typing import TypedDict, TYPE_CHECKING, Generator, ClassVar
 
 import numpy as np
 from bokeh.models import Select, TextInput, Div, Button
@@ -54,23 +54,28 @@ class BlueprintScriptAction(TypedDict, total=False):
 
 class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
                           RecordView[BlueprintScriptAction], GlobalStateView[BlueprintScriptState]):
+    BUILTIN_ACTIONS: ClassVar[dict[str, str]] = {
+        'load': 'chmap.util.edit._actions:load_blueprint',
+        'move': 'chmap.util.edit._actions:move_blueprint',
+        'exchange': 'chmap.util.edit._actions:exchange_shank',
+        'pre-select': 'chmap.util.edit._actions:enable_electrode_as_pre_selected',
+        'single': 'chmap.util.edit._actions:npx24_single_shank',
+        'stripe': 'chmap.util.edit._actions:npx24_stripe',
+        'half': 'chmap.util.edit._actions:npx24_half_density',
+        'quarter': 'chmap.util.edit._actions:npx24_quarter_density',
+        '1-eighth': 'chmap.util.edit._actions:npx24_one_eighth_density',
+        'label': 'chmap.util.edit._actions:atlas_label',
+        'probe-coor': 'chmap.util.edit._actions:adjust_atlas_mouse_brain_to_probe_coordinate',
+    }
+
     def __init__(self, config: ChannelMapEditorConfig):
         super().__init__(config, logger='chmap.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
-        self.actions: dict[str, str | BlueprintScriptInfo] = {
-            'load': 'chmap.util.edit._actions:load_blueprint',
-            'move': 'chmap.util.edit._actions:move_blueprint',
-            'exchange': 'chmap.util.edit._actions:exchange_shank',
-            'pre-select': 'chmap.util.edit._actions:enable_electrode_as_pre_selected',
-            'single': 'chmap.util.edit._actions:npx24_single_shank',
-            'stripe': 'chmap.util.edit._actions:npx24_stripe',
-            'half': 'chmap.util.edit._actions:npx24_half_density',
-            'quarter': 'chmap.util.edit._actions:npx24_quarter_density',
-            '1-eighth': 'chmap.util.edit._actions:npx24_one_eighth_density',
-            'label': 'chmap.util.edit._actions:atlas_label',
-            'probe-coor': 'chmap.util.edit._actions:adjust_atlas_mouse_brain_to_probe_coordinate',
-        }
+        self.actions: dict[str, str | BlueprintScriptInfo] = dict(self.BUILTIN_ACTIONS)
+
+        # long-running (as a generator) script control.
         self._running_script: dict[str, Generator | type[KeyboardInterrupt]] = {}
+
         self._script_input_cache: dict[str, str] = {}
 
     @property

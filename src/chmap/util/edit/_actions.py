@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Literal
-
 import numpy as np
 
 from chmap.probe_npx import NpxProbeDesp, utils
@@ -194,8 +192,7 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
                                                  shank: int = 0,
                                                  rx: float = 0, ry: float = 0, rz: float = 0,
                                                  depth: float = 0,
-                                                 ref: Literal['bregma'] = 'bregma',
-                                                 direction: Literal['+ap', '-ap', '+ml', '-ml'] = None,
+                                                 ref: str = 'bregma',
                                                  label: str = None,
                                                  label_color: str = 'cyan'):
     """
@@ -206,79 +203,67 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
     :param ml: (mm:float) ml from the *ref*.
     :param dv: (mm:float=0) dv from the *ref*.
     :param shank: (int=0) s-th shank coordinate
-    :param rx: (degree:float=0) ignored. get supported in the future.
-    :param ry: (degree:float=0) ignored. get supported in the future.
-    :param rz: (degree:float=0) ignored. get supported in the future.
+    :param rx: (degree:float=0) ap rotating.
+    :param ry: (degree:float=0) dv rotating.
+    :param rz: (degree:float=0) ml rotating.
     :param depth: (mm:float=0) probe insert depth.
     :param ref: (str in ['bregma'] = 'bregma') origin reference.
-    :param direction: (str in ['+ap', '-ap', '+ml', '-ml'] = None) direction of the probe faced
     :param label: label text
+    :param label_color: label color
     """
     from chmap.views.atlas import AtlasBrainView
-    from chmap.probe_npx.npx import ChannelMap
-    from chmap.util.probe_coor import ProbeCoordinate, new_slice_view, get_plane_at, get_transform_state
+    from chmap.util import probe_coor
 
     #
     if (view := bp.use_view(AtlasBrainView)) is None:
         return
 
-    #
-    if direction is not None:
-        if bp.channelmap is None:
-            bp.log_message('ignore direction, due to channelmap is missing.')
-        else:
-            if isinstance(bp.channelmap, ChannelMap):
-                s_space = bp.channelmap.probe_type.s_space
-            else:
-                # estimate shank space based on x position
-                # TODO does any probe break this rule?
-                x = []
-                for s in np.unique(bp.s):
-                    x.append(np.min(bp.x[bp.s == s]))
+    # get probe coordinate instance
+    name = view.brain_view.brain.atlas_name
+    coor = probe_coor.ProbeCoordinate.from_bregma(
+        name, ap * 1000, dv * 1000, ml * 1000, s=shank,
+        rx=rx, ry=ry, rz=rz, depth=depth * 1000, ref=ref
+    )
 
-                if len(x) == 0:
-                    direction = None
-                    s_space = 0
-                else:
-                    s_space = np.mean(np.diff(np.unique(x)))
-
-                del x
-
-            match direction:
-                case None:
-                    pass
-                case '+ap':
-                    direction = (0, 0, -s_space)
-                case '-ap':
-                    direction = (0, 0, s_space)
-                case '+ml':
-                    direction = (s_space, 0, 0)
-                case '-ml':
-                    direction = (-s_space, 0, 0)
-                case _:
-                    raise ValueError(f'unknown direction expression : {direction}')
-
-    #
-    if ref == 'bregma':
-        name = view.brain_view.brain.atlas_name
-        coor = ProbeCoordinate.from_bregma(
-            name, ap * 1000, ml * 1000, dv * 1000, s=shank,
-            rx=rx, ry=ry, rz=rz,
-            depth=depth * 1000, direction=direction)
-    else:
-        raise ValueError(f'unknown reference : {ref}')
-
-    #
-    brain_view = new_slice_view(view.brain_view, coor)
-    view.update_brain_view(brain_view)
-
-    #
-    brain_slice = get_plane_at(brain_view, coor)
+    # set brain slice to corresponding plane
+    brain_slice = probe_coor.get_plane_at(view.brain_view, coor)
     view.update_brain_slice(brain_slice, update_image=False)
 
-    #
-    transform = get_transform_state(bp, brain_slice, coor)
-    view.update_boundary_transform(p=(transform["dx"], transform['dy']), rt=transform['rt'])
+    # set slice rotation
+    match brain_slice.slice_name:
+        case 'coronal':
+            rot = -coor.rx
+        case 'sagittal':
+            rot = coor.rz
+        case 'transverse':
+            rot = -coor.ry
+        case _:
+            raise RuntimeError('un-reachable')
+
+    view.update_boundary_transform(rt=rot)
+
+    # another slice on to probe
+    if bp.channelmap is None:
+        ex = ey = 0
+    else:
+        electrode_s = bp.s == coor.s
+        electrode_x = bp.x[electrode_s]  # Array[um:float, N]
+        electrode_y = bp.y[electrode_s]  # Array[um:float, N]
+
+        from chmap.util.util_numpy import closest_point_index
+        if (i := closest_point_index(electrode_y, coor.depth, bp.dy * 2)) is not None:
+            ex = electrode_x[i]
+        else:
+            # cannot find nearest electrode position
+            ex = 0
+
+        ey = coor.depth
+
+    cx = brain_slice.width / 2
+    cy = brain_slice.height / 2
+    ax = brain_slice.ax * brain_slice.resolution - cx
+    ay = cy - brain_slice.ay * brain_slice.resolution
+    view.set_anchor_to((ex, ey), (ax, ay))
 
     #
     if label is not None:

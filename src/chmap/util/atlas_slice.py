@@ -68,9 +68,17 @@ class SliceView(metaclass=abc.ABCMeta):
             reference = brain.reference
 
         self.brain = brain
+        """Atlas brain"""
+
         self.name = name
+        """slice plane projection"""
+
         self.reference = reference
+        """Image Array[uint, AP, DV, ML]"""
+
         self.resolution = int(brain.resolution[get_args(SLICE).index(name)])
+        """um/pixel"""
+
         self.grid_y, self.grid_x = np.mgrid[0:self.height, 0:self.width]
 
     def __str__(self):
@@ -394,10 +402,12 @@ class SlicePlane(NamedTuple):
 
     @property
     def width(self) -> float:
+        """width (um) in this view"""
         return self.slice.width_um
 
     @property
     def height(self) -> float:
+        """height (um) in this view"""
         return self.slice.height_um
 
     @property

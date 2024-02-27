@@ -1,29 +1,23 @@
 from __future__ import annotations
 
 import sys
-from typing import NamedTuple, TYPE_CHECKING
+from typing import NamedTuple
 
 import numpy as np
+from numpy.typing import NDArray
 
-from chmap.util.atlas_slice import SLICE, SliceView, SlicePlane
-from chmap.util.util_numpy import closest_point_index
+from chmap.util.atlas_slice import SliceView, SlicePlane
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
-if TYPE_CHECKING:
-    from chmap.util.atlas_brain import BrainGlobeAtlas
-    from chmap.util.util_blueprint import BlueprintFunctions
-    from chmap.views.base import BoundaryState
-
 __all__ = [
     'ProbeCoordinate',
-    'get_slice_view',
-    'new_slice_view',
     'get_plane_at',
-    'get_transform_state'
+    'prepare_affine_matrix',
+    'prepare_affine_matrix_both',
 ]
 
 
@@ -38,39 +32,23 @@ class ProbeCoordinate(NamedTuple):
     """i-th shank"""
 
     rx: float = 0
-    """shank s x-axis rotate degree"""
+    """shank s x-axis (ap) rotate degree"""
     ry: float = 0
-    """shank s y-axis rotate degree"""
+    """shank s y-axis (dv) rotate degree"""
     rz: float = 0
-    """shank s z-axis rotate degree"""
+    """shank s z-axis (ml) rotate degree"""
 
     depth: float = 0
     """shank s insert depth (um)"""
 
-    direction: tuple[float, float, float] | None = None
-    """shank direction (ap, dv, ml)"""
-
-    def shank_at(self, s: int) -> Self:
-        if self.direction is None:
-            return self
-
-        dx, dy, dz = self.direction
-        dx *= s
-        dy *= s
-        dz *= s
-        return self._replace(x=self.x + dx, y=self.y + dy, z=self.z + dz)
-
-    def shank_0(self) -> Self:
-        return self.shank_at(-self.s)
-
     @classmethod
-    def from_bregma(cls, atlas_name: str, ap: float, ml: float, dv: float = 0, ref: str = 'bregma', **kwargs) -> Self:
+    def from_bregma(cls, atlas_name: str, ap: float, dv: float, ml: float, ref: str = 'bregma', **kwargs) -> Self:
         """
 
         :param atlas_name: atlas brain name
         :param ap: um
-        :param ml: um
         :param dv: um
+        :param ml: um
         :param ref: reference origin, default use 'bregma'
         :param kwargs: {ProbeCoordinate}'s other parameters.
         :return:
@@ -81,40 +59,8 @@ class ProbeCoordinate(NamedTuple):
 
         x = bregma[0] - ap
         y = bregma[1] + dv
-        z = bregma[2] - ml
+        z = bregma[2] + ml
         return ProbeCoordinate(x, y, z, **kwargs)
-
-
-def get_slice_view(pc: ProbeCoordinate) -> SLICE | None:
-    if pc.direction is None:
-        return None
-
-    pd = np.array(pc.direction)
-    uc = np.array([0, 0, 1])
-    us = np.array([1, 0, 0])
-    ut = np.array([0, -1, 0])
-    i = np.argmax(np.abs([
-        np.dot(pd, uc),
-        np.dot(pd, us),
-        np.dot(pd, ut),
-    ]))
-    return ['coronal', 'sagittal', 'transverse'][i]
-
-
-def new_slice_view(view: BrainGlobeAtlas | SliceView, pc: ProbeCoordinate) -> SliceView:
-    if isinstance(view, SliceView):
-        brain = view.brain
-        _name = view.name
-        reference = view.reference
-    else:
-        brain = view
-        _name = 'coronal'
-        reference = brain.reference
-
-    if (name := get_slice_view(pc)) is None:
-        name = _name
-
-    return SliceView(brain, name, reference)
 
 
 def get_plane_at(view: SliceView, pc: ProbeCoordinate) -> SlicePlane:
@@ -123,33 +69,81 @@ def get_plane_at(view: SliceView, pc: ProbeCoordinate) -> SlicePlane:
     return view.plane_at((pc.x, pc.y, pc.z), um=True).with_rotate(r)
 
 
-def get_transform_state(bp: BlueprintFunctions, plane: SlicePlane, pc: ProbeCoordinate) -> BoundaryState | None:
-    # TODO
-    match plane.slice_name:
-        case 'coronal':
-            rot = -pc.rx
-        case 'sagittal':
-            rot = pc.rz
-        case 'transverse':
-            rot = -pc.ry
-        case _:
-            raise RuntimeError('un-reachable')
+def prepare_affine_matrix(dx: float, dy: float, sx: float, sy: float, rt: float) -> NDArray[np.float_]:
+    """
 
-    if bp.channelmap is None:
-        cx = cy = 0
-    else:
-        electrode_s = bp.s == pc.s
-        electrode_x = bp.x[electrode_s]  # Array[um:float, N]
-        electrode_y = bp.y[electrode_s]  # Array[um:float, N]
+    :param dx: x-axis offset
+    :param dy: y-axis offset
+    :param sx: x-axis scaling
+    :param sy: y-axis scaling
+    :param rt: rotate in degree
+    :return: A
+    """
+    rt = np.deg2rad(rt)
 
-        if (i := closest_point_index(electrode_y, pc.depth, bp.dy * 2)) is None:
-            # cannot find nearest electrode position
-            return None
+    td = np.array([
+        [1, 0, dx],
+        [0, 1, dy],
+        [0, 0, 1],
+    ], dtype=float)
+    cos = np.cos(rt)
+    sin = np.sin(rt)
+    tr = np.array([
+        [cos, -sin, 0],
+        [sin, cos, 0],
+        [0, 0, 1],
+    ], dtype=float)
+    ts = np.array([
+        [sx, 0, 0],
+        [0, sy, 0],
+        [0, 0, 1],
+    ], dtype=float)
 
-        x = electrode_x[i]
-        y = electrode_y[i]
+    return td @ ts @ tr
 
-        cx = x - plane.ax
-        cy = y - plane.ay
 
-    return dict(dx=cx, dy=cy, rt=rot)
+def prepare_affine_matrix_both(dx: float, dy: float, sx: float, sy: float, rt: float) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+    """
+
+    :param dx: x-axis offset
+    :param dy: y-axis offset
+    :param sx: x-axis scaling
+    :param sy: y-axis scaling
+    :param rt: rotate in degree
+    :return: tuple of (A, A^-1)
+    """
+    rt = np.deg2rad(rt)
+
+    td = np.array([
+        [1, 0, dx],
+        [0, 1, dy],
+        [0, 0, 1],
+    ], dtype=float)
+    td_ = np.array([
+        [1, 0, -dx],
+        [0, 1, -dy],
+        [0, 0, 1],
+    ], dtype=float)
+    cos = np.cos(rt)
+    sin = np.sin(rt)
+    tr = np.array([
+        [cos, -sin, 0],
+        [sin, cos, 0],
+        [0, 0, 1],
+    ], dtype=float)
+    tr_ = np.array([
+        [cos, sin, 0],
+        [-sin, cos, 0],
+        [0, 0, 1],
+    ], dtype=float)
+    ts = np.array([
+        [sx, 0, 0],
+        [0, sy, 0],
+        [0, 0, 1],
+    ], dtype=float)
+    ts_ = np.array([
+        [1 / sx, 0, 0],
+        [0, 1 / sy, 0],
+        [0, 0, 1],
+    ], dtype=float)
+    return td @ ts @ tr, tr_ @ ts_ @ td_
