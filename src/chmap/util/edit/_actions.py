@@ -143,7 +143,7 @@ def atlas_label(bp: BlueprintFunctions, *args, color='cyan'):
     Set labels on atlas brain image.
 
     commands:
-    * clear :  clear labels
+    * clear : clear labels
     * delete,i,... :  delete labels
     * ap,dv,ml,text : add text on (ap,dv,ml) and use bregma as origin.
     * x,y,text[,ref] : add text on (x,y[,z]) and use reference as origin ('probe' as default).

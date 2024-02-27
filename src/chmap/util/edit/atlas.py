@@ -8,13 +8,17 @@ from chmap.util.utils import SPHINX_BUILD, doc_link
 from chmap.views.base import ControllerView
 
 if TYPE_CHECKING:
-    from chmap.views.atlas import AtlasBrainView
+    from chmap.views.atlas import AtlasBrainView, Label
 elif SPHINX_BUILD:
     BoundView = 'chmap.views.base.BoundView'
     AtlasBrainView = 'chmap.views.atlas.AtlasBrainView'
+    Label = 'chmap.views.atlas.Label'
 
 __all__ = [
+    'atlas_get_slice',
+    'atlas_set_slice',
     'atlas_add_label',
+    'atlas_focus_label',
     'atlas_del_label',
     'atlas_clear_labels',
     'atlas_set_transform',
@@ -25,13 +29,69 @@ __all__ = [
 
 
 @doc_link()
+def atlas_get_slice(controller: ControllerView, *, um=False) -> tuple[str | None, int | None]:
+    """
+
+    :param controller:
+    :param um: is plane index in return um? If so, then use bregma as origin.
+    :return: tuple of (projection name, plane index)
+    """
+    atlas: AtlasBrainView
+    if (atlas := controller.get_view('AtlasBrainView')) is None:
+        return None, None
+
+    name = atlas.brain_view.name
+    if (plane := atlas.brain_slice) is None:
+        return name, None
+
+    index = plane.plane
+    if um:
+        index = atlas.get_plane_offset(index)
+
+    return name, index
+
+
+@doc_link()
+def atlas_set_slice(controller: ControllerView,
+                    view: str = None,
+                    plane: int = None, *, um=False):
+    """
+
+    :param controller:
+    :param view: 'coronal', 'sagittal', or 'transverse'
+    :param plane: plane index
+    :param um: is *plane* um? If so, then use bregma as origin.
+    :see: {AtlasBrainView#update_brain_view()}, {AtlasBrainView#update_brain_slice()}
+    """
+    atlas: AtlasBrainView
+    if (atlas := controller.get_view('AtlasBrainView')) is not None:
+        if view is not None:
+            atlas.update_brain_view(view)
+
+        if plane is not None:
+            if um:
+                plane = atlas.get_plane_index(plane)
+
+            atlas.update_brain_slice(plane)
+
+
+@doc_link()
 def atlas_add_label(controller: ControllerView, text: str,
                     pos: tuple[float, float] | tuple[float, float, float], *,
-                    origin: str = 'bregma', color: str = 'cyan', replace=True):
+                    origin: str = 'bregma', color: str = 'cyan', replace=True) -> Label | None:
     """{AtlasBrainView#add_label()}"""
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is not None:
-        view.add_label(text, pos, origin=origin, color=color, replace=replace)
+        return view.add_label(text, pos, origin=origin, color=color, replace=replace)
+    return None
+
+
+@doc_link()
+def atlas_focus_label(controller: ControllerView, label: int | str | Label):
+    """{AtlasBrainView#focus_label()}"""
+    view: AtlasBrainView
+    if (view := controller.get_view('AtlasBrainView')) is not None:
+        view.focus_label(label)
 
 
 @doc_link()

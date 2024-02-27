@@ -18,6 +18,9 @@ __all__ = [
     'get_plane_at',
     'prepare_affine_matrix',
     'prepare_affine_matrix_both',
+    'project',
+    'project_b2i',
+    'project_i2b'
 ]
 
 
@@ -147,3 +150,103 @@ def prepare_affine_matrix_both(dx: float, dy: float, sx: float, sy: float, rt: f
         [0, 0, 1],
     ], dtype=float)
     return td @ ts @ tr, tr_ @ ts_ @ td_
+
+
+def project(a: NDArray[np.float_], p: NDArray[np.float_]) -> NDArray[np.float_]:
+    r"""
+    project coordinate from image-origin to probe-origin, or opposite
+    (depends on :math:`A_{3 \times 3}` to probe-origin or :math:`A_{3 \times 3}^{-1}` to image-origin).
+
+    :param a: Array[float, 3, 3] affine transform matrix
+    :param p: Array[float, (x,y[,1]) [,N]] position
+    :return: transform position, same shape as *p*.
+    """
+    if a.shape != (3, 3):
+        raise ValueError()
+
+    match p.shape:
+        case (2, ):
+            return (a @ np.concatenate([p, [1]]))[[0, 1]]
+        case (3, ):
+            return a @ p
+        case (2, n):
+            q = np.vstack([p, np.ones_like((n,))])
+            return (a @ q)[[0, 1], :]
+        case (3, n):
+            return a @ p
+        case _:
+            raise ValueError()
+
+
+def project_b2i(bregma: tuple[float, float, float], view: SlicePlane, p: NDArray[np.float_], *,
+                keep_plane: bool = False) -> NDArray[np.float_]:
+    """
+    project coordinate from bregma-origin to image-origin.
+
+    :param bregma: bregma (ap, dv, ml) in um
+    :param view: projection view
+    :param p: Array[float, (ap, dv, ml) [,N]] position in um
+    :param keep_plane: keep plane position (um) in return. Otherwise, p will be filled with 1.
+    :return: Array[float, (x, y, p) [,N]] transform position in um
+    """
+    match p.ndim:
+        case 1:
+            q = np.empty((3,), dtype=float)
+        case 2:
+            n = p.shape[1]
+            q = np.empty((3, n), dtype=float)
+        case _:
+            raise ValueError()
+
+    cx = view.width / 2
+    cy = view.height / 2
+
+    q[0] = bregma[0] - p[0]
+    q[1] = p[1] + bregma[1]
+    q[2] = p[2] + bregma[2]
+
+    q = q[view.slice.project_index, :]
+    q = q[[1, 2, 0], :]
+
+    q[0] = q[0] - cx
+    q[1] = cy - q[1]
+    if not keep_plane:
+        q[2] = 1
+
+    return q
+
+
+def project_i2b(bregma: tuple[float, float, float], view: SlicePlane, p: NDArray[np.float_]) -> NDArray[np.float_]:
+    """
+    project coordinate from image-origin to bregma-origin.
+
+    :param bregma: bregma (ap, dv, ml) in um
+    :param view: projection view
+    :param p: Array[float, (x,y[,1]) [,N]] position in um
+    :return: Array[float, (ap, dv, ml) [,N]] transform position in um
+    """
+    match p.ndim:
+        case 1:
+            q = np.empty((3,), dtype=float)
+        case 2:
+            n = p.shape[1]
+            q = np.empty((3, n), dtype=float)
+        case _:
+            raise ValueError()
+
+    cx = view.width / 2
+    cy = view.height / 2
+
+    x = p[0] + cx
+    y = cy - p[1]
+
+    pi, xi, yi = view.slice.project_index
+    q[xi] = x
+    q[yi] = y
+    q[pi] = view.plane_idx_at(x, y, um=True) * view.resolution
+
+    q[0] = bregma[0] - q[0]
+    q[1] -= bregma[1]
+    q[2] -= bregma[2]
+
+    return q

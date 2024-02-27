@@ -22,6 +22,7 @@ else:
 if TYPE_CHECKING:
     from chmap.util.edit.clustering import ClusteringEdges
     from chmap.util.probe_coor import ProbeCoordinate
+    from chmap.views.atlas import Label
 
     BLUEPRINT = NDArray[np.int_]
 
@@ -150,6 +151,7 @@ class BlueprintFunctions(Generic[M, E]):
     .. hlist::
         :columns: 2
 
+        * {#atlas_set_slice()}
         * {#atlas_add_label()}
         * {#atlas_del_label()}
         * {#atlas_clear_labels()}
@@ -842,8 +844,34 @@ class BlueprintFunctions(Generic[M, E]):
     # ====================== #
 
     @doc_link()
+    def atlas_get_slice(self, *, um=False) -> tuple[str | None, int | None]:
+        """
+        Get atlas brain image projection view and slicing plane.
+
+        :param um: is plane index in return um? If so, then use bregma as origin.
+        :return: tuple of (projection name, plane index)
+        """
+        from .edit.atlas import atlas_get_slice
+        if (controller := self._controller) is not None:
+            return atlas_get_slice(controller, um=um)
+        return None, None
+
+    @doc_link()
+    def atlas_set_slice(self, view: str = None, plane: int = None, *, um=False):
+        """
+        Set atlas brain image projection view and slicing plane.
+
+        :param view: 'coronal', 'sagittal', or 'transverse'
+        :param plane: plane index
+        :param um: is *plane* um? If so, then use bregma as origin.
+        """
+        from .edit.atlas import atlas_set_slice
+        if (controller := self._controller) is not None:
+            atlas_set_slice(controller, view, plane, um=um)
+
+    @doc_link()
     def atlas_add_label(self, text: str, pos: tuple[float, float] | tuple[float, float, float] = None, *,
-                        origin: str = 'bregma', color: str = 'cyan', replace=True):
+                        origin: str = 'bregma', color: str = 'cyan', replace=True) -> Label | None:
         """
         Add a label on atlas brain image.
 
@@ -852,11 +880,27 @@ class BlueprintFunctions(Generic[M, E]):
         :param origin: origin reference point
         :param color: label color
         :param replace: replace label which has same text content
+        :return: label
         :see: {AtlasBrainView#add_label()}
         """
         from .edit.atlas import atlas_add_label
         if (controller := self._controller) is not None:
-            atlas_add_label(controller, text, pos, origin=origin, color=color, replace=replace)
+            return atlas_add_label(controller, text, pos, origin=origin, color=color, replace=replace)
+        return None
+
+    @doc_link()
+    def atlas_focus_label(self, label: int | str | Label):
+        """
+        Move slice to the label's position.
+
+        Note: Only label which its origin refer on bregma works. Otherwise, nothing will happen.
+
+        :param label: label index, content or a {Label}.
+        :see: {AtlasBrainView#focus_label()}
+        """
+        from .edit.atlas import atlas_focus_label
+        if (controller := self._controller) is not None:
+            atlas_focus_label(controller, label)
 
     @doc_link()
     def atlas_del_label(self, i: int | str | list[int | str]):

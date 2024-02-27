@@ -279,8 +279,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if is_recursive_called():
             return
 
-        view = self.brain_view
-        p = self._get_plane_slider_index(view, s)
+        p = self.get_plane_index(s)
         self.update_brain_slice(p)
 
     def _on_checkbox_active(self, active: list[int]):
@@ -323,13 +322,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
     def _on_label_tap(self, tap: DoubleTap):
         if (label := self.find_label((tap.x, tap.y))) is not None:
-            if label.origin == 'bregma' and (origin := self._origin) is not None:
-                ap, dv, ml = label.pos
-                ap = origin[0] - ap * 1000
-                dv = origin[1] + dv * 1000
-                ml = origin[2] + ml * 1000
-                p, _, _ = self.brain_view.project((ap, dv, ml), um=True)
-                self.update_brain_slice(p)
+            self.focus_label(label)
 
     # ========= #
     # load/save #
@@ -445,11 +438,36 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                 return i
         return None
 
+    def focus_label(self, label: int | str | Label):
+        """
+        Move slice to the label's position.
+
+        Note: Only label which its origin refer on bregma works. Otherwise, nothing will happen.
+
+        :param label: label index, content or a {Label}.
+        """
+        if isinstance(label, int):
+            label = self._labels[label]
+        elif isinstance(label, str):
+            if (index := self.index_label(label)) is None:
+                return
+            label = self._labels[index]
+        elif not isinstance(label, Label):
+            raise TypeError()
+
+        if label.origin == 'bregma' and (origin := self._origin) is not None:
+            ap, dv, ml = label.pos
+            ap = origin[0] - ap * 1000
+            dv = origin[1] + dv * 1000
+            ml = origin[2] + ml * 1000
+            p, _, _ = self.brain_view.project((ap, dv, ml), um=True)
+            self.update_brain_slice(p)
+
     def add_label(self, text: str,
                   pos: tuple[float, float] | tuple[float, float, float], *,
                   origin: str = 'bregma',
                   color: str = 'cyan',
-                  replace=True):
+                  replace=True) -> Label:
         """
         Add a label.
 
@@ -482,11 +500,14 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         label = Label(text, pos, ref, color)
         self._labels.append(label)
+        self.logger.debug('add label %s', label)
 
         if i is None:
             self.data_labels.stream(self._transform_labels([label], start=len(self._labels)))
         else:
             self.del_label(i)
+
+        return label
 
     def del_label(self, index: int | list[int]):
         """
@@ -532,61 +553,24 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                 case 'probe':
                     q = p[:, mask]  # Array[float, 3, N']
                     qp[:, mask] = q
-                    qb[:, mask] = self._image2bregma(a_ @ q, origin)
+                    qb[:, mask] = probe_coor.project_i2b(origin, self.brain_slice, (a_ @ q) / 1000)
 
                 case 'image':
                     q = p[:, mask]  # Array[float, 3, N']
                     qp[:, mask] = a @ q
-                    qb[:, mask] = self._image2bregma(q, origin)
+                    qb[:, mask] = probe_coor.project_i2b(origin, self.brain_slice, q / 1000)
 
                 case 'bregma':
                     q = p[:, mask]  # Array[float, (ap,dv,ml), N']
                     qb[:, mask] = q
-                    qp[:, mask] = a @ self._bregma2image(q, origin)
+                    qp[:, mask] = a @ probe_coor.project_b2i(origin, self.brain_slice, q * 1000)
 
                 case str(bregma):
                     q = p[:, mask]  # Array[float, (ap,dv,ml), N']
                     qb[:, mask] = q
-                    qp[:, mask] = a @ self._bregma2image(q, REFERENCE[bregma][self.brain_view.brain.atlas_name])
+                    qp[:, mask] = a @ probe_coor.project_b2i(REFERENCE[bregma][self.brain_view.brain.atlas_name], self.brain_slice, q * 1000)
 
         return dict(i=ii, x=qp[0], y=qp[1], label=t, color=c, ap=qb[0], dv=qb[1], ml=qb[2])
-
-    def _image2bregma(self, q: NDArray[np.float_], origin: tuple[float, float, float]) -> NDArray[np.float_]:
-        """
-
-        :param q: Array[um:float, (x, y, 1), N]
-        :param origin: (ap, dv, ml) in um
-        :return: Array[mm:float, (ap, dv, ml), N]
-        """
-        cx = self.width / 2
-        cy = self.height / 2
-        q[0] = q[0] + cx
-        q[1] = cy - q[1]
-        q = self.brain_slice.coor_on(q[(0, 1), :].T, um=True).T  # Array[int, (ap,dv,ml), N]
-        q = q * self.brain_view.resolution  # Array[um:float, (ap,dv,ml), N]
-        q[0] = origin[0] - q[0]
-        q[1] = q[1] - origin[1]
-        q[2] = q[2] - origin[2]
-        return q / 1000  # Array[mm:float, (ap,dv,ml), N]
-
-    def _bregma2image(self, q: NDArray[np.float_], origin: tuple[float, float, float]) -> NDArray[np.float_]:
-        """
-
-        :param q: Array[mm:float, (ap, dv, ml), N]
-        :param origin: (ap, dv, ml) in um
-        :return: Array[um:float, (x, y, 1), N]
-        """
-        cx = self.width / 2
-        cy = self.height / 2
-        q[0] = origin[0] - q[0] * 1000
-        q[1] = origin[1] + q[1] * 1000
-        q[2] = origin[2] + q[2] * 1000
-        q = self.brain_view.project(q.T, um=True).T  # Array[int, (p,x,y), N]
-        q = q[(1, 2, 0), :] * self.brain_view.resolution  # Array[float, (x,y,p), N]
-        q[0] = q[0] - cx
-        q[1] = cy - q[1]
-        q[2] = 1
-        return q
 
     # ================== #
     # SliceView updating #
@@ -662,7 +646,18 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             else:
                 self.update_image(plane.image)
 
-    def _get_plane_slider_index(self, view: SliceView, plane: float) -> int:
+    def get_plane_offset(self, plane: int) -> float:
+        view = self.brain_view
+        match (self._origin, view.name):
+            case ((origin, _, _), 'coronal'):
+                return origin - plane * view.resolution
+            case ((_, _, origin), 'sagittal'):
+                return plane * view.resolution - origin
+            case _:
+                return plane * view.resolution
+
+    def get_plane_index(self, plane: float) -> int:
+        view = self.brain_view
         match (self._origin, view.name):
             case ((origin, _, _), 'coronal'):
                 return int((origin - plane) / view.resolution)
@@ -679,19 +674,16 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                 d = view.n_plane * view.resolution
                 self.plane_slider.start = origin - d
                 self.plane_slider.end = origin - 0
-                if plane is not None:
-                    self.plane_slider.value = origin - plane.plane * view.resolution
             case ((_, _, origin), 'sagittal'):
                 d = view.n_plane * view.resolution
                 self.plane_slider.start = 0 - origin
                 self.plane_slider.end = d - origin
-                if plane is not None:
-                    self.plane_slider.value = plane.plane * view.resolution - origin
             case _:
                 self.plane_slider.start = 0
                 self.plane_slider.end = view.n_plane * view.resolution
-                if plane is not None:
-                    self.plane_slider.value = plane.plane * view.resolution
+
+        if plane is not None:
+            self.plane_slider.value = self.get_plane_offset(plane.plane)
 
     # ================= #
     # boundary updating #
