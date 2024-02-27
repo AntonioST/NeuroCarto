@@ -98,6 +98,13 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         self.logger.debug('init(%s)', config.atlas_name)
         self.brain = get_atlas_brain(config.atlas_name, config.atlas_root)
+
+        self._origin: tuple[float, float, float] | None = None
+        try:
+            self._origin = REFERENCE['bregma'][self.brain.atlas_name]
+        except KeyError:
+            self.logger.warning(f'bregma of {self.brain.atlas_name} not found')
+
         self._structure = Structures.of(self.brain)
         self._labels: list[Label] = []
 
@@ -269,12 +276,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             return
 
         view = self.brain_view
-        if view.name == 'sagittal':
-            d = view.n_plane * view.resolution / 2
-            p = int((s + d) / view.resolution)
-        else:
-            p = int(s / view.resolution)
-
+        p = self._get_plane_slider_index(view, s)
         self.update_brain_slice(p)
 
     def _on_checkbox_active(self, active: list[int]):
@@ -317,8 +319,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
     def _on_label_tap(self, tap: DoubleTap):
         if (label := self.find_label((tap.x, tap.y))) is not None:
-            if label.origin == 'bregma':
-                origin = REFERENCE['bregma'][self.brain_view.brain.atlas_name]
+            if label.origin == 'bregma' and (origin := self._origin) is not None:
                 ap, dv, ml = label.pos
                 ap = origin[0] - ap * 1000
                 dv = origin[1] + dv * 1000
@@ -634,39 +635,59 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         try:
             self.slice_select.value = view.name
-            self.plane_slider.step = view.resolution
-
-            if view.name == 'sagittal':
-                d = view.n_plane * view.resolution / 2
-                self.plane_slider.start = -d
-                self.plane_slider.end = d
-            else:
-                self.plane_slider.start = 0
-                self.plane_slider.end = view.n_plane * view.resolution
-
-            self.rotate_hor_slider.step = view.resolution
-            self.rotate_ver_slider.step = view.resolution
         except AttributeError:
             pass
 
-        if plane is not None:
-            try:
-                if view.name == 'sagittal':
-                    d = view.n_plane * view.resolution / 2
-                    self.plane_slider.value = plane.plane * view.resolution - d
-                else:
-                    self.plane_slider.value = plane.plane * view.resolution
+        try:
+            self._update_plane_slider(view, plane)
+        except AttributeError:
+            pass
 
+        try:
+            self.rotate_hor_slider.step = view.resolution
+            self.rotate_ver_slider.step = view.resolution
+            if plane is not None:
                 self.rotate_hor_slider.value = plane.dw * view.resolution
                 self.rotate_ver_slider.value = plane.dh * view.resolution
-            except AttributeError:
-                pass
+        except AttributeError:
+            pass
 
         if update_image:
             if plane is None:
                 self.update_image(None)
             else:
                 self.update_image(plane.image)
+
+    def _get_plane_slider_index(self, view: SliceView, plane: float) -> int:
+        match (self._origin, view.name):
+            case ((origin, _, _), 'coronal'):
+                return int((origin - plane) / view.resolution)
+            case ((_, _, origin), 'sagittal'):
+                return int((plane + origin) / view.resolution)
+            case _:
+                return int(plane / view.resolution)
+
+    def _update_plane_slider(self, view: SliceView, plane: SlicePlane | None):
+        self.plane_slider.step = view.resolution
+
+        match (self._origin, view.name):
+            case ((origin, _, _), 'coronal'):
+                d = view.n_plane * view.resolution
+                self.plane_slider.start = origin - d
+                self.plane_slider.end = origin - 0
+                if plane is not None:
+                    self.plane_slider.value = origin - plane.plane * view.resolution
+            case ((_, _, origin), 'sagittal'):
+                d = view.n_plane * view.resolution
+                self.plane_slider.start = 0 - origin
+                self.plane_slider.end = d - origin
+                if plane is not None:
+                    self.plane_slider.value = plane.plane * view.resolution - origin
+            case _:
+                self.plane_slider.start = 0
+                self.plane_slider.end = view.n_plane * view.resolution
+                if plane is not None:
+                    self.plane_slider.value = plane.plane * view.resolution
 
     # ================= #
     # boundary updating #

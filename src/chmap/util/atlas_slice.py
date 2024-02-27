@@ -435,23 +435,29 @@ class SlicePlane(NamedTuple):
             return self.plane
 
         match (x, y):
-            case (x, y) if not um and all_int(x, y):
-                pass
-            case (x, y) if um and all_float(x, y):
-                res = self.resolution
-                x = int(x / res)
-                y = int(y / res)
+            case (x, y) if all_float(x, y):
+                if not um:
+                    res = self.resolution
+                    x *= res
+                    y *= res
             case _:
                 x, y = align_arr(x, y)
-                if um:
+                if not um:
                     res = self.resolution
-                    x = (x / res)
-                    y = (y / res)
-                x = x.astype(int)
-                y = y.astype(int)
+                    x = x * res
+                    y = y * res
 
-        # TODO extrapolation
-        return self.plane_offset[y, x]
+        cx = self.width / 2
+        cy = self.height / 2
+
+        dw = self.dw / cx * (x - cx)
+        dh = self.dh / cy * (y - cy)
+        dp = self.plane + dw + dh
+
+        if isinstance(dp, np.ndarray):
+            return dp.astype(int)
+        else:
+            return int(dp)
 
     @overload
     def coor_on(self, o: XY | tuple[float, float] = None, *, um=False) -> COOR:
