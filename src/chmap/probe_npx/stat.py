@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from chmap.probe_npx import NpxProbeDesp, NpxElectrodeDesp
-from chmap.probe_npx.npx import ChannelMap
+from chmap.probe_npx.npx import ChannelMap, Electrode
 from chmap.probe_npx.select import ElectrodeSelector, load_select
 
 if sys.version_info >= (3, 11):
@@ -44,19 +44,16 @@ class ElectrodeDensity:
         return f'{self.channel}/{self.electrode}'
 
 
-def npx_electrode_density(probe: NpxProbeDesp, chmap: ChannelMap) -> NDArray[np.float_]:
+def npx_electrode_density(chmap: ChannelMap) -> NDArray[np.float_]:
     """
 
-    :param probe:
     :param chmap:
-    :return: density curve array. Array[float, S, Y, (x, y)].
+    :return: density curve array. Array[float, S, (v, y), Y].
     """
-    from scipy.stats import norm
+    from scipy.ndimage import maximum_filter
 
     kind = chmap.probe_type
-
-    channels = probe.all_channels(chmap)
-    electrodes = set([it.electrode for it in channels])
+    electrodes = set([(it.shank, it.column, it.row) for it in chmap.electrodes])
     C = kind.n_col_shank
     R = kind.n_row_shank
 
@@ -68,7 +65,11 @@ def npx_electrode_density(probe: NpxProbeDesp, chmap: ChannelMap) -> NDArray[np.
                 return ElectrodeDensity(1, 0)
         return ElectrodeDensity(0, 0)
 
-    def density(s: int, c: int, r: int) -> float:
+    def density(ch: Electrode) -> float:
+        s = ch.shank
+        c = ch.column
+        r = ch.row
+
         d = ElectrodeDensity(1, 1)
         d += find(s, c - 1, r - 1)
         d += find(s, c, r - 1)
@@ -80,19 +81,17 @@ def npx_electrode_density(probe: NpxProbeDesp, chmap: ChannelMap) -> NDArray[np.
         d += find(s, c + 1, r + 1)
         return float(d)
 
-    y = np.arange(0, kind.n_row_shank * kind.r_space, dtype=float)
-    f = kind.s_space
+    y = np.arange(0, kind.n_row_shank, dtype=float)
 
     ret = []
 
     for shank in range(kind.n_shank):
         x = np.zeros_like(y)
-        for ch in channels:
-            if ch.electrode[0] == shank:
-                x += norm.pdf(y, ch.y, 30) * density(*ch.electrode) * f * 4
+        for ch in chmap.electrodes[shank, :, :]:
+            x[ch.row] = max(density(ch), x[ch.row])
 
-        x += (kind.n_col_shank - 1) * kind.c_space + shank * kind.s_space
-        ret.append(np.vstack([x, y]).T)
+        x = maximum_filter(x, size=3, mode='nearest')
+        ret.append(np.vstack([x, y * kind.r_space]))
 
     return np.array(ret)
 

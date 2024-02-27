@@ -12,6 +12,7 @@ from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import is_recursive_called, PathAutocompleteInput
+from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.views.base import Figure, ViewBase, DynamicView, InvisibleView
 
 __all__ = ['DataView', 'DataHandler', 'Data1DView', 'FileDataView']
@@ -43,12 +44,27 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
         """get Electrode data. A dict used by ColumnDataSource."""
         pass
 
+    # ============== #
+    # probe updating #
+    # ============== #
+
+    probe: ProbeDesp[M, E] = None
+    channelmap: M | None = None
+    blueprint: list[E] | None = None
+
+    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, electrodes: list[E] | None):
+        self.probe = probe
+        self.channelmap = chmap
+        self.blueprint = electrodes
+
+        run_later(self.update)
+
+    def new_blueprint_function(self) -> BlueprintFunctions:
+        return BlueprintFunctions(self.probe, self.channelmap)
+
     # ================ #
     # updating methods #
     # ================ #
-
-    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, electrodes: list[E] | None):
-        run_later(self.update)
 
     def start(self):
         self.update()
@@ -91,25 +107,103 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
     # utilities #
     # ========= #
 
+    _cache_channelmap_code: int | None = None
+    _cache_shank_space: list[tuple[float, float]] | None = None
+
+    def transform(self, data: NDArray[np.float_], height: float = 1, vmax: float = None) -> NDArray[np.float_]:
+        """
+        normalize and transform 2D value array to 2D curve array.
+
+        :param data: Array[float, [S,], (v, y), Y]
+        :param height: ratio of max(data) / shank_space
+        :return: Array[float, [S,], (x, y), Y]
+        """
+        if self.probe is None:
+            raise RuntimeError('missing probe')
+
+        if (channelmap_code := self.probe.channelmap_code(self.channelmap)) is None:
+            raise RuntimeError('missing probe')
+
+        # check first time or probe type changed.
+        if self._cache_shank_space is None or self._cache_channelmap_code != channelmap_code:
+            self._update_shank_space()
+            if self._cache_shank_space is None:
+                raise RuntimeError('missing probe')
+            self._cache_channelmap_code = channelmap_code
+
+        #
+        if data.ndim == 2:  # ((v,y), Y)
+            if vmax is None:
+                vmax = np.nanmax(data[0], initial=0)
+
+            x = self._cache_shank_space[0]
+            if vmax == 0:
+                return np.vstack([np.full_like(data[0], x[0]), data[1]])
+            else:
+                return np.vstack([x[0] + data[0] * height * x[1] / vmax, data[1]])
+
+        elif data.ndim == 3:  # (S,(v,y),Y)
+            if vmax is None:
+                vmax = np.nanmax(data[:, 0, :], initial=0)
+
+            if vmax == 0:
+                return np.array([
+                    np.vstack([np.full_like(_data[0], x[0]), _data[1]])
+                    for i, _data in enumerate(data)
+                    if (x := self._cache_shank_space[i])
+                ])
+            else:
+                return np.array([
+                    np.vstack([x[0] + _data[0] * height * x[1] / vmax, _data[1]])
+                    for i, _data in enumerate(data)
+                    if (x := self._cache_shank_space[i])
+                ])
+        else:
+            raise RuntimeError()
+
+    def _update_shank_space(self):
+        bp = self.new_blueprint_function()
+        if bp.channelmap is None:
+            self._cache_shank_space = None
+            return
+
+        shank_space = []
+        x0 = 0
+        xs = 200
+        for i, s in enumerate(np.unique(bp.s)):
+            x = bp.x[bp.s == s]
+
+            x2 = np.min(x)
+            x3 = np.max(x)
+
+            if i > 0:
+                xs = float(x2 - x0)
+                shank_space.append((float(x0), xs))
+
+            x0 = x3
+
+        shank_space.append((float(x0), xs))
+        self._cache_shank_space = shank_space
+
     @classmethod
     def arr_to_dict(cls, data: NDArray[np.float_]) -> dict:
         """
 
-        :param data: Array[float, [S,], Y, (x, y)]
+        :param data: Array[float, [S,], (x, y), Y]
         :return: dict(x=[array[x]], y=[array[y]])
         """
         xx: list[NDArray[np.float_]]
         yy: list[NDArray[np.float_]]
 
-        if data.ndim == 2:  # (Y, (x, y))
-            xx = [data[:, 0]]
-            yy = [data[:, 1]]
-        elif data.ndim == 3:  # (S, Y, (x, y))
+        if data.ndim == 2:  # ((x,y),Y)
+            xx = [data[0]]
+            yy = [data[1]]
+        elif data.ndim == 3:  # (S,(x,y),Y)
             xx = []
             yy = []
             for _data in data:
-                xx.append(_data[:, 0])
-                yy.append(_data[:, 1])
+                xx.append(_data[0])
+                yy.append(_data[1])
         else:
             raise RuntimeError(f'{type(set).__name__}.data() return .ndim{data.ndim}')
 
