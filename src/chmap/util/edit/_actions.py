@@ -194,7 +194,7 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
                                                  depth: float = 0,
                                                  ref: str = 'bregma',
                                                  label: str = None,
-                                                 label_color: str = 'cyan'):
+                                                 color: str = 'cyan'):
     """
     Adjust atlas mouse brain image to corresponding probe coordinate.
 
@@ -209,65 +209,16 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
     :param depth: (mm:float=0) probe insert depth.
     :param ref: (str in ['bregma'] = 'bregma') origin reference.
     :param label: label text
-    :param label_color: label color
+    :param color: label color
     """
-    from chmap.views.atlas import AtlasBrainView
-    from chmap.util import probe_coor
-
-    #
-    if (view := bp.use_view(AtlasBrainView)) is None:
+    coor = bp.atlas_new_probe(ap * 1000, dv * 1000, ml * 1000, shank=shank, rx=rx, ry=ry, rz=rz, depth=depth * 1000, ref=ref)
+    if coor is None:
         return
 
-    # get probe coordinate instance
-    name = view.brain_view.brain.atlas_name
-    coor = probe_coor.ProbeCoordinate.from_bregma(
-        name, ap * 1000, dv * 1000, ml * 1000, s=shank,
-        rx=rx, ry=ry, rz=rz, depth=depth * 1000, ref=ref
-    )
+    bp.atlas_set_anchor_on_probe(coor)
 
-    # set brain slice to corresponding plane
-    brain_slice = probe_coor.get_plane_at(view.brain_view, coor)
-    view.update_brain_slice(brain_slice, update_image=False)
-
-    # set slice rotation
-    match brain_slice.slice_name:
-        case 'coronal':
-            rot = -coor.rx
-        case 'sagittal':
-            rot = coor.rz
-        case 'transverse':
-            rot = -coor.ry
-        case _:
-            raise RuntimeError('un-reachable')
-
-    view.update_boundary_transform(rt=rot)
-
-    # another slice on to probe
-    if bp.channelmap is None:
-        ex = ey = 0
-    else:
-        electrode_s = bp.s == coor.s
-        electrode_x = bp.x[electrode_s]  # Array[um:float, N]
-        electrode_y = bp.y[electrode_s]  # Array[um:float, N]
-
-        from chmap.util.util_numpy import closest_point_index
-        if (i := closest_point_index(electrode_y, coor.depth, bp.dy * 2)) is not None:
-            ex = electrode_x[i]
-        else:
-            # cannot find nearest electrode position
-            ex = 0
-
-        ey = coor.depth
-
-    cx = brain_slice.width / 2
-    cy = brain_slice.height / 2
-    ax = brain_slice.ax * brain_slice.resolution - cx
-    ay = cy - brain_slice.ay * brain_slice.resolution
-    view.set_anchor_to((ex, ey), (ax, ay))
-
-    #
     if label is not None:
-        bp.atlas_add_label(label, (ap, dv, ml), origin=ref, color=label_color)
+        bp.atlas_add_label(label, (ap, dv, ml), origin=ref, color=color)
 
 
 @use_probe(NpxProbeDesp, create=False)

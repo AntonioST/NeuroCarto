@@ -21,6 +21,7 @@ else:
 
 if TYPE_CHECKING:
     from chmap.util.edit.clustering import ClusteringEdges
+    from chmap.util.probe_coor import ProbeCoordinate
 
     BLUEPRINT = NDArray[np.int_]
 
@@ -687,21 +688,6 @@ class BlueprintFunctions(Generic[M, E]):
             return controller.get_view(view)
         return None
 
-    @doc_link()
-    def new_channelmap(self, code: int | str) -> M:
-        """
-        Create a new channelmap with type *code*.
-
-        :param code: channelmap type code.
-        :return: new channelmap instance.
-        :see: {ProbeView#reset()}
-        """
-        from .edit.actions import new_channelmap
-        if (controller := self._controller) is not None:
-            return new_channelmap(controller, code)
-        else:
-            raise RuntimeError()
-
     @doc_link(DataHandler='chmap.views.data.DataHandler')
     def draw(self, a: NDArray[np.float_] | None, *, view: str | type[ViewBase] = None):
         """
@@ -738,6 +724,25 @@ class BlueprintFunctions(Generic[M, E]):
         if (controller := self._controller) is not None:
             log_message(controller, *message)
 
+    # ================= #
+    # ProbeView related #
+    # ================= #
+
+    @doc_link()
+    def new_channelmap(self, code: int | str) -> M:
+        """
+        Create a new channelmap with type *code*.
+
+        :param code: channelmap type code.
+        :return: new channelmap instance.
+        :see: {ProbeView#reset()}
+        """
+        from .edit.probe import new_channelmap
+        if (controller := self._controller) is not None:
+            return new_channelmap(controller, code)
+        else:
+            raise RuntimeError()
+
     @doc_link()
     def capture_electrode(self, index: NDArray[np.int_] | NDArray[np.bool_],
                           state: list[int] = None):
@@ -748,7 +753,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param state: restrict electrodes on given states.
         :see: {ProbeView#set_captured_electrodes()}
         """
-        from .edit.actions import capture_electrode
+        from .edit.probe import capture_electrode
         if (controller := self._controller) is not None:
             capture_electrode(self, controller, index, state)
 
@@ -760,7 +765,7 @@ class BlueprintFunctions(Generic[M, E]):
         :return: index of captured electrodes.
         :see: {ProbeView#get_captured_electrodes_index()}
         """
-        from .edit.actions import captured_electrodes
+        from .edit.probe import captured_electrodes
         if (controller := self._controller) is not None:
             return captured_electrodes(controller, all)
         else:
@@ -777,7 +782,7 @@ class BlueprintFunctions(Generic[M, E]):
         :see: {#capture_electrode()}
         :see: {ProbeView#set_state_for_captured()}
         """
-        from .edit.actions import set_state_for_captured
+        from .edit.probe import set_state_for_captured
         if (controller := self._controller) is not None:
             set_state_for_captured(self, controller, state, index)
 
@@ -792,7 +797,7 @@ class BlueprintFunctions(Generic[M, E]):
         :see: {#capture_electrode()}
         :see: {ProbeView#set_category_for_captured()}
         """
-        from .edit.actions import set_category_for_captured
+        from .edit.probe import set_category_for_captured
         if (controller := self._controller) is not None:
             set_category_for_captured(self, controller, category, index)
 
@@ -804,9 +809,13 @@ class BlueprintFunctions(Generic[M, E]):
         :param selector:
         :see: {ProbeView#refresh_selection()}
         """
-        from .edit.actions import refresh_selection
+        from .edit.probe import refresh_selection
         if (controller := self._controller) is not None:
             refresh_selection(self, controller, selector)
+
+    # ====================== #
+    # AtlasBrainView related #
+    # ====================== #
 
     @doc_link()
     def atlas_add_label(self, text: str, pos: tuple[float, float] | tuple[float, float, float] = None, *,
@@ -821,7 +830,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param replace: replace label which has same text content
         :see: {AtlasBrainView#add_label()}
         """
-        from .edit.actions import atlas_add_label
+        from .edit.atlas import atlas_add_label
         if (controller := self._controller) is not None:
             atlas_add_label(controller, text, pos, origin=origin, color=color, replace=replace)
 
@@ -833,7 +842,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param i: index, or label text or list of them.
         :see: {AtlasBrainView#del_label()}
         """
-        from .edit.actions import atlas_del_label
+        from .edit.atlas import atlas_del_label
         if (controller := self._controller) is not None:
             atlas_del_label(controller, i)
 
@@ -844,6 +853,75 @@ class BlueprintFunctions(Generic[M, E]):
 
         :see: {AtlasBrainView#clear_labels()}
         """
-        from .edit.actions import atlas_clear_labels
+        from .edit.atlas import atlas_clear_labels
         if (controller := self._controller) is not None:
             atlas_clear_labels(controller)
+
+    # ================================= #
+    # AtlasBrainView coordinate related #
+    # ================================= #
+
+    @doc_link()
+    def atlas_set_transform(self, p: tuple[float, float] = None,
+                            s: float | tuple[float, float] = None,
+                            rt: float = None):
+        """
+        updating atlas image transforming.
+
+        :param p: center position (x, y)
+        :param s: scaling (sx, sy)
+        :param rt: rotating degree
+        :see: {BoundView#update_boundary_transform()}
+        """
+        from .edit.atlas import atlas_set_transform
+        if (controller := self._controller) is not None:
+            atlas_set_transform(controller, p, s, rt)
+
+    @doc_link()
+    def atlas_set_anchor(self, p: tuple[float, float], a: tuple[float, float] = (0, 0)):
+        """
+        Update atlas image boundary transform to move *a* onto *p*.
+
+        :param p: target point on figure. figure (probe) origin as origin.
+        :param a: anchor point on image, center point as origin.
+        """
+        from .edit.atlas import atlas_set_anchor
+        if (controller := self._controller) is not None:
+            atlas_set_anchor(controller, p, a)
+
+    @doc_link()
+    def atlas_new_probe(self,
+                        ap: float, dv: float, ml: float,
+                        shank: int = 0,
+                        rx: float = 0, ry: float = 0, rz: float = 0,
+                        depth: float = 0,
+                        ref: str = 'bregma') -> ProbeCoordinate | None:
+        """
+        Create a probe coordinate instance.
+
+        :param ap: um
+        :param dv: dv
+        :param ml: ml
+        :param shank: shank index
+        :param rx: ap rotate
+        :param ry: dv rotate
+        :param rz: ml rotate
+        :param depth: insert depth
+        :param ref: reference origin.
+        :return: a probe coordinate. ``None`` if origin not set.
+        """
+        from .edit.atlas import atlas_new_probe
+        if (controller := self._controller) is not None:
+            return atlas_new_probe(controller, ap, dv, ml, shank, rx, ry, rz, depth, ref)
+        return None
+
+    @doc_link()
+    def atlas_set_anchor_on_probe(self, coor: ProbeCoordinate):
+        """
+        Update atlas image boundary transform to anchor insertion point onto the probe.
+
+        :param coor: probe coordinate
+        """
+        from .edit.atlas import atlas_set_anchor_on_probe
+        if (controller := self._controller) is not None:
+            atlas_set_anchor_on_probe(self, controller, coor)
