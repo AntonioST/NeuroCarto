@@ -158,10 +158,14 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     region_choose: MultiChoice
 
     checkbox_group: CheckboxGroup
-    checkbox_groups: dict[str, UIElement]
+    checkbox_groups: dict[str, UIElement | GlyphRenderer]
 
     _figure_x_range: Range = None
     _figure_y_range: Range = None
+
+    def setup(self, f: Figure, **kwargs) -> list[UIElement]:
+        self.checkbox_groups = {}
+        return super().setup(f, **kwargs)
 
     def _setup_render(self, f: Figure,
                       palette: str = 'Greys256',
@@ -185,6 +189,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             x='x', y='y', color='color', source=self.data_labels, size=10,
         )
         f.on_event(DoubleTap, self._on_label_tap)
+        self.checkbox_groups['Labels'] = self.render_labels
 
         self.setup_boundary(f, boundary_color=boundary_color, boundary_desp='drag atlas brain image')
 
@@ -202,7 +207,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def _setup_title(self, **kwargs) -> list[UIElement]:
         ret = super()._setup_title(**kwargs)
 
-        self.checkbox_group = CheckboxGroup(labels=['Shear', 'Rotation', 'Scaling', 'Masking'], inline=True)
+        self.checkbox_group = CheckboxGroup(labels=['Shear', 'Rotation', 'Scaling', 'Masking', 'Labels'], inline=True)
         self.checkbox_group.on_change('active', as_callback(self._on_checkbox_active))
         ret.insert(-1, self.checkbox_group)
 
@@ -215,7 +220,6 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         new_btn = ButtonFactory(min_width=100, min_height=30, width_policy='min', height_policy='min')
         new_slider = SliderFactory(width=slider_width, align='end')
-        self.checkbox_groups = {}
 
         # slicing
         slice_view_options = list(get_args(SLICE))
@@ -374,7 +378,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # ================ #
 
     def start(self):
-        self._on_checkbox_active([])
+        self.checkbox_group.active = [4]
 
         if self._brain_view is None:
             try:
