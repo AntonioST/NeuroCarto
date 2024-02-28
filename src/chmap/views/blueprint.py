@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from bokeh.models import ColumnDataSource, GlyphRenderer
+import numpy as np
+from bokeh.models import ColumnDataSource, GlyphRenderer, Div
+from numpy.typing import NDArray
 
 from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.util.util_blueprint import BlueprintFunctions
@@ -39,11 +41,46 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
     # UI components #
     # ============= #
 
+    category_legend_div: Div
+
     def _setup_render(self, f: Figure, **kwargs):
         self.render_blueprint = f.multi_polygons(
             xs='xs', ys='ys', fill_color='c', source=self.data_blueprint,
             line_width=0, fill_alpha=0.5,
         )
+
+    def _setup_content(self, **kwargs):
+        self.category_legend_div = Div(
+            text="",
+            stylesheets=["""
+                div.chmap-blueprint-legend {
+                    display: flex;
+                    flex-direction: row; 
+                    padding-left: 1em;
+                }
+                div.chmap-blueprint-legend div.chmap-blueprint-legend-name {
+                    margin-left: 0.5em;
+                }
+                div.chmap-blueprint-legend div.chmap-blueprint-legend-color {
+                    margin-left: 1em;
+                    width: var(--line-height-computed, 14pt);
+                    height: var(--line-height-computed, 14pt);
+                }
+            """]
+        )
+        return [self.category_legend_div]
+
+    def set_category_colr(self, category: dict[int, str]):
+        self.category_legend_div.text = "".join([
+            '<div class="chmap-blueprint-legend">',
+            *[
+                (f'<div class="chmap-blueprint-legend-color" style="background-color: {color};"></div>'
+                 f'<div class="chmap-blueprint-legend-name">{name}</div>')
+                for code, color in category.items()
+                if (name := code if isinstance(code, str) else self.cache_probe.category_description(code)) is not None
+            ],
+            '</div>'
+        ])
 
     # ======== #
     # updating #
@@ -70,34 +107,63 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         if isinstance(chmap, ChannelMap):
             bp = BlueprintFunctions(probe, chmap)
             bp.set_blueprint(electrodes)
-            self.data_blueprint.data = self.plot_npx_channelmap(bp)
+            self.data_blueprint.data = self.plot_channelmap_npx(bp)
         else:
             self.reset_blueprint()
 
     def reset_blueprint(self):
         self.data_blueprint.data = dict(xs=[], ys=[], c=[])
 
-    def plot_npx_channelmap(self, bp: BlueprintFunctions) -> dict:
+    def plot_channelmap(self, bp: BlueprintFunctions) -> dict:
+        setting = {
+            bp.CATE_SET: 'green',
+            bp.CATE_FORBIDDEN: 'pink',
+        }
+        self.set_category_colr(setting)
+        return self._plot_blueprint(bp, setting)
+
+    def plot_channelmap_npx(self, bp: BlueprintFunctions) -> dict:
         from chmap.probe_npx.npx import ProbeType
+
+        setting = {
+            bp.CATE_FULL: 'green',
+            bp.CATE_HALF: 'orange',
+            bp.CATE_QUARTER: 'blue',
+            bp.CATE_FORBIDDEN: 'pink',
+        }
+        self.set_category_colr(setting)
 
         probe_type: ProbeType = bp.channelmap.probe_type
         c_space = probe_type.c_space
         r_space = probe_type.r_space
+        size = c_space // 2, r_space // 2
+        offset = c_space + c_space * probe_type.n_col_shank
 
         blueprint = bp.set(bp.blueprint(), bp.CATE_SET, bp.CATE_FULL)
-        categories = [
-            bp.CATE_FULL, bp.CATE_HALF, bp.CATE_QUARTER, bp.CATE_FORBIDDEN
-        ]
-        edges = bp.clustering_edges(blueprint, categories)
+        return self._plot_blueprint(bp, setting, blueprint, size, offset)
 
-        w = c_space // 2
-        h = r_space // 2
-        offset = c_space * probe_type.n_col_shank
-        edges = [it.set_corner((w, h)) for it in edges]
+    def _plot_blueprint(self, bp: BlueprintFunctions,
+                        setting: dict[int, str],
+                        blueprint: NDArray[np.int_] = None,
+                        size: tuple[int, int] = None,
+                        offset: int = None):
+        categories = list(setting.keys())
+        colors = list(setting.values())
+
+        if blueprint is None:
+            blueprint = bp.blueprint()
+
+        if size is None:
+            size = int(bp.dx), int(bp.dy)
+
+        if offset is None:
+            offset = 4 * bp.dx
+
+        edges = bp.clustering_edges(blueprint, categories)
+        edges = [it.set_corner(size) for it in edges]
 
         xs = [[], [], [], []]
         ys = [[], [], [], []]
-        color = ['green', 'orange', 'blue', 'pink']
 
         #
         # |<-c ->|<-2w->|
@@ -108,10 +174,10 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         for edge in edges:
             i = categories.index(edge.category)
 
-            xs[i].append([list(edge.x + offset + w)])
-            ys[i].append([list(edge.y)])
+            xs[i].append([edge.x + offset])
+            ys[i].append([edge.y])
 
-        return dict(xs=xs, ys=ys, c=color)
+        return dict(xs=xs, ys=ys, c=colors)
 
 
 if __name__ == '__main__':

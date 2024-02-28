@@ -703,8 +703,8 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Get corresponding {ViewBase} instance if activated.
 
-        Implement note:
-            Avoiding import V at the global that might cause ``ImportError``,
+        Note:
+            Avoiding import ``V`` at the global that might cause ``ImportError``,
             either using type name or using local import.
 
         :param view: view type or its type name.
