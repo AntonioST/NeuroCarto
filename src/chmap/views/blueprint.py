@@ -162,8 +162,8 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         edges = bp.clustering_edges(blueprint, categories)
         edges = [it.set_corner(size) for it in edges]
 
-        xs = [[], [], [], []]
-        ys = [[], [], [], []]
+        xs = [[] for _ in range(len(categories))]
+        ys = [[] for _ in range(len(categories))]
 
         #
         # |<-c ->|<-2w->|
