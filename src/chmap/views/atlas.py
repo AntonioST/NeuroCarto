@@ -45,6 +45,7 @@ class AtlasBrainViewState(TypedDict, total=False):
     image_sy: float
     image_rt: float
     regions: list[str]
+    labels: list[dict]
 
 
 class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
@@ -332,6 +333,11 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         boundary = self.get_boundary_state()
 
         self.logger.debug('save()')
+
+        labels = []
+        for label in self._labels:
+            labels.append(dict(text=label.text, pos=list(label.pos), origin=label.origin, color=label.color))
+
         return AtlasBrainViewState(
             atlas_brain=self.brain.atlas_name,
             brain_slice=None if (p := self._brain_view) is None else p.name,
@@ -343,7 +349,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             image_sx=boundary['sx'],
             image_sy=boundary['sy'],
             image_rt=boundary['rt'],
-            regions=list(self._regions)
+            regions=list(self._regions),
+            labels=labels
         )
 
     def restore_state(self, state: AtlasBrainViewState):
@@ -358,6 +365,15 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         dh = state['slice_rot_h']
         brain_slice = self.brain_view.plane_at(dp).with_offset(dw, dh)
         self.update_brain_slice(brain_slice, update_image=False)
+
+        if len(labels := state.get('labels', [])) > 0:
+            for label in labels:
+                self._labels.append(Label(
+                    label['text'],
+                    tuple(label['pos']),
+                    self._label_ref(label['origin']),
+                    label['color'],
+                ))
 
         self.update_boundary_transform(p=(state['image_dx'], state['image_dy']), s=(state['image_sx'], state['image_sx']), rt=state['image_rt'])
 
@@ -477,19 +493,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         :param color: label color
         :param replace: replace label which has same text content
         """
-        try:
-            ref = LABEL_REFS.index(origin)
-        except ValueError:
-            ref = None
-
-        if ref is None:
-            try:
-                REFERENCE[origin][self.brain_view.brain.atlas_name]
-            except KeyError as e:
-                raise ValueError(f'unknown origin type : {origin}') from e
-
-            ref = len(LABEL_REFS)
-            LABEL_REFS.append(origin)
+        ref = self._label_ref(origin)
 
         i: int | None = None
         if replace:
@@ -508,6 +512,21 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             self.del_label(i)
 
         return label
+
+    def _label_ref(self, origin: str) -> int:
+        try:
+            return LABEL_REFS.index(origin)
+        except ValueError:
+            pass
+
+        try:
+            REFERENCE[origin][self.brain_view.brain.atlas_name]
+        except KeyError as e:
+            raise ValueError(f'unknown origin type : {origin}') from e
+
+        ref = len(LABEL_REFS)
+        LABEL_REFS.append(origin)
+        return ref
 
     def del_label(self, index: int | list[int]):
         """
