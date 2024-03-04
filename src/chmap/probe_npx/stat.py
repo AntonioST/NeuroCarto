@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import sys
 from typing import NamedTuple
 
@@ -110,16 +109,24 @@ class ElectrodeEfficiencyStat(NamedTuple):
 
 
 def npx_channel_efficiency(chmap: ChannelMap, e: list[NpxElectrodeDesp]) -> ElectrodeEfficiencyStat:
+    """
+    Calculate the channel efficiency for a blueprint *e* and its outcomes *chmap*.
+
+    :param chmap: channelmap outcomes from blueprint *e*
+    :param e: blueprint
+    :return:
+    """
     used_channel = len(chmap)
     used_channel_on_shanks = [
         len([it for it in chmap.electrodes if it.shank == s])
         for s in range(chmap.probe_type.n_shank)
     ]
 
-    p, c = _npx_request_electrodes(e)
+    selected = set([(it.shank, it.column, it.row) for it in chmap.electrodes])
+    p, c = _npx_request_electrodes(selected, e)
     ae = 0 if p == 0 else c / p
     ce = 0 if ae == 0 else min(ae, 1 / ae)
-    re, rc = _get_electrode(e, [NpxProbeDesp.CATE_LOW, NpxProbeDesp.CATE_UNSET])
+    re, rc = _get_electrode(selected, e, [NpxProbeDesp.CATE_LOW, NpxProbeDesp.CATE_UNSET])
 
     return ElectrodeEfficiencyStat(
         chmap.probe_type.n_channels,
@@ -134,18 +141,18 @@ def npx_channel_efficiency(chmap: ChannelMap, e: list[NpxElectrodeDesp]) -> Elec
     )
 
 
-def _npx_request_electrodes(e: list[NpxElectrodeDesp]) -> tuple[float, int]:
-    p0, s0 = _get_electrode(e, [NpxProbeDesp.CATE_SET, NpxProbeDesp.CATE_FULL])
-    p2, s2 = _get_electrode(e, [NpxProbeDesp.CATE_HALF])
-    p4, s4 = _get_electrode(e, [NpxProbeDesp.CATE_QUARTER])
+def _npx_request_electrodes(selected: set, e: list[NpxElectrodeDesp]) -> tuple[float, int]:
+    p0, s0 = _get_electrode(selected, e, [NpxProbeDesp.CATE_SET, NpxProbeDesp.CATE_FULL])
+    p2, s2 = _get_electrode(selected, e, [NpxProbeDesp.CATE_HALF])
+    p4, s4 = _get_electrode(selected, e, [NpxProbeDesp.CATE_QUARTER])
     p = p0 + p2 / 2 + p4 / 4
     s = s0 + s2 + s4
     return p, s
 
 
-def _get_electrode(e: list[NpxElectrodeDesp], categories: list[int]) -> tuple[int, int]:
+def _get_electrode(selected: set, e: list[NpxElectrodeDesp], categories: list[int]) -> tuple[int, int]:
     e1 = [it for it in e if it.category in categories]
-    e2 = [it for it in e1 if it.state == NpxProbeDesp.STATE_USED]
+    e2 = [it for it in e1 if it.electrode in selected]
     return len(e1), len(e2)
 
 
@@ -153,7 +160,7 @@ class ElectrodeProbability(NamedTuple):
     sample_times: int
     summation: NDArray[np.int_]  # summation matrix Array[count:int, S, C, R]
     complete: int
-    channel_efficiency: float
+    channel_efficiency_: NDArray[np.float_]
 
     @property
     def probability(self) -> NDArray[np.float_]:
@@ -164,12 +171,36 @@ class ElectrodeProbability(NamedTuple):
     def complete_rate(self) -> float:
         return self.complete / self.sample_times
 
-    def __add__(self, other: ElectrodeProbability) -> ElectrodeProbability:
+    @property
+    def channel_efficiency(self) -> float:
+        """max channel efficiency"""
+        return np.max(self.channel_efficiency_)
+
+    @property
+    def channel_efficiency_mean(self) -> float:
+        """mean channel efficiency"""
+        return np.mean(self.channel_efficiency_)
+
+    @property
+    def channel_efficiency_var(self) -> float:
+        """channel efficiency variance"""
+        return np.var(self.channel_efficiency_)
+
+    def __add__(self, other: ElectrodeProbability) -> Self:
         return ElectrodeProbability(
             self.sample_times + other.sample_times,
             self.summation + other.summation,
             self.complete + other.complete,
-            max(self.channel_efficiency, other.channel_efficiency)
+            np.concatenate([self.channel_efficiency_, other.channel_efficiency_]),
+        )
+
+    @classmethod
+    def _reduce_add(cls, result: list[ElectrodeProbability]) -> Self:
+        return ElectrodeProbability(
+            sum([it.sample_times for it in result]),
+            np.sum([it.summation for it in result], axis=0),
+            sum([it.complete for it in result]),
+            np.concatenate([it.channel_efficiency_ for it in result]),
         )
 
 
@@ -202,7 +233,7 @@ def _npx_electrode_probability_0(probe: NpxProbeDesp, chmap: ChannelMap, bluepri
     pt = chmap.probe_type
     mat = np.zeros((pt.n_shank, pt.n_col_shank, pt.n_row_shank))
     complete = 0
-    channel_efficiency = 0.0
+    channel_efficiency = []
 
     for _ in range(sample_times):
         chmap = selector(probe, chmap, blueprint)
@@ -213,9 +244,9 @@ def _npx_electrode_probability_0(probe: NpxProbeDesp, chmap: ChannelMap, bluepri
         if probe.is_valid(chmap):
             complete += 1
 
-        channel_efficiency = max(channel_efficiency, npx_channel_efficiency(chmap, blueprint).channel_efficiency)
+        channel_efficiency.append(npx_channel_efficiency(chmap, blueprint).channel_efficiency)
 
-    return ElectrodeProbability(sample_times, mat, complete, channel_efficiency)
+    return ElectrodeProbability(sample_times, mat, complete, np.array(channel_efficiency))
 
 
 def _npx_electrode_probability_n(probe: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp],
@@ -238,4 +269,4 @@ def _npx_electrode_probability_n(probe: NpxProbeDesp, chmap: ChannelMap, bluepri
         pool.close()
         pool.join()
 
-    return functools.reduce(ElectrodeProbability.__add__, [it.get() for it in jobs])
+    return ElectrodeProbability._reduce_add([it.get() for it in jobs])

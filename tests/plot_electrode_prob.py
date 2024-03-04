@@ -22,16 +22,18 @@ selector = ['default', 'weaker'][0]
 print(f'use selector {selector}')
 
 t = time.time()
-prob = npx_electrode_probability(desp, chmap, blueprint, selector=selector, sample_times=10, n_worker=1)
+prob = npx_electrode_probability(desp, chmap, blueprint, selector=selector, sample_times=100, n_worker=6)
 t = time.time() - t
 print(f'use {t:.2f} sec')
 print(f'complete rate : {100 * prob.complete_rate:.2f}%')
-print(f'Ceff : {100 * prob.channel_efficiency:.2f}%')
+print(f'max(Ceff) : {100 * prob.channel_efficiency:.2f}%')
+print(f'mean(Ceff) : {100 * prob.channel_efficiency_mean:.2f}%')
+print(f'var(Ceff) : {100 * prob.channel_efficiency_var:.2f}%')
 
 fg, ax = plt.subplots(gridspec_kw=dict(top=0.9))
 height = 6
 
-# plot.plot_electrode_matrix(ax, chmap.probe_type, prob, electrode_unit='raw', cmap='YlOrBr', vmin=0, vmax=1)
+plot.plot_electrode_matrix(ax, chmap.probe_type, prob, electrode_unit='raw', cmap='YlOrBr', vmin=0, vmax=1)
 ims = plot.plot_electrode_block(ax, chmap.probe_type, prob.probability, electrode_unit='raw', height=height,
                                 cmap='YlOrBr', vmin=0, vmax=1, shank_width_scale=2)
 plot.plot_probe_shape(ax, chmap.probe_type, height=height, color='gray', label_axis=True, shank_width_scale=2)
