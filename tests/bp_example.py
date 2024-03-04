@@ -43,3 +43,7 @@ def example_generator_function(bp: BlueprintFunctions):
         yield 1
 
     bp.log_message('done')
+
+
+def example_indirect_call(bp: BlueprintFunctions, script: str, *args, **kwargs):
+    bp.call_script(script, *args, **kwargs)

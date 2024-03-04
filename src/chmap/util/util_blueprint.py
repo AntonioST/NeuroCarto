@@ -96,6 +96,8 @@ class BlueprintFunctions(Generic[M, E]):
         * {#del_electrodes()}
         * {#selected_electrodes()}
         * {#set_channelmap()}
+        * {#select_electrodes()}
+        * {#channel_efficiency()}
 
     **blueprint functions**
 
@@ -106,6 +108,7 @@ class BlueprintFunctions(Generic[M, E]):
         * {#new_blueprint()}
         * {#set_blueprint()}
         * {#apply_blueprint()}
+        * {#from_blueprint()}
         * {#load_blueprint()}
         * {#save_blueprint()}
         * {#set()}
@@ -130,6 +133,8 @@ class BlueprintFunctions(Generic[M, E]):
         * {#load_data()}
         * {#interpolate_nan()}
         * {#draw()}
+        * {#has_script()}
+        * {#call_script()}
 
     **Probe view functions**
 
@@ -799,6 +804,46 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.actions import log_message
         if (controller := self._controller) is not None:
             log_message(controller, *message)
+
+    @doc_link(
+        BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView',
+    )
+    def has_script(self, script: str) -> bool:
+        """
+        Check whether *script* is existed in {BlueprintScriptView}'s action list.
+
+        :param script: script name.
+        :return:
+        """
+        from .edit.actions import has_script
+        if (controller := self._controller) is not None:
+            return has_script(controller, script)
+        return False
+
+    @doc_link(
+        BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView',
+        use_probe='chmap.util.edit.checking.use_probe',
+        RequestChannelmapTypeError='chmap.util.edit.checking.RequestChannelmapTypeError',
+    )
+    def call_script(self, script: str, /, *args, **kwargs):
+        """
+        run script in {BlueprintScriptView}.
+
+        There are some difference behavior when running a script
+        from this method and {BlueprintScriptView#run_script}.
+
+        * Both are check script are up-to-date.
+        * This method does not handle {use_probe()} and {RequestChannelmapTypeError}
+        * This method does not print same logging message as {RequestChannelmapTypeError} for the target script.
+        * Both are allow a generator from the script, but this method pass the generator to the {BlueprintScriptView}.
+
+        :param script: script name in {BlueprintScriptView} action list.
+        :param args: script positional arguments.
+        :param kwargs: script keyword arguments.
+        """
+        from .edit.actions import call_script
+        if (controller := self._controller) is not None:
+            call_script(self, controller, script, *args, **kwargs)
 
     # ================= #
     # ProbeView related #

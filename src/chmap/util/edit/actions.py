@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import inspect
+from typing import TYPE_CHECKING
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -8,13 +11,18 @@ from chmap.util.utils import SPHINX_BUILD, doc_link
 from chmap.views.base import ViewBase, ControllerView
 from chmap.views.data import DataHandler
 
-if SPHINX_BUILD:
+if TYPE_CHECKING:
+    from chmap.views.edit_blueprint import BlueprintScriptView
+elif SPHINX_BUILD:
     ViewBase = 'chmap.views.base.ViewBase'
+    BlueprintScriptView = 'chmap.views.edit_blueprint.BlueprintScriptView'
 
 __all__ = [
     'log_message',
     'set_status_line',
     'draw',
+    'has_script',
+    'call_script',
 ]
 
 
@@ -41,3 +49,30 @@ def draw(self: BlueprintFunctions, controller: ControllerView,
         controller.on_data_update(self.probe, self.probe.all_electrodes(self.channelmap), a)
     elif isinstance(view_target := controller.get_view(view), DataHandler):
         view_target.on_data_update(self.probe, self.probe.all_electrodes(self.channelmap), a)
+
+
+@doc_link()
+def has_script(controller: ControllerView, script: str) -> bool:
+    """{BlueprintScriptView#run_script()}"""
+    edit: BlueprintScriptView = controller.get_view('BlueprintScriptView')
+    if edit is None:
+        return False
+    try:
+        edit.get_script(script)
+    except ImportError:
+        return False
+
+    return True
+
+
+@doc_link()
+def call_script(self: BlueprintFunctions, controller: ControllerView, script: str, /, *args, **kwargs):
+    """{BlueprintScriptView#run_script()}"""
+    edit: BlueprintScriptView = controller.get_view('BlueprintScriptView')
+    if edit is None:
+        return
+
+    # TODO logging
+    info = edit.get_script(script)
+    if inspect.isgenerator(ret := info.script(self, *args, **kwargs)):
+        edit._run_script_generator(self, script, ret)

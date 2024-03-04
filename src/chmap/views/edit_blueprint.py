@@ -402,12 +402,12 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             return
 
         if bp is not None:
-            self._run_script_done(bp, script)
+            self._run_script_done(bp, script.name)
 
-    def _run_script_done(self, bp: BlueprintFunctions, script: BlueprintScriptInfo):
+    def _run_script_done(self, bp: BlueprintFunctions, script: str):
         if (blueprint := self.cache_blueprint) is not None:
             bp.apply_blueprint(blueprint)
-            self.logger.debug('run_script(%s) update', script.name)
+            self.logger.debug('run_script(%s) update', script)
             run_later(self.update_probe)
 
     def _run_script(self, script: BlueprintScriptInfo,
@@ -444,7 +444,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         else:
             if inspect.isgenerator(ret):
                 self.logger.debug('run_script(%s) return generator', script.name)
-                self._run_script_generator(bp, script, ret, interrupt_at=interrupt_at)
+                self._run_script_generator(bp, script.name, ret, interrupt_at=interrupt_at)
                 return None
             else:
                 self.logger.debug('run_script(%s) done', script.name)
@@ -459,12 +459,12 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         return self._run_script(script, probe, chmap, script_input)
 
     def _run_script_generator(self, bp: BlueprintFunctions,
-                              script: BlueprintScriptInfo,
+                              script: str,
                               gen: Generator[float | None, None, None],
                               counter: int = 0, *,
                               interrupt_at: int = None):
         is_interrupted = False
-        if self._running_script.get(script.name, None) is KeyboardInterrupt:
+        if self._running_script.get(script, None) is KeyboardInterrupt:
             is_interrupted = True
         elif interrupt_at is not None and counter >= interrupt_at:
             is_interrupted = True
@@ -474,8 +474,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
                 # We are replaying in different update cycle, so RecordManager's internal flag is reset.
                 # Thus, we need to block recording by myself.
                 if interrupt_at is None:
-                    self.add_record(BlueprintScriptAction(action='interrupt', script_name=script.name, interrupt=counter),
-                                    "script", f"interrupt script {script.name}")
+                    self.add_record(BlueprintScriptAction(action='interrupt', script_name=script, interrupt=counter),
+                                    "script", f"interrupt script {script}")
 
                 gen.throw(KeyboardInterrupt())
             else:
@@ -491,40 +491,40 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         self._run_script_generator_finish(bp, script)
 
     def _run_script_generator_next(self, bp: BlueprintFunctions,
-                                   script: BlueprintScriptInfo,
+                                   script: str,
                                    gen: Generator[float | None, None, None],
                                    counter: int = 0, *,
                                    interrupt_at: int = None):
-        self._running_script[script.name] = gen
-        self._set_script_run_button_status(script.name)
+        self._running_script[script] = gen
+        self._set_script_run_button_status(script)
 
         ret = gen.send(None)
-        self.logger.debug('run_script(%s) yield[%d]', script.name, counter)
+        self.logger.debug('run_script(%s) yield[%d]', script, counter)
 
         if ret is None:
             run_later(self._run_script_generator, bp, script, gen, counter + 1, interrupt_at=interrupt_at)
         else:
             run_timeout(int(ret * 1000), self._run_script_generator, bp, script, gen, counter + 1, interrupt_at=interrupt_at)
 
-    def _run_script_generator_interrupt(self, script: BlueprintScriptInfo):
+    def _run_script_generator_interrupt(self, script: str):
         try:
-            del self._running_script[script.name]
+            del self._running_script[script]
         except KeyError:
             pass
 
-        self.logger.debug('run_script(%s) interrupted', script.name)
-        self.set_status(f'{script.name} interrupted', decay=10)
-        self._set_script_run_button_status(script.name)
+        self.logger.debug('run_script(%s) interrupted', script)
+        self.set_status(f'{script} interrupted', decay=10)
+        self._set_script_run_button_status(script)
 
-    def _run_script_generator_finish(self, bp: BlueprintFunctions, script: BlueprintScriptInfo):
+    def _run_script_generator_finish(self, bp: BlueprintFunctions, script: str):
         try:
-            del self._running_script[script.name]
+            del self._running_script[script]
         except KeyError:
             pass
 
-        self.logger.debug('run_script(%s) done', script.name)
-        self.set_status(f'{script.name} finished', decay=3)
-        self._set_script_run_button_status(script.name)
+        self.logger.debug('run_script(%s) done', script)
+        self.set_status(f'{script} finished', decay=3)
+        self._set_script_run_button_status(script)
 
         self._run_script_done(bp, script)
 
