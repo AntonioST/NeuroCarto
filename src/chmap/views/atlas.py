@@ -570,12 +570,12 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
             match ref:
                 case 'probe':
-                    q = p[:, mask]  # Array[float, 3, N']
+                    q = p[:, mask]  # Array[float, (x,y,1), N']
                     qp[:, mask] = q
                     qb[:, mask] = probe_coor.project_i2b(origin, self.brain_slice, (a_ @ q) / 1000)
 
                 case 'image':
-                    q = p[:, mask]  # Array[float, 3, N']
+                    q = p[:, mask]  # Array[float, (x,y,1), N']
                     qp[:, mask] = a @ q
                     qb[:, mask] = probe_coor.project_i2b(origin, self.brain_slice, q / 1000)
 
@@ -587,7 +587,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                 case str(bregma):
                     q = p[:, mask]  # Array[float, (ap,dv,ml), N']
                     qb[:, mask] = q
-                    qp[:, mask] = a @ probe_coor.project_b2i(REFERENCE[bregma][self.brain_view.brain.atlas_name], self.brain_slice, q * 1000)
+                    _origin = REFERENCE[bregma][self.brain_view.brain.atlas_name]
+                    qp[:, mask] = a @ probe_coor.project_b2i(_origin, self.brain_slice, q * 1000)
 
         return dict(i=ii, x=qp[0], y=qp[1], label=t, color=c, ap=qb[0], dv=qb[1], ml=qb[2])
 
