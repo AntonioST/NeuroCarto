@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-
 from chmap.probe_npx import NpxProbeDesp, utils
 from chmap.util.edit.checking import use_probe
 from chmap.util.util_blueprint import BlueprintFunctions
@@ -139,28 +138,38 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
 
 
 @use_probe(NpxProbeDesp)
-def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100):
+def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *, single_process=False):
     """
     Sample and find the optimized channelmap that has maxima channel efficiency.
 
     :param bp:
     :param sample_times: (int=100)
+    :param single_process: (bool) debug use paraneter
     """
-    import multiprocessing
-    with multiprocessing.Pool(1) as pool:
-        _bp = BlueprintFunctions(bp.probe, bp.channelmap)
-        _bp.set_blueprint(bp.blueprint())
+    blueprint = bp.blueprint()
+    if np.all(blueprint == bp.CATE_UNSET):
+        bp.log_message('empty blueprint')
+        return
 
-        job = pool.apply_async(_optimize_channelmap, (_bp, sample_times))
-        pool.close()
+    _bp = bp.clone()
+    _bp._controller = None
 
-        while True:
-            try:
-                chmap, ceff = job.get(0)
-            except multiprocessing.TimeoutError:
-                yield 1
-            else:
-                break
+    if single_process:
+        chmap, ceff = _optimize_channelmap(_bp, sample_times)
+    else:
+        import multiprocessing
+        with multiprocessing.Pool(1) as pool:
+
+            job = pool.apply_async(_optimize_channelmap, (_bp, sample_times))
+            pool.close()
+
+            while True:
+                try:
+                    chmap, ceff = job.get(0)
+                except multiprocessing.TimeoutError:
+                    yield 1
+                else:
+                    break
 
     bp.set_status_line(f'finished. got max(Ceff)={100 * ceff:.2f}%')
     bp.set_channelmap(chmap)

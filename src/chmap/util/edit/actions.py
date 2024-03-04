@@ -4,12 +4,11 @@ import inspect
 from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
-
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import SPHINX_BUILD, doc_link
 from chmap.views.base import ViewBase, ControllerView
 from chmap.views.data import DataHandler
+from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from chmap.views.edit_blueprint import BlueprintScriptView
@@ -24,6 +23,7 @@ __all__ = [
     'has_script',
     'call_script',
     'interrupt_script',
+    'profile_script',
 ]
 
 
@@ -77,11 +77,17 @@ def call_script(self: BlueprintFunctions, controller: ControllerView, script: st
     info = edit.get_script(script)
 
     edit.logger.debug('call_script(%s)', script)
-    if inspect.isgenerator(ret := info.script(self, *args, **kwargs)):
-        edit.logger.debug('call_script(%s) return generator', script)
-        edit._run_script_generator(self, script, ret)
+    try:
+        ret = info.script(self, *args, **kwargs)
+    except BaseException as e:
+        edit.logger.debug('call_script(%s) fail', script, exc_info=e)
+        raise e
     else:
-        edit.logger.debug('call_script(%s) done', script)
+        if inspect.isgenerator(ret):
+            edit.logger.debug('call_script(%s) return generator', script)
+            edit._run_script_generator(self, script, ret)
+        else:
+            edit.logger.debug('call_script(%s) done', script)
 
 
 @doc_link()
@@ -97,3 +103,47 @@ def interrupt_script(controller: ControllerView, script: str) -> bool:
         return False
     else:
         return True
+
+
+@doc_link()
+def profile_script(self: BlueprintFunctions, controller: ControllerView, script: str, /, *args, **kwargs):
+    """{BlueprintScriptView#run_script()}"""
+
+    edit: BlueprintScriptView = controller.get_view('BlueprintScriptView')
+    if edit is None:
+        return
+
+    import cProfile
+
+    info = edit.get_script(script)
+    profile = cProfile.Profile()
+
+    try:
+        edit.logger.debug('profile_script(%s)', script)
+
+        profile.enable()
+        try:
+            ret = info.script(self, *args, **kwargs)
+            if inspect.isgenerator(ret):
+                try:
+                    while True:
+                        ret.send(None)
+                except StopIteration:
+                    pass
+        finally:
+            profile.disable()
+
+        edit.logger.debug('profile_script(%s) done', script)
+        _save_profile_data(controller, script, profile)
+    except BaseException as e:
+        edit.logger.debug('profile_script(%s) fail', script, exc_info=e)
+        _save_profile_data(controller, script, profile)
+        raise e
+
+
+def _save_profile_data(controller: ControllerView, script: str, profile):
+    from chmap.files import user_cache_file
+    dat_file = user_cache_file(controller.get_app().config, f'profile-{script}.dat')
+    print(f'save {dat_file}')
+    profile.dump_stats(dat_file)
+    print(f'python -m gprof2dot -f pstats {dat_file} | dot -T png -o profile-{script}.png')

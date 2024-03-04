@@ -7,12 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, overload, Generic, Final
 
 import numpy as np
-from numpy.typing import NDArray
-
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.edit.checking import use_probe
 from chmap.util.utils import doc_link, SPHINX_BUILD
 from chmap.views.base import ViewBase, ControllerView, V
+from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -174,6 +173,13 @@ class BlueprintFunctions(Generic[M, E]):
         * {#set_status_line()}
         * {#log_message()}
         * {#use_view()}
+
+    **Miscellaneous**
+
+    .. hlist::
+        :columns: 2
+
+        * {#misc_profile_script()}
 
     """
 
@@ -1108,3 +1114,22 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.atlas import atlas_set_anchor_on_probe
         if (controller := self._controller) is not None:
             atlas_set_anchor_on_probe(self, controller, coor)
+
+    # ============= #
+    # Miscellaneous #
+    # ============= #
+
+    def misc_profile_script(self, script: str, /, *args, **kwargs):
+        """
+        call script under cProfile.
+
+        :param script: script name
+        :param args: script positional arguments
+        :param kwargs: script keyword arguments
+        :see: {#call_script()}
+        """
+        from .edit.actions import profile_script
+        if (controller := self._controller) is not None:
+            profile_script(self, controller, script, *args, **kwargs)
+        else:
+            raise RuntimeError()

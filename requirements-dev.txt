@@ -1,5 +1,6 @@
 coverage
 mypy
+gprof2dot
 
 # stubs
 pandas-stubs

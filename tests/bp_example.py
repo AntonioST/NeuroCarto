@@ -45,5 +45,5 @@ def example_generator_function(bp: BlueprintFunctions):
     bp.log_message('done')
 
 
-def example_indirect_call(bp: BlueprintFunctions, script: str, *args, **kwargs):
-    bp.call_script(script, *args, **kwargs)
+def profile_call(bp: BlueprintFunctions, script: str, *args, **kwargs):
+    bp.misc_profile_script(script, *args, **kwargs)
