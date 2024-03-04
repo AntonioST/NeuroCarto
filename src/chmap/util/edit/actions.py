@@ -23,6 +23,7 @@ __all__ = [
     'draw',
     'has_script',
     'call_script',
+    'interrupt_script',
 ]
 
 
@@ -57,9 +58,10 @@ def has_script(controller: ControllerView, script: str) -> bool:
     edit: BlueprintScriptView = controller.get_view('BlueprintScriptView')
     if edit is None:
         return False
+
     try:
         edit.get_script(script)
-    except ImportError:
+    except (ImportError, TypeError):
         return False
 
     return True
@@ -72,7 +74,26 @@ def call_script(self: BlueprintFunctions, controller: ControllerView, script: st
     if edit is None:
         return
 
-    # TODO logging
     info = edit.get_script(script)
+
+    edit.logger.debug('call_script(%s)', script)
     if inspect.isgenerator(ret := info.script(self, *args, **kwargs)):
+        edit.logger.debug('call_script(%s) return generator', script)
         edit._run_script_generator(self, script, ret)
+    else:
+        edit.logger.debug('call_script(%s) done', script)
+
+
+@doc_link()
+def interrupt_script(controller: ControllerView, script: str) -> bool:
+    """{BlueprintScriptView#interrupt_script()}"""
+    edit: BlueprintScriptView = controller.get_view('BlueprintScriptView')
+    if edit is None:
+        return False
+
+    try:
+        edit.interrupt_script(script)
+    except ValueError:
+        return False
+    else:
+        return True

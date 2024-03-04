@@ -99,6 +99,8 @@ def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
     :param root: PYTHONPATH
     :param reload: reload the module.
     :return:
+    :raise ImportError:
+    :raise ValueError: incorrect module path
     """
     if module_path.count(':') > 1:
         root, _, module_path = module_path.partition(':')
@@ -123,7 +125,10 @@ def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
     if name == '*':
         return module
 
-    return getattr(module, name)
+    try:
+        return getattr(module, name)
+    except AttributeError as e:
+        raise ImportError(f"{module_path}:{name}") from e
 
 
 def get_import_file(module_path: str, root: str = None) -> Path | None:

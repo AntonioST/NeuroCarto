@@ -163,12 +163,10 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def _on_run_script(self):
         script = self.script_select.value
         if script in self._running_script:
-            self.logger.debug('run_script(%s) interrupt', script)
-            self._running_script[script] = KeyboardInterrupt
-        else:
+            self.interrupt_script(script)
+        elif len(script):
             arg = self.script_input.value_input
-            if len(script):
-                self.run_script(script, arg)
+            self.run_script(script, arg)
 
     def reset_blueprint(self):
         if (blueprint := self.cache_blueprint) is None:
@@ -334,6 +332,9 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
 
         :param name: script name.
         :return:
+        :raise TypeError: not callable.
+        :raise ImportError:
+        :raise ValueError: incorrect script module path
         """
         script = self.actions.get(name, name)
 
@@ -354,6 +355,18 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             self.actions[name] = script = script.reload()
 
         return script
+
+    def interrupt_script(self, script: str):
+        """
+
+        :param script: script name
+        :raise ValueError: This script is not interruptable, maybe not exist or not running.
+        """
+        if script in self._running_script:
+            self.logger.debug('run_script(%s) interrupt', script)
+            self._running_script[script] = KeyboardInterrupt
+        else:
+            raise ValueError(script)
 
     @doc_link()
     def run_script(self, script: str | BlueprintScript | BlueprintScriptInfo, script_input: str = None, *,

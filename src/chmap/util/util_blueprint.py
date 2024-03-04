@@ -135,6 +135,7 @@ class BlueprintFunctions(Generic[M, E]):
         * {#draw()}
         * {#has_script()}
         * {#call_script()}
+        * {#interrupt_script()}
 
     **Probe view functions**
 
@@ -834,8 +835,12 @@ class BlueprintFunctions(Generic[M, E]):
 
         * Both are check script are up-to-date.
         * This method does not handle {use_probe()} and {RequestChannelmapTypeError}
-        * This method does not print same logging message as {RequestChannelmapTypeError} for the target script.
-        * Both are allow a generator from the script, but this method pass the generator to the {BlueprintScriptView}.
+        * This method does not print same logging message as {RequestChannelmapTypeError}.
+        * This method does not record history step.
+        * Both are allow a generator from the script, but
+          * this method pass the generator to the {BlueprintScriptView}.
+          * {BlueprintScriptView} mark the target script as interruptable, instead of this method.
+          * this method will lost control on the generator.
 
         :param script: script name in {BlueprintScriptView} action list.
         :param args: script positional arguments.
@@ -844,6 +849,21 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.actions import call_script
         if (controller := self._controller) is not None:
             call_script(self, controller, script, *args, **kwargs)
+
+    @doc_link(BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView', )
+    def interrupt_script(self, script: str) -> bool:
+        """
+        Interrupt script.
+
+        :param script: script name.
+        :return: is interrupt success?
+        :see: {BlueprintScriptView#interrupt_script()}
+        """
+        from .edit.actions import interrupt_script
+        if (controller := self._controller) is not None:
+            return interrupt_script(controller, script)
+        else:
+            return False
 
     # ================= #
     # ProbeView related #
