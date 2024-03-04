@@ -129,7 +129,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                 if electrodes is None:
                     d = NpxElectrodeDesp()
 
-                    d.s = electrodes
+                    d.s = e.shank
                     d.electrode = (e.shank, e.column, e.row)
                     d.x, d.y = e2p(probe_type, e)
                     d.channel = c

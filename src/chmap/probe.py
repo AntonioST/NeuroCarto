@@ -126,7 +126,7 @@ class ElectrodeDesp:
         return f'Electrode[{self.electrode}]'
 
     def __repr__(self):
-        pos = [self.x, self.y]
+        pos = [self.s, self.x, self.y]
         pos = ','.join(map(str, pos))
         return f'Electrode[{self.channel}:{self.electrode}]({pos}){{state={self.state}, category={self.category}}}'
 

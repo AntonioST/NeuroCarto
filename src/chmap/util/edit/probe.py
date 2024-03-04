@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from chmap.probe import ProbeDesp
+from chmap.probe import ProbeDesp, M, E
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import SPHINX_BUILD, doc_link
 from chmap.views.base import ControllerView
@@ -20,6 +20,8 @@ __all__ = [
     'set_state_for_captured',
     'set_category_for_captured',
     'refresh_selection',
+    'select_electrodes',
+    'npx_channel_efficiency'
 ]
 
 
@@ -101,3 +103,72 @@ def refresh_selection(self: BlueprintFunctions, controller: ControllerView, sele
         self.set_channelmap(view.channelmap)
     finally:
         view.selecting_parameters = old_select_args
+
+
+@doc_link()
+def select_electrodes(self: BlueprintFunctions, chmap: M = None,
+                      blueprint: list[E] | NDArray[np.int_] = None, **kwargs) -> M:
+    """
+    Run electrode selection for a channelmap based on the blueprint.
+
+    :param self:
+    :param chmap:
+    :param blueprint:
+    :param kwargs: selector extra parameters
+    :return: selection result
+    :see: {ProbeDesp#select_electrodes}
+    """
+    desp = self.probe
+
+    if chmap is None:
+        chmap = self.channelmap
+
+    if blueprint is None:
+        blueprint = self.blueprint()
+
+    if isinstance(blueprint, np.ndarray):
+        blueprint = self.apply_blueprint(blueprint=blueprint)
+
+    return desp.select_electrodes(chmap, blueprint, **kwargs)
+
+
+@doc_link()
+def npx_channel_efficiency(self: BlueprintFunctions, chmap=None, blueprint: list[E] | NDArray[np.int_] = None) -> float:
+    """
+    Calculate the channel efficiency for a blueprint *e* and its outcomes *chmap*.
+    
+    :param self: 
+    :param chmap: 
+    :param blueprint: 
+    :return: channel efficiency value
+    :see: {chmap.probe_npx.stat.npx_channel_efficiency}
+    """
+    from chmap.probe_npx.npx import ChannelMap
+    from chmap.probe_npx.desp import NpxProbeDesp
+
+    if chmap is None:
+        chmap = self.channelmap
+
+    if not isinstance(chmap, ChannelMap):
+        return np.nan
+
+    if blueprint is None:
+        blueprint = self.blueprint()
+    elif not isinstance(blueprint, np.ndarray):
+        blueprint = self.from_blueprint(blueprint)
+
+    selected = blueprint[self.selected_electrodes(chmap)]
+    ps = np.count_nonzero(blueprint == NpxProbeDesp.CATE_SET)
+    ss = np.count_nonzero(selected == NpxProbeDesp.CATE_SET)
+    p0 = np.count_nonzero(blueprint == NpxProbeDesp.CATE_FULL)
+    s0 = np.count_nonzero(selected == NpxProbeDesp.CATE_FULL)
+    p2 = np.count_nonzero(blueprint == NpxProbeDesp.CATE_HALF)
+    s2 = np.count_nonzero(selected == NpxProbeDesp.CATE_HALF)
+    p4 = np.count_nonzero(blueprint == NpxProbeDesp.CATE_QUARTER)
+    s4 = np.count_nonzero(selected == NpxProbeDesp.CATE_QUARTER)
+
+    p = ps + p0 + p2 / 2 + p4 / 4
+    s = ss + s0 + s2 + s4
+    ae = 0 if p == 0 else s / p
+    ce = 0 if ae == 0 else min(ae, 1 / ae)
+    return ce

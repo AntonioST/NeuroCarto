@@ -138,6 +138,50 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
     bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
 
 
+@use_probe(NpxProbeDesp)
+def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100):
+    """
+    Sample and find the optimized channelmap that has maxima channel efficiency.
+
+    :param bp:
+    :param sample_times: (int=100)
+    """
+    import multiprocessing
+    with multiprocessing.Pool(1) as pool:
+        _bp = BlueprintFunctions(bp.probe, bp.channelmap)
+        _bp.set_blueprint(bp.blueprint())
+
+        job = pool.apply_async(_optimize_channelmap, (_bp, sample_times))
+        pool.close()
+
+        while True:
+            try:
+                chmap, ceff = job.get(0)
+            except multiprocessing.TimeoutError:
+                yield 1
+            else:
+                break
+
+    bp.set_status_line(f'finished. got max(Ceff)={100 * ceff:.2f}%')
+    bp.set_channelmap(chmap)
+
+
+def _optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100):
+    blueprint_arr = bp.blueprint()
+    blueprint_lst = bp.apply_blueprint(blueprint=blueprint_arr)
+
+    chmap = bp.channelmap
+    max_chmap = (chmap, bp.channel_efficiency(chmap, blueprint_arr))
+
+    for i in range(sample_times):
+        chmap = bp.select_electrodes(chmap, blueprint_lst)
+        ceff = bp.channel_efficiency(chmap, blueprint_arr)
+        if ceff > max_chmap[1]:
+            max_chmap = (chmap, ceff)
+
+    return max_chmap
+
+
 def atlas_label(bp: BlueprintFunctions, *args, color='cyan'):
     """
     Set labels on atlas brain image.

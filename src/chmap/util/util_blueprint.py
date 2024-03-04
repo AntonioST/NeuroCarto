@@ -270,18 +270,21 @@ class BlueprintFunctions(Generic[M, E]):
             self.probe.del_electrode(self.channelmap, t)
 
     @doc_link()
-    def selected_electrodes(self) -> NDArray[np.int_]:
+    def selected_electrodes(self, chmap=None) -> NDArray[np.int_]:
         """
         The selected electrodes in the current channelmap.
 
         :return: electrode index array
         :see: {ProbeDesp#all_channels()}
         """
+        if chmap is None:
+            chmap = self.channelmap
+
         ret = []
 
         pos = self._position_index
 
-        for e in self.probe.all_channels(self.channelmap):
+        for e in self.probe.all_channels(chmap):
             p = int(e.s), int(e.x / self.dx), int(e.y / self.dy)
             if (i := pos.get(p, None)) is not None:
                 ret.append(i)
@@ -297,6 +300,33 @@ class BlueprintFunctions(Generic[M, E]):
         self.probe.clear_electrode(self.channelmap)
         for t in self.probe.all_channels(chmap):
             self.probe.add_electrode(self.channelmap, t)
+
+    @doc_link()
+    def select_electrodes(self, chmap=None, blueprint: list[E] | BLUEPRINT = None, **kwargs) -> float:
+        """
+        Run electrode selection for a channelmap based on the blueprint.
+
+        :param chmap:
+        :param blueprint:
+        :param kwargs: selector extra parameters
+        :return: new channelmap
+        :see: {ProbeDesp#select_electrodes}
+        """
+        from .edit.probe import select_electrodes
+        return select_electrodes(self, chmap, blueprint, **kwargs)
+
+    @doc_link()
+    def channel_efficiency(self, chmap=None, blueprint: list[E] | BLUEPRINT = None) -> float:
+        """
+        Calculate the channel efficiency for a blueprint *e* and its outcomes *chmap*.
+
+        :param chmap:
+        :param blueprint:
+        :return: channel efficiency value
+        :see: {chmap.probe_npx.stat.npx_channel_efficiency}
+        """
+        from .edit.probe import npx_channel_efficiency
+        return npx_channel_efficiency(self, chmap, blueprint)
 
     # =================== #
     # blueprint functions #
@@ -328,19 +358,24 @@ class BlueprintFunctions(Generic[M, E]):
 
         self._blueprint = blueprint
 
-    def apply_blueprint(self, electrodes: list[E], blueprint: BLUEPRINT = None) -> list[E]:
+    @doc_link()
+    def apply_blueprint(self, electrodes: list[E] = None, blueprint: BLUEPRINT = None) -> list[E]:
         """
         Apply blueprint back to electrode list.
 
-        :param electrodes:
+        :param electrodes: electrode list
         :param blueprint:
         :return: *electrodes*
+        :see: {#from_blueprint()}
         """
         if blueprint is None:
             blueprint = self.blueprint()
 
-        for e in electrodes:
-            e.state = ProbeDesp.STATE_UNUSED
+        if electrodes is None:
+            electrodes = self.probe.all_electrodes(self.channelmap)
+        else:
+            for e in electrodes:
+                e.state = ProbeDesp.STATE_UNUSED
 
         for e in self.probe.all_channels(self.channelmap, electrodes):
             for t in self.probe.invalid_electrodes(self.channelmap, e, electrodes):
@@ -353,6 +388,21 @@ class BlueprintFunctions(Generic[M, E]):
                 t.category = int(p)
 
         return electrodes
+
+    @doc_link()
+    def from_blueprint(self, electrodes: list[E]) -> BLUEPRINT:
+        """
+        Get blueprint from electrode list.
+
+        :param electrodes: electrode list
+        :return:
+        :see: {#apply_blueprint()}
+        """
+        blueprint = np.full_like(self._blueprint, self.CATE_UNSET)
+        c = {it.electrode: it.category for it in electrodes}
+        for i, e in enumerate(self.probe.all_electrodes(self.channelmap)):
+            blueprint[i] = c[e.electrode]
+        return blueprint
 
     def load_blueprint(self, file: str | Path) -> BLUEPRINT:
         """

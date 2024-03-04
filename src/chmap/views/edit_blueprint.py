@@ -64,6 +64,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         'half': 'chmap.util.edit._actions:npx24_half_density',
         'quarter': 'chmap.util.edit._actions:npx24_quarter_density',
         '1-eighth': 'chmap.util.edit._actions:npx24_one_eighth_density',
+        'optimize': 'chmap.util.edit._actions:optimize_channelmap',
         'label': 'chmap.util.edit._actions:atlas_label',
         'probe-coor': 'chmap.util.edit._actions:adjust_atlas_mouse_brain_to_probe_coordinate',
     }
