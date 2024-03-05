@@ -184,7 +184,8 @@ def _optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, **kwar
     blueprint_lst = bp.apply_blueprint(blueprint=blueprint_arr)
 
     chmap = bp.channelmap
-    max_chmap = (chmap, bp.channel_efficiency(chmap, blueprint_arr))
+    ceff = bp.channel_efficiency(chmap, blueprint_arr)
+    max_chmap = (chmap, ceff)
 
     for i in range(sample_times):
         chmap = bp.select_electrodes(chmap, blueprint_lst, **kwargs)

@@ -136,10 +136,16 @@ def select_electrodes(self: BlueprintFunctions, chmap: M = None,
 def npx_channel_efficiency(self: BlueprintFunctions, chmap=None, blueprint: list[E] | NDArray[np.int_] = None) -> float:
     """
     Calculate the channel efficiency for a blueprint *e* and its outcomes *chmap*.
+
+    This is a fast implementation for channel efficiency calculating.
+
+    This method has a little difference from {chmap.probe_npx.stat.npx_channel_efficiency} algorithm.
+
+    * This method consider electrodes in the forbidden area.
     
     :param self: 
-    :param chmap: 
-    :param blueprint: 
+    :param chmap: channelmap outcomes from *blueprint*
+    :param blueprint: a given blueprint.
     :return: channel efficiency value
     :see: {chmap.probe_npx.stat.npx_channel_efficiency}
     """
@@ -158,17 +164,25 @@ def npx_channel_efficiency(self: BlueprintFunctions, chmap=None, blueprint: list
         blueprint = self.from_blueprint(blueprint)
 
     selected = blueprint[self.selected_electrodes(chmap)]
-    ps = np.count_nonzero(blueprint == NpxProbeDesp.CATE_SET)
-    ss = np.count_nonzero(selected == NpxProbeDesp.CATE_SET)
-    p0 = np.count_nonzero(blueprint == NpxProbeDesp.CATE_FULL)
-    s0 = np.count_nonzero(selected == NpxProbeDesp.CATE_FULL)
-    p2 = np.count_nonzero(blueprint == NpxProbeDesp.CATE_HALF)
-    s2 = np.count_nonzero(selected == NpxProbeDesp.CATE_HALF)
-    p4 = np.count_nonzero(blueprint == NpxProbeDesp.CATE_QUARTER)
-    s4 = np.count_nonzero(selected == NpxProbeDesp.CATE_QUARTER)
 
-    p = ps + p0 + p2 / 2 + p4 / 4
-    s = ss + s0 + s2 + s4
-    ae = 0 if p == 0 else s / p
+    electrode = 0
+    channel = 0
+    for category, count in zip(*np.unique(blueprint, return_counts=True)):
+        match category:
+            case NpxProbeDesp.CATE_SET | NpxProbeDesp.CATE_FULL:
+                electrode += count
+            case NpxProbeDesp.CATE_HALF:
+                electrode += count / 2
+            case NpxProbeDesp.CATE_QUARTER:
+                electrode += count / 4
+
+    for category, count in zip(*np.unique(selected, return_counts=True)):
+        match category:
+            case NpxProbeDesp.CATE_SET | NpxProbeDesp.CATE_FULL | NpxProbeDesp.CATE_HALF | NpxProbeDesp.CATE_QUARTER:
+                channel += count
+            case NpxProbeDesp.CATE_FORBIDDEN:
+                channel -= count
+
+    ae = 0 if electrode == 0 else max(channel / electrode, 0)
     ce = 0 if ae == 0 else min(ae, 1 / ae)
     return ce

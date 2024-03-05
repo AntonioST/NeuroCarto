@@ -145,8 +145,9 @@ def _npx_request_electrodes(selected: set, e: list[NpxElectrodeDesp]) -> tuple[f
     p0, s0 = _get_electrode(selected, e, [NpxProbeDesp.CATE_SET, NpxProbeDesp.CATE_FULL])
     p2, s2 = _get_electrode(selected, e, [NpxProbeDesp.CATE_HALF])
     p4, s4 = _get_electrode(selected, e, [NpxProbeDesp.CATE_QUARTER])
+    # pf, sf = _get_electrode(selected, e, [NpxProbeDesp.CATE_FORBIDDEN])
     p = p0 + p2 / 2 + p4 / 4
-    s = s0 + s2 + s4
+    s = s0 + s2 + s4  # - sf
     return p, s
 
 

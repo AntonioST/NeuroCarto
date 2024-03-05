@@ -7,11 +7,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, overload, Generic, Final
 
 import numpy as np
+from numpy.typing import NDArray
+
 from chmap.probe import ProbeDesp, M, E
 from chmap.util.edit.checking import use_probe
 from chmap.util.utils import doc_link, SPHINX_BUILD
 from chmap.views.base import ViewBase, ControllerView, V
-from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -213,6 +214,7 @@ class BlueprintFunctions(Generic[M, E]):
             self._blueprint = None
 
         self._controller: ControllerView | None = None
+        self._blueprint_changed = False
 
     def __getattr__(self, item: str):
         if item.startswith('CATE_'):
@@ -293,7 +295,6 @@ class BlueprintFunctions(Generic[M, E]):
             chmap = self.channelmap
 
         ret = []
-
         pos = self._position_index
 
         for e in self.probe.all_channels(chmap):
@@ -301,7 +302,10 @@ class BlueprintFunctions(Generic[M, E]):
             if (i := pos.get(p, None)) is not None:
                 ret.append(i)
 
-        return np.unique(ret)
+        if len(ret):
+            return np.unique(ret)
+        else:
+            return np.array([], dtype=int)
 
     def set_channelmap(self, chmap: M):
         """
@@ -309,8 +313,11 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param chmap:
         """
+        # chmap may the same instance as self.channelmap
+        # to prevent from we cannot get channels after clear_electrode()
+        electrodes = self.probe.all_channels(chmap)
         self.probe.clear_electrode(self.channelmap)
-        for t in self.probe.all_channels(chmap):
+        for t in electrodes:
             self.probe.add_electrode(self.channelmap, t)
 
     @doc_link()
@@ -332,10 +339,11 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Calculate the channel efficiency for a blueprint *e* and its outcomes *chmap*.
 
-        :param chmap:
+        :param chmap: channelmap outcomes from *blueprint*
         :param blueprint:
         :return: channel efficiency value
-        :see: {chmap.probe_npx.stat.npx_channel_efficiency}
+        :see: reference {chmap.probe_npx.stat.npx_channel_efficiency}
+        :see: implement {chmap.util.edit.probe.npx_channel_efficiency}
         """
         from .edit.probe import npx_channel_efficiency
         return npx_channel_efficiency(self, chmap, blueprint)
@@ -345,12 +353,16 @@ class BlueprintFunctions(Generic[M, E]):
     # =================== #
 
     def blueprint(self) -> BLUEPRINT:
-        """blueprint."""
-        return self._blueprint
+        """blueprint copy."""
+        return self._blueprint.copy()
 
     def new_blueprint(self) -> BLUEPRINT:
         """new empty blueprint array."""
         return np.full_like(self.s, self.CATE_UNSET)
+
+    @property
+    def blueprint_changed(self) -> bool:
+        return self._blueprint_changed
 
     def set_blueprint(self, blueprint: int | BLUEPRINT | list[E]):
         """
@@ -360,6 +372,7 @@ class BlueprintFunctions(Generic[M, E]):
         """
         if isinstance(blueprint, int):
             self._blueprint[:] = blueprint
+            self._blueprint_changed = True
             return
 
         if isinstance(blueprint, list):
@@ -369,6 +382,7 @@ class BlueprintFunctions(Generic[M, E]):
             raise ValueError()
 
         self._blueprint = blueprint
+        self._blueprint_changed = True
 
     @doc_link()
     def apply_blueprint(self, electrodes: list[E] = None, blueprint: BLUEPRINT = None) -> list[E]:
@@ -1119,9 +1133,21 @@ class BlueprintFunctions(Generic[M, E]):
     # Miscellaneous #
     # ============= #
 
+    @doc_link()
     def misc_profile_script(self, script: str, /, *args, **kwargs):
         """
-        call script under cProfile.
+        Call script under cProfile.
+
+        This method works almost as same as {#call_script()}, but
+        * under profiling
+        * This method does handle generator, but ignoring the yield value. Just loop until it stops.
+        * generate a profiling result named ``profile-SCRIPT.dat`` at the cache directory.
+
+        The ``profile-SCRIPT.dat`` file can use following command to generate a figure:
+
+        .. code-block:: bash
+
+            python -m gprof2dot -f pstats profile-SCRIPT.dat | dot -T png -o profile-SCRIPT.png
 
         :param script: script name
         :param args: script positional arguments

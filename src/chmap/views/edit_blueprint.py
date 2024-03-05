@@ -418,9 +418,9 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             self._run_script_done(bp, script.name)
 
     def _run_script_done(self, bp: BlueprintFunctions, script: str):
-        if (blueprint := self.cache_blueprint) is not None:
+        if bp.blueprint_changed and (blueprint := self.cache_blueprint) is not None:
             bp.apply_blueprint(blueprint)
-            self.logger.debug('run_script(%s) update', script)
+            self.logger.debug('run_script(%s) update blueprint', script)
             run_later(self.update_probe)
 
     def _run_script(self, script: BlueprintScriptInfo,
