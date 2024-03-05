@@ -24,10 +24,10 @@ How to write a blueprint script function
 
 Real examples are:
 
-* `src/chmap/util/edit/_actions.py`
-* `tests/bp_example.py`
+* ``src/chmap/util/edit/_actions.py``
+* ``tests/bp_example.py``
 
-Prepare a python file `example.py` with following contents.
+Prepare a python file ``example.py`` with following contents.
 
 .. code-block:: python
 
@@ -42,7 +42,7 @@ Prepare a python file `example.py` with following contents.
         """
         bp.log_message(f'{a0=}', f'{a1=}')
 
-Add `example.py` into `chmap.config.json`.
+Add ``example.py`` into ``chmap.config.json``.
 
 .. code-block:: json
 
@@ -54,5 +54,5 @@ Add `example.py` into `chmap.config.json`.
       }
     }
 
-Start an application with the commandline option `--view=script`,
+Start an application with the commandline option ``--view=script``,
 then you can test your script.

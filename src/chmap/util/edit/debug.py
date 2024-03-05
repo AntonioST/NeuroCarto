@@ -6,6 +6,15 @@ __all__ = ['print_local']
 
 
 def print_local(self: BlueprintFunctions, data: NDArray, i: int, size: int = 1) -> str:
+    """
+    print electrode data around the electrode *i*.
+
+    :param self:
+    :param data: electrode data
+    :param i: electrode index
+    :param size: local size
+    :return: ascii art text.
+    """
     s = int(self.s[i])
     x = int(self.x[i] / self.dx)
     y = int(self.y[i] / self.dy)

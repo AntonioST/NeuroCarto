@@ -19,10 +19,12 @@ class ClusteringEdges(NamedTuple):
     """
 
     category: int
+    """electrode category value"""
     shank: int
+    """shank number"""
     edges: list[tuple[int, int, int]]  # [(x, y, corner)]
     """
-    corner:
+    corner code::
 
         3 2 1
         4 8 0

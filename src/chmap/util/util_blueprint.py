@@ -30,6 +30,7 @@ elif SPHINX_BUILD:
     ProbeView = 'chmap.views.probe.ProbeView'
     NpxProbeDesp = 'chmap.probe_npx.desp.NpxProbeDesp'
     AtlasBrainView = 'chmap.views.atlas.AtlasBrainView'
+    BlueprintScriptView = 'chmap.views.edit_blueprint.BlueprintScriptView'
 
 
     class BLUEPRINT:
@@ -80,7 +81,7 @@ def blueprint_function(func):
 
 
 # noinspection PyMethodMayBeStatic
-@doc_link(BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView')
+@doc_link()
 class BlueprintFunctions(Generic[M, E]):
     """
     Provide blueprint manipulating functions. Used by {BlueprintScriptView}.
@@ -106,6 +107,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         * {#blueprint()}
         * {#new_blueprint()}
+        * {#blueprint_changed}
         * {#set_blueprint()}
         * {#apply_blueprint()}
         * {#from_blueprint()}
@@ -133,9 +135,6 @@ class BlueprintFunctions(Generic[M, E]):
         * {#load_data()}
         * {#interpolate_nan()}
         * {#draw()}
-        * {#has_script()}
-        * {#call_script()}
-        * {#interrupt_script()}
 
     **Probe view functions**
 
@@ -166,6 +165,17 @@ class BlueprintFunctions(Generic[M, E]):
         * {#atlas_new_probe()}
         * {#atlas_set_anchor_on_probe()}
 
+    **Blueprint script view functions**
+
+    Call methods from {BlueprintScriptView}.
+
+    .. hlist::
+        :columns: 2
+
+        * {#has_script()}
+        * {#call_script()}
+        * {#interrupt_script()}
+
     **UI communicating functions**
 
     .. hlist::
@@ -180,6 +190,7 @@ class BlueprintFunctions(Generic[M, E]):
     .. hlist::
         :columns: 2
 
+        * {#clone()}
         * {#misc_profile_script()}
 
     """
@@ -224,7 +235,22 @@ class BlueprintFunctions(Generic[M, E]):
         raise AttributeError(item)
 
     # noinspection PyFinal
-    def clone(self) -> Self:
+    @doc_link()
+    def clone(self, pure=False) -> Self:
+        """
+        Clone itself.
+
+        **Pure**
+
+        Whether the clone does not contain the controller to support UI functions,
+        includes {ProbeView}, {AtlasBrainView} and {BlueprintScriptView} supporting.
+
+        A pure clone has limited functions, but it is good for being pickled, and
+        it could be passed in multiple processor for parallel computing.
+
+        :param pure: Does not support UI function?
+        :return: itself
+        """
         ret = object.__new__(BlueprintFunctions)
         ret.probe = self.probe
         ret.channelmap = self.channelmap
@@ -237,7 +263,12 @@ class BlueprintFunctions(Generic[M, E]):
         ret.dy = self.dy
         ret._position_index = self._position_index
         ret._blueprint = self._blueprint.copy()
-        ret._controller = self._controller
+
+        if pure:
+            ret._controller = None
+        else:
+            ret._controller = self._controller
+
         return ret
 
     # ==================== #
@@ -362,6 +393,7 @@ class BlueprintFunctions(Generic[M, E]):
 
     @property
     def blueprint_changed(self) -> bool:
+        """Has internal blueprint changed?"""
         return self._blueprint_changed
 
     def set_blueprint(self, blueprint: int | BLUEPRINT | list[E]):
@@ -743,8 +775,7 @@ class BlueprintFunctions(Generic[M, E]):
 
     @doc_link(
         get_probe_desp='chmap.probe.get_probe_desp',
-        BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView',
-        RequestChannelmapTypeError='chmap.util.edit.actions.RequestChannelmapTypeError',
+        RequestChannelmapTypeError='chmap.util.edit.checking.RequestChannelmapTypeError',
     )
     def check_probe(self, probe: str | type[ProbeDesp] | None = None,
                     chmap_code: int = None, *, error=True):
@@ -826,9 +857,7 @@ class BlueprintFunctions(Generic[M, E]):
         if (controller := self._controller) is not None:
             log_message(controller, *message)
 
-    @doc_link(
-        BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView',
-    )
+    @doc_link()
     def has_script(self, script: str) -> bool:
         """
         Check whether *script* is existed in {BlueprintScriptView}'s action list.
@@ -842,7 +871,6 @@ class BlueprintFunctions(Generic[M, E]):
         return False
 
     @doc_link(
-        BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView',
         use_probe='chmap.util.edit.checking.use_probe',
         RequestChannelmapTypeError='chmap.util.edit.checking.RequestChannelmapTypeError',
     )
@@ -853,11 +881,12 @@ class BlueprintFunctions(Generic[M, E]):
         There are some difference behavior when running a script
         from this method and {BlueprintScriptView#run_script}.
 
-        * Both are check script are up-to-date.
+        * Both check script are up-to-date.
         * This method does not handle {use_probe()} and {RequestChannelmapTypeError}
         * This method does not print same logging message as {RequestChannelmapTypeError}.
         * This method does not record history step.
         * Both are allow a generator from the script, but
+
           * this method pass the generator to the {BlueprintScriptView}.
           * {BlueprintScriptView} mark the target script as interruptable, instead of this method.
           * this method will lost control on the generator.
@@ -870,7 +899,7 @@ class BlueprintFunctions(Generic[M, E]):
         if (controller := self._controller) is not None:
             call_script(self, controller, script, *args, **kwargs)
 
-    @doc_link(BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView', )
+    @doc_link()
     def interrupt_script(self, script: str) -> bool:
         """
         Interrupt script.
@@ -1139,6 +1168,7 @@ class BlueprintFunctions(Generic[M, E]):
         Call script under cProfile.
 
         This method works almost as same as {#call_script()}, but
+
         * under profiling
         * This method does handle generator, but ignoring the yield value. Just loop until it stops.
         * generate a profiling result named ``profile-SCRIPT.dat`` at the cache directory.

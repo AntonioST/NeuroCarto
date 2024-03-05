@@ -135,7 +135,7 @@ def select_electrodes(self: BlueprintFunctions, chmap: M = None,
 @doc_link()
 def npx_channel_efficiency(self: BlueprintFunctions, chmap=None, blueprint: list[E] | NDArray[np.int_] = None) -> float:
     """
-    Calculate the channel efficiency for a blueprint *e* and its outcomes *chmap*.
+    Calculate the channel efficiency for a blueprint and its outcomes *chmap*.
 
     This is a fast implementation for channel efficiency calculating.
 

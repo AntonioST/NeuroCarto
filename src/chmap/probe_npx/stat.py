@@ -19,6 +19,7 @@ __all__ = [
     'ElectrodeEfficiencyStat',
     'npx_electrode_density',
     'npx_channel_efficiency',
+    'ElectrodeProbability',
     'npx_electrode_probability'
 ]
 
@@ -97,15 +98,29 @@ def npx_electrode_density(chmap: ChannelMap) -> NDArray[np.float_]:
 
 class ElectrodeEfficiencyStat(NamedTuple):
     total_channel: int
+    """total channel number"""
     used_channel: int
+    """number of used channel"""
     used_channel_on_shanks: list[int]
+    """number of used channel on each shank"""
 
     request_electrodes: float
+    """number of request electrodes for some categories"""
+
     selected_electrodes: int
+    """number of selected electrodes in some categories"""
+
     area_efficiency: float
+    """area efficiency"""
+
     channel_efficiency: float
-    remain_channel: int  # number of channel in low-priority category
-    remain_electrode: int  # number of electrode set in low-priority category
+    """channel efficiency"""
+
+    remain_channel: int
+    """number of channel in low-priority category"""
+
+    remain_electrode: int
+    """number of electrode set in low-priority category"""
 
 
 def npx_channel_efficiency(chmap: ChannelMap, e: list[NpxElectrodeDesp]) -> ElectrodeEfficiencyStat:
@@ -159,9 +174,13 @@ def _get_electrode(selected: set, e: list[NpxElectrodeDesp], categories: list[in
 
 class ElectrodeProbability(NamedTuple):
     sample_times: int
-    summation: NDArray[np.int_]  # summation matrix Array[count:int, S, C, R]
+    """number of sample times"""
+    summation: NDArray[np.int_]
+    """summation matrix Array[count:int, S, C, R]"""
     complete: int
+    """number of sample that get a complete result"""
     channel_efficiency_: NDArray[np.float_]
+    """collected channel_efficiency array."""
 
     @property
     def probability(self) -> NDArray[np.float_]:
@@ -210,13 +229,14 @@ def npx_electrode_probability(probe: NpxProbeDesp, chmap: ChannelMap, blueprint:
                               sample_times: int = 1000,
                               n_worker: int = 1) -> ElectrodeProbability:
     """
+    Sample *sample_times* channelmap outcomes for a given *blueprint*.
 
     :param probe:
-    :param chmap:
-    :param blueprint:
-    :param selector:
+    :param chmap: channelmap instance, use as a reference.
+    :param blueprint: a given blueprint.
+    :param selector: use which electrode selecting method.
     :param sample_times:
-    :param n_worker:
+    :param n_worker: number of process.
     :return: ElectrodeProbability
     """
     if isinstance(selector, str):

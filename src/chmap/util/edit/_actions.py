@@ -155,8 +155,7 @@ def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *,
         bp.log_message('empty blueprint')
         return
 
-    _bp = bp.clone()
-    _bp._controller = None
+    _bp = bp.clone(pure=True)
 
     if single_process:
         chmap, ceff = _optimize_channelmap(_bp, sample_times, **kwargs)
