@@ -6,24 +6,24 @@ __all__ = ['electrode_select']
 
 warnings.warn('this module only used for debugging')
 
+Struct = select_weaker.Struct
 electrode_select = select_weaker.electrode_select
-selected_electrode = select_weaker.selected_electrode
 pick_electrode = select_weaker.pick_electrode
 update_prob = select_weaker.update_prob
 category_mapping_probability = select_weaker.category_mapping_probability
 information_entropy = select_weaker.information_entropy
 
 
-def _select_loop(desp, probe_type, cand):
+def _select_loop(probe_type, s: Struct):
     data = []
     count = 0
     try:
-        while (n := selected_electrode(cand)) < probe_type.n_channels:
-            if (e := pick_electrode(cand)) is not None:
-                p = e.prob
-                update_prob(desp, cand, e)
+        while (n := s.selected_electrode()) < probe_type.n_channels:
+            if (e := pick_electrode(s)) is not None:
+                p = s.probability[e]
+                update_prob(s, e)
                 count += 1
-                data.append((n, category_mapping_probability(e.category), p, information_entropy(cand)))
+                data.append((n, category_mapping_probability(s.categories[e]), p, information_entropy(s)))
             else:
                 break
     except KeyboardInterrupt:

@@ -2,9 +2,13 @@
 Neuropixels another electrode selection method.
 It has a *weaker* local density rule compared to the default one.
 """
-import math
-import random
+from __future__ import annotations
+
 from collections.abc import Iterator
+from typing import NamedTuple
+
+import numpy as np
+from numpy.typing import NDArray
 
 from .desp import NpxProbeDesp, NpxElectrodeDesp, K
 from .npx import ChannelMap, ProbeType
@@ -12,40 +16,65 @@ from .npx import ChannelMap, ProbeType
 __all__ = ['electrode_select']
 
 
-class E(NpxElectrodeDesp):
-    prob: float
-
-
 def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp],
                      **kwargs) -> ChannelMap:
     probe_type = chmap.probe_type
 
-    cand: dict[K, E] = {
-        it.electrode:
-            E().copy(it, prob=0)
-        for it in desp.all_electrodes(chmap)
-    }
+    s = Struct.new(desp, chmap)
+    s.init_blueprint(blueprint)
+    s.init_probability()
 
-    for e in blueprint:
-        cand[e.electrode].category = e.category
+    for e in np.random.permutation(np.nonzero(s.categories == NpxProbeDesp.CATE_SET)[0]):
+        s.add(e)
 
-    for e in cand.values():
-        e.prob = category_mapping_probability(e.category)
+    _select_loop(probe_type, s)
 
-    for e in cand.values():
-        # add pre-selected
-        if e.category == NpxProbeDesp.CATE_SET:
-            _add(desp, cand, e)
-
-    _select_loop(desp, probe_type, cand)
-
-    return build_channelmap(desp, chmap, cand)
+    return build_channelmap(desp, chmap, s)
 
 
-def _select_loop(desp: NpxProbeDesp, probe_type: ProbeType, cand: dict[K, E]):
-    while selected_electrode(cand) < probe_type.n_channels:
-        if (e := pick_electrode(cand)) is not None:
-            update_prob(desp, cand, e)
+class Struct(NamedTuple):
+    electrodes: list[NpxElectrodeDesp]
+    index: dict[K, int]
+    categories: NDArray[np.int_]
+    channels: NDArray[np.int_]
+    probability: NDArray[np.float_]
+
+    @classmethod
+    def new(cls, desp: NpxProbeDesp, chmap: ChannelMap):
+        electrodes = desp.all_electrodes(chmap)
+        categories = np.full((len(electrodes),), desp.CATE_UNSET, dtype=int)
+        probability = np.full((len(electrodes),), 0.0, dtype=float)
+        channels = np.array([it.channel for it in electrodes])
+        index: dict[K, int] = {
+            it.electrode: i
+            for i, it in enumerate(electrodes)
+        }
+        return Struct(electrodes, index, categories, channels, probability)
+
+    def init_blueprint(self, blueprint: list[NpxElectrodeDesp]):
+        for e in blueprint:
+            self.categories[self.index[e.electrode]] = e.category
+
+    def init_probability(self):
+        for p in NpxProbeDesp.all_possible_categories().values():
+            self.probability[self.categories == p] = category_mapping_probability(p)
+
+    def selected_electrode(self) -> int:
+        return np.count_nonzero(self.probability == 1)
+
+    def add(self, e: int):
+        self.probability[self.channels == self.channels[e]] = 0
+        self.probability[e] = 1.0
+
+    def get(self, e: int, c: int, r: int) -> int | None:
+        eh, ec, er = self.electrodes[e].electrode
+        return self.index.get((eh, ec + c, er + r), None)
+
+
+def _select_loop(probe_type: ProbeType, s: Struct):
+    while s.selected_electrode() < probe_type.n_channels:
+        if (e := pick_electrode(s)) is not None:
+            update_prob(s, e)
         else:
             break
 
@@ -69,84 +98,64 @@ def category_mapping_probability(p: int) -> float:
             return 0.5
 
 
-def selected_electrode(cond: dict[K, E]) -> int:
-    return len([it for it in cond.values() if it.prob == 1])
-
-
-def build_channelmap(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, E]) -> ChannelMap:
+def build_channelmap(desp: NpxProbeDesp, chmap: ChannelMap, s: Struct) -> ChannelMap:
     ret = desp.new_channelmap(chmap)
 
-    for e in cand.values():
-        if e.prob == 1:
-            desp.add_electrode(ret, e, overwrite=True)
+    for e in np.nonzero(s.probability == 1)[0]:
+        desp.add_electrode(ret, s.electrodes[e], overwrite=True)
 
     return ret
 
 
-def information_entropy(cand: dict[K, E]) -> float:
-    return -sum([it.prob * math.log2(it.prob) for it in cand.values() if it.prob > 0])
+def information_entropy(s: Struct) -> float:
+    p = s.probability[s.probability] > 0
+    return -np.dot(p, np.log2(p))
 
 
-def pick_electrode(cand: dict[K, E]) -> E | None:
-    if len(cand) == 0:
-        raise RuntimeError()
-
-    hp = max([it.prob for it in cand.values() if it.prob < 1])
+def pick_electrode(s: Struct) -> int | None:
+    mask = s.probability < 1
+    cand = s.probability[mask]
+    hp = np.max(cand)
 
     if hp == 0:
         return None
 
-    sub = [it for it in cand.values() if hp <= it.prob < 1]
-    assert len(sub) > 0
-    return random.choice(sub)
+    return np.random.choice(np.arange(len(s.probability))[mask][cand >= hp])
 
 
-def update_prob(desp: NpxProbeDesp, cand: dict[K, E], e: E):
-    _add(desp, cand, e)
+def update_prob(s: Struct, e: int):
+    s.add(e)
+    r = np.array([it for it in surr(s, e) if it is not None])
+    if len(r):
+        r = r[s.probability[r] < 1]
+        s.probability[r] /= 2
 
-    for t in surr(cand, e):
-        if t is not None and t.prob < 1:
-            t.prob /= 2.0
 
-
-def surr(cand: dict[K, E], e: E) -> Iterator[E | None]:
-    match e.category:
+def surr(s: Struct, e: int) -> Iterator[int | None]:
+    match int(s.categories[e]):
         case NpxProbeDesp.CATE_HALF:
             # o x o
             # x e x
             # o x o
-            yield _get(cand, e, -1, 0)
-            yield _get(cand, e, 1, 0)
-            yield _get(cand, e, 0, 1)
-            yield _get(cand, e, 0, -1)
+            yield s.get(e, -1, 0)
+            yield s.get(e, 1, 0)
+            yield s.get(e, 0, 1)
+            yield s.get(e, 0, -1)
         case NpxProbeDesp.CATE_QUARTER:
             # ? x ?
             # x x x
             # x e x
             # x x x
             # ? x ?
-            yield _get(cand, e, -1, 0)
-            yield _get(cand, e, 1, 0)
-            yield _get(cand, e, -1, -1)
-            yield _get(cand, e, 0, -1)
-            yield _get(cand, e, 1, -1)
-            yield _get(cand, e, -1, 1)
-            yield _get(cand, e, 0, 1)
-            yield _get(cand, e, 1, 1)
-            yield _get(cand, e, 0, 2)
-            yield _get(cand, e, 0, -2)
+            yield s.get(e, -1, 0)
+            yield s.get(e, 1, 0)
+            yield s.get(e, -1, -1)
+            yield s.get(e, 0, -1)
+            yield s.get(e, 1, -1)
+            yield s.get(e, -1, 1)
+            yield s.get(e, 0, 1)
+            yield s.get(e, 1, 1)
+            yield s.get(e, 0, 2)
+            yield s.get(e, 0, -2)
         case _:
             return
-
-
-def _add(desp: NpxProbeDesp, cand: dict[K, E], e: E):
-    e.prob = 1.0
-
-    for k in cand.values():
-        if e.electrode != k.electrode and not desp.probe_rule(None, e, k):
-            k.prob = 0
-
-
-def _get(cand: dict[K, E], e: E, c: int, r: int) -> E | None:
-    eh, ec, er = e.electrode
-    return cand.get((eh, ec + c, er + r), None)

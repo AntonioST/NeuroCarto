@@ -404,7 +404,7 @@ class RecordStep(NamedTuple):  # Generic[R]
     """json-serialize"""
 
     def __str__(self):
-        return f'RecordStep[{self.source}][{self.category}]{{{self.description}}}'
+        return f'RecordStep({self.source})[{self.category}]{{{self.description}}}'
 
     def with_record(self, record: R) -> Self:
         return self._replace(record=record)

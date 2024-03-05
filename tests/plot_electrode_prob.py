@@ -33,7 +33,6 @@ print(f'var(Ceff) : {100 * prob.channel_efficiency_var:.2f}%')
 fg, ax = plt.subplots(gridspec_kw=dict(top=0.9))
 height = 6
 
-plot.plot_electrode_matrix(ax, chmap.probe_type, prob, electrode_unit='raw', cmap='YlOrBr', vmin=0, vmax=1)
 ims = plot.plot_electrode_block(ax, chmap.probe_type, prob.probability, electrode_unit='raw', height=height,
                                 cmap='YlOrBr', vmin=0, vmax=1, shank_width_scale=2)
 plot.plot_probe_shape(ax, chmap.probe_type, height=height, color='gray', label_axis=True, shank_width_scale=2)

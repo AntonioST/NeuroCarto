@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from chmap.probe_npx import NpxProbeDesp, utils
 from chmap.util.edit.checking import use_probe
 from chmap.util.util_blueprint import BlueprintFunctions
@@ -138,13 +139,16 @@ def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
 
 
 @use_probe(NpxProbeDesp)
-def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *, single_process=False):
+def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *,
+                        single_process=False,
+                        **kwargs):
     """
     Sample and find the optimized channelmap that has maxima channel efficiency.
 
     :param bp:
     :param sample_times: (int=100)
-    :param single_process: (bool) debug use paraneter
+    :param single_process: (bool) debug use parameter
+    :param kwargs: selector parameters
     """
     blueprint = bp.blueprint()
     if np.all(blueprint == bp.CATE_UNSET):
@@ -155,12 +159,12 @@ def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *, sing
     _bp._controller = None
 
     if single_process:
-        chmap, ceff = _optimize_channelmap(_bp, sample_times)
+        chmap, ceff = _optimize_channelmap(_bp, sample_times, **kwargs)
     else:
         import multiprocessing
         with multiprocessing.Pool(1) as pool:
 
-            job = pool.apply_async(_optimize_channelmap, (_bp, sample_times))
+            job = pool.apply_async(_optimize_channelmap, (_bp, sample_times), kwargs)
             pool.close()
 
             while True:
@@ -175,7 +179,7 @@ def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *, sing
     bp.set_channelmap(chmap)
 
 
-def _optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100):
+def _optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, **kwargs):
     blueprint_arr = bp.blueprint()
     blueprint_lst = bp.apply_blueprint(blueprint=blueprint_arr)
 
@@ -183,7 +187,7 @@ def _optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100):
     max_chmap = (chmap, bp.channel_efficiency(chmap, blueprint_arr))
 
     for i in range(sample_times):
-        chmap = bp.select_electrodes(chmap, blueprint_lst)
+        chmap = bp.select_electrodes(chmap, blueprint_lst, **kwargs)
         ceff = bp.channel_efficiency(chmap, blueprint_arr)
         if ceff > max_chmap[1]:
             max_chmap = (chmap, ceff)
