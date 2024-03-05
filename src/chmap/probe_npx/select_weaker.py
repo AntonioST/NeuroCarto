@@ -108,7 +108,7 @@ def build_channelmap(desp: NpxProbeDesp, chmap: ChannelMap, s: Struct) -> Channe
 
 
 def information_entropy(s: Struct) -> float:
-    p = s.probability[s.probability] > 0
+    p = s.probability[s.probability > 0]
     return -np.dot(p, np.log2(p))
 
 
@@ -125,37 +125,69 @@ def pick_electrode(s: Struct) -> int | None:
 
 def update_prob(s: Struct, e: int):
     s.add(e)
-    r = np.array([it for it in surr(s, e) if it is not None])
-    if len(r):
-        r = r[s.probability[r] < 1]
-        s.probability[r] /= 2
+    ex = []
+    en = []
+    for bo, it in surr(s, e):
+        if it is not None:
+            if bo:
+                ex.append(it)
+            else:
+                en.append(it)
+
+    if len(ex):
+        ex = np.array(ex)
+        ex = ex[s.probability[ex] < 1]
+        s.probability[ex] /= 2
+
+    if len(en):
+        en = np.array(en)
+        en = en[(s.probability[en] > 0) & (s.probability[en] < 1)]
+        s.probability[en] = 0.95
 
 
-def surr(s: Struct, e: int) -> Iterator[int | None]:
+def surr(s: Struct, e: int) -> Iterator[tuple[bool, int | None]]:
+    """
+
+    :param s:
+    :param e:
+    :return: tuple of (excluded?, index)
+    """
     match int(s.categories[e]):
+        case NpxProbeDesp.CATE_FULL:
+            # o e o
+            yield False, s.get(e, -1, 0)
+            yield False, s.get(e, 1, 0)
         case NpxProbeDesp.CATE_HALF:
             # o x o
             # x e x
             # o x o
-            yield s.get(e, -1, 0)
-            yield s.get(e, 1, 0)
-            yield s.get(e, 0, 1)
-            yield s.get(e, 0, -1)
+            yield True, s.get(e, -1, 0)
+            yield True, s.get(e, 1, 0)
+            yield True, s.get(e, 0, 1)
+            yield True, s.get(e, 0, -1)
+            yield False, s.get(e, 1, 1)
+            yield False, s.get(e, 1, -1)
+            yield False, s.get(e, -1, 1)
+            yield False, s.get(e, -1, -1)
         case NpxProbeDesp.CATE_QUARTER:
             # ? x ?
             # x x x
             # x e x
             # x x x
             # ? x ?
-            yield s.get(e, -1, 0)
-            yield s.get(e, 1, 0)
-            yield s.get(e, -1, -1)
-            yield s.get(e, 0, -1)
-            yield s.get(e, 1, -1)
-            yield s.get(e, -1, 1)
-            yield s.get(e, 0, 1)
-            yield s.get(e, 1, 1)
-            yield s.get(e, 0, 2)
-            yield s.get(e, 0, -2)
+            yield True, s.get(e, -1, 0)
+            yield True, s.get(e, 1, 0)
+            yield True, s.get(e, -1, -1)
+            yield True, s.get(e, 0, -1)
+            yield True, s.get(e, 1, -1)
+            yield True, s.get(e, -1, 1)
+            yield True, s.get(e, 0, 1)
+            yield True, s.get(e, 1, 1)
+            yield True, s.get(e, 0, 2)
+            yield True, s.get(e, 0, -2)
+            yield False, s.get(e, 1, 2)
+            yield False, s.get(e, 1, -2)
+            yield False, s.get(e, -1, 2)
+            yield False, s.get(e, -1, -2)
         case _:
             return
