@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any, NamedTuple, Final, Literal, overload, cast, TYPE_CHECKING
 
 import numpy as np
+from chmap.util.utils import all_int, as_set, align_arr, doc_link
 from numpy.typing import NDArray
 
-from chmap.util.utils import all_int, as_set, align_arr, doc_link
 from .meta import NpxMeta
 
 if sys.version_info >= (3, 11):
@@ -963,6 +963,12 @@ def cr2e(probe_type: ProbeType, p):
     :return:
     """
     match p:
+        case int(e):
+            return e
+        case (int(c), int(r)):
+            pass
+        case (int(s), int(c), int(r)):
+            pass
         case e if all_int(e):
             return int(e)
         case (c, r) if all_int(c, r):  # type: ignore
@@ -1024,6 +1030,12 @@ def e2cb(probe_type: ProbeType, electrode: Es | tuple[int | A, A] | tuple[int | 
 
 def e2cb(probe_type: ProbeType, electrode):
     match electrode:
+        case int(electrode):
+            shank = 0
+        case (int(shank), int(electrode)):
+            pass
+        case (int(shank), int(column), int(row)):
+            electrode = cr2e(probe_type, (column, row))
         case electrode if all_int(electrode):
             shank = 0
             electrode = int(electrode)

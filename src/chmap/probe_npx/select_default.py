@@ -127,7 +127,8 @@ def _add(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp],
     _del(cand, e)
 
     for k in list(cand):
-        if not desp.probe_rule(chmap, e, cand[k]):
+        # if not desp.probe_rule(chmap, e, cand[k]):
+        if e.channel == cand[k].channel:
             del cand[k]
 
 

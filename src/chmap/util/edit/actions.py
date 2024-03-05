@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import time
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -121,6 +122,7 @@ def profile_script(self: BlueprintFunctions, controller: ControllerView, script:
     try:
         edit.logger.debug('profile_script(%s)', script)
 
+        t = time.time()
         profile.enable()
         try:
             ret = info.script(self, *args, **kwargs)
@@ -132,11 +134,12 @@ def profile_script(self: BlueprintFunctions, controller: ControllerView, script:
                     pass
         finally:
             profile.disable()
+            t = time.time() - t
 
-        edit.logger.debug('profile_script(%s) done', script)
+        edit.logger.debug('profile_script(%s) done. spent %.4fs', script, t)
         _save_profile_data(controller, script, profile)
     except BaseException as e:
-        edit.logger.debug('profile_script(%s) fail', script, exc_info=e)
+        edit.logger.debug('profile_script(%s) fail. spent %.4fs', script, t, exc_info=e)
         _save_profile_data(controller, script, profile)
         raise e
 

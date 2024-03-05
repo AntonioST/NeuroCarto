@@ -5,11 +5,10 @@ from pathlib import Path
 from typing import ClassVar, TypeAlias, Any
 
 import numpy as np
-from numpy.typing import NDArray
-
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, ElectrodeDesp
 from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError, PROBE_TYPE
+from numpy.typing import NDArray
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
 
@@ -107,6 +106,14 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         else:
             raise TypeError()
 
+        # Benchmark:
+        #   run_script(profile)[optimize,sample_times=100,single_process=True]
+        #       current             : 17.2320 seconds
+        #           e2cb()            22.08%
+        #       cache+copy()        : 23.4607 seconds
+        #           copy()            50.39%
+        #             dir()             17.10%
+        #             str.startswith()  10.18%
         ret = []
         for s in range(probe_type.n_shank):
             for r in range(probe_type.n_row_shank):
@@ -163,6 +170,13 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
     def probe_rule(self, chmap: ChannelMap | None, e1: NpxElectrodeDesp, e2: NpxElectrodeDesp) -> bool:
         return e1.channel != e2.channel
+
+    def invalid_electrodes(self, chmap: M, e: E | Iterable[NpxElectrodeDesp], electrodes: Iterable[NpxElectrodeDesp]) -> list[NpxElectrodeDesp]:
+        if isinstance(e, Iterable):
+            channels = set([it.channel for it in e])
+            return [it for it in electrodes if it.channel in channels]
+        else:
+            return [it for it in electrodes if e.channel == it.channel]
 
     def save_blueprint(self, blueprint: list[NpxElectrodeDesp]) -> NDArray[np.int_]:
         ret = np.zeros((len(blueprint), 5), dtype=int)  # (N, (shank, col, row, state, category))
