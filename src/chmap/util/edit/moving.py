@@ -6,8 +6,20 @@ from chmap.util.util_blueprint import BlueprintFunctions
 __all__ = ['mask', 'invalid', 'move', 'move_i', 'fill', 'extend', 'reduce']
 
 
-def mask(blueprint: NDArray[np.int_],
-         categories: int | list[int]) -> NDArray[np.bool_]:
+def mask(self: BlueprintFunctions,
+         blueprint: NDArray[np.int_],
+         categories: int | list[int] = None) -> NDArray[np.bool_]:
+    if categories is None:
+        categories = list(self.categories.values())
+        try:
+            categories.remove(self.CATE_UNSET)
+        except ValueError:
+            pass
+        try:
+            categories.remove(self.CATE_FORBIDDEN)
+        except ValueError:
+            pass
+
     if isinstance(categories, (int, np.integer)):
         ret = blueprint == categories
     else:
@@ -23,10 +35,10 @@ def invalid(self: BlueprintFunctions,
             categories: int | list[int],
             value: int = None, *,
             overwrite: bool = False) -> NDArray:
-    protected = mask(blueprint, categories)
+    protected = mask(self, blueprint, categories)
 
     all_electrodes = self.probe.all_electrodes(self.channelmap)
-    electrodes = [all_electrodes[it] for it in np.nonzero(protected)[1]]
+    electrodes = [all_electrodes[it] for it in np.nonzero(protected)[0]]
 
     invalid_electrodes = self.probe.invalid_electrodes(self.channelmap, electrodes, all_electrodes)
     invalid_code = max(self.probe.all_possible_categories().values()) + 1

@@ -514,3 +514,5 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         :return: blueprint
         """
         pass
+
+    # TODO probe geometric information

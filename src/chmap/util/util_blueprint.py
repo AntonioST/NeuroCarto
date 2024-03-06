@@ -460,7 +460,8 @@ class BlueprintFunctions(Generic[M, E]):
         blueprint = np.full_like(self._blueprint, self.CATE_UNSET)
         c = {it.electrode: it.category for it in electrodes}
         for i, e in enumerate(self.probe.all_electrodes(self.channelmap)):
-            blueprint[i] = c[e.electrode]
+            if (category := c.get(e.electrode, None)) is not None:
+                blueprint[i] = category
         return blueprint
 
     def load_blueprint(self, file: str | Path) -> BLUEPRINT:
@@ -591,18 +592,32 @@ class BlueprintFunctions(Generic[M, E]):
     # external functions #
     # ================== #
 
+    @blueprint_function
+    def mask(self, blueprint: BLUEPRINT, categories: int | list[int] = None) -> NDArray[np.bool_]:
+        """
+        Masking electrode belong to the categories.
+
+        :param blueprint:
+        :param categories: If not given, use all categories except CATE_UNSET and CATE_FORBIDDEN.
+        :return:
+        """
+        from .edit.moving import mask
+        return mask(self, blueprint, categories)
+
     @overload
     def invalid(self, blueprint: BLUEPRINT, categories: int | list[int], *,
                 overwrite: bool = False) -> NDArray[np.bool_]:
         pass
 
     @overload
-    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int], value: int, *,
+    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int],
+                value: int, *,
                 overwrite: bool = False) -> BLUEPRINT:
         pass
 
     @blueprint_function
-    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int], value: int = None, *,
+    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int],
+                value: int = None, *,
                 overwrite: bool = False):
         """
         Masking or set value on invalid electrodes for electrode in categories.
