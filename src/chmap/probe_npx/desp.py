@@ -5,10 +5,11 @@ from pathlib import Path
 from typing import ClassVar, TypeAlias, Any
 
 import numpy as np
+from numpy.typing import NDArray
+
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, ElectrodeDesp
 from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError, PROBE_TYPE
-from numpy.typing import NDArray
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
 
@@ -81,8 +82,10 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             return None
         return chmap.probe_type.code
 
-    def new_channelmap(self, probe_type: int | ProbeType | ChannelMap = 24) -> ChannelMap:
-        if isinstance(probe_type, ChannelMap):
+    def new_channelmap(self, probe_type: int | str | ProbeType | ChannelMap = 24) -> ChannelMap:
+        if isinstance(probe_type, (int, str)):
+            probe_type = self.supported_type.get(probe_type, probe_type)
+        elif isinstance(probe_type, ChannelMap):
             probe_type = probe_type.probe_type
         return ChannelMap(probe_type)
 

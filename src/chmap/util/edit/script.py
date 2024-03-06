@@ -54,6 +54,7 @@ EXAMPLE_DOCUMENT_HTML = format_html_doc(EXAMPLE_DOCUMENT)
 
 class BlueprintScript(Protocol):
     """A protocol class  to represent a blueprint script function."""
+    __name__: str
 
     @doc_link(use_probe='chmap.util.edit.checking.use_probe')
     def __call__(self, bp: BlueprintFunctions, *args, **kwargs) -> None:
@@ -143,7 +144,7 @@ class BlueprintScriptInfo(NamedTuple):
 
         script_file = get_import_file(module_path)
         time_stamp = None if script_file is None or not script_file.exists() else script_file.stat().st_mtime
-        return BlueprintScriptInfo(name, module_path, script_file, time_stamp, script)
+        return BlueprintScriptInfo(name, module_path, script_file, time_stamp, script)  # type: ignore[return-value]
 
     def check_changed(self) -> bool:
         if self.filepath is None or self.time_stamp is None:

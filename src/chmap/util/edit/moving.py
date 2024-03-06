@@ -46,7 +46,7 @@ def move(self: BlueprintFunctions, a: NDArray, *,
         jj = np.delete(jj, rm)
 
     if a.ndim > 1:
-        _index = [slice(None)] * a.ndim
+        _index: list[slice | NDArray[np.int_]] = [slice(None)] * a.ndim
         _index[axis] = ii
         ii = tuple(_index)
         _index[axis] = jj
@@ -96,7 +96,7 @@ def move_i(self: BlueprintFunctions, a: NDArray, *,
         jj = np.delete(jj, rm)
 
     if a.ndim > 1:
-        _index = [slice(None)] * a.ndim
+        _index: list[slice | NDArray[np.int_]] = [slice(None)] * a.ndim
         _index[axis] = ii
         ii = tuple(_index)
         _index[axis] = jj
@@ -168,6 +168,7 @@ def fill(self: BlueprintFunctions,
                     if not area[(yi := self._position_index[(s, xx, yy)])]:
                         ret[yi] = c
             else:
+                assert gap_window is not None
                 # fill gap in y
                 for yy in range(y0, y1 + 2 - gap_window):
                     yi = np.array([
@@ -293,7 +294,7 @@ def reduce(self: BlueprintFunctions,
     return ret
 
 
-def _step_as_range(step: int, bi: bool):
+def _step_as_range(step: int, bi: bool) -> range:
     match step:
         case 0:
             return range(0, 1)
@@ -304,8 +305,7 @@ def _step_as_range(step: int, bi: bool):
             return range(1, step + 1)
         case step if step < 0:
             return range(step, 1)
-        case _:
-            raise RuntimeError()
+    raise RuntimeError()
 
 
 def _check_area_size(area: int, threshold: int | tuple[int, int]) -> bool:
@@ -316,5 +316,4 @@ def _check_area_size(area: int, threshold: int | tuple[int, int]) -> bool:
             return area <= -threshold
         case (int(left), int(right)):
             return left <= area <= right
-        case _:
-            raise TypeError()
+    raise TypeError()

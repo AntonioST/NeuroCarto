@@ -37,7 +37,7 @@ def atlas_get_slice(controller: ControllerView, *, um=False) -> tuple[str | None
     :return: tuple of (projection name, plane index)
     """
     atlas: AtlasBrainView
-    if (atlas := controller.get_view('AtlasBrainView')) is None:
+    if (atlas := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
         return None, None
 
     name = atlas.brain_view.name
@@ -64,7 +64,7 @@ def atlas_set_slice(controller: ControllerView,
     :see: {AtlasBrainView#update_brain_view()}, {AtlasBrainView#update_brain_slice()}
     """
     atlas: AtlasBrainView
-    if (atlas := controller.get_view('AtlasBrainView')) is not None:
+    if (atlas := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         if view is not None:
             atlas.update_brain_view(view)
 
@@ -81,7 +81,7 @@ def atlas_add_label(controller: ControllerView, text: str,
                     origin: str = 'bregma', color: str = 'cyan', replace=True) -> Label | None:
     """{AtlasBrainView#add_label()}"""
     view: AtlasBrainView
-    if (view := controller.get_view('AtlasBrainView')) is not None:
+    if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         return view.add_label(text, pos, origin=origin, color=color, replace=replace)
     return None
 
@@ -90,7 +90,7 @@ def atlas_add_label(controller: ControllerView, text: str,
 def atlas_focus_label(controller: ControllerView, label: int | str | Label):
     """{AtlasBrainView#focus_label()}"""
     view: AtlasBrainView
-    if (view := controller.get_view('AtlasBrainView')) is not None:
+    if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         view.focus_label(label)
 
 
@@ -98,7 +98,7 @@ def atlas_focus_label(controller: ControllerView, label: int | str | Label):
 def atlas_del_label(controller: ControllerView, i: int | str | list[int | str]):
     """{AtlasBrainView#del_label()}"""
     view: AtlasBrainView
-    if (view := controller.get_view('AtlasBrainView')) is None:
+    if (view := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
         return
 
     match i:
@@ -129,7 +129,7 @@ def atlas_del_label(controller: ControllerView, i: int | str | list[int | str]):
 def atlas_clear_labels(controller: ControllerView):
     """{AtlasBrainView#clear_labels()}"""
     view: AtlasBrainView
-    if (view := controller.get_view('AtlasBrainView')) is not None:
+    if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         view.clear_labels()
 
 
@@ -140,7 +140,7 @@ def atlas_set_transform(controller: ControllerView,
                         rt: float = None):
     """{BoundView#update_boundary_transform()}"""
     view: AtlasBrainView
-    if (view := controller.get_view('AtlasBrainView')) is not None:
+    if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         view.update_boundary_transform(p=p, s=s, rt=rt)
 
 
@@ -150,7 +150,7 @@ def atlas_set_anchor(controller: ControllerView,
                      a: tuple[float, float] = (0, 0)):
     """{BoundView#set_anchor_to()}"""
     view: AtlasBrainView
-    if (view := controller.get_view('AtlasBrainView')) is not None:
+    if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         view.set_anchor_to(p, a)
 
 
@@ -176,7 +176,7 @@ def atlas_new_probe(controller: ControllerView,
     :return: a probe coordinate. ``None`` if origin not set.
     """
     view: AtlasBrainView
-    if (view := controller.get_view('AtlasBrainView')) is None:
+    if (view := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
         return None
 
     # get probe coordinate instance
@@ -196,7 +196,7 @@ def atlas_set_anchor_on_probe(bp: BlueprintFunctions,
     :return:
     """
     view: AtlasBrainView
-    if (view := controller.get_view('AtlasBrainView')) is None:
+    if (view := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
         return
 
     # set brain slice to corresponding plane

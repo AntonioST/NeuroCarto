@@ -293,7 +293,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     @doc_link()
-    def new_channelmap(self, chmap: int | M) -> M:
+    def new_channelmap(self, chmap: int | str | M) -> M:
         """
         Create a new, empty channelmap instance.
 

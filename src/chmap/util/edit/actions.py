@@ -57,8 +57,8 @@ def draw(self: BlueprintFunctions, controller: ControllerView,
 @doc_link()
 def has_script(controller: ControllerView, script: str) -> bool:
     """{BlueprintScriptView#run_script()}"""
-    edit: BlueprintScriptView = controller.get_view('BlueprintScriptView')
-    if edit is None:
+    edit: BlueprintScriptView
+    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
         return False
 
     try:
@@ -72,8 +72,8 @@ def has_script(controller: ControllerView, script: str) -> bool:
 @doc_link()
 def call_script(self: BlueprintFunctions, controller: ControllerView, script: str, /, *args, **kwargs):
     """{BlueprintScriptView#run_script()}"""
-    edit: BlueprintScriptView = controller.get_view('BlueprintScriptView')
-    if edit is None:
+    edit: BlueprintScriptView
+    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
         return
 
     info = edit.get_script(script)
@@ -95,8 +95,8 @@ def call_script(self: BlueprintFunctions, controller: ControllerView, script: st
 @doc_link()
 def interrupt_script(controller: ControllerView, script: str) -> bool:
     """{BlueprintScriptView#interrupt_script()}"""
-    edit: BlueprintScriptView = controller.get_view('BlueprintScriptView')
-    if edit is None:
+    edit: BlueprintScriptView
+    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
         return False
 
     try:
@@ -111,8 +111,8 @@ def interrupt_script(controller: ControllerView, script: str) -> bool:
 def profile_script(self: BlueprintFunctions, controller: ControllerView, script: str, /, *args, **kwargs):
     """{BlueprintScriptView#run_script()}"""
 
-    edit: BlueprintScriptView = controller.get_view('BlueprintScriptView')
-    if edit is None:
+    edit: BlueprintScriptView
+    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
         return
 
     import cProfile

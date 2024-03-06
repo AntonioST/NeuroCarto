@@ -19,9 +19,10 @@ def print_local(self: BlueprintFunctions, data: NDArray, i: int, size: int = 1) 
     x = int(self.x[i] / self.dx)
     y = int(self.y[i] / self.dy)
 
-    ret = []
+    ret: list[list[str]] = []
     for dy in range(-size, size + 1):
-        ret.append((row := []))
+        row: list[str] = []
+        ret.append(row)
         for dx in range(-size, size + 1):
             j = self._position_index.get((s, x + dx, y + dy), None)
             if j is None:

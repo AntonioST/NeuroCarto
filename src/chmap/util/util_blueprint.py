@@ -215,6 +215,8 @@ class BlueprintFunctions(Generic[M, E]):
 
     def __init__(self, probe: ProbeDesp[M, E], chmap: int | str | M | None):
         self.probe: Final[ProbeDesp[M, E]] = probe
+        if isinstance(chmap, (int, str)):
+            chmap = probe.new_channelmap(chmap)
         self.channelmap: Final[M | None] = chmap
         self.categories: Final[dict[str, int]] = probe.all_possible_categories()
 
@@ -233,7 +235,7 @@ class BlueprintFunctions(Generic[M, E]):
                 for i in range(len(self.s))
             }
 
-            self._blueprint: BLUEPRINT = np.array([it.category for it in electrodes])
+            self._blueprint: BLUEPRINT | None = np.array([it.category for it in electrodes])
         else:
             self._blueprint = None
 
@@ -265,15 +267,15 @@ class BlueprintFunctions(Generic[M, E]):
         :return: itself
         """
         ret = object.__new__(BlueprintFunctions)
-        ret.probe = self.probe
-        ret.channelmap = self.channelmap
-        ret.categories = self.categories
+        ret.probe = self.probe  # type: ignore[misc]
+        ret.channelmap = self.channelmap  # type: ignore[misc]
+        ret.categories = self.categories  # type: ignore[misc]
 
-        ret.s = self.s
-        ret.x = self.x
-        ret.y = self.y
-        ret.dx = self.dx
-        ret.dy = self.dy
+        ret.s = self.s  # type: ignore[misc]
+        ret.x = self.x  # type: ignore[misc]
+        ret.y = self.y  # type: ignore[misc]
+        ret.dx = self.dx  # type: ignore[misc]
+        ret.dy = self.dy  # type: ignore[misc]
         ret._position_index = self._position_index
         ret._blueprint = self._blueprint.copy()
 
@@ -282,7 +284,7 @@ class BlueprintFunctions(Generic[M, E]):
         else:
             ret._controller = self._controller
 
-        return ret
+        return ret  # type: ignore[return-value]
 
     # ==================== #
     # channelmap functions #
@@ -297,16 +299,19 @@ class BlueprintFunctions(Generic[M, E]):
         :param overwrite: overwrite previous selected electrode.
         :see: {ProbeDesp#add_electrode()}
         """
-        electrodes = self.probe.all_electrodes(self.channelmap)
-        if isinstance(e, (int, np.integer)):
-            e = [electrodes[int(e)]]
-        elif isinstance(e, (list, tuple)):
-            e = [electrodes[int(it)] for it in e]
-        else:
-            e = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
+        if (channelmap := self.channelmap) is None:
+            return
 
-        for t in e:
-            self.probe.add_electrode(self.channelmap, t, overwrite=overwrite)
+        electrodes = self.probe.all_electrodes(channelmap)
+        if isinstance(e, (int, np.integer)):
+            es = [electrodes[int(e)]]
+        elif isinstance(e, (list, tuple)):
+            es = [electrodes[int(it)] for it in e]
+        else:
+            es = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
+
+        for t in es:
+            self.probe.add_electrode(channelmap, t, overwrite=overwrite)
 
     @doc_link()
     def del_electrodes(self, e: int | list[int] | NDArray[np.int_] | NDArray[np.bool_]):
@@ -316,16 +321,19 @@ class BlueprintFunctions(Generic[M, E]):
         :param e: electrode index, index list, index array or index mask.
         :see: {ProbeDesp#del_electrode()}
         """
-        electrodes = self.probe.all_electrodes(self.channelmap)
-        if isinstance(e, (int, np.integer)):
-            e = [electrodes[int(e)]]
-        elif isinstance(e, (list, tuple)):
-            e = [electrodes[int(it)] for it in e]
-        else:
-            e = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
+        if (channelmap := self.channelmap) is None:
+            return
 
-        for t in e:
-            self.probe.del_electrode(self.channelmap, t)
+        electrodes = self.probe.all_electrodes(channelmap)
+        if isinstance(e, (int, np.integer)):
+            es = [electrodes[int(e)]]
+        elif isinstance(e, (list, tuple)):
+            es = [electrodes[int(it)] for it in e]
+        else:
+            es = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
+
+        for t in es:
+            self.probe.del_electrode(channelmap, t)
 
     @doc_link()
     def selected_electrodes(self, chmap=None) -> NDArray[np.int_]:
@@ -337,7 +345,8 @@ class BlueprintFunctions(Generic[M, E]):
         """
         if chmap is None:
             chmap = self.channelmap
-
+        if chmap is None:
+            return np.array([], dtype=int)
         return self.index_blueprint(self.probe.all_channels(chmap))
 
     def set_channelmap(self, chmap: M):
@@ -348,10 +357,13 @@ class BlueprintFunctions(Generic[M, E]):
         """
         # chmap may the same instance as self.channelmap
         # to prevent from we cannot get channels after clear_electrode()
+        if (channelmap := self.channelmap) is None:
+            return
+
         electrodes = self.probe.all_channels(chmap)
-        self.probe.clear_electrode(self.channelmap)
+        self.probe.clear_electrode(channelmap)
         for t in electrodes:
-            self.probe.add_electrode(self.channelmap, t)
+            self.probe.add_electrode(channelmap, t)
 
     @doc_link()
     def select_electrodes(self, chmap=None, blueprint: ELECTRODES | BLUEPRINT = None, **kwargs) -> float:
@@ -387,6 +399,8 @@ class BlueprintFunctions(Generic[M, E]):
 
     def blueprint(self) -> BLUEPRINT:
         """blueprint copy."""
+        if self._blueprint is None:
+            return np.full_like(self.s, self.CATE_UNSET, dtype=int)
         return self._blueprint.copy()
 
     def new_blueprint(self) -> BLUEPRINT:
@@ -405,7 +419,11 @@ class BlueprintFunctions(Generic[M, E]):
         :param blueprint: a blueprint or a category value.
         """
         if isinstance(blueprint, int):
-            self._blueprint[:] = blueprint
+            if self._blueprint is None:
+                self._blueprint = np.full_like(self.s, blueprint, dtype=int)
+            else:
+                self._blueprint[:] = blueprint
+
             self._blueprint_changed = True
             return
 
@@ -428,22 +446,25 @@ class BlueprintFunctions(Generic[M, E]):
         :return: *electrodes*
         :see: {#from_blueprint()}
         """
+        if (channelmap := self.channelmap) is None:
+            raise RuntimeError()
+
         if blueprint is None:
             blueprint = self.blueprint()
 
         if electrodes is None:
-            electrodes = self.probe.all_electrodes(self.channelmap)
+            electrodes = self.probe.all_electrodes(channelmap)
         else:
             for e in electrodes:
                 e.state = ProbeDesp.STATE_UNUSED
 
-        for e in self.probe.all_channels(self.channelmap, electrodes):
-            for t in self.probe.invalid_electrodes(self.channelmap, e, electrodes):
+        for e in self.probe.all_channels(channelmap, electrodes):
+            for t in self.probe.invalid_electrodes(channelmap, e, electrodes):
                 t.state = ProbeDesp.STATE_FORBIDDEN
             e.state = ProbeDesp.STATE_USED
 
         c = {it.electrode: it for it in electrodes}
-        for e, p in zip(self.probe.all_electrodes(self.channelmap), blueprint):
+        for e, p in zip(self.probe.all_electrodes(channelmap), blueprint):
             if (t := c.get(e.electrode, None)) is not None:
                 t.category = int(p)
 
@@ -458,9 +479,12 @@ class BlueprintFunctions(Generic[M, E]):
         :return:
         :see: {#apply_blueprint()}
         """
+        if (channelmap := self.channelmap) is None:
+            raise RuntimeError()
+
         blueprint = np.full_like(self._blueprint, self.CATE_UNSET)
         c = {it.electrode: it.category for it in electrodes}
-        for i, e in enumerate(self.probe.all_electrodes(self.channelmap)):
+        for i, e in enumerate(self.probe.all_electrodes(channelmap)):
             if (category := c.get(e.electrode, None)) is not None:
                 blueprint[i] = category
         return blueprint
@@ -489,12 +513,15 @@ class BlueprintFunctions(Generic[M, E]):
         :param file: file.blueprint.npy
         :return:
         """
+        if (channelmap := self.channelmap) is None:
+            raise RuntimeError()
+
         file = Path(file)
         if file.name.endswith('.blueprint.npy'):
             file = file.with_suffix('.blueprint.npy')
 
         data = np.load(file)
-        self.set_blueprint(self.probe.load_blueprint(data, self.channelmap))
+        self.set_blueprint(self.probe.load_blueprint(data, channelmap))
         return self._blueprint
 
     def save_blueprint(self, file: str | Path, blueprint: BLUEPRINT = None):
@@ -505,17 +532,22 @@ class BlueprintFunctions(Generic[M, E]):
         :param blueprint:
         :return:
         """
+        if (channelmap := self.channelmap) is None:
+            raise RuntimeError()
+
         if blueprint is None:
             blueprint = self._blueprint
+            if blueprint is None:
+                raise RuntimeError('nothing to save')
         else:
-            if len(blueprint) != len(self._blueprint):
+            if len(blueprint) != len(self.s):
                 raise RuntimeError()
 
         file = Path(file)
         if file.name.endswith('.blueprint.npy'):
             file = file.with_suffix('.blueprint.npy')
 
-        s = self.probe.all_electrodes(self.channelmap)
+        s = self.probe.all_electrodes(channelmap)
         for e, c in zip(s, blueprint):
             e.category = c
 
@@ -584,27 +616,42 @@ class BlueprintFunctions(Generic[M, E]):
     def merge(self, blueprint: BLUEPRINT, other: BLUEPRINT | BlueprintFunctions = None) -> BLUEPRINT:
         pass
 
-    def merge(self, blueprint: BLUEPRINT, other: BLUEPRINT = None) -> BLUEPRINT:
+    def merge(self, blueprint, other=None) -> BLUEPRINT:
         """
         Merge two blueprints. The latter blueprint won't overwrite the former result.
 
-        ``merge(blueprint)`` works like ``merge(blueprint(), blueprint)``.
+        ``merge(blueprint)`` works like ``set_blueprint(ret := merge(blueprint(), blueprint)); ret``.
 
         :param blueprint: Array[category, N]
         :param other: blueprint Array[category, N]
         :return: blueprint Array[category, N]
+        :raise ValueError: incorrect length
         """
+        set_return = False
         if other is None:
             blueprint, other = self._blueprint, blueprint
+            set_return = True
 
         if isinstance(other, BlueprintFunctions):
             other = other.blueprint()
 
+        if other is None:
+            raise TypeError()
+
         n = len(self.s)
-        if len(blueprint) != n or len(other) != n:
+        if len(other) != n:
             raise ValueError()
 
-        return np.where(blueprint != self.CATE_UNSET, blueprint, other)
+        if blueprint is not None:
+            if len(blueprint) != n:
+                raise ValueError()
+            ret = np.where(blueprint != self.CATE_UNSET, blueprint, other)
+        else:
+            ret = other
+
+        if set_return:
+            self.set_blueprint(ret)
+        return ret
 
     @blueprint_function(set_return=False)
     def mask(self, blueprint: BLUEPRINT, categories: int | list[int] = None) -> NDArray[np.bool_]:

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
-from chmap.probe import ProbeDesp, M, E
+from chmap.probe import ProbeDesp, ElectrodeDesp, M
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import SPHINX_BUILD, doc_link
 from chmap.views.base import ControllerView
@@ -107,7 +108,7 @@ def refresh_selection(self: BlueprintFunctions, controller: ControllerView, sele
 
 @doc_link()
 def select_electrodes(self: BlueprintFunctions, chmap: M = None,
-                      blueprint: list[E] | NDArray[np.int_] = None, **kwargs) -> M:
+                      blueprint: list[ElectrodeDesp] | NDArray[np.int_] = None, **kwargs) -> M:
     """
     Run electrode selection for a channelmap based on the blueprint.
 
@@ -133,7 +134,8 @@ def select_electrodes(self: BlueprintFunctions, chmap: M = None,
 
 
 @doc_link()
-def npx_channel_efficiency(self: BlueprintFunctions, chmap=None, blueprint: list[E] | NDArray[np.int_] = None) -> float:
+def npx_channel_efficiency(self: BlueprintFunctions, chmap=None,
+                           blueprint: Sequence[ElectrodeDesp] | NDArray[np.int_] = None) -> float:
     """
     Calculate the channel efficiency for a blueprint and its outcomes *chmap*.
 

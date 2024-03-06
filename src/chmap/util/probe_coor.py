@@ -63,7 +63,7 @@ class ProbeCoordinate(NamedTuple):
         x = bregma[0] - ap
         y = bregma[1] + dv
         z = bregma[2] + ml
-        return ProbeCoordinate(x, y, z, **kwargs)
+        return ProbeCoordinate(x, y, z, **kwargs)  # type: ignore[return-value]
 
 
 def get_plane_at(view: SliceView, pc: ProbeCoordinate) -> SlicePlane:

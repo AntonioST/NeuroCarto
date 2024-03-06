@@ -58,3 +58,5 @@ def get_surrounding(self: BlueprintFunctions, i: int | tuple[int, int, int], p: 
             return s, x, y - 1
         case 7 | -1:
             return s, x + 1, y - 1
+        case _:
+            raise RuntimeError('unreachable')
