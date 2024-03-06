@@ -118,6 +118,7 @@ class BlueprintFunctions(Generic[M, E]):
         * {#__setitem__()}
         * {#__delitem__()}
         * {#merge()}
+        * {#invalid()}
         * {#move()}
         * {#move_i()}
         * {#find_clustering()}
@@ -589,6 +590,31 @@ class BlueprintFunctions(Generic[M, E]):
     # ================== #
     # external functions #
     # ================== #
+
+    @overload
+    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int], *,
+                overwrite: bool = False) -> NDArray[np.bool_]:
+        pass
+
+    @overload
+    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int], value: int, *,
+                overwrite: bool = False) -> BLUEPRINT:
+        pass
+
+    @blueprint_function
+    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int], value: int = None, *,
+                overwrite: bool = False):
+        """
+        Masking or set value on invalid electrodes for electrode in categories.
+
+        :param blueprint:
+        :param categories:
+        :param value: set value on invalid electrodes.
+        :param overwrite: Does the electrode in categories are included in the mask.
+        :return: a mask if *value* is omitted. Otherwise, a new blueprint.
+        """
+        from .edit.moving import invalid
+        return invalid(self, blueprint, categories, value, overwrite=overwrite)
 
     def move(self, a: NDArray, *,
              tx: int = 0, ty: int = 0,
