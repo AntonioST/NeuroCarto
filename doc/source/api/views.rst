@@ -40,7 +40,7 @@ chmap.views
     :maxdepth: 1
     :caption: Advance Views:
 
-    views.edit_blueprint
+    views.blueprint_script
     views.record
     views.utils
 

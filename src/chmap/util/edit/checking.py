@@ -79,7 +79,7 @@ class RequestChannelmapTypeRequest(NamedTuple):
 
 @doc_link(
     BlueprintScript='chmap.util.edit.script.BlueprintScript',
-    BlueprintScriptView='chmap.views.edit_blueprint.BlueprintScriptView',
+    BlueprintScriptView='chmap.views.blueprint_script.BlueprintScriptView',
 )
 def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
               create: bool = None, check=True):

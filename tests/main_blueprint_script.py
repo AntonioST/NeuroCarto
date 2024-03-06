@@ -1,7 +1,7 @@
 from chmap.main_bokeh import main, ChannelMapEditorApp
 from chmap.util.bokeh_app import run_later, run_timeout
 from chmap.views.base import ViewBase, ControllerView
-from chmap.views.edit_blueprint import BlueprintScriptView
+from chmap.views.blueprint_script import BlueprintScriptView
 
 
 class Tester(ViewBase, ControllerView):
@@ -53,6 +53,6 @@ if __name__ == '__main__':
         '--debug',
         '--view=-',
         '--view=blueprint',
-        '--view=chmap.views.edit_blueprint:BlueprintScriptView',
+        '--view=chmap.views.blueprint_script:BlueprintScriptView',
         '--view=tests:main_blueprint_script:Tester',
     ]))

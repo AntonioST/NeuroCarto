@@ -30,7 +30,7 @@ elif SPHINX_BUILD:
     ProbeView = 'chmap.views.probe.ProbeView'
     NpxProbeDesp = 'chmap.probe_npx.desp.NpxProbeDesp'
     AtlasBrainView = 'chmap.views.atlas.AtlasBrainView'
-    BlueprintScriptView = 'chmap.views.edit_blueprint.BlueprintScriptView'
+    BlueprintScriptView = 'chmap.views.blueprint_script.BlueprintScriptView'
 
 
     class BLUEPRINT:

@@ -5,17 +5,18 @@ import time
 from typing import TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import NDArray
+
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import SPHINX_BUILD, doc_link
 from chmap.views.base import ViewBase, ControllerView
 from chmap.views.data import DataHandler
-from numpy.typing import NDArray
 
 if TYPE_CHECKING:
-    from chmap.views.edit_blueprint import BlueprintScriptView
+    from chmap.views.blueprint_script import BlueprintScriptView
 elif SPHINX_BUILD:
     ViewBase = 'chmap.views.base.ViewBase'
-    BlueprintScriptView = 'chmap.views.edit_blueprint.BlueprintScriptView'
+    BlueprintScriptView = 'chmap.views.blueprint_script.BlueprintScriptView'
 
 __all__ = [
     'log_message',
