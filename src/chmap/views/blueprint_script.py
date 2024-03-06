@@ -23,7 +23,7 @@ from chmap.views.image_plt import PltImageView
 
 if TYPE_CHECKING:
     from chmap.probe_npx.npx import ChannelMap
-    from chmap.util.edit.checking import RequestChannelmapTypeRequest
+    from chmap.util.edit.checking import RequestChannelmapType
 
 __all__ = [
     'BlueprintScriptView',
@@ -211,11 +211,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     def start(self):
         self.restore_global_state(force=True)
 
-        run_later(self._load_scripts)
-
-    def _load_scripts(self):
-        for action in self.actions:
-            self.get_script(action)
+        run_later(self.update_actions_select)
 
     cache_probe: ProbeDesp | None = None
     cache_chmap: Any | None = None
@@ -252,15 +248,20 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         """
         opts = []
 
-        if (probe := self.cache_probe) is None:
-            opts = list(self.actions)
-        else:
-            for action in self.actions:
-                script = self.get_script(action)
-                if (request := script.script_use_probe()) is None:
+        probe = self.cache_probe
+        for action in self.actions:
+            script = self.get_script(action)
+            if (request := script.script_use_view()) is not None:
+                if self.get_view(request.view_type) is None:
+                    continue
+
+            if (request := script.script_use_probe()) is None:
+                opts.append(action)
+            elif probe is None:
+                if request.create:
                     opts.append(action)
-                elif request.match_probe(probe, self.cache_chmap):
-                    opts.append(action)
+            elif request.match_probe(probe, self.cache_chmap):
+                opts.append(action)
 
         current_select = self.script_select.value
         self.script_select.options = opts
@@ -441,11 +442,11 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         if (blueprint := self.cache_blueprint) is not None:
             bp.set_blueprint(blueprint)
 
-        request: RequestChannelmapTypeRequest | None
+        request: RequestChannelmapType | None
         if (request := script.script_use_probe()) is not None:
             if chmap is None and request.create:
                 if (code := request.code) is None:
-                    raise RuntimeError('RequestChannelmapTypeRequest missing probe code')
+                    raise RuntimeError('RequestChannelmapType missing probe code')
 
                 self.logger.debug('run_script(%s) create probe %s[%d]', script.name, request.probe_name, code)
                 chmap = bp.new_channelmap(code)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from chmap.probe_npx import NpxProbeDesp, utils
-from chmap.util.edit.checking import use_probe
+from chmap.util.edit.checking import use_probe, use_view
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import TimeMarker
 
@@ -195,6 +195,7 @@ def _optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, **kwar
     return max_chmap
 
 
+@use_view('AtlasBrainView')
 def atlas_label(bp: BlueprintFunctions, *args, color='cyan'):
     """
     Set labels on atlas brain image.
@@ -243,6 +244,7 @@ def atlas_label(bp: BlueprintFunctions, *args, color='cyan'):
             raise RuntimeError(f'unknown command : {command}')
 
 
+@use_view('AtlasBrainView')
 def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
                                                  ap: float, ml: float, dv: float = 0,
                                                  shank: int = 0,

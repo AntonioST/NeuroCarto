@@ -7,20 +7,29 @@ from chmap.util.utils import SPHINX_BUILD, doc_link
 
 if TYPE_CHECKING:
     from chmap.util.util_blueprint import BlueprintFunctions
+    from chmap.views.base import ViewBase
 elif SPHINX_BUILD:
+    ViewBase = 'chmap.views.base.ViewBase'
     BlueprintFunctions = 'chmap.util.util_blueprint.BlueprintFunctions'
+    BlueprintScript = 'chmap.util.edit.script.BlueprintScript',
+    BlueprintScriptView = 'chmap.views.blueprint_script.BlueprintScriptView',
 
 __all__ = [
+    #
     'use_probe',
     'check_probe',
     'get_use_probe',
-    'RequestChannelmapTypeRequest',
+    'RequestChannelmapType',
     'RequestChannelmapTypeError',
+    #
+    'use_view',
+    'get_use_view',
+    'RequestView',
 ]
 
 
 @doc_link()
-class RequestChannelmapTypeRequest(NamedTuple):
+class RequestChannelmapType(NamedTuple):
     """
     An annotation to indicate the probe request for a blueprint script.
 
@@ -77,10 +86,7 @@ class RequestChannelmapTypeRequest(NamedTuple):
         return self.code == code
 
 
-@doc_link(
-    BlueprintScript='chmap.util.edit.script.BlueprintScript',
-    BlueprintScriptView='chmap.views.blueprint_script.BlueprintScriptView',
-)
+@doc_link()
 def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
               create: bool = None, check=True):
     """
@@ -111,16 +117,16 @@ def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
         raise ValueError('create mode need non-None code')
 
     def _decorator(func):
-        func.__chmap_checking_use_probe__ = RequestChannelmapTypeRequest(probe, code, create, check)
+        func.__chmap_checking_use_probe__ = RequestChannelmapType(probe, code, create, check)
         return func
 
     return _decorator
 
 
 @doc_link()
-def get_use_probe(func) -> RequestChannelmapTypeRequest | None:
+def get_use_probe(func) -> RequestChannelmapType | None:
     """
-    Get {RequestChannelmapTypeRequest}.
+    Get {RequestChannelmapType}.
 
     :param func: blueprint script function
     :return:
@@ -129,7 +135,7 @@ def get_use_probe(func) -> RequestChannelmapTypeRequest | None:
 
 
 class RequestChannelmapTypeError(RuntimeError):
-    def __init__(self, request: RequestChannelmapTypeRequest):
+    def __init__(self, request: RequestChannelmapType):
         """
 
         :param request: request probe type.
@@ -153,7 +159,7 @@ class RequestChannelmapTypeError(RuntimeError):
 
 @doc_link()
 def check_probe(self: BlueprintFunctions,
-                probe: str | type[ProbeDesp] | RequestChannelmapTypeRequest | None = None,
+                probe: str | type[ProbeDesp] | RequestChannelmapType | None = None,
                 code: int = None):
     """
     check request probe type and channelmap code.
@@ -164,10 +170,10 @@ def check_probe(self: BlueprintFunctions,
     :param code: request channelmap code
     :raise RequestChannelmapTypeError: when check failed.
     """
-    if isinstance(probe, RequestChannelmapTypeRequest):
+    if isinstance(probe, RequestChannelmapType):
         request = probe
     else:
-        request = RequestChannelmapTypeRequest(probe, code)
+        request = RequestChannelmapType(probe, code)
 
     current_probe = self.probe
     current_chmap = self.channelmap
@@ -179,3 +185,37 @@ def check_probe(self: BlueprintFunctions,
 
     if not request.match_probe(current_probe, current_chmap):
         raise RequestChannelmapTypeError(request)
+
+
+class RequestView(NamedTuple):
+    view_type: str | type[ViewBase]
+
+
+@doc_link()
+def use_view(view: str | type[ViewBase]):
+    """
+    Decorate a blueprint script ({BlueprintScript}) to indicate this function
+    request a particular {ViewBase} to work.
+
+    If also allow {BlueprintScriptView} to filter suitable scripts.
+
+    :param view:
+    :return:
+    """
+
+    def _decorator(func):
+        func.__chmap_checking_use_view__ = RequestView(view)
+        return func
+
+    return _decorator
+
+
+@doc_link()
+def get_use_view(func) -> RequestView | None:
+    """
+    Get {RequestView}.
+
+    :param func: blueprint script function
+    :return:
+    """
+    return getattr(func, '__chmap_checking_use_view__', None)

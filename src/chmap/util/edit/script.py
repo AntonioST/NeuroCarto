@@ -19,7 +19,7 @@ else:
     from typing_extensions import Self
 
 if TYPE_CHECKING:
-    from chmap.util.edit.checking import RequestChannelmapTypeRequest
+    from chmap.util.edit.checking import RequestChannelmapType, RequestView
 
 __all__ = [
     'BlueprintScript',
@@ -169,9 +169,13 @@ class BlueprintScriptInfo(NamedTuple):
     def script_name(self) -> str:
         return self.script.__name__
 
-    def script_use_probe(self) -> RequestChannelmapTypeRequest | None:
+    def script_use_probe(self) -> RequestChannelmapType | None:
         from chmap.util.edit.checking import get_use_probe
         return get_use_probe(self.script)
+
+    def script_use_view(self) -> RequestView | None:
+        from chmap.util.edit.checking import get_use_view
+        return get_use_view(self.script)
 
     def __call__(self, bp: BlueprintFunctions, script_input: str):
         """
