@@ -32,10 +32,15 @@ def mask(self: BlueprintFunctions,
 
 def invalid(self: BlueprintFunctions,
             blueprint: NDArray[np.int_],
-            categories: int | list[int],
+            electrodes: NDArray[np.int_] | NDArray[np.bool_],
             value: int = None, *,
             overwrite: bool = False) -> NDArray:
-    protected = mask(self, blueprint, categories)
+    if electrodes.dtype == np.bool_:
+        blueprint[electrodes]  # check shape
+        protected = electrodes
+    else:
+        protected = np.zeros_like(blueprint, dtype=bool)
+        protected[electrodes] = True
 
     all_electrodes = self.probe.all_electrodes(self.channelmap)
     electrodes = [all_electrodes[it] for it in np.nonzero(protected)[0]]

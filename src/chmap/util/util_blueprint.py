@@ -111,6 +111,7 @@ class BlueprintFunctions(Generic[M, E]):
         * {#set_blueprint()}
         * {#apply_blueprint()}
         * {#from_blueprint()}
+        * {#index_blueprint()}
         * {#load_blueprint()}
         * {#save_blueprint()}
         * {#set()}
@@ -118,6 +119,7 @@ class BlueprintFunctions(Generic[M, E]):
         * {#__setitem__()}
         * {#__delitem__()}
         * {#merge()}
+        * {#mask()}
         * {#invalid()}
         * {#move()}
         * {#move_i()}
@@ -326,18 +328,7 @@ class BlueprintFunctions(Generic[M, E]):
         if chmap is None:
             chmap = self.channelmap
 
-        ret = []
-        pos = self._position_index
-
-        for e in self.probe.all_channels(chmap):
-            p = int(e.s), int(e.x / self.dx), int(e.y / self.dy)
-            if (i := pos.get(p, None)) is not None:
-                ret.append(i)
-
-        if len(ret):
-            return np.unique(ret)
-        else:
-            return np.array([], dtype=int)
+        return self.index_blueprint(self.probe.all_channels(chmap))
 
     def set_channelmap(self, chmap: M):
         """
@@ -451,7 +442,7 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def from_blueprint(self, electrodes: list[E]) -> BLUEPRINT:
         """
-        Get blueprint from electrode list.
+        Get a blueprint from an electrode list.
 
         :param electrodes: electrode list
         :return:
@@ -463,6 +454,23 @@ class BlueprintFunctions(Generic[M, E]):
             if (category := c.get(e.electrode, None)) is not None:
                 blueprint[i] = category
         return blueprint
+
+    def index_blueprint(self, electrodes: list[E]) -> NDArray[np.int_]:
+        """
+        Get an electrode index array from an electrode list.
+
+        :param electrodes:
+        :return: electrode index array
+        """
+        ret = []
+        pos = self._position_index
+
+        for e in electrodes:
+            p = int(e.s), int(e.x / self.dx), int(e.y / self.dy)
+            if (i := pos.get(p, None)) is not None:
+                ret.append(i)
+
+        return np.unique(np.array(ret, dtype=int))
 
     def load_blueprint(self, file: str | Path) -> BLUEPRINT:
         """
@@ -605,31 +613,62 @@ class BlueprintFunctions(Generic[M, E]):
         return mask(self, blueprint, categories)
 
     @overload
-    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int], *,
+    def invalid(self, blueprint: BLUEPRINT, *,
+                electrodes: int | list[E] | NDArray[np.bool_] | NDArray[np.int_] | M = None,
+                categories: int | list[int] = None,
                 overwrite: bool = False) -> NDArray[np.bool_]:
         pass
 
     @overload
-    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int],
-                value: int, *,
+    def invalid(self, blueprint: BLUEPRINT, *,
+                electrodes: int | list[E] | NDArray[np.bool_] | NDArray[np.int_] | M = None,
+                categories: int | list[int] = None,
+                value: int,
                 overwrite: bool = False) -> BLUEPRINT:
         pass
 
     @blueprint_function
-    def invalid(self, blueprint: BLUEPRINT, categories: int | list[int],
-                value: int = None, *,
+    def invalid(self, blueprint: BLUEPRINT, *,
+                electrodes: int | list[E] | NDArray[np.bool_] | NDArray[np.int_] | M = None,
+                categories: int | list[int] = None,
+                value: int = None,
                 overwrite: bool = False):
         """
         Masking or set value on invalid electrodes for electrode in categories.
 
         :param blueprint:
-        :param categories:
+        :param electrodes: electrode index array, masking, or a channelmap (take selected electrodes).
+        :param categories: only consider electrode categories in list.
         :param value: set value on invalid electrodes.
         :param overwrite: Does the electrode in categories are included in the mask.
         :return: a mask if *value* is omitted. Otherwise, a new blueprint.
         """
-        from .edit.moving import invalid
-        return invalid(self, blueprint, categories, value, overwrite=overwrite)
+        from .edit.moving import mask, invalid
+        _electrodes = mask(self, blueprint, categories)
+
+        if electrodes is None:
+            pass
+        elif isinstance(electrodes, (int, np.integer)):
+            keep = _electrodes[electrodes]
+            _electrodes[:] = False
+            _electrodes[electrodes] = keep
+        else:
+            if isinstance(electrodes, type(self.channelmap)):
+                electrodes = self.selected_electrodes(electrodes)
+
+            if isinstance(electrodes, list):
+                self.index_blueprint(electrodes)
+
+            if not isinstance(electrodes, np.ndarray):
+                raise TypeError()
+            elif electrodes.dtype == np.bool_:
+                _electrodes = _electrodes & electrodes
+            else:
+                keep = _electrodes[electrodes]
+                _electrodes[:] = False
+                _electrodes[electrodes] = keep
+
+        return invalid(self, blueprint, _electrodes, value, overwrite=overwrite)
 
     def move(self, a: NDArray, *,
              tx: int = 0, ty: int = 0,

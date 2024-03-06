@@ -178,16 +178,19 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
 
     def plot_blueprint_npx_conflict(self, bp: BlueprintFunctions) -> dict:
         blueprint = bp.blueprint()
-        i0 = bp.invalid(blueprint, [bp.CATE_SET, bp.CATE_FULL])
-        r0 = bp.mask(blueprint, [bp.CATE_HALF, bp.CATE_QUARTER])
+        i0 = bp.invalid(blueprint, electrodes=bp.channelmap, categories=[bp.CATE_SET, bp.CATE_FULL])
+        r0 = bp.mask(blueprint, [bp.CATE_FULL, bp.CATE_HALF, bp.CATE_QUARTER])
         c0 = i0 & r0
+
+        i1 = bp.invalid(blueprint, categories=[bp.CATE_SET, bp.CATE_FULL])
+        r1 = bp.mask(blueprint, [bp.CATE_HALF, bp.CATE_QUARTER])
+        c1 = i1 & r1
 
         # i1 = bp.invalid(blueprint, [bp.CATE_HALF])
         # r1 = bp.mask(blueprint, [bp.CATE_HALF, bp.CATE_QUARTER])
         # c1 = i1 & r1
 
-        # conflict = c0 & c1
-        conflict = c0.astype(int)
+        conflict = (c0 | c1).astype(int)
 
         self.set_category_colr({'conflict': 'red'})
 
