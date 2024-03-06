@@ -55,7 +55,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         ret = super()._setup_title(**kwargs)
 
         self.checkbox_group = CheckboxGroup(labels=['Conflict'], inline=True)
-        self.checkbox_group.on_change('active', as_callback(self.update_probe))
+        self.checkbox_group.on_change('active', as_callback(self.update_blueprint))
         ret.insert(-1, self.checkbox_group)
 
         return ret
@@ -81,7 +81,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         )
         return [self.category_legend_div]
 
-    def set_category_colr(self, category: dict[int | str, str]):
+    def set_category_color(self, category: dict[int | str, str]):
         self.category_legend_div.text = "".join([
             '<div class="chmap-blueprint-legend">',
             *[
@@ -111,9 +111,9 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         self.cache_chmap = chmap
         self.cache_blueprint = electrodes
 
-        self.update_probe()
+        self.update_blueprint()
 
-    def update_probe(self):
+    def update_blueprint(self):
         from chmap.probe_npx.npx import ChannelMap
         if not self.visible:
             return
@@ -145,7 +145,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             bp.CATE_SET: 'green',
             bp.CATE_FORBIDDEN: 'pink',
         }
-        self.set_category_colr(setting)
+        self.set_category_color(setting)
         return self._plot_blueprint(bp, setting)
 
     def plot_blueprint_npx(self, bp: BlueprintFunctions) -> dict:
@@ -155,7 +155,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             bp.CATE_QUARTER: 'blue',
             bp.CATE_FORBIDDEN: 'pink',
         }
-        self.set_category_colr(setting)
+        self.set_category_color(setting)
 
         size, offset = self._blueprint_npx_offset(bp)
         blueprint = bp.set(bp.blueprint(), bp.CATE_SET, bp.CATE_FULL)
@@ -186,13 +186,9 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         r1 = bp.mask(blueprint, [bp.CATE_HALF, bp.CATE_QUARTER])
         c1 = i1 & r1
 
-        # i1 = bp.invalid(blueprint, [bp.CATE_HALF])
-        # r1 = bp.mask(blueprint, [bp.CATE_HALF, bp.CATE_QUARTER])
-        # c1 = i1 & r1
-
         conflict = (c0 | c1).astype(int)
 
-        self.set_category_colr({'conflict': 'red'})
+        self.set_category_color({'conflict': 'red'})
 
         size, offset = self._blueprint_npx_offset(bp)
         return self._plot_blueprint(bp, {1: 'red'}, conflict, size, offset)

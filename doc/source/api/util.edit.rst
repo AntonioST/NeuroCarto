@@ -12,6 +12,7 @@ It is an internal package for providing functions to the :class:`~chmap.util.uti
     util.edit.checking
     util.edit.clustering
     util.edit.data
+    util.edit.category
     util.edit.moving
     util.edit.surrounding
     util.edit.probe

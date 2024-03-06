@@ -46,7 +46,7 @@ def maybe_blueprint(self: BlueprintFunctions, a):
 
 
 @doc_link(BlueprintFunctions='chmap.util.util_blueprint.BlueprintFunctions')
-def blueprint_function(func):
+def blueprint_function(func=None, *, set_return=True):
     """
     Decorate a blueprint function to make it is able to direct apply function on
     internal blueprint.
@@ -63,21 +63,28 @@ def blueprint_function(func):
         bp.set_blueprint(bp.func(bp.blueprint(), ...))
 
     :param func:
+    :param set_return: check return and set blueprint
     :return:
     """
 
-    @functools.wraps(func)
-    def _blueprint_function(self: BlueprintFunctions, *args, **kwargs):
-        if len(args) and maybe_blueprint(self, args[0]):
-            return func(self, *args, **kwargs)
-        else:
-            blueprint = self.blueprint()
-            ret = func(self, blueprint, *args, **kwargs)
-            if maybe_blueprint(self, ret):
-                self.set_blueprint(ret)
-            return ret
+    def _decorator(func):
+        @functools.wraps(func)
+        def _blueprint_function(self: BlueprintFunctions, *args, **kwargs):
+            if len(args) and maybe_blueprint(self, args[0]):
+                return func(self, *args, **kwargs)
+            else:
+                blueprint = self.blueprint()
+                ret = func(self, blueprint, *args, **kwargs)
+                if set_return and maybe_blueprint(self, ret):
+                    self.set_blueprint(ret)
+                return ret
 
-    return _blueprint_function
+        return _blueprint_function
+
+    if func is None:
+        return _decorator
+    else:
+        return _decorator(func)
 
 
 # noinspection PyMethodMayBeStatic
@@ -400,7 +407,7 @@ class BlueprintFunctions(Generic[M, E]):
             return
 
         if isinstance(blueprint, list):
-            blueprint = np.array([it.category for it in blueprint])
+            blueprint = self.from_blueprint(blueprint)
 
         if len(blueprint) != len(self.s):
             raise ValueError()
@@ -596,11 +603,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         return np.where(blueprint != self.CATE_UNSET, blueprint, other)
 
-    # ================== #
-    # external functions #
-    # ================== #
-
-    @blueprint_function
+    @blueprint_function(set_return=False)
     def mask(self, blueprint: BLUEPRINT, categories: int | list[int] = None) -> NDArray[np.bool_]:
         """
         Masking electrode belong to the categories.
@@ -609,7 +612,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param categories: If not given, use all categories except CATE_UNSET and CATE_FORBIDDEN.
         :return:
         """
-        from .edit.moving import mask
+        from .edit.category import mask
         return mask(self, blueprint, categories)
 
     @overload
@@ -643,7 +646,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param overwrite: Does the electrode in categories are included in the mask.
         :return: a mask if *value* is omitted. Otherwise, a new blueprint.
         """
-        from .edit.moving import mask, invalid
+        from .edit.category import mask, invalid
         _electrodes = mask(self, blueprint, categories)
 
         if electrodes is None:
@@ -669,6 +672,10 @@ class BlueprintFunctions(Generic[M, E]):
                 _electrodes[electrodes] = keep
 
         return invalid(self, blueprint, _electrodes, value, overwrite=overwrite)
+
+    # ================== #
+    # external functions #
+    # ================== #
 
     def move(self, a: NDArray, *,
              tx: int = 0, ty: int = 0,
