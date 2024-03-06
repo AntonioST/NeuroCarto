@@ -87,7 +87,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
 
         from .image_npy import NumpyImageHandler
         logger.debug('from numpy %s', image.shape)
-        return NumpyImageHandler(image, filename)
+        return NumpyImageHandler(image, filename)  # type: ignore[return-value]
 
     @classmethod
     def from_file(cls, filename: str | Path) -> Self:
@@ -108,7 +108,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         image = np.flipud(image.view(dtype=np.uint32).reshape((w, h)))
 
         logger.debug('as image %s', image.shape)
-        return NumpyImageHandler(image, filename)
+        return NumpyImageHandler(image, filename)  # type: ignore[return-value]
 
     @classmethod
     def from_tiff(cls, filename: str | Path) -> Self:
@@ -121,7 +121,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         image = tifffile.TiffFile(filename, mode='r').asarray()  # TODO memmap?
 
         logger.debug('as image %s', image.shape)
-        return NumpyImageHandler(image, filename)
+        return NumpyImageHandler(image, filename)  # type: ignore[return-value]
 
 
 class ImageView(BoundView, metaclass=abc.ABCMeta):

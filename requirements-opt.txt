@@ -1,6 +1,5 @@
 probeinterface
 bg-atlasapi
-iblatlas
 Pillow
 tifffile
 pandas

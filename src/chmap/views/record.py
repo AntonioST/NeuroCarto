@@ -491,7 +491,7 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
             )
         ]
 
-    def _on_filter_update(self):
+    def _on_filter_update(self) -> None:
         from bokeh.models import filters
 
         value: str
@@ -508,11 +508,11 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
             selectors.append(filters.BooleanFilter(booleans=list(booleans)))
 
         if len(selectors) == 0:
-            self.history_step_view.filter = filters.AllIndices()
+            self.history_step_view.filter = filters.AllIndices()  # type: ignore[assignment]
         elif len(selectors) == 1:
             self.history_step_view.filter = selectors[0]
         else:
-            self.history_step_view.filter = filters.IntersectionFilter(operands=selectors)
+            self.history_step_view.filter = filters.IntersectionFilter(operands=selectors)  # type: ignore[assignment]
 
     def _on_filter_category(self, column: str, value: str):
         from bokeh.models import filters

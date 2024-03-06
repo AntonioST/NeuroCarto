@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Div, CheckboxGroup, UIElement
@@ -167,9 +167,9 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         :param bp:
         :return: tuple of (size:(int,int), offset:int)
         """
-        from chmap.probe_npx.npx import ProbeType
+        from chmap.probe_npx.npx import ProbeType, ChannelMap
 
-        probe_type: ProbeType = bp.channelmap.probe_type
+        probe_type: ProbeType = cast(ChannelMap, bp.channelmap).probe_type
         c_space = probe_type.c_space
         r_space = probe_type.r_space
         size = c_space // 2, r_space // 2
@@ -208,13 +208,13 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             size = int(bp.dx), int(bp.dy)
 
         if offset is None:
-            offset = 4 * bp.dx
+            offset = int(4 * bp.dx)
 
         edges = bp.clustering_edges(blueprint, categories)
         edges = [it.set_corner(size) for it in edges]
 
-        xs = [[] for _ in range(len(categories))]
-        ys = [[] for _ in range(len(categories))]
+        xs: list[list[list[NDArray[np.int_]]]] = [[] for _ in range(len(categories))]
+        ys: list[list[list[NDArray[np.int_]]]] = [[] for _ in range(len(categories))]
 
         #
         # |<-c ->|<-2w->|
@@ -225,7 +225,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         for edge in edges:
             i = categories.index(edge.category)
 
-            xs[i].append([edge.x + offset])
+            xs[i].append([edge.x + offset])  # type: ignore[operator]
             ys[i].append([edge.y])
 
         return dict(xs=xs, ys=ys, c=colors)

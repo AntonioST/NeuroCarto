@@ -177,7 +177,7 @@ class PathAutocompleteInput:
         self._accept = accept
         self._path: Path | None = None
         self._complete_root: Path | None = None
-        self._callback: Callable[[Path], None] | None = callback
+        self._callback: Callable[[Path | None], None] | None = callback
 
         self._set_complete(self._root)
 

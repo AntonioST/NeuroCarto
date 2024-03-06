@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import TypedDict, TYPE_CHECKING, Generator, ClassVar
+from typing import TypedDict, TYPE_CHECKING, Generator, ClassVar, Any
 
 import numpy as np
 from bokeh.models import Select, TextInput, Div, Button
@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 from typing_extensions import Required
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.probe import ProbeDesp, M, E
+from chmap.probe import ProbeDesp, ElectrodeDesp, M, E
 from chmap.probe_npx import plot
 from chmap.util.bokeh_app import run_later, run_timeout
 from chmap.util.bokeh_util import ButtonFactory, as_callback
@@ -193,7 +193,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         clear = state.get('clear', False)
         actions = state.get('actions', {})
         if clear:
-            self.actions = actions
+            self.actions = actions  # type: ignore[assignment]
         else:
             self.actions.update(actions)
 
@@ -217,12 +217,12 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         for action in self.actions:
             self.get_script(action)
 
-    cache_probe: ProbeDesp[M, E] = None
-    cache_chmap: M | None = None
-    cache_blueprint: list[E] | None = None
+    cache_probe: ProbeDesp | None = None
+    cache_chmap: Any | None = None
+    cache_blueprint: list[ElectrodeDesp] | None = None
     cache_data: NDArray[np.float_] | None = None
 
-    def on_probe_update(self, probe: ProbeDesp, chmap: M | None = None, electrodes: list[E] | None = None):
+    def on_probe_update(self, probe, chmap, electrodes):
         update_select = (
                 (self.cache_probe is None)
                 or (probe is None)
@@ -241,7 +241,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
 
         from chmap.probe_npx.npx import ChannelMap
         if isinstance(chmap, ChannelMap):
-            self.plot_npx_channelmap()
+            self.plot_npx_channelmap(chmap)
         else:
             self.set_image(None)
 
@@ -270,7 +270,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         except IndexError:
             self.script_select.value = ""
 
-    def on_data_update(self, probe: ProbeDesp[M, E], e: list[E], data: NDArray[np.float_] | None):
+    def on_data_update(self, probe: ProbeDesp, e: list[ElectrodeDesp], data: NDArray[np.float_] | None):
         if self.cache_probe is None:
             self.cache_probe = probe
 
@@ -292,20 +292,21 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     # plotting methods #
     # ================ #
 
-    def plot_npx_channelmap(self):
+    def plot_npx_channelmap(self, chmap: ChannelMap) -> None:
         """Plot Neuropixels blueprint and electrode data."""
         if (value := self.cache_data) is None:
             return
 
         self.logger.debug('plot_npx_channelmap')
 
-        chmap: ChannelMap = self.cache_chmap
         probe_type = chmap.probe_type
+        blueprint = self.cache_blueprint
+        assert blueprint is not None
 
         with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1), offset=-50) as ax:
             data = np.vstack([
-                [it.x for it in self.cache_blueprint],
-                [it.y for it in self.cache_blueprint],
+                [it.x for it in blueprint],
+                [it.y for it in blueprint],
                 value
             ]).T
 
@@ -336,7 +337,12 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         :raise ImportError:
         :raise ValueError: incorrect script module path
         """
-        script = self.actions.get(name, name)
+        if isinstance(name, str):
+            script = self.actions.get(name, name)
+        elif isinstance(name, BlueprintScriptInfo) or callable(name):
+            script = name
+        else:
+            raise TypeError()
 
         if isinstance(name, str) and isinstance(script, str):
             self.logger.debug('load script(%s)', name)
@@ -438,8 +444,11 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         request: RequestChannelmapTypeRequest | None
         if (request := script.script_use_probe()) is not None:
             if chmap is None and request.create:
-                self.logger.debug('run_script(%s) create probe %s[%d]', script.name, request.probe_name, request.code)
-                chmap = bp.new_channelmap(request.code)
+                if (code := request.code) is None:
+                    raise RuntimeError('RequestChannelmapTypeRequest missing probe code')
+
+                self.logger.debug('run_script(%s) create probe %s[%d]', script.name, request.probe_name, code)
+                chmap = bp.new_channelmap(code)
                 return self._run_script(script, probe, chmap, script_input)
 
             if request.check:

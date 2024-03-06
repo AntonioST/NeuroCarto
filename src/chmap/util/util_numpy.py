@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Literal
 
 import numpy as np
@@ -83,7 +83,7 @@ def _same_index_d(d: NDArray[np.number]) -> NDArray[np.int_]:
     return np.unique(j)
 
 
-def closest_point_index(a: NDArray[np.float_], p: float | list[float] | NDArray[np.float_], v: float) -> int | None:
+def closest_point_index(a: NDArray[np.float_], p: float | Sequence[float] | NDArray[np.float_], v: float) -> int | None:
     """
 
     :param a: Array[V:float, N[, D]]

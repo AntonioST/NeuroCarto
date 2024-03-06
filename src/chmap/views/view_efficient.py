@@ -49,7 +49,7 @@ class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
         self._value_columns = []
 
         for attr in ElectrodeEfficiencyData.__annotations__:
-            if attr.startswith('label_') and (div := getattr(ElectrodeEfficiencyData, attr, None), Div):
+            if attr.startswith('label_') and isinstance(div := getattr(ElectrodeEfficiencyData, attr, None), Div):
                 self._label_columns.append(make_stat_div(div.text))  # copy, avoid reused in another document.
                 self._value_columns.append(value := make_stat_div(''))
                 setattr(self, attr, value)

@@ -32,7 +32,7 @@ def init_view(config: ChannelMapEditorConfig, view_type) -> ViewBase | None:
 
     * ``None`` skip
     * {ViewBase} or it subtype
-    * {ImageHandler} or subtype, wrap with {ImageView}.
+    * {ImageHandler} or subtype, wrap with {ImageView}. If it is a type, then it should have a no-arg ``__init__``.
     * literal ``'file'`` for {FileImageView}
     * literal ``'atlas'`` for {AtlasBrainView}
     * literal ``'blueprint'`` for {BlueprintView}

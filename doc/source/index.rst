@@ -22,6 +22,9 @@ Features
   - [x] Read Neuropixels probe serial number
 
 - [x] Read/Visualize/Modify/Write Blueprint (a blueprint for generating a channelmap by a programming way).
+
+  - [x] show conflict areas.
+
 - [x] Show Atlas mouse brain as a background image.
 
   - [x] utilities functions for controlling the atlas image.
@@ -34,9 +37,10 @@ Features
   - [ ] Read image resolution tags.
 
 - [x] Show dynamic generated image (via ``matplotlib``) as a background image.
-- [x] (Experimental) Run custom scripts (``--view=script``).
+- [x] Run custom scripts (``--view=script``).
 
   - [x] give an example script to initial a blueprint based on an experimental data.
+  - [ ] (Experimental) provided scripts
 
 - [x] (Experimental) Record/Save/Load/Replay channelmap manipulate steps (``--view=history``)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, overload, Generic, Final
 
@@ -25,12 +25,15 @@ if TYPE_CHECKING:
     from chmap.views.atlas import Label
 
     BLUEPRINT = NDArray[np.int_]
+    ELECTRODES = Sequence[E]
 
 elif SPHINX_BUILD:
     ProbeView = 'chmap.views.probe.ProbeView'
     NpxProbeDesp = 'chmap.probe_npx.desp.NpxProbeDesp'
     AtlasBrainView = 'chmap.views.atlas.AtlasBrainView'
     BlueprintScriptView = 'chmap.views.blueprint_script.BlueprintScriptView'
+
+    ELECTRODES = list[E]
 
 
     class BLUEPRINT:
@@ -351,7 +354,7 @@ class BlueprintFunctions(Generic[M, E]):
             self.probe.add_electrode(self.channelmap, t)
 
     @doc_link()
-    def select_electrodes(self, chmap=None, blueprint: list[E] | BLUEPRINT = None, **kwargs) -> float:
+    def select_electrodes(self, chmap=None, blueprint: ELECTRODES | BLUEPRINT = None, **kwargs) -> float:
         """
         Run electrode selection for a channelmap based on the blueprint.
 
@@ -365,7 +368,7 @@ class BlueprintFunctions(Generic[M, E]):
         return select_electrodes(self, chmap, blueprint, **kwargs)
 
     @doc_link()
-    def channel_efficiency(self, chmap=None, blueprint: list[E] | BLUEPRINT = None) -> float:
+    def channel_efficiency(self, chmap=None, blueprint: ELECTRODES | BLUEPRINT = None) -> float:
         """
         Calculate the channel efficiency for a blueprint *e* and its outcomes *chmap*.
 
@@ -395,7 +398,7 @@ class BlueprintFunctions(Generic[M, E]):
         """Has internal blueprint changed?"""
         return self._blueprint_changed
 
-    def set_blueprint(self, blueprint: int | BLUEPRINT | list[E]):
+    def set_blueprint(self, blueprint: int | BLUEPRINT | ELECTRODES):
         """
         set blueprint.
 
@@ -416,7 +419,7 @@ class BlueprintFunctions(Generic[M, E]):
         self._blueprint_changed = True
 
     @doc_link()
-    def apply_blueprint(self, electrodes: list[E] = None, blueprint: BLUEPRINT = None) -> list[E]:
+    def apply_blueprint(self, electrodes: ELECTRODES = None, blueprint: BLUEPRINT = None) -> ELECTRODES:
         """
         Apply blueprint back to electrode list.
 
@@ -447,7 +450,7 @@ class BlueprintFunctions(Generic[M, E]):
         return electrodes
 
     @doc_link()
-    def from_blueprint(self, electrodes: list[E]) -> BLUEPRINT:
+    def from_blueprint(self, electrodes: ELECTRODES) -> BLUEPRINT:
         """
         Get a blueprint from an electrode list.
 
@@ -462,7 +465,7 @@ class BlueprintFunctions(Generic[M, E]):
                 blueprint[i] = category
         return blueprint
 
-    def index_blueprint(self, electrodes: list[E]) -> NDArray[np.int_]:
+    def index_blueprint(self, electrodes: ELECTRODES) -> NDArray[np.int_]:
         """
         Get an electrode index array from an electrode list.
 
@@ -617,14 +620,14 @@ class BlueprintFunctions(Generic[M, E]):
 
     @overload
     def invalid(self, blueprint: BLUEPRINT, *,
-                electrodes: int | list[E] | NDArray[np.bool_] | NDArray[np.int_] | M = None,
+                electrodes: int | ELECTRODES | NDArray[np.bool_] | NDArray[np.int_] | M = None,
                 categories: int | list[int] = None,
                 overwrite: bool = False) -> NDArray[np.bool_]:
         pass
 
     @overload
     def invalid(self, blueprint: BLUEPRINT, *,
-                electrodes: int | list[E] | NDArray[np.bool_] | NDArray[np.int_] | M = None,
+                electrodes: int | ELECTRODES | NDArray[np.bool_] | NDArray[np.int_] | M = None,
                 categories: int | list[int] = None,
                 value: int,
                 overwrite: bool = False) -> BLUEPRINT:
@@ -632,7 +635,7 @@ class BlueprintFunctions(Generic[M, E]):
 
     @blueprint_function
     def invalid(self, blueprint: BLUEPRINT, *,
-                electrodes: int | list[E] | NDArray[np.bool_] | NDArray[np.int_] | M = None,
+                electrodes: int | ELECTRODES | NDArray[np.bool_] | NDArray[np.int_] | M = None,
                 categories: int | list[int] = None,
                 value: int = None,
                 overwrite: bool = False):

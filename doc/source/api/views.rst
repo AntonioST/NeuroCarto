@@ -34,7 +34,6 @@ chmap.views
     :caption: Atlas Views:
 
     views.atlas
-    views.atlas_ibl
 
 .. toctree::
     :maxdepth: 1

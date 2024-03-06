@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import abc
-import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, UIElement
 from numpy.typing import NDArray
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.probe import ProbeDesp, M, E
+from chmap.probe import ProbeDesp, ElectrodeDesp
 from chmap.util.bokeh_app import run_later
 from chmap.util.bokeh_util import is_recursive_called, PathAutocompleteInput
 from chmap.util.util_blueprint import BlueprintFunctions
@@ -21,7 +21,7 @@ __all__ = ['DataView', 'DataHandler', 'Data1DView', 'FileDataView']
 class DataHandler:
     """A data receiver view."""
 
-    def on_data_update(self, probe: ProbeDesp[M, E], e: list[E], data: NDArray[np.float_] | None):
+    def on_data_update(self, probe: ProbeDesp, e: list[ElectrodeDesp], data: NDArray[np.float_] | None):
         """
         Receive electrode data.
 
@@ -35,7 +35,6 @@ class DataHandler:
 class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
     """electrode data view base class."""
 
-    logger: logging.Logger | None = None
     data_electrode: ColumnDataSource | None = None
     render_electrode: GlyphRenderer | None = None
 
@@ -48,11 +47,11 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
     # probe updating #
     # ============== #
 
-    probe: ProbeDesp[M, E] = None
-    channelmap: M | None = None
-    blueprint: list[E] | None = None
+    probe: ProbeDesp | None = None
+    channelmap: Any | None = None
+    blueprint: list[ElectrodeDesp] | None = None
 
-    def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, electrodes: list[E] | None):
+    def on_probe_update(self, probe, chmap, electrodes):
         self.probe = probe
         self.channelmap = chmap
         self.blueprint = electrodes
@@ -60,7 +59,15 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
         run_later(self.update)
 
     def new_blueprint_function(self) -> BlueprintFunctions:
-        return BlueprintFunctions(self.probe, self.channelmap)
+        """
+
+        :return:
+        :raise RuntimeError: no probe existed.
+        """
+        if (probe := self.probe) is not None:
+            return BlueprintFunctions(probe, self.channelmap)
+        else:
+            raise RuntimeError()
 
     # ================ #
     # updating methods #
@@ -255,8 +262,8 @@ class FileDataView(DataView, metaclass=abc.ABCMeta):
         return ret
 
     # noinspection PyUnusedLocal
-    def on_data_selected(self, filename: Path):
-        if is_recursive_called():
+    def on_data_selected(self, filename: Path | None):
+        if is_recursive_called() or filename is None:
             return
 
         try:

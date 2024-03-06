@@ -420,7 +420,7 @@ class RecordStep(NamedTuple):  # Generic[R]
             record['category'],
             record['description'],
             record['record'],
-        )
+        )  # type: ignore[return-value]
 
 
 class RecordView(Generic[R], metaclass=abc.ABCMeta):
