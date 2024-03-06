@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from types import FunctionType, ModuleType
-from typing import TypeVar, Any, TypeGuard
+from typing import TypeVar, Any, TypeGuard, overload
 
 import numpy as np
 from numpy.typing import NDArray
@@ -35,15 +35,35 @@ T = TypeVar('T')
 SPHINX_BUILD = len(os.environ.get('SPHINX_BUILD', '')) > 0
 
 
-def all_int(*x) -> TypeGuard[int]:
-    for xx in x:
+@overload
+def all_int(x, /) -> TypeGuard[int]:
+    pass
+
+
+@overload
+def all_int(*args) -> bool:
+    pass
+
+
+def all_int(*args) -> bool:
+    for xx in args:
         if not isinstance(xx, (int, np.integer)):
             return False
     return True
 
 
-def all_float(*x) -> TypeGuard[float]:
-    for xx in x:
+@overload
+def all_float(x, /) -> TypeGuard[float]:
+    pass
+
+
+@overload
+def all_float(*args) -> bool:
+    pass
+
+
+def all_float(*args) -> bool:
+    for xx in args:
         if not isinstance(xx, (int, float, np.number)):
             return False
     return True

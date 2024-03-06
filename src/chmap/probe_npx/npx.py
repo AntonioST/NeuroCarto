@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import math
 import sys
-from collections.abc import Iterable, Iterator, Sized
+from collections.abc import Iterable, Iterator, Sized, Sequence
 from pathlib import Path
 from typing import Any, NamedTuple, Final, Literal, overload, cast, TYPE_CHECKING
 
 import numpy as np
-from chmap.util.utils import all_int, as_set, align_arr, doc_link
 from numpy.typing import NDArray
 
+from chmap.util.utils import all_int, as_set, align_arr, doc_link
 from .meta import NpxMeta
 
 if sys.version_info >= (3, 11):
@@ -18,9 +18,9 @@ else:
     from typing_extensions import Self
 
 if TYPE_CHECKING:
-    import pandas as pd
-    import polars as pl
-    from probeinterface import Probe
+    import pandas as pd  # type: ignore[import]
+    import polars as pl  # type: ignore[import]
+    from probeinterface import Probe  # type: ignore[import]
 
 __all__ = [
     'ProbeType',
@@ -250,7 +250,7 @@ class ChannelMap:
     __match_args__ = 'probe_type',
 
     def __init__(self, probe_type: int | str | ProbeType | ChannelMap,
-                 electrodes: list[E | None] = None, *,
+                 electrodes: Sequence[E | None] = None, *,
                  meta: NpxMeta = None):
         """
 

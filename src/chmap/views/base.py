@@ -783,7 +783,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         y = boundary['dy'] - h / 2
 
         if (rt := boundary['rt']) != 0:
-            from scipy.ndimage import rotate
+            from scipy.ndimage import rotate  # type: ignore[import]
             image = rotate(image, -rt, reshape=False)
 
         return dict(image=[image], dw=[w], dh=[h], x=[x], y=[y])

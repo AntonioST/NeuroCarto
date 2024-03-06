@@ -97,7 +97,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         :return:
         """
         logger = logging.getLogger('chmap.image')
-        from PIL import Image
+        from PIL import Image  # type: ignore[import]
         from .image_npy import NumpyImageHandler
 
         filename = str(filename)

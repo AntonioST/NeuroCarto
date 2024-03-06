@@ -8,9 +8,9 @@ from .meta import NpxMeta
 from .npx import *
 
 if TYPE_CHECKING:
-    import pandas as pd
-    import polars as pl
-    from probeinterface import Probe
+    import pandas as pd  # type: ignore[import]
+    import polars as pl  # type: ignore[import]
+    from probeinterface import Probe  # type: ignore[import]
 
 __all__ = [
     'parse_imro',
@@ -198,7 +198,7 @@ def from_probe(probe: Probe) -> ChannelMap:
 
 
 def to_probe(chmap: ChannelMap) -> Probe:
-    from probeinterface.io import _read_imro_string
+    from probeinterface.io import _read_imro_string  # type: ignore[import]
     return _read_imro_string(string_imro(chmap))
 
 

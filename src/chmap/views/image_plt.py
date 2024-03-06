@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING, NamedTuple
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # type: ignore[import]
 import numpy as np
 from bokeh.models import UIElement
 from numpy.typing import NDArray
