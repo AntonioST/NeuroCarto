@@ -66,6 +66,7 @@ def npx24_one_eighth_density(bp: BlueprintFunctions, row: int = 0):
     bp.set_channelmap(utils.npx24_one_eighth_density(row, um=True))
 
 
+@use_probe()
 def move_blueprint(bp: BlueprintFunctions, y: int, shank: list[int] = None, update=False):
     """
     Move blueprint upward or downward.
@@ -75,8 +76,6 @@ def move_blueprint(bp: BlueprintFunctions, y: int, shank: list[int] = None, upda
     :param shank: (list[int]=None) only particular shanks.
     :param update: (bool) update channelmap to follow the blueprint change.
     """
-    bp.check_probe()
-
     if shank is None:
         mask = None
     else:
@@ -89,6 +88,7 @@ def move_blueprint(bp: BlueprintFunctions, y: int, shank: list[int] = None, upda
         bp.refresh_selection()
 
 
+@use_probe()
 def exchange_shank(bp: BlueprintFunctions, shank: list[int], update=False):
     """
     Move blueprint between shanks.
@@ -100,8 +100,6 @@ def exchange_shank(bp: BlueprintFunctions, shank: list[int], update=False):
         For example, ``[3, 2, 1, 0]`` gives a reverse-shank-ordered blueprint.
     :param update: (bool) update channelmap to follow the blueprint change.
     """
-    bp.check_probe()
-
     ns = np.max(bp.s) + 1
     if len(shank) != np.max(ns):
         raise RuntimeError(f'not a {ns}-length list: {shank}')
@@ -116,6 +114,7 @@ def exchange_shank(bp: BlueprintFunctions, shank: list[int], update=False):
         bp.refresh_selection()
 
 
+@use_probe()
 def load_blueprint(bp: BlueprintFunctions, filename: str):
     """
     Load a blueprint file.
@@ -123,18 +122,16 @@ def load_blueprint(bp: BlueprintFunctions, filename: str):
     :param bp:
     :param filename: (str) a numpy file '*.blueprint.npy'.
     """
-    bp.check_probe()
-
     bp.set_blueprint(bp.probe.load_blueprint(filename, bp.channelmap))
 
 
+@use_probe()
 def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
     """
     Set captured electrodes as *pre-selected* category.
 
     :param bp:
     """
-    bp.check_probe()
     bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
 
 

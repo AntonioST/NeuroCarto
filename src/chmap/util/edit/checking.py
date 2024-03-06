@@ -53,7 +53,7 @@ class RequestChannelmapType(NamedTuple):
         else:
             raise RuntimeError()
 
-    def match_probe(self, probe: ProbeDesp, chmap: Any | None = None) -> bool:
+    def match_probe(self, probe: ProbeDesp | None, chmap: Any | None = None) -> bool:
         """
         Does *probe* and *chmap* match this request?
 
@@ -61,6 +61,9 @@ class RequestChannelmapType(NamedTuple):
         :param chmap:
         :return:
         """
+        if probe is None:
+            return False
+
         if isinstance(self.probe, type):
             if not isinstance(probe, self.probe):
                 return False
@@ -87,7 +90,7 @@ class RequestChannelmapType(NamedTuple):
 
 
 @doc_link()
-def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
+def use_probe(probe: str | type[ProbeDesp] = ProbeDesp, code: int = None, *,
               create: bool = None, check=True):
     """
     Decorate a blueprint script ({BlueprintScript}) to indicate this function
@@ -101,14 +104,19 @@ def use_probe(probe: str | type[ProbeDesp], code: int = None, *,
 
     If also allow {BlueprintScriptView} to filter suitable scripts for a probe.
 
-    :param probe: probe type or its name
+    :param probe: probe type or its name. It is omitted, just check a probe is existed.
     :param code: channelmap code
     :param create: create the probe if there is no probe in the main figure.
         If ``True``, it requires *code* should be not ``None``.
+        Force ``False`` if *probe* is omitted.
     :param check: check the current probe type automatically before entering the script.
     """
     if probe is None:
         raise ValueError('NoneType probe')
+
+    if probe is ProbeDesp:
+        create = False
+        code = None
 
     if create is None:
         create = code is not None
