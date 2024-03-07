@@ -74,6 +74,12 @@ class ProbePlotElectrodeDataFunctor(Protocol):
 
 class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
                           RecordView[BlueprintScriptAction], GlobalStateView[BlueprintScriptState]):
+    """
+    Blueprint script manager view.
+
+    Check whether the {ProbeDesp} implement protocol {ProbePlotElectrodeDataFunctor}.
+    """
+
     BUILTIN_ACTIONS: ClassVar[dict[str, str]] = {
         'load': 'chmap.util.edit._actions:load_blueprint',
         'move': 'chmap.util.edit._actions:move_blueprint',

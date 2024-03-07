@@ -50,16 +50,25 @@ class ProbePlotBlueprintFunctor(Protocol):
     def view_ext_blueprint_view(self, chmap: Any, bp: BlueprintFunctions, options: list[str]) -> ProbePlotBlueprintReturn:
         """
 
+        **options**
+
+        * ``Conflict`` show conflict areas.
+
         :param chmap:
         :param bp:
-        :param options:
+        :param options: option keywords for different visualization purpose.
         :return:
         """
         pass
 
 
+@doc_link()
 class BlueprintView(ViewBase, InvisibleView, DynamicView):
-    """Show blueprint beside."""
+    """
+    Show blueprint beside.
+
+    Check whether the {ProbeDesp} implement protocol {ProbePlotBlueprintFunctor}.
+    """
 
     data_blueprint: ColumnDataSource
     render_blueprint: GlyphRenderer

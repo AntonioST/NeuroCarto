@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from chmap.util.util_blueprint import BlueprintFunctions
     from chmap.views.blueprint import ProbePlotBlueprintReturn
 elif SPHINX_BUILD:
+    ProbeElectrodeDensityFunctor = 'chmap.views.data_density.ProbeElectrodeDensityFunctor'
     ProbePlotBlueprintFunctor = 'chmap.views.blueprint.ProbePlotBlueprintFunctor'
     ProbePlotElectrodeDataFunctor = 'chmap.views.blueprint_script.ProbePlotElectrodeDataFunctor'
 
@@ -63,12 +64,6 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             'Low priority': self.CATE_LOW,
             'Forbidden': self.CATE_FORBIDDEN,
         }
-
-    def extra_controls(self, config: ChannelMapEditorConfig):
-        from chmap.views.data_density import ElectrodeDensityDataView
-        from chmap.views.view_efficient import ElectrodeEfficiencyData
-        from .views import NpxReferenceControl
-        return [NpxReferenceControl, ElectrodeDensityDataView, ElectrodeEfficiencyData]
 
     @property
     def channelmap_file_suffix(self) -> list[str]:
@@ -233,7 +228,43 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     # extension function #
     # ================== #
 
+    def extra_controls(self, config: ChannelMapEditorConfig):
+        from chmap.views.data_density import ElectrodeDensityDataView
+        from chmap.views.view_efficient import ElectrodeEfficiencyData
+        from .views import NpxReferenceControl
+        return [NpxReferenceControl, ElectrodeDensityDataView, ElectrodeEfficiencyData]
+
+    def view_ext_electrode_density(self, chmap: ChannelMap) -> NDArray[np.float_]:
+        """
+
+        :param chmap:
+        :return:
+        :see: {ProbeElectrodeDensityFunctor}
+        """
+        from .stat import npx_electrode_density
+        return npx_electrode_density(chmap)
+
+    def view_ext_statistics_info(self, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp]) -> dict[str, str]:
+        from .stat import npx_channel_efficiency
+        stat = npx_channel_efficiency(chmap, blueprint)
+        ucs = ', '.join(map(lambda it: f's{it[0]}={it[1]}', enumerate(stat.used_channel_on_shanks)))
+        return {
+            'used channels': f'{stat.used_channel}, total={stat.total_channel}, ({ucs})',
+            'request electrodes': f'{stat.request_electrodes}',
+            'channel efficiency': f'{100 * stat.channel_efficiency:.2f}%',
+            'remain channels': f'{stat.remain_channel}',
+            'remain electrode': f'{stat.remain_electrode}',
+        }
+
     def view_ext_blueprint_view(self, chmap: ChannelMap, bp: BlueprintFunctions, options: list[str]) -> ProbePlotBlueprintReturn:
+        """
+
+        :param chmap:
+        :param bp:
+        :param options:
+        :return:
+        :see: {ProbePlotBlueprintFunctor}
+        """
         probe_type: ProbeType = chmap.probe_type
         c_space = probe_type.c_space
         r_space = probe_type.r_space
@@ -267,6 +298,11 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def view_ext_blueprint_plot_electrode_data(self, ax: Axes, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], data: NDArray[np.float_]):
         """
 
+        :param ax:
+        :param chmap:
+        :param blueprint:
+        :param data:
+        :return:
         :see: {ProbePlotElectrodeDataFunctor}
         """
         from .plot import plot_electrode_block, plot_probe_shape
