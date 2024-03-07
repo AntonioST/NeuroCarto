@@ -24,6 +24,7 @@ __all__ = [
     'atlas_set_transform',
     'atlas_set_anchor',
     'atlas_new_probe',
+    'atlas_current_probe',
     'atlas_set_anchor_on_probe',
 ]
 
@@ -182,6 +183,15 @@ def atlas_new_probe(controller: ControllerView,
     # get probe coordinate instance
     name = view.brain_view.brain.atlas_name
     return probe_coor.ProbeCoordinate.from_bregma(name, ap, dv, ml, s=shank, rx=rx, ry=ry, rz=rz, depth=depth, ref=ref)
+
+
+@doc_link()
+def atlas_current_probe(controller: ControllerView, shank: int = 0, ref: str = 'bregma') -> probe_coor.ProbeCoordinate | None:
+    view: AtlasBrainView
+    if (view := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
+        return None
+
+    raise NotImplementedError  # TODO
 
 
 @doc_link()

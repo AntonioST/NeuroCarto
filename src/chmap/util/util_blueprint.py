@@ -1051,6 +1051,17 @@ class BlueprintFunctions(Generic[M, E]):
         else:
             return False
 
+    def set_script_input(self, script: str | None, *text: str | None):
+        """
+        Set the script input for *script*.
+
+        :param script: script name. If ``None``, use current script.
+        :param text: each argument
+        """
+        from .edit.actions import set_script_input
+        if (controller := self._controller) is not None:
+            set_script_input(controller, script, *text)
+
     # ================= #
     # ProbeView related #
     # ================= #
@@ -1282,6 +1293,19 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.atlas import atlas_new_probe
         if (controller := self._controller) is not None:
             return atlas_new_probe(controller, ap, dv, ml, shank, rx, ry, rz, depth, ref)
+        return None
+
+    @doc_link()
+    def atlas_current_probe(self, shank: int = 0, ref: str = 'bregma') -> ProbeCoordinate | None:
+        """
+
+        :param shank:
+        :param ref:
+        :return: probe coordinate
+        """
+        from .edit.atlas import atlas_current_probe
+        if (controller := self._controller) is not None:
+            return atlas_current_probe(controller, shank, ref)
         return None
 
     @doc_link()

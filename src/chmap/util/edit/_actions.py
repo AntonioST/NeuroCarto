@@ -243,7 +243,7 @@ def atlas_label(bp: BlueprintFunctions, *args, color='cyan'):
 
 @use_view('AtlasBrainView')
 def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
-                                                 ap: float, ml: float, dv: float = 0,
+                                                 ap: float = None, ml: float = None, dv: float = 0,
                                                  shank: int = 0,
                                                  rx: float = 0, ry: float = 0, rz: float = 0,
                                                  depth: float = 0,
@@ -252,6 +252,9 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
                                                  color: str = 'cyan'):
     """
     Adjust atlas mouse brain image to corresponding probe coordinate.
+
+    If *ap* and *ml* are omitted, calculate current probe coordinate based on *shank* and show
+    the result in input area.
 
     :param bp:
     :param ap: (mm:float) ap from the *ref*.
@@ -266,14 +269,32 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
     :param label: label text
     :param color: label color
     """
-    coor = bp.atlas_new_probe(ap * 1000, dv * 1000, ml * 1000, shank=shank, rx=rx, ry=ry, rz=rz, depth=depth * 1000, ref=ref)
-    if coor is None:
-        return
+    if ap is None and ml is None:
+        if (coor := bp.atlas_current_probe(shank, ref)) is None:
+            bp.log_message('fail to figure current probe coordinate')
+            return
 
-    bp.atlas_set_anchor_on_probe(coor)
+        bp.set_script_input(
+            None,
+            f'{coor.x / 1000:.1f}',
+            f'{coor.z / 1000:.1f}'
+            f'{coor.y / 1000:.1f}' if coor.y != 0 else None,
+            f'shank={coor.s}',
+            f'rx={coor.rx:.1f}' if coor.rx != 0 else None,
+            f'rx={coor.ry:.1f}' if coor.ry != 0 else None,
+            f'rx={coor.rz:.1f}' if coor.rz != 0 else None,
+            f'depth={coor.depth / 1000:.1f}',
+            f'ref={ref}' if ref != 'bregma' else None
+        )
+    else:
+        coor = bp.atlas_new_probe(ap * 1000, dv * 1000, ml * 1000, shank=shank, rx=rx, ry=ry, rz=rz, depth=depth * 1000, ref=ref)
+        if coor is None:
+            return
 
-    if label is not None:
-        bp.atlas_add_label(label, (ap, dv, ml), origin=ref, color=color)
+        bp.atlas_set_anchor_on_probe(coor)
+
+        if label is not None:
+            bp.atlas_add_label(label, (ap, dv, ml), origin=ref, color=color)
 
 
 @use_probe(NpxProbeDesp, create=False)

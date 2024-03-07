@@ -25,6 +25,7 @@ __all__ = [
     'has_script',
     'call_script',
     'interrupt_script',
+    'set_script_input',
     'profile_script',
 ]
 
@@ -105,6 +106,22 @@ def interrupt_script(controller: ControllerView, script: str) -> bool:
         return False
     else:
         return True
+
+
+def set_script_input(controller: ControllerView, script: str | None, *text: str | None):
+    edit: BlueprintScriptView
+    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
+        return False
+
+    if script is None:
+        script = edit.script_select.name
+
+    script_input = ', '.join(filter(lambda it: it is not None, text))
+
+    if script == edit.script_select.value:
+        edit.script_input.value = script_input
+    elif script in edit.actions:
+        edit._script_input_cache[script] = script_input
 
 
 @doc_link()
