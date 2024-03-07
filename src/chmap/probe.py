@@ -515,4 +515,20 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
-    # TODO probe geometric information
+    @doc_link(
+        distance_matrix='chmap.util.edit.moving.distance_matrix'
+    )
+    def electrode_distance_matrix(self, chmap: int | M) -> NDArray[np.float_]:
+        """
+        Get distance matrix.
+
+        Implement Note:
+            If subclass does not provide the implement, then use the default
+            method defined in {distance_matrix()}.
+
+        :param chmap:
+        :return: Array[distance:um, E, E], where E is all electrodes
+            and the order as same as {#all_electrodes()}
+        """
+        from chmap.util.edit.moving import distance_matrix
+        return distance_matrix(self.all_electrodes(self.new_channelmap(chmap)))
