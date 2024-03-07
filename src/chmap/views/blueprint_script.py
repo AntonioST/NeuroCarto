@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import TypedDict, TYPE_CHECKING, Generator, ClassVar, Any
+from typing import TypedDict, TYPE_CHECKING, Generator, ClassVar, Any, Protocol, runtime_checkable
 
 import numpy as np
 from bokeh.models import Select, TextInput, Div, Button
@@ -10,7 +10,6 @@ from typing_extensions import Required
 
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, ElectrodeDesp, M, E
-from chmap.probe_npx import plot
 from chmap.util.bokeh_app import run_later, run_timeout
 from chmap.util.bokeh_util import ButtonFactory, as_callback
 from chmap.util.edit.script import BlueprintScript, BlueprintScriptInfo, script_html_doc
@@ -22,16 +21,18 @@ from chmap.views.data import DataHandler
 from chmap.views.image_plt import PltImageView
 
 if TYPE_CHECKING:
-    from chmap.probe_npx.npx import ChannelMap
+    from matplotlib.axes import Axes
     from chmap.util.edit.checking import RequestChannelmapType
 
 __all__ = [
     'BlueprintScriptView',
     'BlueprintScriptState',
+    'ProbePlotElectrodeDataFunctor'
 ]
 
 
 class BlueprintScriptState(TypedDict):
+    """BlueprintScriptView stored user configuration."""
     clear: bool
     actions: dict[str, str]
 
@@ -50,6 +51,25 @@ class BlueprintScriptAction(TypedDict, total=False):
 
     # other
     description: str
+
+
+@doc_link()
+@runtime_checkable
+class ProbePlotElectrodeDataFunctor(Protocol):
+    """
+    {ProbeDesp} extension protocol for plotting electrode data beside probe.
+    """
+
+    def view_ext_blueprint_plot_electrode_data(self, ax: Axes, chmap: Any, blueprint: list[ElectrodeDesp], data: NDArray[np.float_]):
+        """
+
+        :param ax:
+        :param chmap:
+        :param blueprint:
+        :param data:
+        :raise KeyboardInterrupt: interrupt plotting
+        """
+        pass
 
 
 class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
@@ -235,9 +255,13 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         if update_select:
             self.update_actions_select()
 
-        from chmap.probe_npx.npx import ChannelMap
-        if isinstance(chmap, ChannelMap):
-            self.plot_npx_channelmap(chmap)
+        if isinstance(probe, ProbePlotElectrodeDataFunctor):
+            if (value := self.cache_data) is not None:
+                try:
+                    with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1), offset=-50) as ax:
+                        probe.view_ext_blueprint_plot_electrode_data(ax, chmap, electrodes, value)
+                except KeyboardInterrupt:
+                    pass
         else:
             self.set_image(None)
 
@@ -288,38 +312,6 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             else:
                 if len(self.cache_blueprint) == n:
                     self.cache_data = np.asarray(data)
-
-    # ================ #
-    # plotting methods #
-    # ================ #
-
-    def plot_npx_channelmap(self, chmap: ChannelMap) -> None:
-        """Plot Neuropixels blueprint and electrode data."""
-        if (value := self.cache_data) is None:
-            return
-
-        self.logger.debug('plot_npx_channelmap')
-
-        probe_type = chmap.probe_type
-        blueprint = self.cache_blueprint
-        assert blueprint is not None
-
-        with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1), offset=-50) as ax:
-            data = np.vstack([
-                [it.x for it in blueprint],
-                [it.y for it in blueprint],
-                value
-            ]).T
-
-            plot.plot_electrode_block(ax, probe_type, data, electrode_unit='xyv', shank_width_scale=0.5)
-            plot.plot_probe_shape(ax, probe_type, color=None, label_axis=False)
-
-            ax.set_xlabel(None)
-            ax.set_xticks([])
-            ax.set_xticklabels([])
-            ax.set_ylabel(None)
-            ax.set_yticks([])
-            ax.set_yticklabels([])
 
     # ========== #
     # run script #

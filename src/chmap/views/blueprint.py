@@ -1,20 +1,61 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, Protocol, runtime_checkable, TypedDict
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Div, CheckboxGroup, UIElement
 from numpy.typing import NDArray
+from typing_extensions import NotRequired
 
 from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.util.bokeh_util import as_callback
 from chmap.util.util_blueprint import BlueprintFunctions
+from chmap.util.utils import doc_link, SPHINX_BUILD
 from chmap.views.base import Figure, ViewBase, InvisibleView, DynamicView
 
-if TYPE_CHECKING:
-    from chmap.probe_npx.npx import ChannelMap
+if SPHINX_BUILD:
+    ProbeDesp = 'chmap.probe.ProbeDesp'
 
-__all__ = ['BlueprintView']
+__all__ = [
+    'BlueprintView',
+    'ProbePlotBlueprintFunctor',
+    'ProbePlotBlueprintReturn'
+]
+
+
+class ProbePlotBlueprintReturn(TypedDict):
+    size: tuple[int, int]
+    """electrode size (width, height)"""
+
+    offset: int
+    """x-axis offset"""
+
+    categories: dict[int, str]
+    """categories dict {C: html-color}"""
+
+    blueprint: NotRequired[NDArray[np.int_]]
+    """Array[C, N]"""
+
+    legends: NotRequired[dict[str, str]]
+    """categories legend dict {C-name: html-color}"""
+
+
+@doc_link()
+@runtime_checkable
+class ProbePlotBlueprintFunctor(Protocol):
+    """
+    {ProbeDesp} extension protocol for plotting blueprint beside probe.
+    """
+
+    def view_ext_blueprint_view(self, chmap: Any, bp: BlueprintFunctions, options: list[str]) -> ProbePlotBlueprintReturn:
+        """
+
+        :param chmap:
+        :param bp:
+        :param options:
+        :return:
+        """
+        pass
 
 
 class BlueprintView(ViewBase, InvisibleView, DynamicView):
@@ -114,7 +155,6 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         self.update_blueprint()
 
     def update_blueprint(self):
-        from chmap.probe_npx.npx import ChannelMap
         if not self.visible:
             return
 
@@ -127,71 +167,24 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             bp = BlueprintFunctions(self.cache_probe, chmap)
             bp.set_blueprint(self.cache_blueprint)
 
-            if isinstance(chmap, ChannelMap):
-                if 'Conflict' in options:
-                    data = self.plot_blueprint_npx_conflict(bp)
-                else:
-                    data = self.plot_blueprint_npx(bp)
+            if isinstance((functor := self.cache_probe), ProbePlotBlueprintFunctor):
+                ret: ProbePlotBlueprintReturn = functor.view_ext_blueprint_view(chmap, bp, options)
+
+                setting = ret['categories']
+                self.set_category_color(ret.get('legends', setting))
+                data = self._plot_blueprint(bp, setting, ret.get('blueprint', None), ret['size'], ret['offset'])
             else:
-                data = self.plot_blueprint_general(bp)
+                setting = {
+                    bp.CATE_SET: 'green',
+                    bp.CATE_FORBIDDEN: 'pink',
+                }
+                self.set_category_color(setting)
+                data = self._plot_blueprint(bp, setting)
 
             self.data_blueprint.data = data
 
     def reset_blueprint(self):
         self.data_blueprint.data = dict(xs=[], ys=[], c=[])
-
-    def plot_blueprint_general(self, bp: BlueprintFunctions) -> dict:
-        setting = {
-            bp.CATE_SET: 'green',
-            bp.CATE_FORBIDDEN: 'pink',
-        }
-        self.set_category_color(setting)
-        return self._plot_blueprint(bp, setting)
-
-    def plot_blueprint_npx(self, bp: BlueprintFunctions) -> dict:
-        setting = {
-            bp.CATE_FULL: 'green',
-            bp.CATE_HALF: 'orange',
-            bp.CATE_QUARTER: 'blue',
-            bp.CATE_FORBIDDEN: 'pink',
-        }
-        self.set_category_color(setting)
-
-        size, offset = self._blueprint_npx_offset(bp)
-        blueprint = bp.set(bp.blueprint(), bp.CATE_SET, bp.CATE_FULL)
-        return self._plot_blueprint(bp, setting, blueprint, size, offset)
-
-    def _blueprint_npx_offset(self, bp: BlueprintFunctions) -> tuple[tuple[int, int], int]:
-        """
-
-        :param bp:
-        :return: tuple of (size:(int,int), offset:int)
-        """
-        from chmap.probe_npx.npx import ProbeType, ChannelMap
-
-        probe_type: ProbeType = cast(ChannelMap, bp.channelmap).probe_type
-        c_space = probe_type.c_space
-        r_space = probe_type.r_space
-        size = c_space // 2, r_space // 2
-        offset = c_space + c_space * probe_type.n_col_shank
-        return size, offset
-
-    def plot_blueprint_npx_conflict(self, bp: BlueprintFunctions) -> dict:
-        blueprint = bp.blueprint()
-        i0 = bp.invalid(blueprint, electrodes=bp.channelmap, categories=[bp.CATE_SET, bp.CATE_FULL])
-        r0 = bp.mask(blueprint, [bp.CATE_FULL, bp.CATE_HALF, bp.CATE_QUARTER])
-        c0 = i0 & r0
-
-        i1 = bp.invalid(blueprint, categories=[bp.CATE_SET, bp.CATE_FULL])
-        r1 = bp.mask(blueprint, [bp.CATE_HALF, bp.CATE_QUARTER])
-        c1 = i1 & r1
-
-        conflict = (c0 | c1).astype(int)
-
-        self.set_category_color({'conflict': 'red'})
-
-        size, offset = self._blueprint_npx_offset(bp)
-        return self._plot_blueprint(bp, {1: 'red'}, conflict, size, offset)
 
     def _plot_blueprint(self, bp: BlueprintFunctions,
                         setting: dict[int, str],

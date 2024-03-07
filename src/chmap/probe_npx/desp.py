@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, TypeAlias, Any
+from typing import ClassVar, TypeAlias, Any, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -10,6 +10,15 @@ from numpy.typing import NDArray
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, ElectrodeDesp
 from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError, PROBE_TYPE
+from chmap.util.utils import SPHINX_BUILD
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+    from chmap.util.util_blueprint import BlueprintFunctions
+    from chmap.views.blueprint import ProbePlotBlueprintReturn
+elif SPHINX_BUILD:
+    ProbePlotBlueprintFunctor = 'chmap.views.blueprint.ProbePlotBlueprintFunctor'
+    ProbePlotElectrodeDataFunctor = 'chmap.views.blueprint_script.ProbePlotElectrodeDataFunctor'
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
 
@@ -174,7 +183,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def probe_rule(self, chmap: ChannelMap | None, e1: NpxElectrodeDesp, e2: NpxElectrodeDesp) -> bool:
         return e1.channel != e2.channel
 
-    def invalid_electrodes(self, chmap: M, e: E | Iterable[NpxElectrodeDesp], electrodes: Iterable[NpxElectrodeDesp]) -> list[NpxElectrodeDesp]:
+    def invalid_electrodes(self, chmap: ChannelMap, e: NpxElectrodeDesp | Iterable[NpxElectrodeDesp], electrodes: Iterable[NpxElectrodeDesp]) -> list[NpxElectrodeDesp]:
         if isinstance(e, Iterable):
             channels = set([it.channel for it in e])
             return [it for it in electrodes if it.channel in channels]
@@ -219,3 +228,62 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                           **kwargs) -> ChannelMap:
         from .select import electrode_select
         return electrode_select(self, chmap, blueprint, selector=selector, **kwargs)
+
+    # ================== #
+    # extension function #
+    # ================== #
+
+    def view_ext_blueprint_view(self, chmap: ChannelMap, bp: BlueprintFunctions, options: list[str]) -> ProbePlotBlueprintReturn:
+        probe_type: ProbeType = chmap.probe_type
+        c_space = probe_type.c_space
+        r_space = probe_type.r_space
+        size = c_space // 2, r_space // 2
+        offset = c_space + c_space * probe_type.n_col_shank
+
+        if 'Conflict' in options:
+            conflict = self._conflict_blueprint(bp)
+            return dict(size=size, offset=offset, categories={1: 'red'}, blueprint=conflict, legends={'conflict': 'red'})
+        else:
+            blueprint = bp.set(bp.blueprint(), bp.CATE_SET, bp.CATE_FULL)
+            return dict(size=size, offset=offset, categories={
+                self.CATE_FULL: 'green',
+                self.CATE_HALF: 'orange',
+                self.CATE_QUARTER: 'blue',
+                self.CATE_FORBIDDEN: 'pink',
+            }, blueprint=blueprint)
+
+    def _conflict_blueprint(self, bp: BlueprintFunctions) -> NDArray[np.int_]:
+        blueprint = bp.blueprint()
+        i0 = bp.invalid(blueprint, electrodes=bp.channelmap, categories=[self.CATE_SET, self.CATE_FULL])
+        r0 = bp.mask(blueprint, [self.CATE_FULL, self.CATE_HALF, self.CATE_QUARTER])
+        c0 = i0 & r0
+
+        i1 = bp.invalid(blueprint, categories=[self.CATE_SET, self.CATE_FULL])
+        r1 = bp.mask(blueprint, [self.CATE_HALF, self.CATE_QUARTER])
+        c1 = i1 & r1
+
+        return (c0 | c1).astype(int)
+
+    def view_ext_blueprint_plot_electrode_data(self, ax: Axes, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], data: NDArray[np.float_]):
+        """
+
+        :see: {ProbePlotElectrodeDataFunctor}
+        """
+        from .plot import plot_electrode_block, plot_probe_shape
+        probe_type = chmap.probe_type
+
+        data = np.vstack([
+            [it.x for it in blueprint],
+            [it.y for it in blueprint],
+            data
+        ]).T
+
+        plot_electrode_block(ax, probe_type, data, electrode_unit='xyv', shank_width_scale=0.5)
+        plot_probe_shape(ax, probe_type, color=None, label_axis=False)
+
+        ax.set_xlabel(None)
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+        ax.set_ylabel(None)
+        ax.set_yticks([])
+        ax.set_yticklabels([])
