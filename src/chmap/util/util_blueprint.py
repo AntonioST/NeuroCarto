@@ -1305,7 +1305,7 @@ class BlueprintFunctions(Generic[M, E]):
         """
         from .edit.atlas import atlas_current_probe
         if (controller := self._controller) is not None:
-            return atlas_current_probe(controller, shank, ref)
+            return atlas_current_probe(self, controller, shank, ref)
         return None
 
     @doc_link()

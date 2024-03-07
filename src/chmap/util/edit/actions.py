@@ -114,15 +114,14 @@ def set_script_input(controller: ControllerView, script: str | None, *text: str 
         return False
 
     if script is None:
-        script = edit.script_select.name
+        script = edit.script_select.value
 
-    script_input = ', '.join(filter(lambda it: it is not None, text))
+    script_input = ','.join(filter(lambda it: it is not None, text))
 
     if script == edit.script_select.value:
-        edit.script_input.value = script_input
+        edit.script_input.value_input = script_input
     elif script in edit.actions:
         edit._script_input_cache[script] = script_input
-
 
 @doc_link()
 def profile_script(self: BlueprintFunctions, controller: ControllerView, script: str, /, *args, **kwargs):

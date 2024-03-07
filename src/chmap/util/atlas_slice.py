@@ -273,7 +273,16 @@ class SliceView(metaclass=abc.ABCMeta):
         """plane index offset according to angle difference *a*.
 
         :param a: radian rotation of (ap, dv, ml)-axis.
-        :return: tuple of (rot, dw, dh)
+        :return: tuple of (dw, dh)
+        """
+        raise RuntimeError()
+
+    def offset_angle(self, dw: int, dh: int) -> tuple[float, float, float]:
+        """plane index offset according to angle difference *a*.
+
+        :param dw:
+        :param dh:
+        :return: radian rotation of (ap, dv, ml)-axis.
         """
         raise RuntimeError()
 
@@ -333,6 +342,11 @@ class CoronalView(SliceView):
         dh = int(self.height * math.tan(rz) / 2)
         return dw, dh
 
+    def offset_angle(self, dw: int, dh: int) -> tuple[float, float, float]:
+        ry = math.atan(-dw * 2 / self.width)
+        rz = math.atan(dh * 2 / self.height)
+        return 0, ry, rz
+
 
 class SagittalView(SliceView):
     @property
@@ -357,6 +371,11 @@ class SagittalView(SliceView):
         dh = int(self.height * math.tan(rx) / 2)
         return dw, dh
 
+    def offset_angle(self, dw: int, dh: int) -> tuple[float, float, float]:
+        ry = math.atan(-dw * 2 / self.width)
+        rx = math.atan(dh * 2 / self.height)
+        return rx, ry, 0
+
 
 class TransverseView(SliceView):
     @property
@@ -380,6 +399,11 @@ class TransverseView(SliceView):
         dw = int(-self.width * math.tan(rx) / 2)
         dh = int(self.height * math.tan(rz) / 2)
         return dw, dh
+
+    def offset_angle(self, dw: int, dh: int) -> tuple[float, float, float]:
+        rx = math.atan(-dw * 2 / self.width)
+        rz = math.atan(dh * 2 / self.height)
+        return rx, 0, rz
 
 
 class SlicePlane(NamedTuple):
@@ -483,6 +507,9 @@ class SlicePlane(NamedTuple):
             return self.slice.coor_on(self.plane_idx_at(o[0], o[1], um=um), o, um=um)
         else:
             return self.slice.coor_on(self.plane_idx_at(o[:, 0], o[:, 1], um=um), o, um=um)
+
+    def offset_angle(self) -> tuple[float, float, float]:
+        return self.slice.offset_angle(self.dw, self.dh)
 
     def with_plane(self, plane: int) -> Self:
         return self._replace(plane=plane)

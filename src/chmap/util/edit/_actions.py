@@ -277,12 +277,12 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
         bp.set_script_input(
             None,
             f'{coor.x / 1000:.1f}',
-            f'{coor.z / 1000:.1f}'
+            f'{coor.z / 1000:.1f}',
             f'{coor.y / 1000:.1f}' if coor.y != 0 else None,
             f'shank={coor.s}',
-            f'rx={coor.rx:.1f}' if coor.rx != 0 else None,
-            f'rx={coor.ry:.1f}' if coor.ry != 0 else None,
-            f'rx={coor.rz:.1f}' if coor.rz != 0 else None,
+            f'rx={coor.rx:.0f}' if coor.rx != 0 else None,
+            f'ry={coor.ry:.0f}' if coor.ry != 0 else None,
+            f'rz={coor.rz:.0f}' if coor.rz != 0 else None,
             f'depth={coor.depth / 1000:.1f}',
             f'ref={ref}' if ref != 'bregma' else None
         )

@@ -68,8 +68,8 @@ class ProbeCoordinate(NamedTuple):
 
 def get_plane_at(view: SliceView, pc: ProbeCoordinate) -> SlicePlane:
     a = np.deg2rad([pc.rx, pc.ry, pc.rz])
-    r = view.angle_offset(tuple(a))
-    return view.plane_at((pc.x, pc.y, pc.z), um=True).with_rotate(r)
+    dw, dh = view.angle_offset(tuple(a))
+    return view.plane_at((pc.x, pc.y, pc.z), um=True).with_offset(dw, dh)
 
 
 def prepare_affine_matrix(dx: float, dy: float, sx: float, sy: float, rt: float) -> NDArray[np.float_]:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from chmap.util import probe_coor
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import SPHINX_BUILD, doc_link
@@ -169,9 +171,9 @@ def atlas_new_probe(controller: ControllerView,
     :param dv: dv
     :param ml: ml
     :param shank: shank index
-    :param rx: ap rotate
-    :param ry: dv rotate
-    :param rz: ml rotate
+    :param rx: ap rotate degree
+    :param ry: dv rotate degree
+    :param rz: ml rotate degree
     :param depth: insert depth
     :param ref: reference origin.
     :return: a probe coordinate. ``None`` if origin not set.
@@ -186,12 +188,58 @@ def atlas_new_probe(controller: ControllerView,
 
 
 @doc_link()
-def atlas_current_probe(controller: ControllerView, shank: int = 0, ref: str = 'bregma') -> probe_coor.ProbeCoordinate | None:
+def atlas_current_probe(bp: BlueprintFunctions,
+                        controller: ControllerView,
+                        shank: int = 0,
+                        ref: str = 'bregma') -> probe_coor.ProbeCoordinate | None:
+    """
+
+    :param bp:
+    :param controller:
+    :param shank:
+    :param ref:
+    :return: a probe coordinate. ``None`` if origin not set.
+    """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
         return None
 
-    raise NotImplementedError  # TODO
+    from chmap.util.atlas_brain import REFERENCE
+
+    brain = view.brain_slice
+    try:
+        origin = REFERENCE[ref][brain.slice.brain.atlas_name]
+    except KeyError:
+        return None
+
+    transform = view.get_boundary_state()
+    a, a_ = probe_coor.prepare_affine_matrix_both(**transform)
+
+    s = bp.s == shank
+    p = np.vstack([
+        bp.x[s],
+        bp.y[s],
+        np.ones((np.count_nonzero(s),)),
+    ])  # Array[float, (x,y,1), N']
+    q = probe_coor.project_i2b(origin, brain, a_ @ p)  # Array[float, (ap,dv,ml), N']
+
+    i = np.argmin(np.abs(q[1]))
+    ap, dv, ml = q[:, i]
+    depth = np.max(q[1])
+
+    # set slice rotation
+    rot = list(np.rad2deg(brain.offset_angle()))
+    match brain.slice_name:
+        case 'coronal':
+            rot[0] = -transform['rt']
+        case 'sagittal':
+            rot[2] = transform['rt']
+        case 'transverse':
+            rot[1] = -transform['rt']
+        case _:
+            raise RuntimeError('un-reachable')
+
+    return probe_coor.ProbeCoordinate(ap, 0, ml, shank, rot[0], rot[1], rot[2], depth)
 
 
 @doc_link()
