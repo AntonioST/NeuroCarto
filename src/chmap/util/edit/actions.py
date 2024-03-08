@@ -50,9 +50,9 @@ def draw(self: BlueprintFunctions, controller: ControllerView,
          view: str | type[ViewBase] = None):
     """{DataHandler#on_data_update()}"""
     if isinstance(controller, DataHandler):
-        controller.on_data_update(self.probe, self.probe.all_electrodes(self.channelmap), a)
+        controller.on_data_update(self.probe, self.electrodes, a)
     elif isinstance(view_target := controller.get_view(view), DataHandler):
-        view_target.on_data_update(self.probe, self.probe.all_electrodes(self.channelmap), a)
+        view_target.on_data_update(self.probe, self.electrodes, a)
 
 
 @doc_link()
@@ -122,6 +122,7 @@ def set_script_input(controller: ControllerView, script: str | None, *text: str 
         edit.script_input.value_input = script_input
     elif script in edit.actions:
         edit._script_input_cache[script] = script_input
+
 
 @doc_link()
 def profile_script(self: BlueprintFunctions, controller: ControllerView, script: str, /, *args, **kwargs):

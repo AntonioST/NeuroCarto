@@ -1,9 +1,10 @@
-from typing import runtime_checkable, Protocol, Any
+from typing import runtime_checkable, Protocol
 
 from bokeh.models import UIElement, Div
 
 from chmap.config import ChannelMapEditorConfig
-from chmap.probe import ProbeDesp, ElectrodeDesp
+from chmap.probe import ProbeDesp
+from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import doc_link
 from chmap.views.base import ViewBase, DynamicView, InvisibleView
 
@@ -17,12 +18,11 @@ class ProbeElectrodeEfficiencyFunctor(Protocol):
     {ProbeDesp} extension protocol for calculate some statistic values.
     """
 
-    def view_ext_statistics_info(self, chmap: Any, blueprint: list[ElectrodeDesp]) -> dict[str, str]:
+    def view_ext_statistics_info(self, bp: BlueprintFunctions) -> dict[str, str]:
         """
         Get some statistics value from a channelmap or a blueprint.
 
-        :param chmap:
-        :param blueprint:
+        :param bp:
         :return: dict of {title: value_str}
         """
         pass
@@ -61,9 +61,11 @@ class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
     def on_probe_update(self, probe: ProbeDesp, chmap, electrodes):
         if chmap is not None and isinstance(probe, ProbeElectrodeEfficiencyFunctor):
             # self.logger.debug('on_probe_update()')
+            bp = BlueprintFunctions(probe, chmap)
+            bp.set_blueprint(electrodes)
 
             try:
-                data = probe.view_ext_statistics_info(chmap, electrodes)
+                data = probe.view_ext_statistics_info(bp)
             except BaseException as electrodes:
                 self.logger.warning(repr(electrodes), exc_info=electrodes)
                 self.label_columns_div.text = ''

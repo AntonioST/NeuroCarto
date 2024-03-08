@@ -176,16 +176,19 @@ def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *,
 
 
 def _optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, **kwargs):
+    from chmap.probe_npx.npx import ChannelMap
+    from chmap.probe_npx.stat import npx_channel_efficiency
+
     blueprint_arr = bp.blueprint()
     blueprint_lst = bp.apply_blueprint(blueprint=blueprint_arr)
 
-    chmap = bp.channelmap
-    ceff = bp.channel_efficiency(chmap, blueprint_arr)
+    chmap: ChannelMap = bp.channelmap
+    ceff = npx_channel_efficiency(bp, chmap, blueprint_arr)
     max_chmap = (chmap, ceff)
 
     for i in range(sample_times):
         chmap = bp.select_electrodes(chmap, blueprint_lst, **kwargs)
-        ceff = bp.channel_efficiency(chmap, blueprint_arr)
+        ceff = npx_channel_efficiency(bp, chmap, blueprint_arr)
         if ceff > max_chmap[1]:
             max_chmap = (chmap, ceff)
 

@@ -244,16 +244,25 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         from .stat import npx_electrode_density
         return npx_electrode_density(chmap)
 
-    def view_ext_statistics_info(self, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp]) -> dict[str, str]:
-        from .stat import npx_channel_efficiency
-        stat = npx_channel_efficiency(chmap, blueprint)
-        ucs = ', '.join(map(lambda it: f's{it[0]}={it[1]}', enumerate(stat.used_channel_on_shanks)))
+    def view_ext_statistics_info(self, bp: BlueprintFunctions) -> dict[str, str]:
+        from .stat import npx_request_electrode, npx_channel_efficiency
+
+        channelmap: ChannelMap = bp.channelmap
+        used_channel = len(channelmap)
+        used_channel_on_shanks = [
+            len([it for it in channelmap.electrodes if it.shank == s])
+            for s in range(channelmap.probe_type.n_shank)
+        ]
+
+        ucs = ', '.join(map(lambda it: f's{it[0]}={it[1]}', enumerate(used_channel_on_shanks)))
+
+        electrodes = npx_request_electrode(bp)
+        efficiency = npx_channel_efficiency(bp)
+
         return {
-            'used channels': f'{stat.used_channel}, total={stat.total_channel}, ({ucs})',
-            'request electrodes': f'{stat.request_electrodes}',
-            'channel efficiency': f'{100 * stat.channel_efficiency:.2f}%',
-            'remain channels': f'{stat.remain_channel}',
-            'remain electrode': f'{stat.remain_electrode}',
+            'used channels': f'{used_channel}, total={channelmap.probe_type.n_channels}, ({ucs})',
+            'request electrodes': f'{electrodes}',
+            'channel efficiency': f'{100 * efficiency:.2f}%',
         }
 
     def view_ext_plot_blueprint(self, callback: ProbePlotBlueprintCallback, chmap: ChannelMap):
@@ -281,7 +290,12 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                 self.CATE_FORBIDDEN: 'pink',
             }
             callback.blueprint = callback.bp.set(callback.blueprint, self.CATE_SET, self.CATE_FULL)
-            callback.set_category_legend(categories)
+            callback.set_category_legend({
+                'full-': 'green',
+                'half-': 'orange',
+                'quarter-': 'blue',
+                'forbidden': 'pink',
+            })
             callback.plot_blueprint(categories, size, offset)
 
     def _conflict_blueprint(self, bp: BlueprintFunctions, blueprint: NDArray[np.int_]) -> NDArray[np.int_]:

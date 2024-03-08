@@ -42,7 +42,7 @@ def invalid(self: BlueprintFunctions,
         protected = np.zeros_like(blueprint, dtype=bool)
         protected[electrodes] = True
 
-    all_electrodes = self.probe.all_electrodes(self.channelmap)
+    all_electrodes = self.electrodes
     electrodes = [all_electrodes[it] for it in np.nonzero(protected)[0]]
 
     invalid_electrodes = self.index_blueprint(self.probe.invalid_electrodes(self.channelmap, electrodes, all_electrodes))

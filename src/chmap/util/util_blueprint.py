@@ -44,6 +44,13 @@ __all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function', 'use_p
 
 
 def maybe_blueprint(self: BlueprintFunctions, a):
+    """
+    Is *a* a blueprint?
+
+    :param self:
+    :param a:
+    :return: True if it may be a blueprint.
+    """
     n = len(self.s)
     return isinstance(a, np.ndarray) and a.shape == (n,) and np.issubdtype(a.dtype, np.integer)
 
@@ -66,8 +73,7 @@ def blueprint_function(func=None, *, set_return=True):
         bp.set_blueprint(bp.func(bp.blueprint(), ...))
 
     :param func:
-    :param set_return: check return and set blueprint
-    :return:
+    :param set_return: check return and set the blueprint
     """
 
     def _decorator(func):
@@ -108,7 +114,6 @@ class BlueprintFunctions(Generic[M, E]):
         * {#selected_electrodes()}
         * {#set_channelmap()}
         * {#select_electrodes()}
-        * {#channel_efficiency()}
 
     **blueprint functions**
 
@@ -129,6 +134,7 @@ class BlueprintFunctions(Generic[M, E]):
         * {#__setitem__()}
         * {#__delitem__()}
         * {#merge()}
+        * {#count_categories()}
         * {#mask()}
         * {#invalid()}
         * {#move()}
@@ -214,6 +220,11 @@ class BlueprintFunctions(Generic[M, E]):
     CATE_LOW: int
 
     def __init__(self, probe: ProbeDesp[M, E], chmap: int | str | M | None):
+        """
+
+        :param probe:
+        :param chmap:
+        """
         self.probe: Final[ProbeDesp[M, E]] = probe
         if isinstance(chmap, (int, str)):
             chmap = probe.new_channelmap(chmap)
@@ -222,9 +233,15 @@ class BlueprintFunctions(Generic[M, E]):
 
         if chmap is not None:
             electrodes = probe.all_electrodes(chmap)
-            self.s: Final[NDArray[np.int_]] = np.array([it.s for it in electrodes])
-            self.x: Final[NDArray[np.int_]] = np.array([it.x for it in electrodes])
-            self.y: Final[NDArray[np.int_]] = np.array([it.y for it in electrodes])
+        else:
+            electrodes = []
+
+        self.electrodes: Final[list[E]] = electrodes
+
+        if chmap is not None:
+            self.s: Final[NDArray[np.int_]] = np.array([it.s for it in self.electrodes])
+            self.x: Final[NDArray[np.int_]] = np.array([it.x for it in self.electrodes])
+            self.y: Final[NDArray[np.int_]] = np.array([it.y for it in self.electrodes])
             self.dx: Final[float] = float(np.min(np.diff(np.unique(self.x))))
             self.dy: Final[float] = float(np.min(np.diff(np.unique(self.y))))
             if self.dx <= 0 or self.dy <= 0:
@@ -269,6 +286,7 @@ class BlueprintFunctions(Generic[M, E]):
         ret = object.__new__(BlueprintFunctions)
         ret.probe = self.probe  # type: ignore[misc]
         ret.channelmap = self.channelmap  # type: ignore[misc]
+        ret.electrodes = self.electrodes  # type: ignore[misc]
         ret.categories = self.categories  # type: ignore[misc]
 
         ret.s = self.s  # type: ignore[misc]
@@ -302,7 +320,7 @@ class BlueprintFunctions(Generic[M, E]):
         if (channelmap := self.channelmap) is None:
             return
 
-        electrodes = self.probe.all_electrodes(channelmap)
+        electrodes = self.electrodes
         if isinstance(e, (int, np.integer)):
             es = [electrodes[int(e)]]
         elif isinstance(e, (list, tuple)):
@@ -324,7 +342,7 @@ class BlueprintFunctions(Generic[M, E]):
         if (channelmap := self.channelmap) is None:
             return
 
-        electrodes = self.probe.all_electrodes(channelmap)
+        electrodes = self.electrodes
         if isinstance(e, (int, np.integer)):
             es = [electrodes[int(e)]]
         elif isinstance(e, (list, tuple)):
@@ -366,7 +384,7 @@ class BlueprintFunctions(Generic[M, E]):
             self.probe.add_electrode(channelmap, t)
 
     @doc_link()
-    def select_electrodes(self, chmap=None, blueprint: ELECTRODES | BLUEPRINT = None, **kwargs) -> float:
+    def select_electrodes(self, chmap=None, blueprint: ELECTRODES | BLUEPRINT = None, **kwargs) -> M:
         """
         Run electrode selection for a channelmap based on the blueprint.
 
@@ -378,20 +396,6 @@ class BlueprintFunctions(Generic[M, E]):
         """
         from .edit.probe import select_electrodes
         return select_electrodes(self, chmap, blueprint, **kwargs)
-
-    @doc_link()
-    def channel_efficiency(self, chmap=None, blueprint: ELECTRODES | BLUEPRINT = None) -> float:
-        """
-        Calculate the channel efficiency for a blueprint *e* and its outcomes *chmap*.
-
-        :param chmap: channelmap outcomes from *blueprint*
-        :param blueprint:
-        :return: channel efficiency value
-        :see: reference {chmap.probe_npx.stat.npx_channel_efficiency}
-        :see: implement {chmap.util.edit.probe.npx_channel_efficiency}
-        """
-        from .edit.probe import npx_channel_efficiency
-        return npx_channel_efficiency(self, chmap, blueprint)
 
     # =================== #
     # blueprint functions #
@@ -416,7 +420,8 @@ class BlueprintFunctions(Generic[M, E]):
         """
         set blueprint.
 
-        :param blueprint: a blueprint or a category value.
+        :param blueprint: a blueprint or a category value (reset all electrodes).
+        :raise ValueError: length mismatch
         """
         if isinstance(blueprint, int):
             if self._blueprint is None:
@@ -453,7 +458,7 @@ class BlueprintFunctions(Generic[M, E]):
             blueprint = self.blueprint()
 
         if electrodes is None:
-            electrodes = self.probe.all_electrodes(channelmap)
+            electrodes = self.electrodes
         else:
             for e in electrodes:
                 e.state = ProbeDesp.STATE_UNUSED
@@ -464,7 +469,7 @@ class BlueprintFunctions(Generic[M, E]):
             e.state = ProbeDesp.STATE_USED
 
         c = {it.electrode: it for it in electrodes}
-        for e, p in zip(self.probe.all_electrodes(channelmap), blueprint):
+        for e, p in zip(self.electrodes, blueprint):
             if (t := c.get(e.electrode, None)) is not None:
                 t.category = int(p)
 
@@ -479,12 +484,9 @@ class BlueprintFunctions(Generic[M, E]):
         :return:
         :see: {#apply_blueprint()}
         """
-        if (channelmap := self.channelmap) is None:
-            raise RuntimeError()
-
         blueprint = np.full_like(self._blueprint, self.CATE_UNSET)
         c = {it.electrode: it.category for it in electrodes}
-        for i, e in enumerate(self.probe.all_electrodes(channelmap)):
+        for i, e in enumerate(self.electrodes):
             if (category := c.get(e.electrode, None)) is not None:
                 blueprint[i] = category
         return blueprint
@@ -652,6 +654,22 @@ class BlueprintFunctions(Generic[M, E]):
         if set_return:
             self.set_blueprint(ret)
         return ret
+
+    @blueprint_function(set_return=False)
+    def count_categories(self, blueprint: BLUEPRINT, categories: int | list[int], mask: NDArray[np.bool_] = None) -> int:
+        """
+        count number of electrode belonging to *categories*.
+
+        :param blueprint:
+        :param categories:
+        :param mask:
+        :return:
+        """
+        from .edit.category import mask as _mask
+        t = _mask(self, blueprint, categories)
+        if mask is not None:
+            np.logical_and(t, mask, out=t)
+        return np.count_nonzero(t)
 
     @blueprint_function(set_return=False)
     def mask(self, blueprint: BLUEPRINT, categories: int | list[int] = None) -> NDArray[np.bool_]:
@@ -1098,6 +1116,7 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def captured_electrodes(self, all=False) -> NDArray[np.int_]:
         """
+        get captured electrodes.
 
         :param all: Included forbidden electrodes?
         :return: index of captured electrodes.
@@ -1171,7 +1190,7 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def atlas_set_slice(self, view: str = None, plane: int = None, *, um=False):
         """
-        Set atlas brain image projection view and slicing plane.
+        Set atlas image projection view and slicing plane.
 
         :param view: 'coronal', 'sagittal', or 'transverse'
         :param plane: plane index
@@ -1185,7 +1204,7 @@ class BlueprintFunctions(Generic[M, E]):
     def atlas_add_label(self, text: str, pos: tuple[float, float] | tuple[float, float, float] = None, *,
                         origin: str = 'bregma', color: str = 'cyan', replace=True) -> Label | None:
         """
-        Add a label on atlas brain image.
+        Add a label on atlas image.
 
         :param text: text content.
         :param pos: text position
@@ -1217,7 +1236,7 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def atlas_del_label(self, i: int | str | list[int | str]):
         """
-        Remove labels from atlas brain image.
+        Remove labels from atlas image.
 
         :param i: index, or label text or list of them.
         :see: {AtlasBrainView#del_label()}
@@ -1229,7 +1248,7 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def atlas_clear_labels(self):
         """
-        Clear all labels
+        Clear all labels on the atlas image.
 
         :see: {AtlasBrainView#clear_labels()}
         """
@@ -1298,6 +1317,7 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def atlas_current_probe(self, shank: int = 0, ref: str = 'bregma') -> ProbeCoordinate | None:
         """
+        Get the current coordinate of the probe.
 
         :param shank:
         :param ref:

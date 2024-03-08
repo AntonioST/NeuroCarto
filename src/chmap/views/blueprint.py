@@ -52,7 +52,7 @@ class ProbePlotBlueprintCallback(Protocol):
         """
         pass
 
-    def set_category_legend(self, category: dict[int | str, str]):
+    def set_category_legend(self, category: dict[str, str]):
         """
 
         :param category: legend dict {C-name: html-color}
@@ -189,8 +189,9 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             bp.set_blueprint(self.cache_blueprint)
             impl = ProbePlotBlueprintCallbackImpl(self, bp, options)
 
+            functor: ProbePlotBlueprintFunctor
             if isinstance((functor := self.cache_probe), ProbePlotBlueprintFunctor):
-                functor.view_ext_blueprint_view(impl, chmap)
+                functor.view_ext_plot_blueprint(impl, chmap)
             else:
                 impl.set_category_legend({
                     bp.CATE_SET: 'green',
@@ -271,13 +272,7 @@ class ProbePlotBlueprintCallbackImpl(ProbePlotBlueprintCallback):
     def plot_blueprint(self, colors: dict[int, str], size: tuple[int, int] = None, offset: int = None):
         self.__view.plot_blueprint(self.bp, colors, self.blueprint, size, offset)
 
-    def set_category_legend(self, category: dict[int | str, str]):
-        probe = self.__view.cache_probe
-        _category = {
-            name: color
-            for code, color in category.items()
-            if (name := code if isinstance(code, str) else probe.category_description(code)) is not None
-        }
+    def set_category_legend(self, category: dict[str, str]):
         self.__view.set_category_color(category)
 
 

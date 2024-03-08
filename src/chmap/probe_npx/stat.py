@@ -9,6 +9,8 @@ from numpy.typing import NDArray
 from chmap.probe_npx import NpxProbeDesp, NpxElectrodeDesp
 from chmap.probe_npx.npx import ChannelMap, Electrode
 from chmap.probe_npx.select import ElectrodeSelector, load_select
+from chmap.util.util_blueprint import BlueprintFunctions
+from chmap.util.utils import doc_link
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -16,8 +18,8 @@ else:
     from typing_extensions import Self
 
 __all__ = [
-    'ElectrodeEfficiencyStat',
     'npx_electrode_density',
+    'npx_request_electrode',
     'npx_channel_efficiency',
     'ElectrodeProbability',
     'npx_electrode_probability'
@@ -96,80 +98,59 @@ def npx_electrode_density(chmap: ChannelMap) -> NDArray[np.float_]:
     return np.array(ret)
 
 
-class ElectrodeEfficiencyStat(NamedTuple):
-    total_channel: int
-    """total channel number"""
-    used_channel: int
-    """number of used channel"""
-    used_channel_on_shanks: list[int]
-    """number of used channel on each shank"""
-
-    request_electrodes: float
-    """number of request electrodes for some categories"""
-
-    selected_electrodes: int
-    """number of selected electrodes in some categories"""
-
-    area_efficiency: float
-    """area efficiency"""
-
-    channel_efficiency: float
-    """channel efficiency"""
-
-    remain_channel: int
-    """number of channel in low-priority category"""
-
-    remain_electrode: int
-    """number of electrode set in low-priority category"""
-
-
-def npx_channel_efficiency(chmap: ChannelMap, e: list[NpxElectrodeDesp]) -> ElectrodeEfficiencyStat:
+@doc_link()
+def npx_request_electrode(bp: BlueprintFunctions, blueprint: NDArray[np.int_] = None) -> float:
     """
-    Calculate the channel efficiency for a blueprint *e* and its outcomes *chmap*.
 
-    :param chmap: channelmap outcomes from blueprint *e*
-    :param e: blueprint
-    :return:
+    :param bp:
+    :param blueprint: a given blueprint.
+    :return: channel efficiency value
     """
-    used_channel = len(chmap)
-    used_channel_on_shanks = [
-        len([it for it in chmap.electrodes if it.shank == s])
-        for s in range(chmap.probe_type.n_shank)
-    ]
+    if blueprint is None:
+        blueprint = bp._blueprint
 
-    selected = set([(it.shank, it.column, it.row) for it in chmap.electrodes])
-    p, c = _npx_request_electrodes(selected, e)
-    ae = 0 if p == 0 else c / p
+    electrode = 0
+    for category, count in zip(*np.unique(blueprint, return_counts=True)):
+        match category:
+            case NpxProbeDesp.CATE_SET | NpxProbeDesp.CATE_FULL:
+                electrode += count
+            case NpxProbeDesp.CATE_HALF:
+                electrode += count / 2
+            case NpxProbeDesp.CATE_QUARTER:
+                electrode += count / 4
+
+    return electrode
+
+
+@doc_link()
+def npx_channel_efficiency(bp: BlueprintFunctions, channelmap: ChannelMap = None, blueprint: NDArray[np.int_] = None) -> float:
+    """
+
+    :param bp:
+    :param channelmap: channelmap outcomes from *blueprint*
+    :param blueprint: a given blueprint.
+    :return: channel efficiency value
+    """
+    if channelmap is None:
+        channelmap = bp.channelmap
+
+    if blueprint is None:
+        blueprint = bp._blueprint
+
+    electrode = npx_request_electrode(bp, blueprint)
+    channel = 0
+
+    selected = blueprint[bp.selected_electrodes(channelmap)]
+    for category, count in zip(*np.unique(selected, return_counts=True)):
+        match category:
+            case NpxProbeDesp.CATE_SET | NpxProbeDesp.CATE_FULL | NpxProbeDesp.CATE_HALF | NpxProbeDesp.CATE_QUARTER:
+                channel += count
+            case NpxProbeDesp.CATE_FORBIDDEN:
+                channel -= count
+
+    ae = 0 if electrode == 0 else max(channel / electrode, 0)
     ce = 0 if ae == 0 else min(ae, 1 / ae)
-    re, rc = _get_electrode(selected, e, [NpxProbeDesp.CATE_LOW, NpxProbeDesp.CATE_UNSET])
-
-    return ElectrodeEfficiencyStat(
-        chmap.probe_type.n_channels,
-        used_channel,
-        used_channel_on_shanks,
-        request_electrodes=p,
-        selected_electrodes=c,
-        area_efficiency=ae,
-        channel_efficiency=ce,
-        remain_electrode=re,
-        remain_channel=rc
-    )
-
-
-def _npx_request_electrodes(selected: set, e: list[NpxElectrodeDesp]) -> tuple[float, int]:
-    p0, s0 = _get_electrode(selected, e, [NpxProbeDesp.CATE_SET, NpxProbeDesp.CATE_FULL])
-    p2, s2 = _get_electrode(selected, e, [NpxProbeDesp.CATE_HALF])
-    p4, s4 = _get_electrode(selected, e, [NpxProbeDesp.CATE_QUARTER])
-    # pf, sf = _get_electrode(selected, e, [NpxProbeDesp.CATE_FORBIDDEN])
-    p = p0 + p2 / 2 + p4 / 4
-    s = s0 + s2 + s4  # - sf
-    return p, s
-
-
-def _get_electrode(selected: set, e: list[NpxElectrodeDesp], categories: list[int]) -> tuple[int, int]:
-    e1 = [it for it in e if it.category in categories]
-    e2 = [it for it in e1 if it.electrode in selected]
-    return len(e1), len(e2)
+    return ce
 
 
 class ElectrodeProbability(NamedTuple):
@@ -252,6 +233,7 @@ def _npx_electrode_probability_0(probe: NpxProbeDesp, chmap: ChannelMap, bluepri
                                  selector: ElectrodeSelector,
                                  sample_times: int) -> ElectrodeProbability:
     pt = chmap.probe_type
+    bp = BlueprintFunctions(probe, chmap)
     mat = np.zeros((pt.n_shank, pt.n_col_shank, pt.n_row_shank))
     complete = 0
     channel_efficiency = []
@@ -265,7 +247,8 @@ def _npx_electrode_probability_0(probe: NpxProbeDesp, chmap: ChannelMap, bluepri
         if probe.is_valid(chmap):
             complete += 1
 
-        channel_efficiency.append(npx_channel_efficiency(chmap, blueprint).channel_efficiency)
+        bp.set_blueprint(blueprint)
+        channel_efficiency.append(npx_channel_efficiency(bp))
 
     return ElectrodeProbability(sample_times, mat, complete, np.array(channel_efficiency))
 
