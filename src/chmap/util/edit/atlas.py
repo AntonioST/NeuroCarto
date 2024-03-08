@@ -20,6 +20,7 @@ __all__ = [
     'atlas_get_slice',
     'atlas_set_slice',
     'atlas_add_label',
+    'atlas_get_label',
     'atlas_focus_label',
     'atlas_del_label',
     'atlas_clear_labels',
@@ -90,6 +91,23 @@ def atlas_add_label(controller: ControllerView, text: str,
 
 
 @doc_link()
+def atlas_get_label(controller: ControllerView, index: int | str) -> Label | None:
+    """{AtlasBrainView#get_label()} and {AtlasBrainView#index_label()}"""
+    view: AtlasBrainView
+    if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
+        if isinstance(index, str):
+            if (index := view.index_label(index)) is None:
+                return None
+
+        try:
+            return view.get_label(index)
+        except IndexError:
+            pass
+
+    return None
+
+
+@doc_link()
 def atlas_focus_label(controller: ControllerView, label: int | str | Label):
     """{AtlasBrainView#focus_label()}"""
     view: AtlasBrainView
@@ -98,34 +116,11 @@ def atlas_focus_label(controller: ControllerView, label: int | str | Label):
 
 
 @doc_link()
-def atlas_del_label(controller: ControllerView, i: int | str | list[int | str]):
+def atlas_del_label(controller: ControllerView, i: int | str | Label | list[int | str | Label]):
     """{AtlasBrainView#del_label()}"""
     view: AtlasBrainView
-    if (view := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
-        return
-
-    match i:
-        case int(i):
-            ii = [i]
-        case list(tmp):
-            ii = []
-            for it in tmp:
-                if isinstance(it, int):
-                    ii.append(it)
-                elif isinstance(it, str):
-                    if (it := view.index_label(it)) is not None:
-                        ii.append(it)
-                else:
-                    raise TypeError()
-        case str(text):
-            if (it := view.index_label(text)) is None:
-                return
-
-            ii = [it]
-        case _:
-            raise TypeError()
-
-    view.del_label(ii)
+    if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
+        view.del_label(i)
 
 
 @doc_link()

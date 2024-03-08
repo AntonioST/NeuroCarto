@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from chmap.probe_npx import NpxProbeDesp, utils
 from chmap.util.edit.checking import use_probe, use_view
 from chmap.util.util_blueprint import BlueprintFunctions
 from chmap.util.utils import TimeMarker
+
+if TYPE_CHECKING:
+    from chmap.util.probe_coor import ProbeCoordinate
+    from chmap.views.atlas import Label
 
 
 @use_probe(NpxProbeDesp, 24)
@@ -202,9 +208,13 @@ def atlas_label(bp: BlueprintFunctions, *args, color='cyan'):
 
     commands:
     * clear : clear labels
-    * delete,i,... :  delete labels
-    * ap,dv,ml,text : add text on (ap,dv,ml) and use bregma as origin.
-    * x,y,text[,ref] : add text on (x,y[,z]) and use reference as origin ('probe' as default).
+    * probe[,S][,TEXT] : current coordinate of probe insert point.
+    * delete,I,... :  delete labels
+    * AP,DV,ML,TEXT : add text on (ap,dv,ml) and use bregma as origin.
+    * X,Y,TEXT[,REF] : add text on (x,y[,z]) and use reference as origin ('probe' as default).
+    * move,I,[AP,DV,ML|X,Y] : move label to new place (reference not change)
+    * text,I,TEXT : change label content
+    * color,I,... : change label color
 
     reference:
     * 'bregma' : origin at bregma of the brain, use (ap,dv,ml) mm.
@@ -224,12 +234,44 @@ def atlas_label(bp: BlueprintFunctions, *args, color='cyan'):
         case ('clear', _):
             raise RuntimeError(f'unknown clear args : {args}')
 
-        case ('delete', ):
-            bp.log_message('missing delete index or text')
+        case ('probe', ):
+            _atlas_label_probe(bp, bp.atlas_current_probe(0), color=color)
+        case ('probe', int(shank)):
+            _atlas_label_probe(bp, bp.atlas_current_probe(shank), color=color)
+        case ('probe', str(text)):
+            _atlas_label_probe(bp, bp.atlas_current_probe(0), text, color=color)
+        case ('probe', int(shank), str(text)):
+            _atlas_label_probe(bp, bp.atlas_current_probe(shank), text, color=color)
+
+        case ('delete' | 'move' | 'text', ):
+            bp.log_message('missing label index or text')
+
         case ('delete', arg):
             bp.atlas_del_label(arg)
         case ('delete', *args):
             bp.atlas_del_label(list(args))
+
+        case ('move', _):
+            bp.log_message('missing label new position')
+        case ('move', index, *coor):
+            if (label := bp.atlas_get_label(index)) is not None:
+                _atlas_label_move(bp, label, coor)
+            else:
+                bp.log_message('label not found')
+
+        case ('text', _):
+            bp.log_message('missing label new content')
+        case ('text', index, text):
+            if (label := bp.atlas_get_label(index)) is not None:
+                bp.atlas_del_label(label)
+                bp.atlas_add_label(str(text), label.pos, origin=label.origin, color=label.color)
+            else:
+                bp.log_message('label not found')
+
+        case ('color', ):
+            _atlas_label_color(bp, color, None)
+        case ('color', *index):
+            _atlas_label_color(bp, color, index)
 
         case (int(ap) | float(ap), int(dv) | float(dv), int(ml) | float(ml), text):
             bp.atlas_add_label(str(text), (ap, dv, ml), origin='bregma', color=color)
@@ -242,6 +284,45 @@ def atlas_label(bp: BlueprintFunctions, *args, color='cyan'):
 
         case (command, *_):
             raise RuntimeError(f'unknown command : {command}')
+
+
+def _atlas_label_probe(bp: BlueprintFunctions, coor: ProbeCoordinate, text: str = 'probe', color: str = 'red'):
+    x = round(coor.x / 1000, 1)
+    y = round(coor.y / 1000, 1)
+    z = round(coor.z / 1000, 1)
+    bp.atlas_add_label(text, (x, y, z), origin='bregma', color=color)
+
+
+def _atlas_label_move(bp: BlueprintFunctions, label: Label, coor: tuple[float, ...]):
+    match coor:
+        case (int() | float(), int() | float(), int() | float()) as pos if label.origin == 'bregma':
+            bp.atlas_del_label(label)
+            bp.atlas_add_label(label.text, pos, origin='bregma', color=label.color)
+        case (int() | float(), int() | float()) as pos:
+            bp.atlas_del_label(label)
+            bp.atlas_add_label(label.text, pos, origin=label.origin, color=label.color)
+
+
+def _atlas_label_color(bp: BlueprintFunctions, color: str, index: tuple[int, ...] = None):
+    labels = []
+
+    if index is None:
+        _index = 0
+
+        while True:
+            if (label := bp.atlas_get_label(_index)) is not None:
+                if label.color != color:
+                    labels.append(label)
+                _index += 1
+    else:
+
+        for _index in index:
+            if (label := bp.atlas_get_label(_index)) is not None and label.color != color:
+                labels.append(label)
+
+    for label in labels:
+        bp.atlas_del_label(label)
+        bp.atlas_add_label(label.text, label.pos, origin=label.origin, color=color)
 
 
 @use_view('AtlasBrainView')

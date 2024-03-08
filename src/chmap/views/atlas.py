@@ -431,7 +431,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         """number of the labels"""
         return len(self._labels)
 
-    def get_label(self, i: int) -> str:
+    def get_label(self, i: int) -> Label:
         """
         Get the label text at index *i*.
 
@@ -439,7 +439,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         :return: label text
         :raises IndexError: index *i* out of bound
         """
-        return self._labels[i].text
+        return self._labels[i]
 
     def find_label(self, pos: tuple[float, float]) -> Label | None:
         """
@@ -526,11 +526,12 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             case _:
                 raise ValueError()
 
+        start = len(self._labels)
         self._labels.append(label)
         self.logger.debug('add label %s', label)
 
         if i is None:
-            self.data_labels.stream(self._transform_labels([label], start=len(self._labels)))
+            self.data_labels.stream(self._transform_labels([label], start=start))
         else:
             self.del_label(i)
 
@@ -551,20 +552,23 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         LABEL_REFS.append(origin)
         return ref
 
-    def del_label(self, index: int | list[int]):
+    def del_label(self, index: int | str | Label | list[int | str | Label]):
         """
         Remove labels.
 
         :param index: index, list of index.
         """
-        if isinstance(index, int):
+        if not isinstance(index, list):
             index = [index]
 
         if len(index) == 0:
             return
 
         index = set(index)
-        self._labels = [it for i, it in enumerate(self._labels) if i not in index]
+        self._labels = [
+            it for i, it in enumerate(self._labels)
+            if i not in index and it not in index and it.text not in index
+        ]
         self.update_label_position()
 
     def update_label_position(self):

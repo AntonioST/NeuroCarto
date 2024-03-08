@@ -177,6 +177,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         * {#atlas_set_slice()}
         * {#atlas_add_label()}
+        * {#atlas_add_label()}
         * {#atlas_del_label()}
         * {#atlas_clear_labels()}
         * {#atlas_set_transform()}
@@ -1204,7 +1205,7 @@ class BlueprintFunctions(Generic[M, E]):
     def atlas_add_label(self, text: str, pos: tuple[float, float] | tuple[float, float, float] = None, *,
                         origin: str = 'bregma', color: str = 'cyan', replace=True) -> Label | None:
         """
-        Add a label on atlas image.
+        Add a label on atlas image view.
 
         :param text: text content.
         :param pos: text position
@@ -1217,6 +1218,19 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.atlas import atlas_add_label
         if (controller := self._controller) is not None:
             return atlas_add_label(controller, text, pos, origin=origin, color=color, replace=replace)
+        return None
+
+    @doc_link()
+    def atlas_get_label(self, index: int | str) -> Label | None:
+        """
+        Get the label from atlas image view.
+
+        :param index: label index or its content
+        :see: {AtlasBrainView#get_label()}
+        """
+        from .edit.atlas import atlas_get_label
+        if (controller := self._controller) is not None:
+            return atlas_get_label(controller, index)
         return None
 
     @doc_link()
@@ -1234,7 +1248,7 @@ class BlueprintFunctions(Generic[M, E]):
             atlas_focus_label(controller, label)
 
     @doc_link()
-    def atlas_del_label(self, i: int | str | list[int | str]):
+    def atlas_del_label(self, i: int | str | Label | list[int | str | Label]):
         """
         Remove labels from atlas image.
 
