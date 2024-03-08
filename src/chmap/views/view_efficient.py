@@ -19,16 +19,13 @@ class ProbeElectrodeEfficiencyFunctor(Protocol):
 
     def view_ext_statistics_info(self, chmap: Any, blueprint: list[ElectrodeDesp]) -> dict[str, str]:
         """
+        Get some statistics value from a channelmap or a blueprint.
 
         :param chmap:
         :param blueprint:
-        :return: dict of {title: value}
+        :return: dict of {title: value_str}
         """
         pass
-
-
-def make_stat_div(text: str):
-    return Div(text=text, margin=2)
 
 
 class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):

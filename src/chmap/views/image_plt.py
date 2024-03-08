@@ -366,6 +366,10 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
 
         Once context closed, call {#set_image()} with parameters *image*, *boundary* and *offset* filled.
 
+        If a ``KeyboardInterrupt`` is raised, capture and clear the image.
+
+        It an error except ``KeyboardInterrupt`` is raised. reraise it and do nothing.
+
         :param transparent: fig.savefig(transparent)
         :param rc: default is read from image_plt.matplotlibrc.
         :param offset: see *offset* in {#set_image()}
@@ -391,11 +395,14 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
             fg, ax = plt.subplots(**kwargs)
             try:
                 yield ax
+            except KeyboardInterrupt:
+                self.logger.info('plot interrupted')
+                image = None
+                boundary = None
             except BaseException as e:
                 self.set_status('computing failed')
                 self.logger.warning('plot fail', exc_info=e)
-                image = None
-                boundary = None
+                return
             else:
                 self.set_status('computing done')
                 boundary = get_current_plt_boundary(ax)

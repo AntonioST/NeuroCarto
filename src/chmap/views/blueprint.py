@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable, TypedDict
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Div, CheckboxGroup, UIElement
 from numpy.typing import NDArray
-from typing_extensions import NotRequired
 
 from chmap.config import parse_cli, ChannelMapEditorConfig
 from chmap.util.bokeh_util import as_callback
@@ -19,25 +18,46 @@ if SPHINX_BUILD:
 __all__ = [
     'BlueprintView',
     'ProbePlotBlueprintFunctor',
-    'ProbePlotBlueprintReturn'
+    'ProbePlotBlueprintCallback'
 ]
 
 
-class ProbePlotBlueprintReturn(TypedDict):
-    size: tuple[int, int]
-    """electrode size (width, height)"""
+class ProbePlotBlueprintCallback(Protocol):
+    bp: BlueprintFunctions
 
-    offset: int
-    """x-axis offset"""
+    channelmap: Any
 
-    categories: dict[int, str]
-    """categories dict {C: html-color}"""
+    blueprint: NDArray[np.int_]
 
-    blueprint: NotRequired[NDArray[np.int_]]
-    """Array[C, N]"""
+    options: list[str]
+    """
+    option keywords for different visualization purpose. Coule be:
+    
+    * (empty): default
+    * ``Conflict``: show conflict areas.
+    
+    """
 
-    legends: NotRequired[dict[str, str]]
-    """categories legend dict {C-name: html-color}"""
+    def reset_blueprint(self):
+        pass
+
+    def plot_blueprint(self, colors: dict[int, str],
+                       size: tuple[int, int] = None,
+                       offset: int = None):
+        """
+
+        :param colors: category colors
+        :param size: electrode size (width, height)
+        :param offset: x-axis offset
+        """
+        pass
+
+    def set_category_legend(self, category: dict[int | str, str]):
+        """
+
+        :param category: legend dict {C-name: html-color}
+        """
+        pass
 
 
 @doc_link()
@@ -47,17 +67,10 @@ class ProbePlotBlueprintFunctor(Protocol):
     {ProbeDesp} extension protocol for plotting blueprint beside probe.
     """
 
-    def view_ext_blueprint_view(self, chmap: Any, bp: BlueprintFunctions, options: list[str]) -> ProbePlotBlueprintReturn:
+    def view_ext_plot_blueprint(self, callback: ProbePlotBlueprintCallback, chmap: Any):
         """
-
-        **options**
-
-        * ``Conflict`` show conflict areas.
-
+        :param callback:
         :param chmap:
-        :param bp:
-        :param options: option keywords for different visualization purpose.
-        :return:
         """
         pass
 
@@ -131,14 +144,13 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         )
         return [self.category_legend_div]
 
-    def set_category_color(self, category: dict[int | str, str]):
+    def set_category_color(self, category: dict[str, str]):
         self.category_legend_div.text = "".join([
             '<div class="chmap-blueprint-legend">',
             *[
                 (f'<div class="chmap-blueprint-legend-color" style="background-color: {color};"></div>'
                  f'<div class="chmap-blueprint-legend-name">{name}</div>')
-                for code, color in category.items()
-                if (name := code if isinstance(code, str) else self.cache_probe.category_description(code)) is not None
+                for name, color in category.items()
             ],
             '</div>'
         ])
@@ -175,31 +187,28 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         else:
             bp = BlueprintFunctions(self.cache_probe, chmap)
             bp.set_blueprint(self.cache_blueprint)
+            impl = ProbePlotBlueprintCallbackImpl(self, bp, options)
 
             if isinstance((functor := self.cache_probe), ProbePlotBlueprintFunctor):
-                ret: ProbePlotBlueprintReturn = functor.view_ext_blueprint_view(chmap, bp, options)
-
-                setting = ret['categories']
-                self.set_category_color(ret.get('legends', setting))
-                data = self._plot_blueprint(bp, setting, ret.get('blueprint', None), ret['size'], ret['offset'])
+                functor.view_ext_blueprint_view(impl, chmap)
             else:
-                setting = {
+                impl.set_category_legend({
                     bp.CATE_SET: 'green',
                     bp.CATE_FORBIDDEN: 'pink',
-                }
-                self.set_category_color(setting)
-                data = self._plot_blueprint(bp, setting)
-
-            self.data_blueprint.data = data
+                })
+                impl.plot_blueprint({
+                    bp.CATE_SET: 'green',
+                    bp.CATE_FORBIDDEN: 'pink',
+                })
 
     def reset_blueprint(self):
         self.data_blueprint.data = dict(xs=[], ys=[], c=[])
 
-    def _plot_blueprint(self, bp: BlueprintFunctions,
-                        setting: dict[int, str],
-                        blueprint: NDArray[np.int_] = None,
-                        size: tuple[int, int] = None,
-                        offset: int = None):
+    def plot_blueprint(self, bp: BlueprintFunctions,
+                       setting: dict[int, str],
+                       blueprint: NDArray[np.int_] = None,
+                       size: tuple[int, int] = None,
+                       offset: int = None):
         categories = list(setting.keys())
         colors = list(setting.values())
 
@@ -230,7 +239,46 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             xs[i].append([edge.x + offset])  # type: ignore[operator]
             ys[i].append([edge.y])
 
-        return dict(xs=xs, ys=ys, c=colors)
+        self.data_blueprint.data = dict(xs=xs, ys=ys, c=colors)
+
+
+class ProbePlotBlueprintCallbackImpl(ProbePlotBlueprintCallback):
+    def __init__(self, view: BlueprintView, bp: BlueprintFunctions, options: list[str]):
+        self.__view = view
+        self.bp = bp
+        self._channelmap = bp.channelmap
+        self._blueprint = bp.blueprint()
+        self.options = options
+
+    @property
+    def channelmap(self) -> Any:
+        return self._channelmap
+
+    @property
+    def blueprint(self) -> NDArray[np.int_]:
+        return self._blueprint
+
+    @blueprint.setter
+    def blueprint(self, value: NDArray[np.int_]):
+        if len(self._blueprint) != len(value):
+            raise ValueError()
+
+        self._blueprint = value
+
+    def reset_blueprint(self):
+        self.__view.reset_blueprint()
+
+    def plot_blueprint(self, colors: dict[int, str], size: tuple[int, int] = None, offset: int = None):
+        self.__view.plot_blueprint(self.bp, colors, self.blueprint, size, offset)
+
+    def set_category_legend(self, category: dict[int | str, str]):
+        probe = self.__view.cache_probe
+        _category = {
+            name: color
+            for code, color in category.items()
+            if (name := code if isinstance(code, str) else probe.category_description(code)) is not None
+        }
+        self.__view.set_category_color(category)
 
 
 if __name__ == '__main__':

@@ -62,11 +62,12 @@ class ProbePlotElectrodeDataFunctor(Protocol):
 
     def view_ext_blueprint_plot_electrode_data(self, ax: Axes, chmap: Any, blueprint: list[ElectrodeDesp], data: NDArray[np.float_]):
         """
+        plot electrode data beside the probe.
 
         :param ax:
         :param chmap:
-        :param blueprint:
-        :param data:
+        :param blueprint: N electrodes.
+        :param data: Array[float, N]
         :raise KeyboardInterrupt: interrupt plotting
         """
         pass
@@ -266,8 +267,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
                 try:
                     with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1), offset=-50) as ax:
                         probe.view_ext_blueprint_plot_electrode_data(ax, chmap, electrodes, value)
-                except KeyboardInterrupt:
-                    pass
+                except BaseException:
+                    self.set_image(None)
         else:
             self.set_image(None)
 

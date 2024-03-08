@@ -15,7 +15,7 @@ from chmap.util.utils import SPHINX_BUILD
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from chmap.util.util_blueprint import BlueprintFunctions
-    from chmap.views.blueprint import ProbePlotBlueprintReturn
+    from chmap.views.blueprint import ProbePlotBlueprintCallback
 elif SPHINX_BUILD:
     ProbeElectrodeDensityFunctor = 'chmap.views.data_density.ProbeElectrodeDensityFunctor'
     ProbePlotBlueprintFunctor = 'chmap.views.blueprint.ProbePlotBlueprintFunctor'
@@ -256,13 +256,11 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             'remain electrode': f'{stat.remain_electrode}',
         }
 
-    def view_ext_blueprint_view(self, chmap: ChannelMap, bp: BlueprintFunctions, options: list[str]) -> ProbePlotBlueprintReturn:
+    def view_ext_plot_blueprint(self, callback: ProbePlotBlueprintCallback, chmap: ChannelMap):
         """
 
+        :param callback:
         :param chmap:
-        :param bp:
-        :param options:
-        :return:
         :see: {ProbePlotBlueprintFunctor}
         """
         probe_type: ProbeType = chmap.probe_type
@@ -271,20 +269,22 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         size = c_space // 2, r_space // 2
         offset = c_space + c_space * probe_type.n_col_shank
 
-        if 'Conflict' in options:
-            conflict = self._conflict_blueprint(bp)
-            return dict(size=size, offset=offset, categories={1: 'red'}, blueprint=conflict, legends={'conflict': 'red'})
+        if 'Conflict' in callback.options:
+            callback.blueprint = self._conflict_blueprint(callback.bp, callback.blueprint)
+            callback.set_category_legend({'conflict': 'red'})
+            callback.plot_blueprint({1: 'red'}, size, offset)
         else:
-            blueprint = bp.set(bp.blueprint(), bp.CATE_SET, bp.CATE_FULL)
-            return dict(size=size, offset=offset, categories={
+            categories = {
                 self.CATE_FULL: 'green',
                 self.CATE_HALF: 'orange',
                 self.CATE_QUARTER: 'blue',
                 self.CATE_FORBIDDEN: 'pink',
-            }, blueprint=blueprint)
+            }
+            callback.blueprint = callback.bp.set(callback.blueprint, self.CATE_SET, self.CATE_FULL)
+            callback.set_category_legend(categories)
+            callback.plot_blueprint(categories, size, offset)
 
-    def _conflict_blueprint(self, bp: BlueprintFunctions) -> NDArray[np.int_]:
-        blueprint = bp.blueprint()
+    def _conflict_blueprint(self, bp: BlueprintFunctions, blueprint: NDArray[np.int_]) -> NDArray[np.int_]:
         i0 = bp.invalid(blueprint, electrodes=bp.channelmap, categories=[self.CATE_SET, self.CATE_FULL])
         r0 = bp.mask(blueprint, [self.CATE_FULL, self.CATE_HALF, self.CATE_QUARTER])
         c0 = i0 & r0
