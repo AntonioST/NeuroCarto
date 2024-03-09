@@ -97,6 +97,8 @@ def update_d1(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeD
 def update_d2(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp):
     _add(desp, chmap, cand, e)
     _del(cand, _get(chmap, cand, e, 1, 0))
+    _del(cand, _get(chmap, cand, e, 0, 1))
+    _del(cand, _get(chmap, cand, e, 0, -1))
 
     if (t := _get(chmap, cand, e, 1, 1)) is not None:
         update_d2(desp, chmap, cand, t)
@@ -111,6 +113,8 @@ def update_d4(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeD
     _del(cand, _get(chmap, cand, e, 1, 1))
     _del(cand, _get(chmap, cand, e, 0, -1))
     _del(cand, _get(chmap, cand, e, 1, -1))
+    _del(cand, _get(chmap, cand, e, 0, 2))
+    _del(cand, _get(chmap, cand, e, 0, -2))
 
     if (t := _get(chmap, cand, e, 1, 2)) is not None:
         update_d4(desp, chmap, cand, t)
