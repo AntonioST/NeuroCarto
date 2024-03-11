@@ -10,9 +10,9 @@ from numpy.typing import NDArray
 
 from chmap.probe import ElectrodeDesp
 from chmap.util.util_numpy import index_of, closest_point_index, same_index
+from chmap.util.utils import doc_link
 from .desp import NpxProbeDesp
-from .npx import ChannelMap, ProbeType
-from ..util.utils import doc_link
+from .npx import ChannelMap, ProbeType, channel_coordinate, electrode_coordinate
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -20,6 +20,8 @@ else:
     from typing_extensions import Self
 
 __all__ = [
+    'channel_coordinate',
+    'electrode_coordinate',
     'plot_probe_shape',
     'plot_channelmap_block',
     'plot_channelmap_grid',
@@ -27,88 +29,10 @@ __all__ = [
     'plot_electrode_block',
     'plot_electrode_grid',
     'plot_electrode_matrix',
-    'plot_category_area'
+    'plot_category_area',
 ]
 
 ELECTRODE_UNIT = Literal['cr', 'xy', 'raw']
-
-
-def channel_coordinate(chmap: ChannelMap,
-                       electrode_unit: ELECTRODE_UNIT = 'cr',
-                       include_unused=False) -> NDArray[np.int_]:
-    """
-    Get all electrode coordinate for channel map.
-
-    :param chmap: channelmap instance
-    :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
-    :param include_unused: including disconnected channels
-    :return: Array[int, E, (S, C, R)|(X, Y)]
-    """
-    profile = chmap.probe_type
-
-    s = []
-    r = []
-    c = []
-
-    for i, e in enumerate(chmap.electrodes):
-        if include_unused or e.in_used:
-            s.append(e.shank)
-            c.append(e.column)
-            r.append(e.row)
-
-    if electrode_unit == 'cr':
-        return np.vstack([s, c, r]).T
-
-    elif electrode_unit == 'xy':
-        s = np.array(s)
-        x = np.array(c) * profile.c_space + s * profile.s_space
-        y = np.array(r) * profile.r_space
-
-        return np.vstack([x, y]).T
-    else:
-        raise ValueError(f'unsupported electrode unit : {electrode_unit}')
-
-
-def electrode_coordinate(probe: ProbeType,
-                         electrode_unit: ELECTRODE_UNIT = 'cr') -> NDArray[np.int_]:
-    """
-    Get all electrode coordinate on probe.
-
-    :param probe: probe type
-    :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
-    :return: Array[int, E, (S, C, R)|(X, Y)]
-    """
-    y = np.arange(probe.n_row_shank)
-    x = np.arange(probe.n_col_shank)
-    s = np.arange(probe.n_shank)
-
-    if electrode_unit == 'cr':
-        i, j = np.mgrid[0:len(x), 0:len(y)]
-
-        e = np.vstack([
-            x[i].ravel(), y[j].ravel()
-        ]).T
-
-        return np.vstack([
-            np.hstack([
-                np.full((e.shape[0], 1), ss), e
-            ])
-            for ss in s
-        ])
-
-    elif electrode_unit == 'xy':
-        y *= probe.r_space
-        x *= probe.c_space
-        s *= probe.s_space
-
-        x = np.add.outer(x, s).ravel()
-        i, j = np.mgrid[0:len(x), 0:len(y)]
-
-        return np.vstack([
-            x[i].ravel(), y[j].ravel()
-        ]).T
-    else:
-        raise ValueError(f'unsupported electrode unit : {electrode_unit}')
 
 
 class ElectrodeGridData(NamedTuple):
@@ -1015,7 +939,7 @@ def plot_category_area(ax: Axes,
 
     :param ax:
     :param probe:
-    :param electrode: Array[int, N, (S, C, R, category)] or list of ElectrodeDesp
+    :param electrode: Array[category:int, N], Array[int, N, (S, C, R, category)] or list of ElectrodeDesp
     :param color:
     :param kwargs:
     :return:
@@ -1035,8 +959,16 @@ def plot_category_area(ax: Axes,
             NpxProbeDesp.CATE_FORBIDDEN: 'pink',
         }
 
-    categories = np.unique(electrode[:, 3])
-    for category in categories:
+    if electrode.ndim == 1:
+        categories = electrode
+        electrode = electrode_coordinate(probe, 'cr')
+    elif electrode.ndim == 2:
+        categories = electrode[:, 3]
+        electrode = electrode[:, 0:3]
+    else:
+        raise ValueError()
+
+    for category in np.unique(categories):
         if (c := color.get(int(category), None)) is not None:
-            _electrode = electrode[electrode[:, 3] == category]
-            plot_electrode_block(ax, probe, _electrode, color=c, **kwargs)
+            _electrode = electrode[categories == category]
+            plot_electrode_block(ax, probe, _electrode, electrode_unit='cr', color=c, **kwargs)

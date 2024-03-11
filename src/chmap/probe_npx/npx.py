@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     import pandas as pd  # type: ignore[import]
     import polars as pl  # type: ignore[import]
     from probeinterface import Probe  # type: ignore[import]
+    from .plot import ELECTRODE_UNIT
 
 __all__ = [
     'ProbeType',
@@ -466,8 +467,7 @@ class ChannelMap:
 
         :return: Array[um, C]
         """
-        x, y = channel_coordinate(self)
-        return x
+        return channel_coordinate(self, electrode_unit='xy')[:, 0]
 
     @property
     def channel_pos_y(self) -> NDArray[np.int_]:
@@ -475,8 +475,7 @@ class ChannelMap:
 
         :return: Array[um, C]
         """
-        x, y = channel_coordinate(self)
-        return y
+        return channel_coordinate(self, electrode_unit='xy')[:, 1]
 
     @property
     def channel_pos(self) -> NDArray[np.int_]:
@@ -484,8 +483,7 @@ class ChannelMap:
 
         :return: Array[um, C, 2]
         """
-        x, y = channel_coordinate(self)
-        return np.vstack([x, y]).T
+        return channel_coordinate(self, electrode_unit='xy')
 
     def get_channel(self, channel: int) -> Electrode | None:
         """
@@ -798,37 +796,53 @@ class Electrodes(Sized, Iterable[Electrode]):
 
 
 def channel_coordinate(shank_map: ChannelMap,
-                       s_step: int = None) -> tuple[NDArray[np.int_], NDArray[np.int_]]:
+                       electrode_unit: ELECTRODE_UNIT = 'cr',
+                       include_unused=False) -> NDArray[np.int_]:
     """
     Get coordinate of all channels.
 
     :param shank_map:
-    :param s_step: overwrite (horizontal) distance between shanks.
-    :return: tuple of (x, y) in um.
+    :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
+    :param include_unused: including disconnected channels
+    :return: Array[um:int, E, (S, C, R)|(X, Y)]
     """
-    probe_type = shank_map.probe_type
-    h_step = probe_type.c_space
-    v_step = probe_type.r_space
-    s_step = probe_type.s_space if s_step is None else s_step
+    if electrode_unit not in ('cr', 'xy'):
+        raise ValueError(f'unsupported electrode unit : {electrode_unit}')
 
-    t = len(shank_map.electrodes)
-    x = np.zeros((t,), dtype=int)
-    y = np.zeros((t,), dtype=int)
+    probe_type = shank_map.probe_type
+
+    s = []
+    r = []
+    c = []
 
     for i, e in enumerate(shank_map.electrodes):
-        x[i] = s_step * e.shank + h_step * e.column
-        y[i] = v_step * e.row
+        if include_unused or e.in_used:
+            s.append(e.shank)
+            c.append(e.column)
+            r.append(e.row)
 
-    return x, y
+    if electrode_unit == 'cr':
+        return np.vstack([s, c, r]).T
+    else:
+        s = np.array(s)
+        x = np.array(c) * probe_type.c_space + s * probe_type.s_space
+        y = np.array(r) * probe_type.r_space
+
+        return np.vstack([x, y]).T
 
 
-def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType) -> NDArray[np.int_]:
+def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType,
+                         electrode_unit: ELECTRODE_UNIT = 'cr') -> NDArray[np.int_]:
     """
      Get coordinate of all electrodes.
 
     :param probe_type:
-    :return: Array[um, E, (X, Y)]
+    :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
+    :return: Array[um:int, E, (S, C, R)|(X, Y)]
     """
+    if electrode_unit not in ('cr', 'xy'):
+        raise ValueError(f'unsupported electrode unit : {electrode_unit}')
+
     match probe_type:
         case ChannelMap(probe_type=probe_type):
             pass
@@ -839,14 +853,34 @@ def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType) -> NDAr
         case _:
             raise TypeError(repr(probe_type))
 
-    y = probe_type.r_space * np.arange(probe_type.n_row_shank)
-    x = probe_type.c_space * np.arange(probe_type.n_col_shank)
-    s = probe_type.s_space * np.arange(probe_type.n_shank)
-    x = np.add.outer(x, s).ravel()
-    i, j = np.mgrid[0:len(x), 0:len(y)]
-    return np.vstack([
+    y = np.arange(probe_type.n_row_shank)
+    x = np.arange(probe_type.n_col_shank)
+    s = np.arange(probe_type.n_shank)
+
+    if electrode_unit == 'xy':
+        y *= probe_type.r_space
+        x *= probe_type.c_space
+        s *= probe_type.s_space
+
+    j, i = np.mgrid[0:len(y), 0:len(x)]
+    e = np.vstack([
         x[i].ravel(), y[j].ravel()
     ]).T
+
+    if electrode_unit == 'cr':
+        return np.vstack([
+            np.hstack([
+                np.full((e.shape[0], 1), ss), e
+            ])
+            for ss in s
+        ])
+    else:
+        return np.vstack([
+            np.vstack([
+                e[:, 0] + ss, e[:, 1]
+            ]).T
+            for ss in s
+        ])
 
 
 ELECTRODE_MAP_21 = (np.array([1, 7, 5, 3], dtype=int),
