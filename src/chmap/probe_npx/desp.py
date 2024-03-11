@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 elif SPHINX_BUILD:
     ProbeElectrodeDensityFunctor = 'chmap.views.data_density.ProbeElectrodeDensityFunctor'
     ProbePlotBlueprintFunctor = 'chmap.views.blueprint.ProbePlotBlueprintFunctor'
-    ProbePlotElectrodeDataFunctor = 'chmap.views.blueprint_script.ProbePlotElectrodeDataFunctor'
+    ProbePlotElectrodeFunctor = 'chmap.views.blueprint_script.ProbePlotElectrodeFunctor'
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
 
@@ -324,7 +324,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         plot_probe_shape='chmap.probe_npx.plot.plot_probe_shape',
     )
     def view_ext_blueprint_plot_categories(self, ax: Axes, chmap: ChannelMap, blueprint: NDArray[np.int_],
-                                           color: dict[int, Any], *,
+                                           color: dict[int, Any] = None, *,
                                            probe_color: str | None = None,
                                            shank_width_scale=0.5,
                                            label_axis=False,
@@ -339,14 +339,14 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         :param shank_width_scale:
         :param label_axis:
         :param kwargs:
-        :see: {ProbePlotElectrodeDataFunctor}, {plot_category_area()}, {plot_probe_shape()}
+        :see: {ProbePlotElectrodeFunctor}, {plot_category_area()}, {plot_probe_shape()}
         """
         from .plot import plot_probe_shape, plot_category_area
 
         probe_type = chmap.probe_type
 
-        plot_category_area(ax, probe_type, blueprint, electrode_unit='xyv', color=color, shank_width_scale=shank_width_scale, **kwargs)
-        plot_probe_shape(ax, probe_type, color=probe_color, label_axis=label_axis, **kwargs)
+        plot_category_area(ax, probe_type, blueprint, color=color, shank_width_scale=shank_width_scale, **kwargs)
+        plot_probe_shape(ax, probe_type, color=probe_color, shank_width_scale=shank_width_scale, label_axis=label_axis, **kwargs)
 
         if not label_axis:
             ax.set_xlabel(None)
@@ -374,7 +374,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         :param shank_width_scale:
         :param label_axis:
         :param kwargs:
-        :see: {ProbePlotElectrodeDataFunctor}, {plot_electrode_block()}, {plot_probe_shape()}
+        :see: {ProbePlotElectrodeFunctor}, {plot_electrode_block()}, {plot_probe_shape()}
         """
         from .plot import plot_electrode_block, plot_probe_shape, electrode_coordinate
         probe_type = chmap.probe_type

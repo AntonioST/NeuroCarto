@@ -4,7 +4,7 @@ import functools
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, overload, Generic, Final
+from typing import TYPE_CHECKING, overload, Generic, Final, Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -20,6 +20,7 @@ else:
     from typing_extensions import Self
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
     from chmap.util.edit.clustering import ClusteringEdges
     from chmap.util.probe_coor import ProbeCoordinate
     from chmap.views.atlas import Label
@@ -32,6 +33,7 @@ elif SPHINX_BUILD:
     NpxProbeDesp = 'chmap.probe_npx.desp.NpxProbeDesp'
     AtlasBrainView = 'chmap.views.atlas.AtlasBrainView'
     BlueprintScriptView = 'chmap.views.blueprint_script.BlueprintScriptView'
+    ProbePlotElectrodeFunctor = 'chmap.views.blueprint_script.ProbePlotElectrodeFunctor'
 
     ELECTRODES = list[E]
 
@@ -520,7 +522,7 @@ class BlueprintFunctions(Generic[M, E]):
             raise RuntimeError()
 
         file = Path(file)
-        if file.name.endswith('.blueprint.npy'):
+        if not file.name.endswith('.blueprint.npy'):
             file = file.with_suffix('.blueprint.npy')
 
         data = np.load(file)
@@ -547,7 +549,7 @@ class BlueprintFunctions(Generic[M, E]):
                 raise RuntimeError()
 
         file = Path(file)
-        if file.name.endswith('.blueprint.npy'):
+        if not file.name.endswith('.blueprint.npy'):
             file = file.with_suffix('.blueprint.npy')
 
         s = self.probe.all_electrodes(channelmap)
@@ -557,27 +559,28 @@ class BlueprintFunctions(Generic[M, E]):
         np.save(file, self.probe.save_blueprint(s))
 
     @blueprint_function
-    def set(self, blueprint: BLUEPRINT, mask: int | NDArray[np.bool_] | NDArray[np.int_], category: int) -> BLUEPRINT:
+    def set(self, blueprint: BLUEPRINT, mask: int | list[int] | NDArray[np.bool_] | NDArray[np.int_], category: int) -> BLUEPRINT:
         """
         Set *category* on the blueprint with a *mask*.
 
         :param blueprint:
-        :param mask: category value, electrode mask or electrode index
+        :param mask: category value (or list), electrode mask or electrode index
         :param category:
         :return: a (copied) blueprint
         """
         if len(blueprint) != len(self.s):
             raise ValueError()
 
-        if isinstance(mask, (int, np.integer)):
-            mask = blueprint == mask
+        if isinstance(mask, (int, np.integer, list)):
+            from .edit.category import mask as _mask
+            mask = _mask(self, blueprint, mask)
 
         ret = blueprint.copy()
         ret[mask] = category
         return ret
 
     @blueprint_function
-    def unset(self, blueprint: BLUEPRINT, mask: int | NDArray[np.bool_] | NDArray[np.int_]) -> BLUEPRINT:
+    def unset(self, blueprint: BLUEPRINT, mask: int | list[int] | NDArray[np.bool_] | NDArray[np.int_]) -> BLUEPRINT:
         """
         unset electrodes in the *blueprint* with a *mask*.
 
@@ -1352,6 +1355,49 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.atlas import atlas_set_anchor_on_probe
         if (controller := self._controller) is not None:
             atlas_set_anchor_on_probe(self, controller, coor)
+
+    # =================== #
+    # matplotlib plotting #
+    # =================== #
+
+    @doc_link()
+    def plot_channelmap(self, channelmap: M = None,
+                        color: Any = 'black', *,
+                        ax: Axes = None, **kwargs):
+        """
+
+        :param channelmap:
+        :param color: color of selected electrodes, where color is used by matplotlib.
+        :param ax: matplotlib.Axes
+        :param kwargs:
+        :raise TypeError: Probe not a {ProbePlotElectrodeFunctor}
+        """
+        from .edit.plot import plot_blueprint
+
+        if channelmap is None:
+            channelmap = self.channelmap
+
+        blueprint = self.new_blueprint()
+        blueprint[self.selected_electrodes(channelmap)] = self.CATE_SET
+        plot_blueprint(self, blueprint, {self.CATE_SET: color}, ax=ax, **kwargs)
+
+    @blueprint_function(set_return=False)
+    @doc_link()
+    def plot_blueprint(self, blueprint: BLUEPRINT = None,
+                       colors: dict[int, Any] = None, *,
+                       ax: Axes = None, **kwargs):
+        """
+
+        :param blueprint: Array[category:int, E], where E means all electrodes
+        :param colors: categories color {category: color}, where color is used by matplotlib.
+        :param ax: matplotlib.Axes
+        :param kwargs:
+        :raise TypeError: Probe not a {ProbePlotElectrodeFunctor}
+        """
+        from .edit.plot import plot_blueprint
+        if blueprint is None:
+            blueprint = self.blueprint()
+        plot_blueprint(self, blueprint, colors, ax=ax, **kwargs)
 
     # ============= #
     # Miscellaneous #

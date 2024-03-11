@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 __all__ = [
     'BlueprintScriptView',
     'BlueprintScriptState',
-    'ProbePlotElectrodeDataFunctor'
+    'ProbePlotElectrodeFunctor'
 ]
 
 
@@ -55,19 +55,19 @@ class BlueprintScriptAction(TypedDict, total=False):
 
 @doc_link()
 @runtime_checkable
-class ProbePlotElectrodeDataFunctor(Protocol):
+class ProbePlotElectrodeFunctor(Protocol):
     """
     {ProbeDesp} extension protocol for plotting electrode data beside probe.
     """
 
-    def view_ext_blueprint_plot_categories(self, ax: Axes, chmap: Any, blueprint: NDArray[np.int_], color: dict[int, Any], **kwargs):
+    def view_ext_blueprint_plot_categories(self, ax: Axes, chmap: Any, blueprint: NDArray[np.int_], color: dict[int, Any] = None, **kwargs):
         """
         plot electrode categories along the probe.
 
-        :param ax:
+        :param ax: matplotlib.Axes
         :param chmap:
-        :param blueprint:
-        :param color:
+        :param blueprint: Array[category:int, E], where E means all electrodes
+        :param color: categories color {category: color}, where color is used by matplotlib.
         :param kwargs:
         :return:
         """
@@ -76,7 +76,7 @@ class ProbePlotElectrodeDataFunctor(Protocol):
         """
         plot electrode data along the probe.
 
-        :param ax:
+        :param ax: matplotlib.Axes
         :param chmap:
         :param data: Array[float, E], where E means all electrodes
         :param kwargs:
@@ -90,7 +90,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     """
     Blueprint script manager view.
 
-    Check whether the {ProbeDesp} implement protocol {ProbePlotElectrodeDataFunctor}.
+    Check whether the {ProbeDesp} implement protocol {ProbePlotElectrodeFunctor}.
     """
 
     BUILTIN_ACTIONS: ClassVar[dict[str, str]] = {
@@ -274,7 +274,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         if update_select:
             self.update_actions_select()
 
-        if isinstance(probe, ProbePlotElectrodeDataFunctor) or hasattr(probe, 'view_ext_blueprint_plot_electrode'):
+        if isinstance(probe, ProbePlotElectrodeFunctor) or hasattr(probe, 'view_ext_blueprint_plot_electrode'):
             if (value := self.cache_data) is not None:
                 try:
                     with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1), offset=-50) as ax:

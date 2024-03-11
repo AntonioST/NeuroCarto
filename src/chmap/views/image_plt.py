@@ -32,9 +32,12 @@ if TYPE_CHECKING:
 __all__ = [
     'PltImageView',
     'Boundary',
+    'RC_FILE',
     'get_current_plt_image',
     'get_current_plt_boundary'
 ]
+
+RC_FILE = Path(__file__).with_name('image_plt.matplotlibrc')
 
 
 class Boundary(NamedTuple):
@@ -378,11 +381,18 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
         """
         self.set_status('computing...')
 
-        rc_file = kwargs.pop('rc', 'image_plt.matplotlibrc')
-        if '/' in rc_file:
-            rc_file = Path(rc_file)
+        rc_file = kwargs.pop('rc', None)
+        if rc_file is None:
+            rc_file = RC_FILE
+        elif isinstance(rc_file, str):
+            if '/' in rc_file:
+                rc_file = Path(rc_file)
+            else:
+                rc_file = Path(__file__).with_name(rc_file)
+        elif isinstance(rc_file, Path):
+            pass
         else:
-            rc_file = Path(__file__).with_name(rc_file)
+            raise TypeError()
 
         savefig_kw = dict(
             transparent=kwargs.pop('transparent', True),

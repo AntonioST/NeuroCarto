@@ -1,5 +1,3 @@
-import sys
-
 import matplotlib
 from matplotlib import pyplot as plt
 
@@ -37,7 +35,4 @@ for i, chmap in enumerate(chmaps):
     ax[i].set_xlabel(None)
     ax[i].set_xticklabels([])
 
-if len(sys.argv) == 1:
-    plt.show()
-else:
-    plt.savefig(sys.argv[1])
+plt.savefig('res/Fig3_uniform.png')

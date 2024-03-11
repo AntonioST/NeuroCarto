@@ -684,7 +684,7 @@ def plot_electrode_block(ax: Axes,
     if electrode_unit in ('cr', 'xy'):
         ret = []
         for i, j in zip(x - w / 2, y - h / 2):
-            r = Rectangle((float(i), float(j)), w, h, **kwargs)
+            r = Rectangle((float(i), float(j)), w, h, lw=0, **kwargs)
             ret.append(r)
             ax.add_artist(r)
         return ret
