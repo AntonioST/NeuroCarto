@@ -60,14 +60,26 @@ class ProbePlotElectrodeDataFunctor(Protocol):
     {ProbeDesp} extension protocol for plotting electrode data beside probe.
     """
 
-    def view_ext_blueprint_plot_electrode_data(self, ax: Axes, chmap: Any, blueprint: list[ElectrodeDesp], data: NDArray[np.float_]):
+    def view_ext_blueprint_plot_categories(self, ax: Axes, chmap: Any, blueprint: NDArray[np.int_], color: dict[int, Any], **kwargs):
         """
-        plot electrode data beside the probe.
+        plot electrode categories along the probe.
 
         :param ax:
         :param chmap:
-        :param blueprint: N electrodes.
-        :param data: Array[float, N]
+        :param blueprint:
+        :param color:
+        :param kwargs:
+        :return:
+        """
+
+    def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: Any, data: NDArray[np.float_], **kwargs):
+        """
+        plot electrode data along the probe.
+
+        :param ax:
+        :param chmap:
+        :param data: Array[float, E], where E means all electrodes
+        :param kwargs:
         :raise KeyboardInterrupt: interrupt plotting
         """
         pass
@@ -262,11 +274,11 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         if update_select:
             self.update_actions_select()
 
-        if isinstance(probe, ProbePlotElectrodeDataFunctor):
+        if isinstance(probe, ProbePlotElectrodeDataFunctor) or hasattr(probe, 'view_ext_blueprint_plot_electrode'):
             if (value := self.cache_data) is not None:
                 try:
                     with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1), offset=-50) as ax:
-                        probe.view_ext_blueprint_plot_electrode_data(ax, chmap, electrodes, value)
+                        probe.view_ext_blueprint_plot_electrode(ax, chmap, value)
                 except BaseException:
                     self.set_image(None)
         else:
@@ -302,23 +314,14 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         except IndexError:
             self.script_select.value = ""
 
-    def on_data_update(self, probe: ProbeDesp, e: list[ElectrodeDesp], data: NDArray[np.float_] | None):
+    def on_data_update(self, probe: ProbeDesp, data: NDArray[np.float_] | None):
         if self.cache_probe is None:
             self.cache_probe = probe
-
-        if self.cache_blueprint is None:
-            self.cache_blueprint = e
 
         if data is None:
             self.cache_data = None
         else:
-            try:
-                n = len(data)
-            except TypeError as e:
-                self.logger.warning('not a array', exc_info=e)
-            else:
-                if len(self.cache_blueprint) == n:
-                    self.cache_data = np.asarray(data)
+            self.cache_data = np.asarray(data)
 
     # ========== #
     # run script #

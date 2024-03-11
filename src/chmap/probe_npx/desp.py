@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 from chmap.config import ChannelMapEditorConfig
 from chmap.probe import ProbeDesp, ElectrodeDesp
 from chmap.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError, PROBE_TYPE
-from chmap.util.utils import SPHINX_BUILD
+from chmap.util.utils import SPHINX_BUILD, doc_link
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -309,31 +309,76 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
         return (c0 | c1).astype(int)
 
-    def view_ext_blueprint_plot_electrode_data(self, ax: Axes, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], data: NDArray[np.float_]):
+    @doc_link(
+        plot_category_area='chmap.probe_npx.plot.plot_category_area',
+        plot_probe_shape='chmap.probe_npx.plot.plot_probe_shape',
+    )
+    def view_ext_blueprint_plot_categories(self, ax: Axes, chmap: ChannelMap, blueprint: NDArray[np.int_],
+                                           color: dict[int, Any], *,
+                                           probe_color: str | None = None,
+                                           shank_width_scale=0.5,
+                                           label_axis=False,
+                                           **kwargs):
         """
 
         :param ax:
         :param chmap:
         :param blueprint:
-        :param data:
-        :return:
-        :see: {ProbePlotElectrodeDataFunctor}
+        :param color:
+        :param probe_color:
+        :param shank_width_scale:
+        :param label_axis:
+        :param kwargs:
+        :see: {ProbePlotElectrodeDataFunctor}, {plot_category_area()}, {plot_probe_shape()}
         """
-        from .plot import plot_electrode_block, plot_probe_shape
+        from .plot import plot_probe_shape, plot_category_area
+
         probe_type = chmap.probe_type
 
-        data = np.vstack([
-            [it.x for it in blueprint],
-            [it.y for it in blueprint],
-            data
-        ]).T
+        plot_category_area(ax, probe_type, blueprint, electrode_unit='xyv', color=color, shank_width_scale=shank_width_scale, **kwargs)
+        plot_probe_shape(ax, probe_type, color=probe_color, label_axis=label_axis, **kwargs)
 
-        plot_electrode_block(ax, probe_type, data, electrode_unit='xyv', shank_width_scale=0.5)
-        plot_probe_shape(ax, probe_type, color=None, label_axis=False)
+        if not label_axis:
+            ax.set_xlabel(None)
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+            ax.set_ylabel(None)
+            ax.set_yticks([])
+            ax.set_yticklabels([])
 
-        ax.set_xlabel(None)
-        ax.set_xticks([])
-        ax.set_xticklabels([])
-        ax.set_ylabel(None)
-        ax.set_yticks([])
-        ax.set_yticklabels([])
+    @doc_link(
+        plot_electrode_block='chmap.probe_npx.plot.plot_electrode_block',
+        plot_probe_shape='chmap.probe_npx.plot.plot_probe_shape',
+    )
+    def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: ChannelMap, data: NDArray[np.float_], *,
+                                          probe_color: str | None = None,
+                                          shank_width_scale=0.5,
+                                          label_axis=False,
+                                          **kwargs):
+        """
+
+        :param ax:
+        :param chmap:
+        :param data: Array[float, E], where E means all electrodes
+        :param probe_color:
+        :param shank_width_scale:
+        :param label_axis:
+        :param kwargs:
+        :see: {ProbePlotElectrodeDataFunctor}, {plot_electrode_block()}, {plot_probe_shape()}
+        """
+        from .plot import plot_electrode_block, plot_probe_shape, electrode_coordinate
+        probe_type = chmap.probe_type
+
+        electrodes = electrode_coordinate(probe_type, electrode_unit='xy') / 1000
+        data = np.vstack([electrodes.T, data]).T
+
+        plot_electrode_block(ax, probe_type, data, electrode_unit='xyv', shank_width_scale=shank_width_scale, **kwargs)
+        plot_probe_shape(ax, probe_type, color=probe_color, shank_width_scale=shank_width_scale, label_axis=label_axis, **kwargs)
+
+        if not label_axis:
+            ax.set_xlabel(None)
+            ax.set_xticks([])
+            ax.set_xticklabels([])
+            ax.set_ylabel(None)
+            ax.set_yticks([])
+            ax.set_yticklabels([])

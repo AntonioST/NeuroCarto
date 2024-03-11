@@ -49,10 +49,13 @@ def draw(self: BlueprintFunctions, controller: ControllerView,
          a: NDArray[np.float_] | None, *,
          view: str | type[ViewBase] = None):
     """{DataHandler#on_data_update()}"""
+    if a is not None and len(a) != len(self.s):
+        raise ValueError('length mismatch')
+
     if isinstance(controller, DataHandler):
-        controller.on_data_update(self.probe, self.electrodes, a)
+        controller.on_data_update(self.probe, a)
     elif isinstance(view_target := controller.get_view(view), DataHandler):
-        view_target.on_data_update(self.probe, self.electrodes, a)
+        view_target.on_data_update(self.probe, a)
 
 
 @doc_link()
