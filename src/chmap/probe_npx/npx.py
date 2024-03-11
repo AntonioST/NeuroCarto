@@ -921,13 +921,15 @@ def e2p(probe_type: ProbeType, e):
             s = np.array([it.shank for it in e])
             c = np.array([it.column for it in e])
             r = np.array([it.row for it in e])
-        case [*_]:
-            s, e = align_arr(0, np.array(e))
-            c, r = e2cr(probe_type, e)
         case e if isinstance(e, np.ndarray):
             if e.ndim != 1:
                 raise ValueError()
             s, e = align_arr(0, e)
+            c, r = e2cr(probe_type, e)
+        case (s, c, r):
+            s, c, r = align_arr(s, c, r)
+        case [*_]:
+            s, e = align_arr(0, np.array(e))
             c, r = e2cr(probe_type, e)
         case _:
             raise TypeError(repr(e))
@@ -967,11 +969,11 @@ def e2cr(probe_type: ProbeType, e):
             c = np.array([it.column for it in e])
             r = np.array([it.row for it in e])
             return c, r
-        case [*_]:
-            e = np.array(e)
         case e if isinstance(e, np.ndarray):
             if e.ndim != 1:
                 raise ValueError()
+        case [*_]:
+            e = np.array(e)
         case _:
             raise TypeError(repr(e))
 
@@ -1018,8 +1020,6 @@ def cr2e(probe_type: ProbeType, p):
         case [Electrode(), *_]:
             c = np.array([it.column for it in p])
             r = np.array([it.row for it in p])
-        case [*_]:
-            return np.array(p)
         case _ if isinstance(p, np.ndarray):
             match p.shape:
                 case (_, ):
@@ -1029,6 +1029,8 @@ def cr2e(probe_type: ProbeType, p):
                     r = p[:, 1]
                 case _:
                     raise ValueError()
+        case [*_]:
+            return np.array(p)
         case _:
             raise TypeError(repr(p))
 
@@ -1084,15 +1086,15 @@ def e2cb(probe_type: ProbeType, electrode):
         case [Electrode(), *_]:
             shank = np.array([it.shank for it in electrode])
             electrode = np.array([it.electrode for it in electrode])
-        case [*_]:
-            shank, electrode = align_arr(0, np.array(electrode))
-        case _ if isinstance(electrode, np.ndarray):
-            shank = np.zeros_like(electrode, dtype=int)
         case (shank, electrode):
             shank, electrode = align_arr(shank, electrode)
         case (shank, column, row):
             electrode = cr2e(probe_type, (column, row))
             shank, electrode = align_arr(shank, electrode)
+        case _ if isinstance(electrode, np.ndarray):
+            shank = np.zeros_like(electrode, dtype=int)
+        case [*_]:
+            shank, electrode = align_arr(0, np.array(electrode))
         case _:
             raise TypeError()
 

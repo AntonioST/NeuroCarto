@@ -115,24 +115,34 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
         # Benchmark:
         #   run_script(profile)[optimize,sample_times=100,single_process=True]
-        #       current             : 17.2320 seconds
-        #           e2cb()            22.08%
+        #       matrix              : 13.2108 seconds (current)
+        #         all_electrodes()     2.4466 seconds 18.52%
+        #           e2cb()             0.3989 seconds 3.02%
+        #       list-for-loop       : 19.7327 seconds
+        #         all_electrodes()     8.0292 seconds 40.69%
+        #           e2cb()             5.5251 seconds 28.00%
         #       cache+copy()        : 23.4607 seconds
-        #           copy()            50.39%
-        #             dir()             17.10%
-        #             str.startswith()  10.18%
+        #           copy()            11.8218 seconds 50.39%
+        #             dir()           4.01177 seconds 17.10%
+        #             startswith()    2.38829 seconds 10.18%
+        from .npx import electrode_coordinate
+
         ret = []
-        for s in range(probe_type.n_shank):
-            for r in range(probe_type.n_row_shank):
-                for c in range(probe_type.n_col_shank):
-                    d = NpxElectrodeDesp()
+        electrodes = electrode_coordinate(probe_type, electrode_unit='cr')
+        x, y = e2p(probe_type, (electrodes[:, 0], electrodes[:, 1], electrodes[:, 2]))
+        channels, _ = e2cb(probe_type, (electrodes[:, 0], electrodes[:, 1], electrodes[:, 2]))
 
-                    d.s = s
-                    d.electrode = (s, c, r)
-                    d.x, d.y = e2p(probe_type, d.electrode)
-                    d.channel, _ = e2cb(probe_type, d.electrode)
+        for i, (s, c, r) in enumerate(electrodes):
+            d = NpxElectrodeDesp()
 
-                    ret.append(d)
+            d.s = s = int(s)
+            d.electrode = (s, int(c), int(r))
+            d.x = int(x[i])
+            d.y = int(y[i])
+            d.channel = int(channels[i])
+
+            ret.append(d)
+
         return ret
 
     def all_channels(self, chmap: ChannelMap, electrodes: Iterable[NpxElectrodeDesp] = None) -> list[NpxElectrodeDesp]:
