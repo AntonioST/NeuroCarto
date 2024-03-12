@@ -276,6 +276,14 @@ class ChannelMap:
         self._reference = 0
         self.meta: NpxMeta | None = meta
 
+        # pre compute channels for all electrodes
+        ns = probe_type.n_shank
+        nc = probe_type.n_col_shank
+        nr = probe_type.n_row_shank
+        s, c, r = np.mgrid[0:ns, 0:nc, 0:nr]
+        channels, _ = e2cb(probe_type, (s.ravel(), c.ravel(), r.ravel()))
+        self._channels: Final[NDArray[np.int_]] = channels.reshape((ns, nc, nr))
+
         if electrodes is not None:
             for e in electrodes:
                 if e is not None:
@@ -576,11 +584,10 @@ class ChannelMap:
         e = self.get_electrode((shank, column, row))
 
         if e is None:
-            e = Electrode(shank, column, row, in_used)
-            c, _ = e2cb(self.probe_type, e)
+            c = int(self._channels[shank, column, row])
             if (t := self._electrodes[c]) is not None:
                 raise ChannelHasUsedError(t)
-            self._electrodes[c] = e
+            self._electrodes[c] = e = Electrode(shank, column, row, in_used)
             return e
         elif exist_ok:
             return e
