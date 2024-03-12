@@ -14,14 +14,14 @@ Install
 
 ::
 
-    pip install chmap
+    pip install neurocarto
 
 Run
 ---
 
 ::
 
-    chmap
+    neurocarto
 
 Optional dependency packages
 ----------------------------
@@ -36,13 +36,13 @@ Build from source
 
 1. create python environment. Here use ``conda`` as example. ::
 
-    conda create -n chmap python~=3.10.0
-    conda activate chmap
+    conda create -n neurocarto python~=3.10.0
+    conda activate neurocarto
 
 2. clone repository. ::
 
-    git clone https://github.com/AntonioST/chmap_editor.git
-    cd chmap_editor
+    git clone https://github.com/AntonioST/neura_carto.git
+    cd neura_carto
 
 3. update pip. ::
 
@@ -55,7 +55,7 @@ Build from source
 
 5. install. ::
 
-        pip install dist/chmap_editor-0.0.0-py3-none-any.whl
+        pip install dist/neurocarto-0.0.0-py3-none-any.whl
 
    change version ``0.0.0`` to latest when needed.
 

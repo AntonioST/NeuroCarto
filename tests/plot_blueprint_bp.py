@@ -1,5 +1,5 @@
 """
-Test file for testing algorithm in chmap.views.blueprint:BlueprintView.
+Test file for testing algorithm in neurocarto.views.blueprint:BlueprintView.
 """
 import sys
 from pathlib import Path
@@ -9,10 +9,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Polygon
 
-from chmap.probe_npx.desp import NpxProbeDesp
-from chmap.probe_npx.npx import ChannelMap
-from chmap.util.util_blueprint import BlueprintFunctions
-from chmap.util.utils import TimeMarker
+from neurocarto.probe_npx.desp import NpxProbeDesp
+from neurocarto.probe_npx.npx import ChannelMap
+from neurocarto.util.util_blueprint import BlueprintFunctions
+from neurocarto.util.utils import TimeMarker
 
 marker = TimeMarker()
 marker('import')

@@ -1,5 +1,5 @@
-chmap.views.data_density
-========================
+neurocarto.views.data_density
+=============================
 
-.. automodule:: chmap.views.data_density
+.. automodule:: neurocarto.views.data_density
    :members:

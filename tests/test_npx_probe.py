@@ -7,7 +7,7 @@ from numpy.testing import assert_array_equal
 # noinspection PyMethodMayBeStatic
 class ProbeChannelElectrodeMappingTest(unittest.TestCase):
     def test_np1(self):
-        from chmap.probe_npx.npx import PROBE_TYPE_NP1, e2c0, c2e0
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP1, e2c0, c2e0
         t = PROBE_TYPE_NP1
         self.assertEqual(1, t.n_shank)
 
@@ -23,7 +23,7 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
         assert_array_equal(e0, np.array(e2))
 
     def test_np21(self):
-        from chmap.probe_npx.npx import PROBE_TYPE_NP21, e2c21, c2e21
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP21, e2c21, c2e21
         t = PROBE_TYPE_NP21
         self.assertEqual(1, t.n_shank)
 
@@ -39,7 +39,7 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
         assert_array_equal(e0, np.array(e2))
 
     def test_np24(self):
-        from chmap.probe_npx.npx import PROBE_TYPE_NP24, e2c24, c2e24
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP24, e2c24, c2e24
         t = PROBE_TYPE_NP24
 
         e0 = np.arange(t.n_electrode_shank)
@@ -58,9 +58,9 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
             assert_array_equal(e0, np.array(e2))
 
     def test_np1_electrode_coordinate(self):
-        from chmap.probe_npx.desp import NpxProbeDesp
-        from chmap.probe_npx.npx import PROBE_TYPE_NP1, ChannelMap
-        from chmap.probe_npx.plot import electrode_coordinate
+        from neurocarto.probe_npx.desp import NpxProbeDesp
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP1, ChannelMap
+        from neurocarto.probe_npx.plot import electrode_coordinate
 
         D = NpxProbeDesp()
         E = D.all_electrodes(ChannelMap(PROBE_TYPE_NP1))
@@ -73,9 +73,9 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
         assert_array_equal(e0, e1)
 
     def test_np21_electrode_coordinate(self):
-        from chmap.probe_npx.desp import NpxProbeDesp
-        from chmap.probe_npx.npx import PROBE_TYPE_NP21, ChannelMap
-        from chmap.probe_npx.plot import electrode_coordinate
+        from neurocarto.probe_npx.desp import NpxProbeDesp
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP21, ChannelMap
+        from neurocarto.probe_npx.plot import electrode_coordinate
 
         D = NpxProbeDesp()
         E = D.all_electrodes(ChannelMap(PROBE_TYPE_NP21))
@@ -88,9 +88,9 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
         assert_array_equal(e0, e1)
 
     def test_np24_electrode_coordinate(self):
-        from chmap.probe_npx.desp import NpxProbeDesp
-        from chmap.probe_npx.npx import PROBE_TYPE_NP24, ChannelMap
-        from chmap.probe_npx.plot import electrode_coordinate
+        from neurocarto.probe_npx.desp import NpxProbeDesp
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP24, ChannelMap
+        from neurocarto.probe_npx.plot import electrode_coordinate
 
         D = NpxProbeDesp()
         E = D.all_electrodes(ChannelMap(PROBE_TYPE_NP24))

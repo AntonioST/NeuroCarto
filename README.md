@@ -1,8 +1,9 @@
-Channelmap Editor for the Neuropixels Family
-============================================
+NeuraCarto: A Neuropixels Channelmap Editor
+===========================================
 
-Neuropixels channelmap editor is an editor for generate a custom channelmap from 
-a given electrode-density blueprint.
+NeuraCarto is a neural probe channel map editor for the Neuropixels probe family.
+It allows user to create a blueprint for arranging electrodes in a desired density
+and generate a custom channel map.
 
 Features
 --------
@@ -39,7 +40,7 @@ This package will upload onto PyPI soon.
 ### Run
 
 ```shell
-chmap
+neurocarto
 ```
 
 ### Optional dependency

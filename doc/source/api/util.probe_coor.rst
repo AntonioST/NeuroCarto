@@ -1,7 +1,7 @@
-chmap.util.probe_coor
-=====================
+neurocarto.util.probe_coor
+==========================
 
-.. automodule:: chmap.util.probe_coor
+.. automodule:: neurocarto.util.probe_coor
    :members:
    :undoc-members:
 

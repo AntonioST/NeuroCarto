@@ -1,5 +1,5 @@
-chmap.views.probe
-=================
+neurocarto.views.probe
+======================
 
-.. automodule:: chmap.views.probe
+.. automodule:: neurocarto.views.probe
    :members:

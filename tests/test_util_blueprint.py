@@ -5,8 +5,8 @@ import numpy as np
 from numpy.testing import assert_array_equal
 from numpy.typing import NDArray
 
-from chmap.probe_npx.desp import NpxProbeDesp
-from chmap.util.util_blueprint import BlueprintFunctions
+from neurocarto.probe_npx.desp import NpxProbeDesp
+from neurocarto.util.util_blueprint import BlueprintFunctions
 
 DEFAULT_CATEGORIES = {
     'UNSET': 0,
@@ -449,7 +449,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 0,
         ])
 
-        self.assert_clustering(bp.extend(blueprint, on=1, step=1), np.array([
+        self.assert_clustering(bp.extend(blueprint, category=1, step=1), np.array([
             0, 0,
             1, 1,
             1, 1,
@@ -464,7 +464,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 0,
             0, 0,
         ])
-        self.assert_clustering(bp.extend(blueprint, on=1, step=1, category=2), np.array([
+        self.assert_clustering(bp.extend(blueprint, category=1, step=1, value=2), np.array([
             0, 0,
             2, 2,
             1, 1,
@@ -483,7 +483,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 0,
         ])
 
-        self.assert_clustering(bp.extend(blueprint, on=1, step=1, bi=False), np.array([
+        self.assert_clustering(bp.extend(blueprint, category=1, step=1, bi=False), np.array([
             0, 0,
             0, 0,
             1, 1,
@@ -498,7 +498,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 0,
             0, 0,
         ])
-        self.assert_clustering(bp.extend(blueprint, on=1, step=-1, bi=False), np.array([
+        self.assert_clustering(bp.extend(blueprint, category=1, step=-1, bi=False), np.array([
             0, 0,
             1, 1,
             1, 1,
@@ -513,7 +513,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 0,
             0, 0,
         ])
-        self.assert_clustering(bp.extend(blueprint, on=1, step=1), np.array([
+        self.assert_clustering(bp.extend(blueprint, category=1, step=1), np.array([
             0, 0,
             1, 0,
             1, 0,
@@ -527,7 +527,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 0,
             0, 0,
         ])
-        self.assert_clustering(bp.extend(blueprint, on=1, step=(1, 1)), np.array([
+        self.assert_clustering(bp.extend(blueprint, category=1, step=(1, 1)), np.array([
             0, 0,
             1, 1,
             1, 1,
@@ -545,7 +545,7 @@ class UtilBlueprintTest(unittest.TestCase):
             1, 1,
             1, 1,
         ])
-        self.assert_clustering(bp.extend(blueprint, on=1, step=1, threshold=4), np.array([
+        self.assert_clustering(bp.extend(blueprint, category=1, step=1, threshold=4), np.array([
             1, 1,
             0, 0,
             1, 1,
@@ -563,7 +563,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 1,
             0, 0,
         ])
-        self.assert_clustering(bp.extend(blueprint, on=1, step=1), np.array([
+        self.assert_clustering(bp.extend(blueprint, category=1, step=1), np.array([
             2, 2,
             1, 1,
             1, 1,
@@ -578,7 +578,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 1,
             0, 0,
         ])
-        self.assert_clustering(bp.extend(blueprint, on=1, step=1, overwrite=True), np.array([
+        self.assert_clustering(bp.extend(blueprint, category=1, step=1, overwrite=True), np.array([
             2, 1,
             1, 1,
             1, 1,
@@ -598,7 +598,7 @@ class UtilBlueprintTest(unittest.TestCase):
             1, 1,
             0, 0,
         ])
-        self.assert_clustering(bp.reduce(blueprint, on=1, step=1), np.array([
+        self.assert_clustering(bp.reduce(blueprint, category=1, step=1), np.array([
             0, 0,
             0, 0,
             1, 1,
@@ -617,7 +617,7 @@ class UtilBlueprintTest(unittest.TestCase):
             1, 1,
             0, 0,
         ])
-        self.assert_clustering(bp.reduce(blueprint, on=1, step=1), np.array([
+        self.assert_clustering(bp.reduce(blueprint, category=1, step=1), np.array([
             0, 0,
             0, 0,
             0, 0,
@@ -637,7 +637,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 0,
         ])
         # Because the origin is located at button, the reduce direction is reversed here.
-        self.assert_clustering(bp.reduce(blueprint, on=1, step=1, bi=False), np.array([
+        self.assert_clustering(bp.reduce(blueprint, category=1, step=1, bi=False), np.array([
             0, 0,
             0, 0,
             1, 1,
@@ -656,7 +656,7 @@ class UtilBlueprintTest(unittest.TestCase):
             1, 1,
             0, 0,
         ])
-        self.assert_clustering(bp.reduce(blueprint, on=1, step=-1, bi=False), np.array([
+        self.assert_clustering(bp.reduce(blueprint, category=1, step=-1, bi=False), np.array([
             0, 0,
             1, 1,
             1, 1,

@@ -1,7 +1,7 @@
-chmap.util.edit.debug
-=====================
+neurocarto.util.edit.debug
+==========================
 
-.. automodule:: chmap.util.edit.debug
+.. automodule:: neurocarto.util.edit.debug
    :members:
    :undoc-members:
 

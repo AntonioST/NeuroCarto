@@ -1,6 +1,6 @@
-chmap.config
-============
+neurocarto.config
+=================
 
-.. automodule:: chmap.config
+.. automodule:: neurocarto.config
     :members:
     :undoc-members:

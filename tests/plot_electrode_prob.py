@@ -5,10 +5,10 @@ from pathlib import Path
 import matplotlib
 from matplotlib import pyplot as plt
 
-from chmap.probe_npx import plot
-from chmap.probe_npx.desp import NpxProbeDesp
-from chmap.probe_npx.npx import ChannelMap
-from chmap.probe_npx.stat import npx_electrode_probability
+from neurocarto.probe_npx import plot
+from neurocarto.probe_npx.desp import NpxProbeDesp
+from neurocarto.probe_npx.npx import ChannelMap
+from neurocarto.probe_npx.stat import npx_electrode_probability
 
 file = Path(sys.argv[1])
 desp = NpxProbeDesp()
@@ -17,7 +17,7 @@ blueprint = desp.load_blueprint(file.with_suffix('.blueprint.npy'), desp.all_ele
 
 selector = [
     'default', 'weaker',
-    'chmap.probe_npx.select_weaker_debug:electrode_select'
+    'neurocarto.probe_npx.select_weaker_debug:electrode_select'
 ][1]
 print(f'use selector {selector}')
 

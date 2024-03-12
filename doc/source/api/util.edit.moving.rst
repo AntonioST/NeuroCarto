@@ -1,7 +1,7 @@
-chmap.util.edit.moving
-======================
+neurocarto.util.edit.moving
+===========================
 
-.. automodule:: chmap.util.edit.moving
+.. automodule:: neurocarto.util.edit.moving
    :members:
    :undoc-members:
 

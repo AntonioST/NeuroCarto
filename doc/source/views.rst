@@ -6,20 +6,20 @@ Custom view components can be enabled by commandline via ``--view`` or put it in
 User configuration
 ------------------
 
-The application read file ``~/.config/chmap/chmap.config.json`` (linux), ``AppData\\chmap\\chmap.config.json`` (windows)
-or ``~/.chmap/chmap.config.json``.
-If ``--debug`` enable, use ``.chmap.config.json`` at current working directory.
+The application read file ``~/.config/neurocarto/neurocarto.config.json`` (linux), ``AppData\\neurocarto\\neurocarto.config.json`` (windows)
+or ``~/.neurocarto/neurocarto.config.json``.
+If ``--debug`` enable, use ``.neurocarto.config.json`` at current working directory.
 
 The config json file be looked like ::
 
     {
-      "ChannelMapEditorApp": {
+      "CartoApp": {
         "theme": null,
         "views": []
       }
     }
 
-You can put custom components in ``ChannelMapEditorApp::views``.
+You can put custom components in ``CartoApp::views``.
 
 Builtin Components
 ------------------

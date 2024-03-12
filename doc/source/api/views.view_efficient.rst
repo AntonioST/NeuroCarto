@@ -1,6 +1,6 @@
-chmap.views.view_efficient
-==========================
+neurocarto.views.view_efficient
+===============================
 
-.. automodule:: chmap.views.view_efficient
+.. automodule:: neurocarto.views.view_efficient
    :members:
 

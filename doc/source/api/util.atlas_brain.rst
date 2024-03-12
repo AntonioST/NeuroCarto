@@ -1,6 +1,6 @@
-chmap.util.atlas_brain
-======================
+neurocarto.util.atlas_brain
+===========================
 
-.. automodule:: chmap.util.atlas_brain
+.. automodule:: neurocarto.util.atlas_brain
    :members:
    :undoc-members:

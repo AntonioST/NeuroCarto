@@ -14,7 +14,7 @@ Global Config setting
     }
 """
 
-from chmap.util.util_blueprint import BlueprintFunctions
+from neurocarto.util.util_blueprint import BlueprintFunctions
 
 
 def my_blueprint_script_function(bp: BlueprintFunctions, a0: str, a1: int):

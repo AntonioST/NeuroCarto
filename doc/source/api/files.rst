@@ -1,7 +1,7 @@
-chmap.files
-===========
+neurocarto.files
+================
 
-.. automodule:: chmap.files
+.. automodule:: neurocarto.files
    :members:
    :undoc-members:
 

@@ -1,5 +1,5 @@
-chmap.probe_npx
-===============
+neurocarto.probe_npx
+====================
 
 .. toctree::
     :maxdepth: 1

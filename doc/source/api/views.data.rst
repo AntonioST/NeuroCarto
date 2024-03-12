@@ -1,6 +1,6 @@
-chmap.views.data
-================
+neurocarto.views.data
+=====================
 
-.. automodule:: chmap.views.data
+.. automodule:: neurocarto.views.data
    :members:
    :undoc-members:

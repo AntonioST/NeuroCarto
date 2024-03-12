@@ -1,11 +1,11 @@
-from chmap.main_bokeh import main, ChannelMapEditorApp
-from chmap.util.bokeh_app import run_later, run_timeout
-from chmap.views.base import ViewBase, ControllerView
-from chmap.views.blueprint_script import BlueprintScriptView
+from neurocarto.main_app import main, CartoApp
+from neurocarto.util.bokeh_app import run_later, run_timeout
+from neurocarto.views.base import ViewBase, ControllerView
+from neurocarto.views.blueprint_script import BlueprintScriptView
 
 
 class Tester(ViewBase, ControllerView):
-    app: ChannelMapEditorApp
+    app: CartoApp
     edit: BlueprintScriptView
 
     @property
@@ -30,7 +30,7 @@ class Tester(ViewBase, ControllerView):
 
     def set_value(self):
         self.set_status('set value ...')
-        self.edit.add_script('demo', 'chmap.util.edit._actions:blueprint_simple_init_script_from_activity_data_with_a_threshold')
+        self.edit.add_script('demo', 'neurocarto.util.edit._actions:blueprint_simple_init_script_from_activity_data_with_a_threshold')
         self.edit.script_input.value_input = '"res/Fig5d_data.npy", 3500'
         run_later(self.run_script)
 
@@ -45,7 +45,7 @@ class Tester(ViewBase, ControllerView):
 
 if __name__ == '__main__':
     import sys
-    from chmap.config import parse_cli
+    from neurocarto.config import parse_cli
 
     main(parse_cli([
         *sys.argv[1:],
@@ -53,6 +53,6 @@ if __name__ == '__main__':
         '--debug',
         '--view=-',
         '--view=blueprint',
-        '--view=chmap.views.blueprint_script:BlueprintScriptView',
+        '--view=neurocarto.views.blueprint_script:BlueprintScriptView',
         '--view=tests:main_blueprint_script:Tester',
     ]))

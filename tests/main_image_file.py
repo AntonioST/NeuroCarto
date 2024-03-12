@@ -1,7 +1,7 @@
 if __name__ == '__main__':
     import sys
-    from chmap.config import parse_cli
-    from chmap.main_bokeh import main
+    from neurocarto.config import parse_cli
+    from neurocarto.main_app import main
 
     main(parse_cli([
         *sys.argv[1:],

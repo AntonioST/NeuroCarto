@@ -4,9 +4,9 @@ from pathlib import Path
 import matplotlib
 from matplotlib import pyplot as plt
 
-from chmap.probe_npx.desp import NpxProbeDesp
-from chmap.probe_npx.npx import ChannelMap
-from chmap.probe_npx.plot import plot_category_area, plot_probe_shape
+from neurocarto.probe_npx.desp import NpxProbeDesp
+from neurocarto.probe_npx.npx import ChannelMap
+from neurocarto.probe_npx.plot import plot_category_area, plot_probe_shape
 
 rc = matplotlib.rc_params_from_file('tests/default.matplotlibrc', fail_on_error=True, use_default_template=True)
 plt.rcParams.update(rc)

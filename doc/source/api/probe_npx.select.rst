@@ -1,5 +1,5 @@
-chmap.probe_npx.select
-======================
+neurocarto.probe_npx.select
+===========================
 
 Implementations
 ---------------
@@ -13,7 +13,7 @@ Implementations
 Functions
 ---------
 
-.. automodule:: chmap.probe_npx.select
+.. automodule:: neurocarto.probe_npx.select
    :members:
    :undoc-members:
    :special-members: __call__

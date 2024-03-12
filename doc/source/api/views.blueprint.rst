@@ -1,7 +1,7 @@
-chmap.views.blueprint
-=====================
+neurocarto.views.blueprint
+==========================
 
-.. automodule:: chmap.views.blueprint
+.. automodule:: neurocarto.views.blueprint
    :members:
    :undoc-members:
 

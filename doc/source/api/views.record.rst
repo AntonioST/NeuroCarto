@@ -1,7 +1,7 @@
-chmap.views.record
-==================
+neurocarto.views.record
+=======================
 
-.. automodule:: chmap.views.record
+.. automodule:: neurocarto.views.record
    :members:
    :undoc-members:
 

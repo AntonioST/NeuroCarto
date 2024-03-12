@@ -1,5 +1,5 @@
-chmap.util
-==========
+neurocarto.util
+===============
 
 .. toctree::
     :maxdepth: 1

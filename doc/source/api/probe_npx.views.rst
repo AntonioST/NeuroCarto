@@ -1,6 +1,6 @@
-chmap.probe_npx.views
-=====================
+neurocarto.probe_npx.views
+==========================
 
-.. automodule:: chmap.probe_npx.views
+.. automodule:: neurocarto.probe_npx.views
    :members:
 

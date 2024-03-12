@@ -1,7 +1,7 @@
-chmap.util.edit.checking
-========================
+neurocarto.util.edit.checking
+=============================
 
-.. automodule:: chmap.util.edit.checking
+.. automodule:: neurocarto.util.edit.checking
    :members:
    :undoc-members:
 

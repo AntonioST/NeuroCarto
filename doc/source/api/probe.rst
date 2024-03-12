@@ -1,7 +1,7 @@
-chmap.probe
-===========
+neurocarto.probe
+================
 
-.. automodule:: chmap.probe
+.. automodule:: neurocarto.probe
     :members:
     :undoc-members:
 

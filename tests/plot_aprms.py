@@ -2,8 +2,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from chmap.probe_npx import plot
-from chmap.probe_npx.npx import PROBE_TYPE_NP24
+from neurocarto.probe_npx import plot
+from neurocarto.probe_npx.npx import PROBE_TYPE_NP24
 
 rc = matplotlib.rc_params_from_file('tests/default.matplotlibrc', fail_on_error=True, use_default_template=True)
 plt.rcParams.update(rc)

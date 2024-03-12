@@ -3,11 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to ChmapEditor's documentation!
+Welcome to NeuraCarto's documentation!
 =======================================
 
-Neuropixels channelmap editor is an editor for generate a custom channelmap from
-a given electrode-density blueprint.
+NeuraCarto is a neural probe channel map editor for the Neuropixels probe family.
+It allows user to create a blueprint for arranging electrodes in a desired density
+and generate a custom channel map.
 
 Features
 --------
@@ -97,7 +98,7 @@ API Reference
 .. toctree::
     :maxdepth: 1
 
-    api/chmap.rst
+    api/neurocarto.rst
 
 Contact Us
 ----------

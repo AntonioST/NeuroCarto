@@ -1,5 +1,5 @@
-chmap.views.image
-=================
+neurocarto.views.image
+======================
 
-.. automodule:: chmap.views.image
+.. automodule:: neurocarto.views.image
    :members:

@@ -4,7 +4,7 @@
 # https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/
 
 [project]
-name = 'chmap_editor'
+name = 'neuro_carto'
 version = '0.0.0'
 authors = [
     { name = "Ta-Shun Su", email = "antoniost29@gmail.com" },
@@ -42,7 +42,7 @@ Repository = "https://github.com/AntonioST/chmap_editor"
 Issues = "https://github.com/AntonioST/chmap_editor/issues"
 
 [project.scripts]
-chmap = "chmap.main_bokeh:main"
+neurocarto = "neurocarto.main_app:main"
 
 [tool.setuptools]
 include-package-data = true

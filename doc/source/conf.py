@@ -19,7 +19,7 @@ os.environ['SPHINX_BUILD'] = 'SPHINX_BUILD'
 
 # -- Project information -----------------------------------------------------
 
-project = 'ChmapEditor'
+project = 'NeuraCarto'
 copyright = '2024, Ta-Shun Su'
 author = 'Ta-Shun Su'
 

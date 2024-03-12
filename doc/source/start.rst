@@ -3,7 +3,7 @@ Get Start
 
 Run. ::
 
-    chmap
+    neurocarto
 
 Then your default web-browser will popup (http://localhost:5006/) with the application.
 
@@ -16,10 +16,10 @@ Commandline options
 
 ::
 
-    usage: chmap [-h] [-C PATH] [-P NAME] [--selector MODULE:NAME] [--atlas NAME]
-                 [--atlas-root PATH] [--config-file FILE] [--view MODULE:NAME]
-                 [--server-address URL] [--server-port PORT] [--no-open-browser]
-                 [FILE]
+    usage: neurocarto [-h] [-C PATH] [-P NAME] [--selector MODULE:NAME] [--atlas NAME]
+                      [--atlas-root PATH] [--config-file FILE] [--view MODULE:NAME]
+                      [--server-address URL] [--server-port PORT] [--no-open-browser]
+                      [FILE]
 
     positional arguments:
       FILE                  open channelmap file.

@@ -1,10 +1,10 @@
 import os
 from pathlib import Path
 
-src = Path('../src/chmap')
+src = Path('../src/neurocarto')
 dst = Path('source/api')
 
-src_files = ['chmap.rst']
+src_files = ['neurocarto.rst']
 
 for p, ds, fs in os.walk(src):
     for f in fs:
@@ -15,7 +15,7 @@ for p, ds, fs in os.walk(src):
 
             if not o.exists():
                 print('new', o)
-                k = '.'.join(['chmap', *r.parts])
+                k = '.'.join(['neurocarto', *r.parts])
                 with open(o, 'w') as of:
                     print(f"""\
 {k}
@@ -33,7 +33,7 @@ for p, ds, fs in os.walk(src):
             src_files.append(o.name)
             if not o.exists():
                 print('new', o)
-                k = '.'.join(['chmap', *r.parts])
+                k = '.'.join(['neurocarto', *r.parts])
                 with open(o, 'w') as of:
                     print(f"""\
 {k}

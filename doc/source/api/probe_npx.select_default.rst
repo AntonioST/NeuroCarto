@@ -1,7 +1,7 @@
-chmap.probe_npx.select_default
-==============================
+neurocarto.probe_npx.select_default
+===================================
 
-.. automodule:: chmap.probe_npx.select_default
+.. automodule:: neurocarto.probe_npx.select_default
    :members:
    :undoc-members:
 

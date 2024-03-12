@@ -1,7 +1,7 @@
-chmap.util.edit.data
-====================
+neurocarto.util.edit.data
+=========================
 
-.. automodule:: chmap.util.edit.data
+.. automodule:: neurocarto.util.edit.data
    :members:
    :undoc-members:
 

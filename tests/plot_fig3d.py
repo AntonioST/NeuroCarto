@@ -3,9 +3,9 @@ from pathlib import Path
 import matplotlib
 from matplotlib import pyplot as plt
 
-from chmap.probe_npx.desp import NpxProbeDesp
-from chmap.probe_npx.npx import ChannelMap
-from chmap.util.util_blueprint import BlueprintFunctions
+from neurocarto.probe_npx.desp import NpxProbeDesp
+from neurocarto.probe_npx.npx import ChannelMap
+from neurocarto.util.util_blueprint import BlueprintFunctions
 
 rc = matplotlib.rc_params_from_file('tests/default.matplotlibrc', fail_on_error=True, use_default_template=True)
 plt.rcParams.update(rc)

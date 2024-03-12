@@ -1,7 +1,7 @@
-chmap.probe_npx.meta
-====================
+neurocarto.probe_npx.meta
+=========================
 
-.. automodule:: chmap.probe_npx.meta
+.. automodule:: neurocarto.probe_npx.meta
    :members:
    :undoc-members:
 

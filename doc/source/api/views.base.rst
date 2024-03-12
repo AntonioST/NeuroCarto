@@ -1,6 +1,6 @@
-chmap.views.base
-================
+neurocarto.views.base
+=====================
 
-.. automodule:: chmap.views.base
+.. automodule:: neurocarto.views.base
    :members:
    :undoc-members:

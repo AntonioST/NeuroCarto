@@ -1,6 +1,6 @@
-chmap.util.bokeh_util
-=====================
+neurocarto.util.bokeh_util
+==========================
 
-.. automodule:: chmap.util.bokeh_util
+.. automodule:: neurocarto.util.bokeh_util
    :members:
    :undoc-members:

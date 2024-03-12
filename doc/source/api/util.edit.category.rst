@@ -1,7 +1,7 @@
-chmap.util.edit.category
-========================
+neurocarto.util.edit.category
+=============================
 
-.. automodule:: chmap.util.edit.category
+.. automodule:: neurocarto.util.edit.category
    :members:
    :undoc-members:
 

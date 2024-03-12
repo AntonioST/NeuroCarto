@@ -1,5 +1,5 @@
-chmap.util.utils
-================
+neurocarto.util.utils
+=====================
 
-.. automodule:: chmap.util.utils
+.. automodule:: neurocarto.util.utils
    :members:

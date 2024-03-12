@@ -1,5 +1,5 @@
-chmap.views.atlas
-=================
+neurocarto.views.atlas
+======================
 
-.. automodule:: chmap.views.atlas
+.. automodule:: neurocarto.views.atlas
    :members:

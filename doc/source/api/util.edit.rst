@@ -1,7 +1,7 @@
-chmap.util.edit
-===============
+neurocarto.util.edit
+====================
 
-It is an internal package for providing functions to the :class:`~chmap.util.util_blueprint.BlueprintFunctions`
+It is an internal package for providing functions to the :class:`~neurocarto.util.util_blueprint.BlueprintFunctions`
 
 
 .. toctree::
@@ -16,6 +16,7 @@ It is an internal package for providing functions to the :class:`~chmap.util.uti
     util.edit.moving
     util.edit.surrounding
     util.edit.probe
+    util.edit.plot
     util.edit.atlas
     util.edit.actions
     util.edit.debug
@@ -25,14 +26,14 @@ How to write a blueprint script function
 
 Real examples are:
 
-* ``src/chmap/util/edit/_actions.py``
+* ``src/neurocarto/util/edit/_actions.py``
 * ``tests/bp_example.py``
 
 Prepare a python file ``example.py`` with following contents.
 
 .. code-block:: python
 
-    from chmap.util.util_blueprint import BlueprintFunctions
+    from neurocarto.util.util_blueprint import BlueprintFunctions
     def my_blueprint_script_function(bp: BlueprintFunctions, a0: str, a1: int):
         """
         Script Document, which is used in GUI.
@@ -43,7 +44,7 @@ Prepare a python file ``example.py`` with following contents.
         """
         bp.log_message(f'{a0=}', f'{a1=}')
 
-Add ``example.py`` into ``chmap.config.json``.
+Add ``example.py`` into ``neurocarto.config.json``.
 
 .. code-block:: json
 

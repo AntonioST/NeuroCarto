@@ -1,5 +1,5 @@
-chmap.util.util_blueprint
-=========================
+neurocarto.util.util_blueprint
+==============================
 
 .. toctree::
     :maxdepth: 2
@@ -10,7 +10,7 @@ chmap.util.util_blueprint
 Classes
 -------
 
-.. automodule:: chmap.util.util_blueprint
+.. automodule:: neurocarto.util.util_blueprint
    :members:
    :undoc-members:
    :special-members: __setitem__, __delitem__
