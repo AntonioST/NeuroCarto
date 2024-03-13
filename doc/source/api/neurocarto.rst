@@ -1,4 +1,4 @@
-NeuraCarto package
+NeuroCarto package
 ==================
 
 .. toctree::

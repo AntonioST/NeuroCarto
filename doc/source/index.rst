@@ -3,10 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to NeuraCarto's documentation!
+Welcome to NeuroCarto's documentation!
 =======================================
 
-NeuraCarto is a neural probe channel map editor for the Neuropixels probe family.
+NeuroCarto is a neural probe channel map editor for the Neuropixels probe family.
 It allows user to create a blueprint for arranging electrodes in a desired density
 and generate a custom channel map.
 

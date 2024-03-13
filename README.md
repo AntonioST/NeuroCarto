@@ -1,7 +1,7 @@
-NeuraCarto: A Neuropixels Channelmap Editor
+NeuroCarto: A Neuropixels Channelmap Editor
 ===========================================
 
-NeuraCarto is a neural probe channel map editor for the Neuropixels probe family.
+NeuroCarto is a neural probe channel map editor for the Neuropixels probe family.
 It allows user to create a blueprint for arranging electrodes in a desired density
 and generate a custom channel map.
 
