@@ -41,7 +41,7 @@ Build from source
 
 2. clone repository. ::
 
-    git clone https://github.com/AntonioST/neura_carto.git
+    git clone https://github.com/AntonioST/NeuroCarto.git
     cd neura_carto
 
 3. update pip. ::

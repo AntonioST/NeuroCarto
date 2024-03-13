@@ -4,7 +4,7 @@
 # https://pip.pypa.io/en/stable/reference/build-system/pyproject-toml/
 
 [project]
-name = 'neuro_carto'
+name = 'neurocarto'
 version = '0.0.0'
 authors = [
     { name = "Ta-Shun Su", email = "antoniost29@gmail.com" },
@@ -36,10 +36,10 @@ classifiers = [
 dynamic = ["dependencies"]
 
 [project.urls]
-Homepage = "https://github.com/AntonioST/chmap_editor"
-Documentation = "https://github.com/AntonioST/chmap_editor/wiki"
-Repository = "https://github.com/AntonioST/chmap_editor"
-Issues = "https://github.com/AntonioST/chmap_editor/issues"
+Homepage = "https://github.com/AntonioST/NeuroCarto"
+Documentation = "https://github.com/AntonioST/NeuroCarto/wiki"
+Repository = "https://github.com/AntonioST/NeuroCarto"
+Issues = "https://github.com/AntonioST/NeuroCarto/issues"
 
 [project.scripts]
 neurocarto = "neurocarto.main_app:main"
