@@ -1,8 +1,20 @@
+# IDE settings
 .idea/
+
+# build
 __pycache__/
 dist/
 *.egg-info/
-.mypy_cache/
-.coverage
+
+# application conflications
 .neurocarto.*.json
-*.png
+
+# mypy cache
+.mypy_cache/
+
+# coverage output
+.coverage
+
+# profile results
+tests/*.png
+tests/*.dat
