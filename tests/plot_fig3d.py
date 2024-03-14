@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from neurocarto.probe_npx.desp import NpxProbeDesp
 from neurocarto.probe_npx.npx import ChannelMap
 from neurocarto.util.util_blueprint import BlueprintFunctions
+from neurocarto.util.utils import print_save
 
 rc = matplotlib.rc_params_from_file('tests/default.matplotlibrc', fail_on_error=True, use_default_template=True)
 plt.rcParams.update(rc)
@@ -22,13 +23,13 @@ kwargs = dict(height=6, probe_color='k', shank_width_scale=2, label_axis=True)
 
 fg, ax = plt.subplots()
 bp.plot_channelmap(ax=ax, **kwargs)
-plt.savefig('res/Fig3_example.png')
+plt.savefig(print_save('res/Fig3_channelmap.png'))
 
 # ----------------------------------------------------------------------------------------------------------------------
 
 fg, ax = plt.subplots()
 bp.plot_blueprint(ax=ax, **kwargs)
-plt.savefig('res/Fig3_example.policy.png')  # old name
+plt.savefig(print_save('res/Fig3_blueprint.png'))
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -42,9 +43,9 @@ blueprint = bp.invalid(blueprint, categories=D.CATE_FULL, value=100)
 blueprint[frob_mask] = D.CATE_FORBIDDEN
 
 fg, ax = plt.subplots()
-bp.plot_blueprint(blueprint, {D.CATE_FULL: 'green', D.CATE_FORBIDDEN: 'pink', 100: 'red'}, ax=ax, **kwargs)
+bp.plot_blueprint(blueprint, {D.CATE_FULL: 'k', D.CATE_FORBIDDEN: 'pink', 100: 'red'}, ax=ax, **kwargs)
 ax.set_title(f'{bp.count_categories(blueprint, D.CATE_FULL)}/384')
-plt.savefig('res/Fig3d-conflict.png')
+plt.savefig(print_save('res/Fig3d-conflict.png'))
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -56,9 +57,9 @@ blueprint = bp.invalid(blueprint, categories=D.CATE_SET, value=100)
 blueprint[frob_mask] = D.CATE_FORBIDDEN
 
 fg, ax = plt.subplots()
-bp.plot_blueprint(blueprint, {D.CATE_SET: 'green', D.CATE_FORBIDDEN: 'pink', 100: 'red'}, ax=ax, **kwargs)
+bp.plot_blueprint(blueprint, {D.CATE_SET: 'k', D.CATE_FORBIDDEN: 'pink', 100: 'red'}, ax=ax, **kwargs)
 ax.set_title(f'{bp.count_categories(blueprint, D.CATE_SET)}/384')
-plt.savefig('res/Fig3d-conflict-half.png')
+plt.savefig(print_save('res/Fig3d-conflict-half.png'))
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -69,9 +70,9 @@ blueprint = bp.invalid(blueprint, categories=D.CATE_SET, value=100)
 blueprint[frob_mask] = D.CATE_FORBIDDEN
 
 fg, ax = plt.subplots()
-bp.plot_blueprint(blueprint, {D.CATE_SET: 'green', D.CATE_FORBIDDEN: 'pink', 100: 'red'}, ax=ax, **kwargs)
+bp.plot_blueprint(blueprint, {D.CATE_SET: 'k', D.CATE_FORBIDDEN: 'pink', 100: 'red'}, ax=ax, **kwargs)
 ax.set_title(f'{bp.count_categories(blueprint, D.CATE_SET)}/384')
-plt.savefig('res/Fig3d-conflict-quarter.png')
+plt.savefig(print_save('res/Fig3d-conflict-quarter.png'))
 
 # ----------------------------------------------------------------------------------------------------------------------
 

@@ -23,6 +23,7 @@ __all__ = [
     'import_name',
     'get_import_file',
     # profile
+    'print_save',
     'line_mark',
     'TimeMarker',
     # documenting
@@ -173,6 +174,11 @@ def get_import_file(module_path: str, root: str = None) -> Path | None:
             if (p := Path(root) / module_file).exists():
                 return p
     return None
+
+
+def print_save(file: str) -> Path:
+    print('SAVE', file)
+    return Path(file)
 
 
 def line_mark(message: str):

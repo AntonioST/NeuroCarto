@@ -1,4 +1,3 @@
-import sys
 import time
 from pathlib import Path
 
@@ -9,8 +8,9 @@ from neurocarto.probe_npx import plot
 from neurocarto.probe_npx.desp import NpxProbeDesp
 from neurocarto.probe_npx.npx import ChannelMap
 from neurocarto.probe_npx.stat import npx_electrode_probability
+from neurocarto.util.utils import print_save
 
-file = Path(sys.argv[1])
+file = Path('res/Fig3_example.imro')
 desp = NpxProbeDesp()
 chmap = ChannelMap.from_imro(file)
 blueprint = desp.load_blueprint(file.with_suffix('.blueprint.npy'), desp.all_electrodes(chmap))
@@ -18,7 +18,7 @@ blueprint = desp.load_blueprint(file.with_suffix('.blueprint.npy'), desp.all_ele
 selector = [
     'default', 'weaker',
     'neurocarto.probe_npx.select_weaker_debug:electrode_select'
-][1]
+][0]
 print(f'use selector {selector}')
 
 t = time.time()
@@ -30,9 +30,9 @@ print(f'max(Ceff) : {100 * prob.channel_efficiency:.2f}%')
 print(f'mean(Ceff) : {100 * prob.channel_efficiency_mean:.2f}%')
 print(f'var(Ceff) : {100 * prob.channel_efficiency_var:.2f}%')
 
-# fg, ax = plt.subplots()
-# ax.hist(prob.channel_efficiency_, bins=20)
-# plt.show()
+fg, ax = plt.subplots()
+ax.hist(prob.channel_efficiency_, bins=20)
+plt.savefig(print_save(f'res/Fig3e_ceff_{selector}.png'))
 
 with plt.rc_context():
     rc = matplotlib.rc_params_from_file('tests/default.matplotlibrc', fail_on_error=True, use_default_template=True)
@@ -48,10 +48,7 @@ with plt.rc_context():
     cax = ax.inset_axes([0, 1.1, 1, 0.02])  # [x0, y0, width, height]
     ax.figure.colorbar(ims[0], cax=cax, orientation='horizontal')
 
-    if len(sys.argv) == 2:
-        plt.show()
-    else:
-        plt.savefig(sys.argv[2])
+    plt.savefig(print_save('res/Fig3e_prob.png'))
 
 """
 use selector default

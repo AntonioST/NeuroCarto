@@ -1,5 +1,5 @@
 ## figure dots per inch
-figure.dpi:100
+figure.dpi:600
 # figure size in inches
 figure.figsize:5, 10
 # the sides of the subplots of the figure

@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 
 from neurocarto.probe_npx.plot import plot_channelmap_block, plot_probe_shape
 from neurocarto.probe_npx.utils import *
+from neurocarto.util.utils import print_save
 
 rc = matplotlib.rc_params_from_file('tests/default.matplotlibrc', fail_on_error=True, use_default_template=True)
 plt.rcParams.update(rc)
@@ -35,4 +36,4 @@ for i, chmap in enumerate(chmaps):
     ax[i].set_xlabel(None)
     ax[i].set_xticklabels([])
 
-plt.savefig('res/Fig3_uniform.png')
+plt.savefig(print_save('res/Fig3_uniform.png'))

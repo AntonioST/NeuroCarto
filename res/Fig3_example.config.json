@@ -9,6 +9,8 @@
     "image_dy": 0.0,
     "image_sx": 1.0,
     "image_sy": 1.0,
-    "image_rt": 0.0
+    "image_rt": 0.0,
+    "regions": [],
+    "labels": []
   }
 }
