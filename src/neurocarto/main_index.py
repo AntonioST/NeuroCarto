@@ -80,6 +80,13 @@ class CartoAppIndex(BokehApplication):
 
 
 def build_error_page(document: Document, title: str, exc: BaseException):
+    """
+    generate an error message (python error traceback) page.
+
+    :param document: Bokeh document instance
+    :param title: page title
+    :param exc: an error
+    """
     document.title = title
 
     content = '\n'.join(traceback.format_exception(exc))
@@ -87,7 +94,7 @@ def build_error_page(document: Document, title: str, exc: BaseException):
 
 
 def main(config: CartoConfig = None):
-    """Start channelmap editor application."""
+    """Start application."""
     if config is None:
         config = parse_cli()
 

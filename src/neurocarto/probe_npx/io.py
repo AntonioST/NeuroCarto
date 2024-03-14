@@ -129,7 +129,7 @@ def string_imro(chmap: ChannelMap) -> str:
 def load_meta(path: str | Path) -> ChannelMap:
     path = Path(path)
     if path.suffix != '.meta':
-        raise RuntimeError()
+        raise IOError()
 
     data = _load_meta(path)
 
@@ -144,7 +144,7 @@ def load_meta(path: str | Path) -> ChannelMap:
 def load_imro(path: str | Path) -> ChannelMap:
     path = Path(path)
     if path.suffix != '.imro':
-        raise RuntimeError()
+        raise IOError()
 
     return ChannelMap.parse(path.read_text().split('\n')[0])
 
@@ -161,7 +161,7 @@ def _load_meta(path: Path) -> dict[str, Any]:
 def save_imro(chmap: ChannelMap, path: str | Path):
     path = Path(path)
     if path.suffix != '.imro':
-        raise RuntimeError()
+        raise IOError()
 
     imro = string_imro(chmap)
     with path.open('w') as f:

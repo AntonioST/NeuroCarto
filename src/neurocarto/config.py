@@ -57,7 +57,7 @@ __all__ = [
 @doc_link(CartoApp='neurocarto.main_app.CartoApp')
 class CartoConfig:
     """
-    Startup configuration for {CartoApp}.
+    Startup (command-line) configuration for {CartoApp}.
     """
 
     # Source

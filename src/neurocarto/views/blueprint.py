@@ -22,7 +22,12 @@ __all__ = [
 ]
 
 
+@doc_link()
 class ProbePlotBlueprintCallback(Protocol):
+    """
+    An interface to control {BlueprintView}.
+    """
+
     bp: BlueprintFunctions
 
     channelmap: Any
@@ -41,10 +46,12 @@ class ProbePlotBlueprintCallback(Protocol):
     def reset_blueprint(self):
         pass
 
+    @doc_link()
     def plot_blueprint(self, colors: dict[int, str],
                        size: tuple[int, int] = None,
                        offset: int = None):
         """
+        plot blueprint.
 
         :param colors: category colors
         :param size: electrode size (width, height)
@@ -52,8 +59,10 @@ class ProbePlotBlueprintCallback(Protocol):
         """
         pass
 
+    @doc_link()
     def set_category_legend(self, category: dict[str, str]):
         """
+        change the category legend in {BlueprintView{
 
         :param category: legend dict {C-name: html-color}
         """

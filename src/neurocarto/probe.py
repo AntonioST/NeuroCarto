@@ -136,24 +136,47 @@ E = TypeVar('E', bound=ElectrodeDesp)  # electrode
 M = TypeVar('M')  # channelmap
 
 
-@doc_link()
+@doc_link(
+    ProbeElectrodeDensityFunctor='neurocarto.views.data_density.ProbeElectrodeDensityFunctor',
+    ProbePlotBlueprintFunctor='neurocarto.views.blueprint.ProbePlotBlueprintFunctor',
+    ProbePlotElectrodeFunctor='neurocarto.views.blueprint_script.ProbePlotElectrodeFunctor',
+)
 class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     """A probe interface for GUI interaction between different probe implementations.
+
+    Some GUI view components may require specific operations, and they are defined in a Protocol.
+    There are:
+
+    * {ProbeElectrodeDensityFunctor} for providing density curves.
+    * {ProbePlotBlueprintFunctor} for plotting blueprint category zones.
+    * {ProbePlotElectrodeFunctor} for plotting electrode data.
 
     :param M: channelmap, any class
     :param E: electrode, subclass of {ElectrodeDesp}
     """
 
     # predefined electrode states
-    STATE_UNUSED: ClassVar = 0  # electrode is not used, and it is selectable.
-    STATE_USED: ClassVar = 1  # electrode is selected.
-    STATE_FORBIDDEN: ClassVar = 2  # electrode is not used, but it is not selectable.
+    STATE_UNUSED: ClassVar = 0
+    """electrode default state"""
+
+    STATE_USED: ClassVar = 1
+    """electrode is selected as readout channel"""
+
+    STATE_FORBIDDEN: ClassVar = 2
+    """electrode is excluded"""
 
     # predefined electrode categories
-    CATE_UNSET: ClassVar = 0  # initial value
-    CATE_SET: ClassVar = 1  # pre-selected
-    CATE_FORBIDDEN: ClassVar = 2  # never be selected
-    CATE_LOW: ClassVar = 3  # random selected, low priority
+    CATE_UNSET: ClassVar = 0
+    """electrode initial category"""
+
+    CATE_SET: ClassVar = 1
+    """electrode pre-select category. Electrode must be selected"""
+
+    CATE_FORBIDDEN: ClassVar = 2
+    """electrode excluded category. Electrode must not be selected"""
+
+    CATE_LOW: ClassVar = 3
+    """electrode low-priority category."""
 
     @property
     @abc.abstractmethod
@@ -168,7 +191,16 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         pass
 
+    @doc_link()
     def channelmap_description(self, code: int | None) -> str | None:
+        """
+        Get the description for given channelmap **code**.
+
+        Read the content from {#supported_type}.
+
+        :param code: channelmap code
+        :return: channelmap description
+        """
         if code is not None:
             for name, _code in self.supported_type.items():
                 if code == _code:
@@ -180,15 +212,28 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def possible_states(self) -> dict[str, int]:
         """
-        All possible exported electrode state.
+        Export electrode states.
 
-        Used in {CartoApp#install_right_panel_views()} for dynamic generating buttons.
+        Those states are used in {CartoApp#install_right_panel_views()} for generating buttons dynamically,
+        which means only manual states need to be exported. The state such as {#STATE_FORBIDDEN} is
+        programming update for remaining electrodes that users cannot change electrode as this state.
+
 
         :return: dict of {description: state}
+        :see: {#all_possible_states()}
         """
         pass
 
+    @doc_link()
     def state_description(self, state: int) -> str | None:
+        """
+        Get the description for given electrode **state**.
+
+        Read the content from {#possible_states}.
+
+        :param state: electrode state code
+        :return: electrode state description
+        """
         for desp, _state in self.possible_states.items():
             if state == _state:
                 return desp
@@ -201,13 +246,23 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         All possible exported electrode categories.
 
-        Used in {CartoApp#install_right_panel_views()} for dynamic generating buttons.
+        Those categories are used in {CartoApp#install_right_panel_views()} for generating buttons dynamically.
 
         :return: dict of {description: category}
+        :see: {#all_possible_categories()}
         """
         pass
 
+    @doc_link()
     def category_description(self, code: int) -> str | None:
+        """
+        Get the description for given electrode category **code**.
+
+        Read the content from {#possible_categories}.
+
+        :param code: electrode category code
+        :return: electrode category description
+        """
         for desp, cate in self.possible_categories.items():
             if cate == code:
                 return desp
@@ -216,6 +271,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @classmethod
     def all_possible_states(cls) -> dict[str, int]:
         """
+        All possible electrode states.
+
         Implement note: It finds all class variable that its name starts with 'STATE_*'.
 
         :return: dict of {state_name: state_value}
@@ -229,6 +286,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @classmethod
     def all_possible_categories(cls) -> dict[str, int]:
         """
+        All possible electrode categories.
+
         Implement note: It finds all class variable that its name starts with 'CATE_*'.
 
         :return: dict of {category_name: category_value}
@@ -239,12 +298,13 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
             if it.startswith('CATE_')
         }
 
+    @doc_link()
     def extra_controls(self, config: CartoConfig) -> list[type[ViewBase]]:
         """
         Probe specific controls.
 
         :param config: application configurations.
-        :return: list of ViewBase subtype.
+        :return: list of probe-specific view.
         """
         return []
 
@@ -254,7 +314,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         The filename extension for supported channelmap.
 
-        The first suffix in returned list is considered the primary one.
+        The first suffix in returned list is considered the primary format.
 
         :return: file extension, like ".imro".
         """
@@ -263,20 +323,24 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def load_from_file(self, file: Path) -> M:
         """
-        Load channelmap file.
+        Load a channelmap file.
 
         :param file: channelmap filepath
         :return: channelmap instance
+        :raise IOError: If file is not supported.
+        :raise FileNotFoundError: If file is not existed.
+        :raise RuntimeError: errors when parsing the file.
         """
         pass
 
     @abc.abstractmethod
     def save_to_file(self, chmap: M, file: Path):
         """
-        Save channelmap into file.
+        Save a channelmap into a file.
 
         :param chmap: channelmap instance
         :param file: channelmap filepath
+        :raise RuntimeError: errors when serializing the channelmap.
         """
         pass
 
@@ -284,10 +348,10 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def channelmap_code(self, chmap: Any | None) -> int | None:
         """
-        identify a channelmap, and return corresponding code.
+        Identify a given channelmap, and return the corresponding code.
 
         :param chmap: Any instance. It could be a channelmap instance.
-        :return: a code from {#supported_type}. None if *chmap* is unknown or not supported.
+        :return: a code from {#supported_type}. None if *chmap* is unknown or is not supported.
         """
         pass
 
@@ -307,7 +371,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def copy_channelmap(self, chmap: M) -> M:
         """
-        Copy a channelmap instance.
+        Copy a channelmap instance, including properties of electrodes.
 
         :param chmap: channelmap instance as reference.
         :return: a channelmap instance
@@ -328,7 +392,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def all_electrodes(self, chmap: int | M) -> list[E]:
         """
-        Get all possible electrode set for the given channelmap kind.
+        Get all possible electrode set for the given channelmap code.
 
         Implement Node:
             make sure the result is consistent in its ordering.
@@ -342,7 +406,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def all_channels(self, chmap: M, electrodes: Iterable[E] = None) -> list[E]:
         """
-        Selected electrode set in channelmap.
+        Get a list of a selected electrodes in the given channelmap.
 
         :param chmap: a channelmap instance
         :param electrodes: restrict electrode set that the return set is its subset.
@@ -354,13 +418,13 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def is_valid(self, chmap: M) -> bool:
         """
-        Is it a valid channelmap?
+        Is it a valid and completed channelmap?
 
-        A valid channelmap means:
+        A valid and completed channelmap means:
 
-        * not an incomplete channelmap.
+        * This channelmap is able to save into a file
         * no electrode pair will break the probe restriction ({#probe_rule()}).
-        * can be saved in file and read by other applications without error and mis-position.
+        * The saved file can be read by other software or machines without any error or any mis-located electrode.
 
         :param chmap: a channelmap instance
         :return:
@@ -370,6 +434,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def get_electrode(self, electrodes: Iterable[E], e: Hashable | E) -> E | None:
         """
+        Get an electrode from a set with a given identify *e*.
 
         :param electrodes: an electrode set
         :param e: electrode identify, as same as {ElectrodeDesp#electrode}.

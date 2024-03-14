@@ -18,10 +18,29 @@ from neurocarto.views import *
 from neurocarto.views.record import RecordManager
 from . import files
 
-__all__ = ['CartoApp', 'main']
+__all__ = ['CartoApp', 'main', 'CartoUserConfig']
 
 
+@doc_link()
 class CartoUserConfig(TypedDict, total=False):
+    """
+    User config for {CartoApp}.
+
+    All key are optional.
+
+    .. code-block:: json
+
+        {
+          "CartoApp": {
+            "theme": "",
+            "views": [],
+            "history": false,
+            "overwrite_chmap_file": false
+          }
+        }
+
+    """
+
     theme: str | dict[str, Any] | None
     """Bokeh theme. see https://docs.bokeh.org/en/latest/docs/reference/themes.html#theme """
 
@@ -757,7 +776,7 @@ class CartoApp(BokehApplication):
 
 
 def main(config: CartoConfig = None):
-    """Start channelmap editor application."""
+    """Start application."""
     if config is None:
         config = parse_cli()
 

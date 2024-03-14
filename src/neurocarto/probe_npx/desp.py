@@ -76,7 +76,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             case '.meta':
                 return ChannelMap.from_meta(file)
             case _:
-                raise RuntimeError()
+                raise IOError()
 
     def save_to_file(self, chmap: ChannelMap, file: Path):
         chmap.save_imro(file)
@@ -166,6 +166,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         return ret
 
     def is_valid(self, chmap: ChannelMap) -> bool:
+        # ChannelMap has already built in conflict-free (violate the hardware restriction).
         return len(chmap) == chmap.probe_type.n_channels
 
     def get_electrode(self, electrodes: Iterable[NpxElectrodeDesp], e: K | NpxElectrodeDesp) -> NpxElectrodeDesp | None:
@@ -246,9 +247,10 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
     def view_ext_electrode_density(self, chmap: ChannelMap) -> NDArray[np.float_]:
         """
+        Calculate electrode density along the probe.
 
         :param chmap:
-        :return:
+        :return: Array[float, [S,], (v, y), Y] density array
         :see: {ProbeElectrodeDensityFunctor}
         """
         from .stat import npx_electrode_density
