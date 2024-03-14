@@ -515,6 +515,7 @@ def plot_probe_shape(ax: Axes,
                      color: str | None = 'k',
                      label_axis=False,
                      shank_width_scale: float = 1,
+                     reverse_shank: bool = False,
                      **kwargs):
     """
     Plot the probe shape.
@@ -525,6 +526,7 @@ def plot_probe_shape(ax: Axes,
     :param color: probe color
     :param label_axis: add labels on axes
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
+    :param reverse_shank:
     :param kwargs: pass to ax.plot(kwargs)
     """
     if isinstance(probe, ChannelMap):
@@ -552,9 +554,14 @@ def plot_probe_shape(ax: Axes,
             )
 
     if label_axis:
+        if reverse_shank:
+            xticks = [str(probe.n_shank - i - 1) for i in range(probe.n_shank)]
+        else:
+            xticks = [str(i) for i in range(probe.n_shank)]
+
         ax.set_xticks(
             [(i * s_step + w / 2) for i in range(probe.n_shank)],
-            [str(i) for i in range(probe.n_shank)],
+            xticks,
         )
         ax.set_xlabel('Shanks')
 
@@ -574,6 +581,7 @@ def plot_channelmap_block(ax: Axes,
                           selection: Literal['used', 'unused', 'channel', 'disconnected', 'electrode'] = 'channel',
                           shank_width_scale: float = 1,
                           fill=True,
+                          reverse_shank: bool = False,
                           **kwargs):
     """
 
@@ -583,6 +591,7 @@ def plot_channelmap_block(ax: Axes,
     :param selection: electrode selection
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param fill: fill rectangle
+    :param reverse_shank:
     :param kwargs: pass to Rectangle(kwargs)
     """
 
@@ -607,6 +616,9 @@ def plot_channelmap_block(ax: Axes,
 
     else:
         raise ValueError()
+
+    if reverse_shank:
+        electrode[:, 0] = np.abs(probe.n_shank - electrode[:, 0] - 1)
 
     plot_electrode_block(ax, probe, electrode, 'cr',
                          height=height, fill=fill, shank_width_scale=shank_width_scale, **kwargs)
