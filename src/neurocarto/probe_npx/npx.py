@@ -141,6 +141,7 @@ class Electrode:
     lf_band_gain: int
     ap_hp_filter: bool
 
+    __slots__ = 'shank', 'column', 'row', 'in_used', 'ap_band_gain', 'lf_band_gain', 'ap_hp_filter'
     __match_args__ = ('shank', 'column', 'row')
 
     def __init__(self, shank: int, column: int, row: int, in_used: bool | int = True):
@@ -515,14 +516,19 @@ class ChannelMap:
         :return: found electrodes.
         """
         match electrode:
+            case int(electrode):
+                shank = 0
+                column, row = e2cr(self.probe_type, electrode)
+            case (int(shank), int(column), int(row)):
+                pass
+            case Electrode(shank=shank, column=column, row=row):
+                pass
             case electrode if all_int(electrode):
                 shank = 0
                 column, row = e2cr(self.probe_type, electrode)
             case (shank, electrode) if all_int(shank, electrode):
                 column, row = e2cr(self.probe_type, electrode)
             case (shank, column, row) if all_int(shank, column, row):
-                pass
-            case Electrode(shank=shank, column=column, row=row):
                 pass
             case _:
                 raise TypeError()
@@ -581,18 +587,18 @@ class ChannelMap:
         if not (0 <= row < probe_type.n_row_shank):
             raise ValueError(f'row value out of range : {row}')
 
-        e = self.get_electrode((shank, column, row))
-
-        if e is None:
-            c = int(self._channels[shank, column, row])
-            if (t := self._electrodes[c]) is not None:
+        c = int(self._channels[shank, column, row])
+        if (t := self._electrodes[c]) is not None:
+            if t.shank == shank and t.column == column and t.row == row:
+                if exist_ok:
+                    return t
+                else:
+                    raise ChannelHasUsedError(t)
+            else:
                 raise ChannelHasUsedError(t)
+        else:
             self._electrodes[c] = e = Electrode(shank, column, row, in_used)
             return e
-        elif exist_ok:
-            return e
-        else:
-            raise ChannelHasUsedError(e)
 
     @doc_link()
     def del_electrode(self, electrode: E) -> Electrode | None:
