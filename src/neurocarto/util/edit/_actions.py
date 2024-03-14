@@ -130,16 +130,6 @@ def load_blueprint(bp: BlueprintFunctions, filename: str):
     bp.set_blueprint(bp.probe.load_blueprint(filename, bp.channelmap))
 
 
-@use_probe()
-def enable_electrode_as_pre_selected(bp: BlueprintFunctions):
-    """
-    Set captured electrodes as *pre-selected* category.
-
-    :param bp:
-    """
-    bp.set_blueprint(bp.set(bp.blueprint(), bp.captured_electrodes(), bp.CATE_SET))
-
-
 @use_probe(NpxProbeDesp)
 def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *,
                         single_process=False,

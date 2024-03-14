@@ -35,7 +35,8 @@ class CartoUserConfig(TypedDict, total=False):
             "theme": "",
             "views": [],
             "history": false,
-            "overwrite_chmap_file": false
+            "overwrite_chmap_file": false,
+            "selected_as_pre_selected": false,
           }
         }
 
@@ -52,6 +53,12 @@ class CartoUserConfig(TypedDict, total=False):
 
     overwrite_chmap_file: bool
     """overwrite channelmap file by default. Default False"""
+
+    selected_as_pre_selected: bool
+    """
+    set selected electrode as pre-select category when constructing on blank (or only preselect category) blueprint. 
+    Default False.
+    """
 
 
 class CartoApp(BokehApplication):
@@ -713,14 +720,21 @@ class CartoApp(BokehApplication):
         else:
             self.logger.debug('on_category_change(%d)', category)
 
+        electrodes = None
+        trigger_fresh = True
+        if self.get_editor_userconfig().get('selected_as_pre_selected', False):
+            if len([it for it in self.probe_view.electrodes if it.category not in (ProbeDesp.CATE_UNSET, ProbeDesp.CATE_SET)]) == 0:
+                electrodes = self.probe_view.get_captured_electrodes_index(self.probe_view.data_electrodes[ProbeDesp.STATE_USED], reset=False)
+                trigger_fresh = False
+
         try:
-            self.probe_view.set_category_for_captured(category)
+            self.probe_view.set_category_for_captured(category, electrodes=electrodes)
         except BaseException as e:
             self.log_message(f'set category {desp} fail')
             self.logger.warning('set category %s fail', desp, exc_info=e)
             return
 
-        if self.auto_btn.active:
+        if self.auto_btn.active and trigger_fresh:
             self.on_refresh()
         else:
             self.on_probe_update()

@@ -275,7 +275,7 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
 
         :param d: one of {#data_electrodes}
         :param reset: reset the selecting state.
-        :return: index list of captured electrodes.
+        :return: index-list of captured electrodes.
         """
         if d is None:
             ret = list[int]()
