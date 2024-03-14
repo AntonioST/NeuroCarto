@@ -23,8 +23,16 @@ __all__ = ['CartoApp', 'main']
 
 class CartoUserConfig(TypedDict, total=False):
     theme: str | dict[str, Any] | None
+    """Bokeh theme. see https://docs.bokeh.org/en/latest/docs/reference/themes.html#theme """
+
     views: list[str]
+    """Extra {ViewBase} list"""
+
     history: bool
+    """Enable History. Default False"""
+
+    overwrite_chmap_file: bool
+    """overwrite channelmap file by default. Default False"""
 
 
 class CartoApp(BokehApplication):
@@ -59,6 +67,9 @@ class CartoApp(BokehApplication):
         # when user config has bad format, do not save current user config
         # to prevent from overwriting.
         self._not_save_user_config = False
+
+        app_config = self.get_editor_userconfig()
+        self._overwrite_channelmap_file = app_config.get('overwrite_chmap_file', False)
 
     @property
     def title(self) -> str:
@@ -332,7 +343,8 @@ class CartoApp(BokehApplication):
         self.logger.debug('index')
         self.load_user_config(reset=True)
 
-        if self.get_editor_userconfig().get('history', True):
+        self.record_manager = None
+        if self.get_editor_userconfig().get('history', False):
             self.record_manager = RecordManager(self, self.config)
 
         if (theme := self.get_editor_userconfig().get('theme', None)) is not None:
@@ -370,7 +382,8 @@ class CartoApp(BokehApplication):
         from neurocarto.views.utils import install_view
         self.probe_view = install_view(self, ProbeView(self.config, self.probe))
         probe_ui = self.probe_view.setup(self.probe_fig)
-        self.record_manager.register(self.probe_view)
+        if self.record_manager is not None:
+            self.record_manager.register(self.probe_view)
 
         from bokeh.layouts import row, column
         return row(
@@ -478,7 +491,7 @@ class CartoApp(BokehApplication):
         for view_type in self.install_right_panel_views(self.config):
             if (view := init_view(self.config, view_type)) is not None:
                 self.right_panel_views.append(install_view(self, view))
-                if isinstance(view, RecordView):
+                if self.record_manager is not None and isinstance(view, RecordView):
                     self.record_manager.register(view)
 
         uis = []
@@ -576,7 +589,7 @@ class CartoApp(BokehApplication):
             self.logger.warning(f'channelmap file not found : %s', file, exc_info=x)
             return
 
-        self.output_imro.value_input = file.stem.replace('.', '_')
+        self.output_imro.value_input = self._load_file_save_name(file)
 
         self.probe_view.reset(chmap)
         self.load_blueprint(file)
@@ -596,6 +609,19 @@ class CartoApp(BokehApplication):
                         self.log_message(type(view).__name__ + '::' + repr(e))
 
         self.on_probe_update()
+
+    def _load_file_save_name(self, file: Path) -> str:
+        name = file.stem.replace('.', '_')
+        if self._overwrite_channelmap_file:
+            return name
+
+        ext = self.probe.channelmap_file_suffix[0]
+
+        i = 0
+        while (ret := file.with_name(f'{name}_{i}{ext}')).exists():
+            i += 1
+
+        return ret.stem
 
     def reload_input_imro_list(self, preselect: str = None):
         if preselect is None:

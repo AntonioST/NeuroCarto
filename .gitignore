@@ -4,5 +4,5 @@ dist/
 *.egg-info/
 .mypy_cache/
 .coverage
-.neuracarto.*.json
+.neurocarto.*.json
 *.png
