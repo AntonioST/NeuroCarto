@@ -240,10 +240,8 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     # ================== #
 
     def extra_controls(self, config: CartoConfig):
-        from neurocarto.views.data_density import ElectrodeDensityDataView
-        from neurocarto.views.view_efficient import ElectrodeEfficiencyData
         from .views import NpxReferenceControl
-        return [NpxReferenceControl, ElectrodeDensityDataView, ElectrodeEfficiencyData]
+        return [NpxReferenceControl]
 
     def view_ext_electrode_density(self, chmap: ChannelMap) -> NDArray[np.float_]:
         """

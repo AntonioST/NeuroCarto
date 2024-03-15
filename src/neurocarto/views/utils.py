@@ -4,8 +4,9 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, cast, TypeVar
 
+from neurocarto.probe import ProbeDesp
 from neurocarto.util.utils import import_name, doc_link
-from .base import ViewBase, StateView, ControllerView, EditorView, GlobalStateView
+from .base import ViewBase, StateView, ControllerView, EditorView, GlobalStateView, ExtensionView
 
 if TYPE_CHECKING:
     from neurocarto.config import CartoConfig
@@ -14,6 +15,14 @@ if TYPE_CHECKING:
 __all__ = ['init_view']
 
 V = TypeVar('V', bound=ViewBase)
+
+SHORT_VIEW = {
+    'file': 'neurocarto.views.image:FileImageView',
+    'atlas': 'neurocarto.views.atlas:AtlasBrainView',
+    'blueprint': 'neurocarto.views.blueprint:BlueprintView',
+    'script': 'neurocarto.views.blueprint_script:BlueprintScriptView',
+    'history': 'neurocarto.views.record:HistoryView',
+}
 
 
 @doc_link(
@@ -25,13 +34,16 @@ V = TypeVar('V', bound=ViewBase)
     BlueprintScriptView='neurocarto.views.blueprint_script.BlueprintScriptView',
     HistoryView='neurocarto.views.record.HistoryView'
 )
-def init_view(config: CartoConfig, view_type) -> ViewBase | None:
+def init_view(config: CartoConfig, probe: ProbeDesp | None, view_type) -> ViewBase | None:
     """
 
     Recognised type:
 
     * ``None`` skip
     * {ViewBase} or it subtype
+
+      * It is a {ExtensionView}, also check the *probe* is supported or not.
+
     * {ImageHandler} or subtype, wrap with {ImageView}. If it is a type, then it should have a no-arg ``__init__``.
     * literal ``'file'`` for {FileImageView}
     * literal ``'atlas'`` for {AtlasBrainView}
@@ -42,6 +54,7 @@ def init_view(config: CartoConfig, view_type) -> ViewBase | None:
     * ``str`` in pattern: ``[PATH:]module.path:attribute`` in type listed above.
 
     :param config:
+    :param probe:
     :param view_type:
     :return:
     """
@@ -49,6 +62,9 @@ def init_view(config: CartoConfig, view_type) -> ViewBase | None:
 
     try:
         if isinstance(view_type, type) and issubclass(view_type, ViewBase):
+            if issubclass(view_type, ExtensionView) and probe is not None and not view_type.is_supported(probe):
+                return None
+
             return view_type(config)
 
         elif isinstance(view_type, ViewBase):
@@ -60,32 +76,15 @@ def init_view(config: CartoConfig, view_type) -> ViewBase | None:
         elif isinstance(view_type, ImageHandler):
             return ImageView(config, view_type)
 
-        elif view_type == 'file':
-            from .image import FileImageView
-            return FileImageView(config)
-
-        elif view_type == 'atlas':
-            from .atlas import AtlasBrainView
-            return AtlasBrainView(config)
-
-        elif view_type == 'blueprint':
-            from .blueprint import BlueprintView
-            return BlueprintView(config)
-
-        elif view_type == 'script':
-            from .blueprint_script import BlueprintScriptView
-            return BlueprintScriptView(config)
-
-        elif view_type == 'history':
-            from .record import HistoryView
-            return HistoryView(config)
+        elif isinstance(view_type, str) and view_type in SHORT_VIEW:
+            return import_view(config, probe, SHORT_VIEW[view_type])
 
         elif isinstance(view_type, str) and is_image(image_file := Path(view_type)):
             from neurocarto.views.image import ImageView, ImageHandler
             return ImageView(config, ImageHandler.from_file(image_file))
 
         elif isinstance(view_type, str):
-            return import_view(config, view_type)
+            return import_view(config, probe, view_type)
         else:
             raise RuntimeError(f'unknown view_type : {view_type}')
 
@@ -96,9 +95,9 @@ def init_view(config: CartoConfig, view_type) -> ViewBase | None:
     return None
 
 
-def import_view(config: CartoConfig, module_path: str) -> ViewBase | None:
+def import_view(config: CartoConfig, probe: ProbeDesp | None, module_path: str) -> ViewBase | None:
     logging.getLogger('neurocarto.view').debug('import %s', module_path)
-    return init_view(config, import_name('view base', module_path))
+    return init_view(config, probe, import_name('view base', module_path))
 
 
 @doc_link()

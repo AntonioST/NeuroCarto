@@ -515,7 +515,7 @@ class CartoApp(BokehApplication):
         self.right_panel_views = []
 
         for view_type in self.install_right_panel_views(self.config):
-            if (view := init_view(self.config, view_type)) is not None:
+            if (view := init_view(self.config, self.probe, view_type)) is not None:
                 self.right_panel_views.append(install_view(self, view))
                 if self.record_manager is not None and isinstance(view, RecordView):
                     self.record_manager.register(view)
@@ -536,7 +536,11 @@ class CartoApp(BokehApplication):
 
         ext = []
 
-        ext.extend(self.get_editor_userconfig().get('views', ['blueprint', 'atlas']))
+        ext.extend(self.get_editor_userconfig().get('views', [
+            'neurocarto.views.data_density:ElectrodeDensityDataView',
+            'neurocarto.views.view_efficient:ElectrodeEfficiencyData',
+            'blueprint', 'atlas'
+        ]))
         ext.extend(config.extra_view)
 
         if '-' in ext:

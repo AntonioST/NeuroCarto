@@ -33,7 +33,7 @@ __all__ = [
     'ViewBase', 'ControllerView',
     'StateView', 'GlobalStateView',
     'DynamicView', 'EditorView',
-    'InvisibleView',
+    'ExtensionView', 'InvisibleView',
     'RecordView', 'RecordStep',
     'BoundaryState',
     'BoundView',
@@ -194,6 +194,11 @@ V = TypeVar('V', bound=ViewBase)
 
 
 class ControllerView:
+    """
+    This view component is a controller view that it purpose to
+    control {CartoApp} or other {ViewBase}.
+    """
+
     @final
     @doc_link()
     def get_app(self) -> CartoApp:
@@ -222,6 +227,25 @@ class ControllerView:
         :return:
         """
         raise RuntimeError()
+
+
+@doc_link(
+    init_view='neurocarto.views.utils.init_view'
+)
+class ExtensionView:
+    """
+    This view component require some probe specific operations, and only provide its function
+    when the probe fit the requirements.
+
+    In general, it requires a {ProbeDesp} implement some functions or a Protocol class.
+    {init_view()} use {#is_supported()} to determine whether it needs to initialize this view or not.
+
+    """
+
+    @classmethod
+    def is_supported(cls, probe: ProbeDesp) -> bool:
+        """Check whether a *probe* fit the requirements."""
+        return False
 
 
 @doc_link()

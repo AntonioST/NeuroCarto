@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 
 from neurocarto.config import CartoConfig
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
+from neurocarto.views import ExtensionView
 from neurocarto.views.data import Data1DView
 
 if SPHINX_BUILD:
@@ -36,7 +37,7 @@ class ProbeElectrodeDensityFunctor(Protocol):
 
 
 @doc_link()
-class ElectrodeDensityDataView(Data1DView):
+class ElectrodeDensityDataView(Data1DView, ExtensionView):
     """
     Show electrode (selected) density curve beside the shank.
 
@@ -53,6 +54,10 @@ class ElectrodeDensityDataView(Data1DView):
     @property
     def description(self) -> str | None:
         return 'show electrode density curve along the shanks'
+
+    @classmethod
+    def is_supported(cls, probe: ProbeDesp) -> bool:
+        return isinstance(probe, ProbeElectrodeDensityFunctor)
 
     def data(self):
         if (chmap := self.channelmap) is not None and isinstance((functor := self.probe), ProbeElectrodeDensityFunctor):

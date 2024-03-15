@@ -6,7 +6,7 @@ from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import doc_link
-from neurocarto.views.base import ViewBase, DynamicView, InvisibleView
+from neurocarto.views.base import ViewBase, DynamicView, InvisibleView, ExtensionView
 
 __all__ = ['ElectrodeEfficiencyData', 'ProbeElectrodeEfficiencyFunctor']
 
@@ -28,7 +28,7 @@ class ProbeElectrodeEfficiencyFunctor(Protocol):
         pass
 
 
-class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
+class ElectrodeEfficiencyData(ViewBase, ExtensionView, InvisibleView, DynamicView):
     """Display a channel map statistics table."""
 
     def __init__(self, config: CartoConfig):
@@ -41,6 +41,10 @@ class ElectrodeEfficiencyData(ViewBase, InvisibleView, DynamicView):
     @property
     def description(self) -> str | None:
         return "statistics on channelmap and blueprint"
+
+    @classmethod
+    def is_supported(cls, probe: ProbeDesp) -> bool:
+        return isinstance(probe, ProbeElectrodeEfficiencyFunctor)
 
     label_columns_div: Div
     value_columns_div: Div
