@@ -33,7 +33,7 @@ elif SPHINX_BUILD:
     NpxProbeDesp = 'neurocarto.probe_npx.desp.NpxProbeDesp'
     AtlasBrainView = 'neurocarto.views.atlas.AtlasBrainView'
     BlueprintScriptView = 'neurocarto.views.blueprint_script.BlueprintScriptView'
-    ProbePlotElectrodeFunctor = 'neurocarto.views.blueprint_script.ProbePlotElectrodeFunctor'
+    ProbePlotElectrodeProtocol = 'neurocarto.views.blueprint_script.ProbePlotElectrodeProtocol'
 
     ELECTRODES = list[E]
 
@@ -1378,7 +1378,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param color: color of selected electrodes, where color is used by matplotlib.
         :param ax: matplotlib.Axes
         :param kwargs:
-        :raise TypeError: Probe not a {ProbePlotElectrodeFunctor}
+        :raise TypeError: Probe not a {ProbePlotElectrodeProtocol}
         """
         from .edit.plot import plot_blueprint
 
@@ -1404,7 +1404,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param colors: categories color {category: color}, where color is used by matplotlib.
         :param ax: matplotlib.Axes
         :param kwargs:
-        :raise TypeError: Probe not a {ProbePlotElectrodeFunctor}
+        :raise TypeError: Probe not a {ProbePlotElectrodeProtocol}
         """
         from .edit.plot import plot_blueprint
         if blueprint is None:

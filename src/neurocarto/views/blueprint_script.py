@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 __all__ = [
     'BlueprintScriptView',
     'BlueprintScriptState',
-    'ProbePlotElectrodeFunctor'
+    'ProbePlotElectrodeProtocol'
 ]
 
 
@@ -55,7 +55,7 @@ class BlueprintScriptAction(TypedDict, total=False):
 
 @doc_link()
 @runtime_checkable
-class ProbePlotElectrodeFunctor(Protocol):
+class ProbePlotElectrodeProtocol(Protocol):
     """
     {ProbeDesp} extension protocol for plotting electrode data beside probe.
     """
@@ -90,7 +90,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     """
     Blueprint script manager view.
 
-    Check whether the {ProbeDesp} implement protocol {ProbePlotElectrodeFunctor}.
+    Check whether the {ProbeDesp} implement protocol {ProbePlotElectrodeProtocol}.
     """
 
     BUILTIN_ACTIONS: ClassVar[dict[str, str]] = {
@@ -273,7 +273,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         if update_select:
             self.update_actions_select()
 
-        if isinstance(probe, ProbePlotElectrodeFunctor) or hasattr(probe, 'view_ext_blueprint_plot_electrode'):
+        if isinstance(probe, ProbePlotElectrodeProtocol) or hasattr(probe, 'view_ext_blueprint_plot_electrode'):
             if (value := self.cache_data) is not None:
                 try:
                     with self.plot_figure(gridspec_kw=dict(top=0.99, bottom=0.01, left=0, right=1), offset=-50) as ax:

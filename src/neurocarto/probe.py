@@ -137,9 +137,9 @@ M = TypeVar('M')  # channelmap
 
 
 @doc_link(
-    ProbeElectrodeDensityFunctor='neurocarto.views.data_density.ProbeElectrodeDensityFunctor',
-    ProbePlotBlueprintFunctor='neurocarto.views.blueprint.ProbePlotBlueprintFunctor',
-    ProbePlotElectrodeFunctor='neurocarto.views.blueprint_script.ProbePlotElectrodeFunctor',
+    ProbeElectrodeDensityProtocol='neurocarto.views.data_density.ProbeElectrodeDensityProtocol',
+    ProbePlotBlueprintProtocol='neurocarto.views.blueprint.ProbePlotBlueprintProtocol',
+    ProbePlotElectrodeProtocol='neurocarto.views.blueprint_script.ProbePlotElectrodeProtocol',
 )
 class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     """A probe interface for GUI interaction between different probe implementations.
@@ -147,9 +147,9 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     Some GUI view components may require specific operations, and they are defined in a Protocol.
     There are:
 
-    * {ProbeElectrodeDensityFunctor} for providing density curves.
-    * {ProbePlotBlueprintFunctor} for plotting blueprint category zones.
-    * {ProbePlotElectrodeFunctor} for plotting electrode data.
+    * {ProbeElectrodeDensityProtocol} for providing density curves.
+    * {ProbePlotBlueprintProtocol} for plotting blueprint category zones.
+    * {ProbePlotElectrodeProtocol} for plotting electrode data.
 
     :param M: channelmap, any class
     :param E: electrode, subclass of {ElectrodeDesp}
@@ -192,7 +192,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         pass
 
     @doc_link()
-    def channelmap_description(self, code: int | None) -> str | None:
+    def type_description(self, code: int | None) -> str | None:
         """
         Get the description for given channelmap **code**.
 

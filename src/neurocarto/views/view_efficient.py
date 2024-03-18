@@ -8,12 +8,12 @@ from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import doc_link
 from neurocarto.views.base import ViewBase, DynamicView, InvisibleView, ExtensionView
 
-__all__ = ['ElectrodeEfficiencyData', 'ProbeElectrodeEfficiencyFunctor']
+__all__ = ['ElectrodeEfficiencyData', 'ProbeElectrodeEfficiencyProtocol']
 
 
 @doc_link()
 @runtime_checkable
-class ProbeElectrodeEfficiencyFunctor(Protocol):
+class ProbeElectrodeEfficiencyProtocol(Protocol):
     """
     {ProbeDesp} extension protocol for calculate some statistic values.
     """
@@ -44,7 +44,7 @@ class ElectrodeEfficiencyData(ViewBase, ExtensionView, InvisibleView, DynamicVie
 
     @classmethod
     def is_supported(cls, probe: ProbeDesp) -> bool:
-        return isinstance(probe, ProbeElectrodeEfficiencyFunctor)
+        return isinstance(probe, ProbeElectrodeEfficiencyProtocol)
 
     label_columns_div: Div
     value_columns_div: Div
@@ -63,7 +63,7 @@ class ElectrodeEfficiencyData(ViewBase, ExtensionView, InvisibleView, DynamicVie
         )
 
     def on_probe_update(self, probe: ProbeDesp, chmap, electrodes):
-        if chmap is not None and isinstance(probe, ProbeElectrodeEfficiencyFunctor):
+        if chmap is not None and isinstance(probe, ProbeElectrodeEfficiencyProtocol):
             # self.logger.debug('on_probe_update()')
             bp = BlueprintFunctions(probe, chmap)
             bp.set_blueprint(electrodes)

@@ -9,6 +9,9 @@ dist/
 # application conflications
 .neurocarto.*.json
 
+# tests output
+res/*.png
+
 # mypy cache
 .mypy_cache/
 

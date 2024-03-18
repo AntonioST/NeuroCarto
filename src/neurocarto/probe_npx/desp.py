@@ -17,9 +17,9 @@ if TYPE_CHECKING:
     from neurocarto.util.util_blueprint import BlueprintFunctions
     from neurocarto.views.blueprint import ProbePlotBlueprintCallback
 elif SPHINX_BUILD:
-    ProbeElectrodeDensityFunctor = 'neurocarto.views.data_density.ProbeElectrodeDensityFunctor'
-    ProbePlotBlueprintFunctor = 'neurocarto.views.blueprint.ProbePlotBlueprintFunctor'
-    ProbePlotElectrodeFunctor = 'neurocarto.views.blueprint_script.ProbePlotElectrodeFunctor'
+    ProbeElectrodeDensityProtocol = 'neurocarto.views.data_density.ProbeElectrodeDensityProtocol'
+    ProbePlotBlueprintProtocol = 'neurocarto.views.blueprint.ProbePlotBlueprintProtocol'
+    ProbePlotElectrodeProtocol = 'neurocarto.views.blueprint_script.ProbePlotElectrodeProtocol'
 
 __all__ = ['NpxProbeDesp', 'NpxElectrodeDesp']
 
@@ -249,7 +249,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
         :param chmap:
         :return: Array[float, [S,], (v, y), Y] density array
-        :see: {ProbeElectrodeDensityFunctor}
+        :see: {ProbeElectrodeDensityProtocol}
         """
         from .stat import npx_electrode_density
         return npx_electrode_density(chmap)
@@ -280,7 +280,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
         :param callback:
         :param chmap:
-        :see: {ProbePlotBlueprintFunctor}
+        :see: {ProbePlotBlueprintProtocol}
         """
         probe_type: ProbeType = chmap.probe_type
         c_space = probe_type.c_space
@@ -339,7 +339,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         :param shank_width_scale:
         :param label_axis:
         :param kwargs:
-        :see: {ProbePlotElectrodeFunctor}, {plot_category_area()}, {plot_probe_shape()}
+        :see: {ProbePlotElectrodeProtocol}, {plot_category_area()}, {plot_probe_shape()}
         """
         from .plot import plot_probe_shape, plot_category_area
 
@@ -374,7 +374,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         :param shank_width_scale:
         :param label_axis:
         :param kwargs:
-        :see: {ProbePlotElectrodeFunctor}, {plot_electrode_block()}, {plot_probe_shape()}
+        :see: {ProbePlotElectrodeProtocol}, {plot_electrode_block()}, {plot_probe_shape()}
         """
         from .plot import plot_electrode_block, plot_probe_shape, electrode_coordinate
         probe_type = chmap.probe_type

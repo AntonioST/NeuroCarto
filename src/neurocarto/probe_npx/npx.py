@@ -407,7 +407,7 @@ class ChannelMap:
     # ================= #
 
     def __len__(self) -> int:
-        """number of channels (C)"""
+        """number of channels"""
         return _channelmap_len_(self._electrodes)
 
     @property
@@ -463,34 +463,34 @@ class ChannelMap:
     # =================== #
 
     @property
-    def channel_shank(self) -> NDArray[np.int_]:
+    def channel_shank(self) -> NDArray[np.float_]:
         """
 
-        :return: Array[shank, C]
+        :return: Array[shank:int|NaN, C]
         """
-        return np.array([it.shank for it in self.electrodes])
+        return np.array([it.shank if it is not None else np.nan for it in self.channels], dtype=float)
 
     @property
-    def channel_pos_x(self) -> NDArray[np.int_]:
+    def channel_pos_x(self) -> NDArray[np.float_]:
         """
 
-        :return: Array[um, C]
+        :return: Array[um:float, C]
         """
         return channel_coordinate(self, electrode_unit='xy')[:, 0]
 
     @property
-    def channel_pos_y(self) -> NDArray[np.int_]:
+    def channel_pos_y(self) -> NDArray[np.float_]:
         """
 
-        :return: Array[um, C]
+        :return: Array[um:float, C]
         """
         return channel_coordinate(self, electrode_unit='xy')[:, 1]
 
     @property
-    def channel_pos(self) -> NDArray[np.int_]:
+    def channel_pos(self) -> NDArray[np.float_]:
         """
 
-        :return: Array[um, C, 2]
+        :return: Array[um:float, C, 2]
         """
         return channel_coordinate(self, electrode_unit='xy')
 
@@ -810,14 +810,14 @@ class Electrodes(Sized, Iterable[Electrode]):
 
 def channel_coordinate(shank_map: ChannelMap,
                        electrode_unit: ELECTRODE_UNIT = 'cr',
-                       include_unused=False) -> NDArray[np.int_]:
+                       include_unused=False) -> NDArray[np.float_]:
     """
     Get coordinate of all channels.
 
     :param shank_map:
     :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
     :param include_unused: including disconnected channels
-    :return: Array[um:int, E, (S, C, R)|(X, Y)]
+    :return: Array[um:float, E, (S, C, R)|(X, Y)]. NaN if electrode is missing.
     """
     if electrode_unit not in ('cr', 'xy'):
         raise ValueError(f'unsupported electrode unit : {electrode_unit}')
@@ -828,11 +828,15 @@ def channel_coordinate(shank_map: ChannelMap,
     r = []
     c = []
 
-    for i, e in enumerate(shank_map.electrodes):
-        if include_unused or e.in_used:
+    for e in shank_map.channels:
+        if e is not None and (include_unused or e.in_used):
             s.append(e.shank)
             c.append(e.column)
             r.append(e.row)
+        else:
+            s.append(np.nan)
+            c.append(np.nan)
+            r.append(np.nan)
 
     if electrode_unit == 'cr':
         return np.vstack([s, c, r]).T

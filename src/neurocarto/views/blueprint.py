@@ -17,7 +17,7 @@ if SPHINX_BUILD:
 
 __all__ = [
     'BlueprintView',
-    'ProbePlotBlueprintFunctor',
+    'ProbePlotBlueprintProtocol',
     'ProbePlotBlueprintCallback'
 ]
 
@@ -71,7 +71,7 @@ class ProbePlotBlueprintCallback(Protocol):
 
 @doc_link()
 @runtime_checkable
-class ProbePlotBlueprintFunctor(Protocol):
+class ProbePlotBlueprintProtocol(Protocol):
     """
     {ProbeDesp} extension protocol for plotting blueprint beside probe.
     """
@@ -89,7 +89,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
     """
     Show blueprint beside.
 
-    Check whether the {ProbeDesp} implement protocol {ProbePlotBlueprintFunctor}.
+    Check whether the {ProbeDesp} implement protocol {ProbePlotBlueprintProtocol}.
     """
 
     data_blueprint: ColumnDataSource
@@ -198,8 +198,8 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             bp.set_blueprint(self.cache_blueprint)
             impl = ProbePlotBlueprintCallbackImpl(self, bp, options)
 
-            functor: ProbePlotBlueprintFunctor
-            if isinstance((functor := self.cache_probe), ProbePlotBlueprintFunctor):
+            functor: ProbePlotBlueprintProtocol
+            if isinstance((functor := self.cache_probe), ProbePlotBlueprintProtocol):
                 functor.view_ext_plot_blueprint(impl, chmap)
             else:
                 impl.set_category_legend({

@@ -596,13 +596,19 @@ def plot_channelmap_block(ax: Axes,
     """
 
     probe = chmap.probe_type
-    if selection in ('channel', 'used', 'disconnected'):
+    if selection == 'channel':
         electrode = channel_coordinate(chmap, 'cr', include_unused=True)
-        u = np.array([it.in_used for it in chmap.electrodes], dtype=bool)
-        if selection == 'disconnected':
-            electrode = electrode[~u]
-        else:
-            electrode = electrode[u]
+        u = np.isnan(electrode[:, 0])
+        electrode = electrode[~u]
+    elif selection == 'used':
+        electrode = channel_coordinate(chmap, 'cr', include_unused=False)
+        u = np.isnan(electrode[:, 0])
+        electrode = electrode[~u]
+    elif selection == 'disconnected':
+        electrode = np.array([
+            (it.shank, it.column, it.row) for it in chmap.electrodes
+            if it is not None and not it.in_used
+        ])
 
     elif selection in ('electrode', 'unused'):
         electrode = electrode_coordinate(probe, 'cr')

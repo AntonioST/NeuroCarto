@@ -15,13 +15,13 @@ if SPHINX_BUILD:
 
 __all__ = [
     'ElectrodeDensityDataView',
-    'ProbeElectrodeDensityFunctor'
+    'ProbeElectrodeDensityProtocol'
 ]
 
 
 @doc_link()
 @runtime_checkable
-class ProbeElectrodeDensityFunctor(Protocol):
+class ProbeElectrodeDensityProtocol(Protocol):
     """
     {ProbeDesp} extension protocol for calculate electrode density distribution curve.
     """
@@ -41,7 +41,7 @@ class ElectrodeDensityDataView(Data1DView, ExtensionView):
     """
     Show electrode (selected) density curve beside the shank.
 
-    Check whether the {ProbeDesp} implement protocol {ProbeElectrodeDensityFunctor}.
+    Check whether the {ProbeDesp} implement protocol {ProbeElectrodeDensityProtocol}.
     """
 
     def __init__(self, config: CartoConfig):
@@ -57,10 +57,10 @@ class ElectrodeDensityDataView(Data1DView, ExtensionView):
 
     @classmethod
     def is_supported(cls, probe: ProbeDesp) -> bool:
-        return isinstance(probe, ProbeElectrodeDensityFunctor)
+        return isinstance(probe, ProbeElectrodeDensityProtocol)
 
     def data(self):
-        if (chmap := self.channelmap) is not None and isinstance((functor := self.probe), ProbeElectrodeDensityFunctor):
+        if (chmap := self.channelmap) is not None and isinstance((functor := self.probe), ProbeElectrodeDensityProtocol):
             try:
                 return self.arr_to_dict(self.transform(functor.view_ext_electrode_density(chmap), vmax=1))
             except RuntimeError as e:

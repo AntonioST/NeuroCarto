@@ -173,7 +173,7 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
         if (code := self.probe.channelmap_code(self.channelmap)) is None:
             raise RuntimeError('un-reachable')
 
-        desp = f'create new {self.probe.channelmap_description(code)}'
+        desp = f'create new {self.probe.type_description(code)}'
         self.add_record(ProbeViewAction(action='reset', code=code), 'reset', desp)
 
     def _reset_electrode_state(self):
