@@ -23,7 +23,7 @@ __all__ = [
 
 
 @doc_link()
-class ProbePlotBlueprintCallback(Protocol):
+class ProbePlotBlueprintCallback:
     """
     An interface to control {BlueprintView}.
     """

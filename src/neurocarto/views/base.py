@@ -105,18 +105,32 @@ class ViewBase(metaclass=abc.ABCMeta):
         return ret
 
     def _setup_render(self, f: Figure, **kwargs):
+        """
+        Setup renders in the center figure.
+
+        :param f: the center figure
+        :param kwargs: custom parameters for subclass.
+        """
         pass
 
+    @doc_link()
     def _setup_title(self, **kwargs) -> list[UIElement]:
         """
+        Setup title row.
 
         components in title::
 
             visible_btn?, view_title, help?, status_div
 
-        :param component:
-        :param kwargs:
-        :return:
+        where
+
+        * visible_btn: a visible switch, shown when self is a {InvisibleView}.
+        * view_title: title
+        * help: help button, shown when {#description} is not ``None``
+        * status_div: status message, used by {#set_status()}.
+
+        :param kwargs: custom parameters for subclass.
+        :return: list of components, which placed in a row.
         """
         ret = []
         if isinstance(self, InvisibleView):
@@ -137,6 +151,12 @@ class ViewBase(metaclass=abc.ABCMeta):
         return ret
 
     def _setup_content(self, **kwargs) -> UIElement | list[UIElement] | None:
+        """
+        setup content row.
+
+        :param kwargs: custom parameters for subclass.
+        :return: a layout, or list of components which will placed in a column. ``None`` for empty content.
+        """
         return None
 
     # ================ #
@@ -155,6 +175,7 @@ class ViewBase(metaclass=abc.ABCMeta):
 
     def set_status(self, text: str | None, *, decay: float = None):
         """
+        Set status message, which is shown right beside the help button in the title row.
 
         :param text: message
         :param decay: after give seconds, clear the message.
@@ -178,7 +199,7 @@ class ViewBase(metaclass=abc.ABCMeta):
     @doc_link()
     def log_message(self, *message: str, reset=False):
         """
-        log message in {CartoApp}.
+        log messages in {CartoApp}.
 
         Implement note:
            do not overwrite this function, because this method will be
@@ -307,7 +328,7 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
     """
     This view component has something states can be saved and restored.
 
-    :param S: stored information. type should be json-serialize.
+    :param S: stored information. It should be json-serializable. We usually use a TypedDict.
     """
 
     @abc.abstractmethod
@@ -315,7 +336,7 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
         """
         Save current state into S.
 
-        :return: json-serialize instance.
+        :return: json-serializable instance.
         """
         pass
 
@@ -324,7 +345,7 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
         """
         Restore state from *state*.
 
-        :param state: json-deserialize instance.
+        :param state: json-deserializable instance.
         """
         pass
 
@@ -339,7 +360,7 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
         Save current state into S.
 
         :param local: Is this state saved into local config?
-        :return: json-serialize instance.
+        :return: json-serializable instance.
         """
         pass
 
@@ -415,17 +436,23 @@ class EditorView(DynamicView):
 R = TypeVar('R')
 
 
-class RecordStep(NamedTuple):  # Generic[R]
+# class RecordStep[R](NamedTuple): # python >= 3.11
+class RecordStep(NamedTuple):
+
     source: str
     """(class) name of the source RecordView"""
+
     time_stamp: float
     """action time stamp in unix time"""
+
     category: str
     """action category"""
+
     description: str
     """action description"""
+
     record: R
-    """json-serialize"""
+    """json-serializable"""
 
     def __str__(self):
         return f'RecordStep({self.source})[{self.category}]{{{self.description}}}'
@@ -450,6 +477,8 @@ class RecordStep(NamedTuple):  # Generic[R]
 class RecordView(Generic[R], metaclass=abc.ABCMeta):
     """
     This view can record each manipulating steps and also can replay them,
+
+    :param R: RecordedAction. It should be json-serializable. We usually use a TypedDict.
     """
 
     @final
@@ -462,7 +491,7 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
             do not overwrite this function, because this method will be
             replaced by {RecordManager}.
 
-        :param record: stored step. type should be json-serialize.
+        :param record: stored step. type should be json-serializable.
         :param category: step category
         :param description: step description
         """
@@ -499,11 +528,21 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
 
 class BoundaryState(TypedDict):
     """Boundary parameters"""
-    dx: float  # x moving
-    dy: float  # y moving
-    sx: float  # x scaling
-    sy: float  # y scaling
-    rt: float  # rotating (degree)
+
+    dx: float
+    """x moving"""
+
+    dy: float
+    """y moving"""
+
+    sx: float
+    """x scaling"""
+
+    sy: float
+    """y scaling"""
+
+    rt: float
+    """rotating (degree)"""
 
 
 class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
