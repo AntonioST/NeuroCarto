@@ -98,26 +98,25 @@ testing library versions
 ::
 
     # environment
-    pip                       23.1.2          py310h06a4308_0
-    python                    3.10.13              h955ad1f_0
+    pip                            23.3.1                        pypi_0     pypi
+    python                         3.10.13                   h955ad1f_0         
     # required
-    bokeh                     3.3.2                    pypi_0    pypi
-    matplotlib                3.7.1           py310h06a4308_1
-    numpy                     1.24.3          py310h5f9d8c6_1
-    scipy                     1.10.1          py310h5f9d8c6_1
-    typing_extensions         4.6.3           py310h06a4308_0
+    bokeh                          3.3.2                         pypi_0     pypi
+    matplotlib                     3.7.1                py310h06a4308_1         
+    numpy                          1.22.3               py310h4f1e569_0         
+    scipy                          1.7.3                py310hac523dd_2         
+    typing_extensions              4.6.3                py310h06a4308_0         
     # optional
-    bg-atlasapi               1.0.2                    pypi_0    pypi
-    pillow                    9.4.0           py310h6a678d5_0
-    pandas                    1.5.3           py310h1128e8f_0
-    polars                    0.18.2                   pypi_0    pypi
-    probeinterface            0.2.20                   pypi_0    pypi
-    tifffile                  2023.12.9                pypi_0    pypi
+    bg-atlasapi                    1.0.2                         pypi_0     pypi
+    pillow                         9.4.0                py310h6a678d5_0         
+    pandas                         1.5.3                py310h1128e8f_0         
+    polars                         0.18.2                        pypi_0     pypi
+    probeinterface                 0.2.21                        pypi_0     pypi
+    tifffile                       2023.12.9                     pypi_0     pypi
     # document
-    jupyter                   1.0.0           py310h06a4308_8
-    jupyter-contrib-nbextensions 0.7.0                 pypi_0    pypi
-    nbsphinx                  0.9.3                    pypi_0    pypi
-    sphinx                    7.2.6                    pypi_0    pypi
-    sphinx-markdown-builder   0.6.6                    pypi_0    pypi
-    sphinx-rtd-theme          2.0.0                    pypi_0    pypi
-
+    jupyter                        1.0.0                         pypi_0     pypi
+    jupyter-contrib-nbextensions   0.7.0                         pypi_0     pypi
+    nbsphinx                       0.9.3                         pypi_0     pypi
+    sphinx                         7.2.6                         pypi_0     pypi
+    sphinx-markdown-builder        0.6.6                         pypi_0     pypi
+    sphinx-rtd-theme               2.0.0                         pypi_0     pypi
