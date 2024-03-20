@@ -134,7 +134,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
 
     def _setup_content(self, **kwargs):
         self.category_legend_div = Div(
-            text="",
+            text="", visible=False,
             stylesheets=["""
                 div.carto-blueprint-legend {
                     display: flex;
@@ -163,6 +163,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             ],
             '</div>'
         ])
+        self.category_legend_div.visible = len(self.category_legend_div.text) > 0
 
     # ======== #
     # updating #

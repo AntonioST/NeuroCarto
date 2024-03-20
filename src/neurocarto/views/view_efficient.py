@@ -52,14 +52,20 @@ class ElectrodeEfficiencyData(ViewBase, ExtensionView, InvisibleView, DynamicVie
     def _setup_content(self, **kwargs) -> UIElement:
         from bokeh.layouts import row, column
 
-        self.label_columns_div = Div(text='')
-        self.value_columns_div = Div(text='')
+        self.label_columns_div = Div(text='', visible=False)
+        self.value_columns_div = Div(text='', visible=False)
 
         return row(
             # margin 5 is default
-            column(self.label_columns_div, margin=(5, 5, 5, 5)),
-            column(self.value_columns_div, margin=(5, 5, 5, 20)),
-            margin=(5, 5, 5, 40)
+            column(self.label_columns_div, css_classes=['carto-efficient']),
+            column(self.value_columns_div, css_classes=['carto-efficient']),
+            stylesheets=["""
+            div.carto-efficient {
+                margin-left: 40px;
+                margin-top: 0px;
+                margin-bottom: 0px;
+            }
+            """]
         )
 
     def on_probe_update(self, probe: ProbeDesp, chmap, electrodes):
@@ -85,3 +91,6 @@ class ElectrodeEfficiencyData(ViewBase, ExtensionView, InvisibleView, DynamicVie
         else:
             self.label_columns_div.text = ''
             self.value_columns_div.text = ''
+
+        self.label_columns_div.visible = len(self.label_columns_div.text) > 0
+        self.value_columns_div.visible = len(self.value_columns_div.text) > 0
