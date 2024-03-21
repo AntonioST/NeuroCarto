@@ -56,7 +56,7 @@ class CartoUserConfig(TypedDict, total=False):
 
     selected_as_pre_selected: bool
     """
-    set selected electrode as pre-select category when constructing on blank (or only preselect category) blueprint. 
+    set selected electrode as pre-select category when constructing on blank (or only preselect category) blueprint.
     Default False.
     """
 
@@ -94,6 +94,7 @@ class CartoApp(BokehApplication):
         # to prevent from overwriting.
         self._not_save_user_config = False
 
+        self.load_user_config()
         app_config = self.get_editor_userconfig()
         self._overwrite_channelmap_file = app_config.get('overwrite_chmap_file', False)
 
@@ -373,12 +374,6 @@ class CartoApp(BokehApplication):
         if self.get_editor_userconfig().get('history', False):
             self.record_manager = RecordManager(self, self.config)
 
-        if (theme := self.get_editor_userconfig().get('theme', None)) is not None:
-            try:
-                self._set_theme(theme)
-            except BaseException as e:
-                self.logger.warning('set theme', exc_info=e)
-
         # log area goes first
         self.message_area = TextAreaInput(
             rows=10, cols=100, width=290,
@@ -420,8 +415,9 @@ class CartoApp(BokehApplication):
 
     def _set_theme(self, theme: str | Path | dict[str, Any]):
         """
-
         Json Theme: https://docs.bokeh.org/en/latest/docs/reference/themes.html#theme
+
+        Note: curdoc() work after index()
 
         :param theme:
         :return:
@@ -551,6 +547,13 @@ class CartoApp(BokehApplication):
 
     def start(self):
         self.logger.debug('start')
+
+        if (theme := self.get_editor_userconfig().get('theme', None)) is not None:
+            try:
+                self._set_theme(theme)
+            except BaseException as e:
+                self.logger.warning('set theme', exc_info=e)
+
         self.reload_input_imro_list()
 
         self.probe_view.start()
