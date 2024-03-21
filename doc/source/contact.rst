@@ -9,6 +9,8 @@ Authors
 Contributors
 ------------
 
+* Yu-Ting Wei (ytsimon2004@gmail.com)
+
 Bug and Issue Reports
 ---------------------
 
