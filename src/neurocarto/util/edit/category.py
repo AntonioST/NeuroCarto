@@ -1,14 +1,17 @@
+from typing import Sequence
+
 import numpy as np
 from numpy.typing import NDArray
 
+from neurocarto.probe import M, E
 from neurocarto.util.util_blueprint import BlueprintFunctions
 
-__all__ = ['mask', 'invalid']
+__all__ = ['category_mask', 'invalid', 'merge_blueprint']
 
 
-def mask(self: BlueprintFunctions,
-         blueprint: NDArray[np.int_],
-         categories: int | list[int] = None) -> NDArray[np.bool_]:
+def category_mask(self: BlueprintFunctions,
+                  blueprint: NDArray[np.int_],
+                  categories: int | list[int] = None) -> NDArray[np.bool_]:
     if categories is None:
         categories = list(self.categories.values())
         try:
@@ -62,3 +65,48 @@ def invalid(self: BlueprintFunctions,
             ret[invalid_mask & ~protected] = value
 
         return ret
+
+
+def apply_electrode_mask(self: BlueprintFunctions,
+                         masking: NDArray[np.bool_],
+                         electrodes: int | Sequence[E] | NDArray[np.bool_] | NDArray[np.int_] | M = None) -> NDArray[np.bool_]:
+    if electrodes is None:
+        pass
+    elif isinstance(electrodes, (int, np.integer)):
+        keep = masking[electrodes]
+        masking[:] = False
+        masking[electrodes] = keep
+    else:
+        if isinstance(electrodes, type(self.channelmap)):
+            electrodes = self.selected_electrodes(electrodes)
+
+        if isinstance(electrodes, list):
+            self.index_blueprint(electrodes)
+
+        if not isinstance(electrodes, np.ndarray):
+            raise TypeError()
+        elif electrodes.dtype == np.bool_:
+            masking = masking & electrodes
+        else:
+            keep = masking[electrodes]
+            masking[:] = False
+            masking[electrodes] = keep
+
+    return masking
+
+
+def merge_blueprint(self: BlueprintFunctions,
+                    blueprint: NDArray[np.int_],
+                    other: NDArray[np.int_] | BlueprintFunctions) -> NDArray[np.int_]:
+    if isinstance(other, BlueprintFunctions):
+        if (other := other.blueprint()) is None:
+            raise TypeError()
+
+    n = len(self.s)
+    if len(other) != n:
+        raise ValueError()
+
+    if len(blueprint) != n:
+        raise ValueError()
+
+    return np.where(blueprint != self.CATE_UNSET, blueprint, other)

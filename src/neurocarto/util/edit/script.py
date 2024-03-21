@@ -56,7 +56,10 @@ class BlueprintScript(Protocol):
     """A protocol class  to represent a blueprint script function."""
     __name__: str
 
-    @doc_link(use_probe='neurocarto.util.edit.checking.use_probe')
+    @doc_link(
+        use_probe='neurocarto.util.edit.checking.use_probe',
+        use_view='neurocarto.util.edit.checking.use_view',
+    )
     def __call__(self, bp: BlueprintFunctions, *args, **kwargs) -> None:
         """
         **Command structure**
@@ -70,7 +73,11 @@ class BlueprintScript(Protocol):
 
         **Available decorators**
 
-        {use_probe()}
+        .. hlist::
+            :columns: 2
+
+            * {use_probe()}
+            * {use_view()}
 
         **Generator script**
 
@@ -122,6 +129,10 @@ class BlueprintScript(Protocol):
             {EXAMPLE_DOCUMENT_HTML}
             </div></div>
 
+        Note that we do not fetch the typing information and default value via reflection.
+        (only parameters' name. Others would happen in the future, probability)
+        The creator has to manually type those information in the document.
+
         :param bp: script running context.
         :param args:
         :param kwargs:
@@ -129,15 +140,34 @@ class BlueprintScript(Protocol):
         pass
 
 
+@doc_link()
 class BlueprintScriptInfo(NamedTuple):
+    """{BlueprintScript} holder"""
+
     name: str
-    module: str | None  # 'MODUlE:NAME'
+    """script name."""
+
+    module: str | None
+    """script module path expression in 'MODUlE:NAME'"""
+
     filepath: Path | None
+    """actual module file path"""
+
     time_stamp: float | None
+    """module file last modified time."""
+
     script: BlueprintScript
+    """script instance."""
 
     @classmethod
     def load(cls, name: str, module_path: str) -> Self:
+        """
+        Load a blueprint script.
+
+        :param name: script name.
+        :param module_path: script module path.
+        :return:
+        """
         script = cast(BlueprintScript, import_name('blueprint script', module_path))
         if not callable(script):
             raise ImportError(f'script {name} not callable')
@@ -147,6 +177,11 @@ class BlueprintScriptInfo(NamedTuple):
         return BlueprintScriptInfo(name, module_path, script_file, time_stamp, script)  # type: ignore[return-value]
 
     def check_changed(self) -> bool:
+        """
+        Does the script's source module file has modified?
+
+        :return: True when it has modified at this moment.
+        """
         if self.filepath is None or self.time_stamp is None:
             return False
         if not self.filepath.exists():
@@ -155,6 +190,11 @@ class BlueprintScriptInfo(NamedTuple):
         return self.time_stamp < t
 
     def reload(self) -> Self:
+        """
+        Reload script from file.
+
+        :return:
+        """
         if self.module is None:
             raise ImportError()
 
@@ -166,14 +206,25 @@ class BlueprintScriptInfo(NamedTuple):
         time_stamp = None if script_file is None or not script_file.exists() else script_file.stat().st_mtime
         return self._replace(time_stamp=time_stamp, script=script)
 
-    def script_name(self) -> str:
-        return self.script.__name__
-
+    @doc_link(use_probe='neurocarto.util.edit.checking.use_probe')
     def script_use_probe(self) -> RequestChannelmapType | None:
+        """
+        Get probe requirement.
+
+        :return:
+        :see: {use_probe()}
+        """
         from neurocarto.util.edit.checking import get_use_probe
         return get_use_probe(self.script)
 
+    @doc_link(use_view='neurocarto.util.edit.checking.use_view')
     def script_use_view(self) -> RequestView | None:
+        """
+        Get view requirement
+
+        :return:
+        :see: {use_view()}
+        """
         from neurocarto.util.edit.checking import get_use_view
         return get_use_view(self.script)
 
@@ -182,13 +233,17 @@ class BlueprintScriptInfo(NamedTuple):
         Eval *script_input* and call actual script function.
 
         Although *script_input* should be a valid Python code,
-        we cheat the undefined variable name as a str.
+        we cheat on the name resolution that take the undefined variable as a str by its name.
         For example, the following *script_input* will be considered::
 
             (input) a,1,"b,3"
             (output) ("a", 1, "b,3")
 
-        This function does not do the argument type validation.
+        There are some limitations:
+
+        * This function does not do the argument type validation.
+        * If it contains operator, such as '.' in filename, it fails.
+        * for above case, use "" to quote them.
 
         :param bp:
         :param script_input:

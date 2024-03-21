@@ -1,28 +1,8 @@
 neurocarto.util.edit
 ====================
 
-It is an internal package for providing functions to the :class:`~neurocarto.util.util_blueprint.BlueprintFunctions`
-
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Blueprint functions:
-
-    util.edit.script
-    util.edit.checking
-    util.edit.clustering
-    util.edit.data
-    util.edit.category
-    util.edit.moving
-    util.edit.surrounding
-    util.edit.probe
-    util.edit.plot
-    util.edit.atlas
-    util.edit.actions
-    util.edit.debug
-
 How to write a blueprint script function
-========================================
+----------------------------------------
 
 Real examples are:
 
@@ -44,6 +24,9 @@ Prepare a python file ``example.py`` with following contents.
         """
         bp.log_message(f'{a0=}', f'{a1=}')
 
+For more detail information of how to declare a blueprint function,
+please check :class:`~neurocarto.util.edit.script.BlueprintScript`.
+
 Add ``example.py`` into ``neurocarto.config.json``.
 
 .. code-block:: json
@@ -58,3 +41,25 @@ Add ``example.py`` into ``neurocarto.config.json``.
 
 Start an application with the commandline option ``--view=script``,
 then you can test your script.
+
+Internal blueprint functions
+----------------------------
+
+It is an internal package for providing functions to the :class:`~neurocarto.util.util_blueprint.BlueprintFunctions`
+
+
+.. toctree::
+    :maxdepth: 1
+
+    util.edit.script
+    util.edit.checking
+    util.edit.clustering
+    util.edit.data
+    util.edit.category
+    util.edit.moving
+    util.edit.surrounding
+    util.edit.probe
+    util.edit.plot
+    util.edit.atlas
+    util.edit.actions
+    util.edit.debug

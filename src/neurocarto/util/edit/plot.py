@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from neurocarto.util.util_blueprint import BlueprintFunctions
-from neurocarto.util.utils import SPHINX_BUILD
+from neurocarto.util.utils import SPHINX_BUILD, doc_link
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -16,6 +16,7 @@ elif SPHINX_BUILD:
 __all__ = ['plot_blueprint']
 
 
+@doc_link()
 def plot_blueprint(bp: BlueprintFunctions,
                    blueprint: NDArray[np.int_],
                    colors: dict[int, Any] = None, *,

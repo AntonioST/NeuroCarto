@@ -162,9 +162,9 @@ def atlas_new_probe(controller: ControllerView,
     """
 
     :param controller:
-    :param ap: um
-    :param dv: dv
-    :param ml: ml
+    :param ap: ap um, from ref (default bregma).
+    :param dv: dv um, from ref (default bregma).
+    :param ml: ml um, from ref (default bregma).
     :param shank: shank index
     :param rx: ap rotate degree
     :param ry: dv rotate degree

@@ -102,7 +102,8 @@ def blueprint_function(func=None, *, set_return=True):
 @doc_link()
 class BlueprintFunctions(Generic[M, E]):
     """
-    Provide blueprint manipulating functions. Used by {BlueprintScriptView}.
+    Provide blueprint manipulating functions. It is used by {BlueprintScriptView}.
+    However, it also can be used independently, but without some view interacting functions.
 
     **channelmap functions**
 
@@ -217,24 +218,50 @@ class BlueprintFunctions(Generic[M, E]):
         * {#plot_blueprint()}
         * {#misc_profile_script()}
 
+    **Category attributes**
+
+    {BlueprintFunctions} supports 'CATE_*' electrode category attributes, which
+    come from {#probe} without difference.
+    Although {BlueprintFunctions} has declared some 'CATE_*' attributes,
+    they do not have value. The actual value is delegated to the {#probe} via ``__getattr__``.
+
     """
 
     CATE_UNSET: int
-    CATE_SET: int
-    CATE_FORBIDDEN: int
-    CATE_LOW: int
+    """electrode initial category"""
 
+    CATE_SET: int
+    """electrode pre-select category. Electrode must be selected"""
+
+    CATE_FORBIDDEN: int
+    """electrode excluded category. Electrode must not be selected"""
+
+    CATE_LOW: int
+    """electrode low-priority category."""
+
+    @doc_link()
     def __init__(self, probe: ProbeDesp[M, E], chmap: int | str | M | None):
         """
+        initialization.
+
+        Case when *chmap* is ``None``. In this case, {BlueprintFunctions} still be allowed to initialize.
+        Although most of the functions will raise an error,
+        it is okay because the caller (like {BlueprintScriptView}) would handle it,
+        and it only happened when user forget to create a probe before running a script.
 
         :param probe:
-        :param chmap:
+        :param chmap: channelmap instance.
         """
         self.probe: Final[ProbeDesp[M, E]] = probe
+        """probe"""
+
         if isinstance(chmap, (int, str)):
             chmap = probe.new_channelmap(chmap)
         self.channelmap: Final[M | None] = chmap
+        """channelmap instance"""
+
         self.categories: Final[dict[str, int]] = probe.all_possible_categories()
+        """categories mapping."""
 
         if chmap is not None:
             electrodes = probe.all_electrodes(chmap)
@@ -242,6 +269,7 @@ class BlueprintFunctions(Generic[M, E]):
             electrodes = []
 
         self.electrodes: Final[list[E]] = electrodes
+        """all available electrodes"""
 
         if chmap is not None:
             self.s: Final[NDArray[np.int_]] = np.array([it.s for it in self.electrodes])
@@ -574,7 +602,7 @@ class BlueprintFunctions(Generic[M, E]):
             raise ValueError()
 
         if isinstance(mask, (int, np.integer, list)):
-            from .edit.category import mask as _mask
+            from .edit.category import category_mask as _mask
             mask = _mask(self, blueprint, mask)
 
         ret = blueprint.copy()
@@ -621,7 +649,7 @@ class BlueprintFunctions(Generic[M, E]):
         pass
 
     @overload
-    def merge(self, blueprint: BLUEPRINT, other: BLUEPRINT | BlueprintFunctions = None) -> BLUEPRINT:
+    def merge(self, blueprint: BLUEPRINT, other: BLUEPRINT | BlueprintFunctions) -> BLUEPRINT:
         pass
 
     def merge(self, blueprint, other=None) -> BLUEPRINT:
@@ -635,27 +663,15 @@ class BlueprintFunctions(Generic[M, E]):
         :return: blueprint Array[category, N]
         :raise ValueError: incorrect length
         """
+        from .edit.category import merge_blueprint
         set_return = False
         if other is None:
             blueprint, other = self._blueprint, blueprint
+            if blueprint is None:
+                blueprint = self.new_blueprint()
             set_return = True
 
-        if isinstance(other, BlueprintFunctions):
-            other = other.blueprint()
-
-        if other is None:
-            raise TypeError()
-
-        n = len(self.s)
-        if len(other) != n:
-            raise ValueError()
-
-        if blueprint is not None:
-            if len(blueprint) != n:
-                raise ValueError()
-            ret = np.where(blueprint != self.CATE_UNSET, blueprint, other)
-        else:
-            ret = other
+        ret = merge_blueprint(self, blueprint, other)
 
         if set_return:
             self.set_blueprint(ret)
@@ -671,7 +687,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param mask: a blueprint mask.
         :return: number of electrode in *categories* zone.
         """
-        from .edit.category import mask as _mask
+        from .edit.category import category_mask as _mask
         t = _mask(self, blueprint, categories)
         if mask is not None:
             np.logical_and(t, mask, out=t)
@@ -686,8 +702,8 @@ class BlueprintFunctions(Generic[M, E]):
         :param categories: If not given, use all categories except CATE_UNSET and CATE_FORBIDDEN.
         :return: a blueprint mask.
         """
-        from .edit.category import mask
-        return mask(self, blueprint, categories)
+        from .edit.category import category_mask
+        return category_mask(self, blueprint, categories)
 
     @overload
     def invalid(self, blueprint: BLUEPRINT, *,
@@ -720,32 +736,12 @@ class BlueprintFunctions(Generic[M, E]):
         :param overwrite: Does the electrode in categories are included in the mask.
         :return: a mask if *value* is omitted. Otherwise, a new blueprint.
         """
-        from .edit.category import mask, invalid
-        _electrodes = mask(self, blueprint, categories)
+        from .edit.category import category_mask, invalid, apply_electrode_mask
 
-        if electrodes is None:
-            pass
-        elif isinstance(electrodes, (int, np.integer)):
-            keep = _electrodes[electrodes]
-            _electrodes[:] = False
-            _electrodes[electrodes] = keep
-        else:
-            if isinstance(electrodes, type(self.channelmap)):
-                electrodes = self.selected_electrodes(electrodes)
+        masking = category_mask(self, blueprint, categories)
+        masking = apply_electrode_mask(self, masking, electrodes)
 
-            if isinstance(electrodes, list):
-                self.index_blueprint(electrodes)
-
-            if not isinstance(electrodes, np.ndarray):
-                raise TypeError()
-            elif electrodes.dtype == np.bool_:
-                _electrodes = _electrodes & electrodes
-            else:
-                keep = _electrodes[electrodes]
-                _electrodes[:] = False
-                _electrodes[electrodes] = keep
-
-        return invalid(self, blueprint, _electrodes, value, overwrite=overwrite)
+        return invalid(self, blueprint, masking, value, overwrite=overwrite)
 
     # ================== #
     # external functions #
@@ -807,7 +803,7 @@ class BlueprintFunctions(Generic[M, E]):
     def clustering_edges(self, blueprint: BLUEPRINT,
                          categories: int | list[int] = None) -> list[ClusteringEdges]:
         """
-        For each clustering clustering, and calculate its edges.
+        For each clustering, and calculate its edges.
 
         :param blueprint:
         :param categories:
@@ -1243,7 +1239,8 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Move slice to the label's position.
 
-        Note: Only label which its origin refer on bregma works. Otherwise, nothing will happen.
+        Note: Only works on the labels which its origin is referring on the bregma.
+        Otherwise, nothing will happen.
 
         :param label: label index, content or a {Label}.
         :see: {AtlasBrainView#focus_label()}
@@ -1317,13 +1314,13 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Create a probe coordinate instance.
 
-        :param ap: um
-        :param dv: dv
-        :param ml: ml
+        :param ap: ap um, from ref (default bregma).
+        :param dv: dv um, from ref (default bregma).
+        :param ml: ml um, from ref (default bregma).
         :param shank: shank index
-        :param rx: ap rotate
-        :param ry: dv rotate
-        :param rz: ml rotate
+        :param rx: ap-axis rotate
+        :param ry: dv-axis rotate
+        :param rz: ml-axis rotate
         :param depth: insert depth
         :param ref: reference origin.
         :return: a probe coordinate. ``None`` if origin not set.
@@ -1341,7 +1338,7 @@ class BlueprintFunctions(Generic[M, E]):
         The dv value of the returned coordinate always zero.
 
         :param shank: which shank is the returned coordinate is based on.
-        :param ref: which origin is the returned coordinate is refer to.
+        :param ref: which origin is the returned coordinate is referring to.
         :return: a probe coordinate. ``None`` if origin not found.
         """
         from .edit.atlas import atlas_current_probe

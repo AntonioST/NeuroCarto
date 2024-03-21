@@ -392,7 +392,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             script_name = script
             self.logger.debug('run_script(%s)', script_name)
         elif isinstance(script, BlueprintScriptInfo):
-            script_name = script.script_name()
+            script_name = script.name
             self.logger.debug('run_script(%s) -> %s', script.name, script_name)
         else:
             script_name = getattr(script, '__name__', str(script))
