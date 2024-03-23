@@ -125,7 +125,7 @@ def use_probe(probe: str | type[ProbeDesp] = ProbeDesp, code: int = None, *,
         raise ValueError('create mode need non-None code')
 
     def _decorator(func):
-        func.__chmap_checking_use_probe__ = RequestChannelmapType(probe, code, create, check)
+        func.__neurocarto_checking_use_probe__ = RequestChannelmapType(probe, code, create, check)
         return func
 
     return _decorator
@@ -212,7 +212,7 @@ def use_view(view: str | type[ViewBase]):
     """
 
     def _decorator(func):
-        func.__chmap_checking_use_view__ = RequestView(view)
+        func.__neurocarto_checking_use_view__ = RequestView(view)
         return func
 
     return _decorator
