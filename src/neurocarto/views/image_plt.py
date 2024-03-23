@@ -345,8 +345,11 @@ class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metac
 
     def restore_state(self, state: PltImageState):
         if (rc_file := state.get('plt_rc_file', None)) is not None:
+            self.logger.debug('read rc_file %s', rc_file)
             if (rc_file := Path(rc_file)).exists():
                 self._plt_rc_file = rc_file
+            else:
+                self.logger.warning('rc_file not existed: %s', rc_file)
 
     # ================ #
     # updating methods #
