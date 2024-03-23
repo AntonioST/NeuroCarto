@@ -90,10 +90,6 @@ class CartoApp(BokehApplication):
         self.record_manager: RecordManager | None = None
         self.logger.debug('get get_probe_desp() -> %s', type(self.probe).__name__)
 
-        # when user config has bad format, do not save current user config
-        # to prevent from overwriting.
-        self._not_save_user_config = False
-
         self.load_user_config()
         app_config = self.get_editor_userconfig()
         self._overwrite_channelmap_file = app_config.get('overwrite_chmap_file', False)
@@ -124,11 +120,12 @@ class CartoApp(BokehApplication):
             self.logger.debug('user config not found: %s', file, exc_info=e)
             return self.user_views_config
         except IOError as e:
-            self._not_save_user_config = True
             self.logger.debug('bad user config: %s', file, exc_info=e)
+            tmp_file = file.with_name(f'{file.stem}_backup{file.suffix}')
+            file.rename(tmp_file)
+            self.logger.debug('rename to %s', tmp_file)
             return self.user_views_config
         else:
-            self._not_save_user_config = False
             self.logger.debug('load user config : %s', file)
 
         if reset:
@@ -152,11 +149,8 @@ class CartoApp(BokehApplication):
                     self.logger.debug('on_save() config %s', type(view).__name__)
                     self.user_views_config[type(view).__name__] = state
 
-        if self._not_save_user_config:
-            self.logger.warning(f'save user config is blocked')
-        else:
-            file = files.save_user_config(self.config, self.user_views_config)
-            self.logger.debug(f'save user config : %s', file)
+        file = files.save_user_config(self.config, self.user_views_config)
+        self.logger.debug(f'save user config : %s', file)
 
     def get_editor_userconfig(self) -> CartoUserConfig:
         """
