@@ -7,7 +7,7 @@ import logging
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING, NamedTuple
+from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING, NamedTuple, TypedDict
 
 import matplotlib.pyplot as plt  # type: ignore[import]
 import numpy as np
@@ -16,7 +16,7 @@ from numpy.typing import NDArray
 
 from neurocarto.config import CartoConfig
 from neurocarto.util.utils import doc_link
-from neurocarto.views.base import Figure, DynamicView, ViewBase
+from neurocarto.views.base import Figure, DynamicView, ViewBase, GlobalStateView
 from neurocarto.views.image import ImageView, ImageHandler
 from neurocarto.views.image_npy import NumpyImageHandler
 
@@ -38,6 +38,10 @@ __all__ = [
 ]
 
 RC_FILE = Path(__file__).with_name('image_plt.matplotlibrc')
+
+
+class PltImageState(TypedDict, total=False):
+    plt_rc_file: str
 
 
 class Boundary(NamedTuple):
@@ -246,7 +250,7 @@ class Boundary(NamedTuple):
         return self.fg_height / self.fg_height_px
 
 
-class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
+class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metaclass=abc.ABCMeta):
     """
     Use matplotlib to generate an image.
 
@@ -272,6 +276,7 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
     def __init__(self, config: CartoConfig, *,
                  logger: str | logging.Logger = 'neurocarto.view.plt'):
         super().__init__(config, logger=logger)
+        self._plt_rc_file = RC_FILE
 
     @property
     def name(self) -> str:
@@ -334,12 +339,22 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
     def _setup_content(self, **kwargs) -> list[UIElement]:
         return []
 
+    # ========= #
+    # load/save #
+    # ========= #
+
+    def restore_state(self, state: PltImageState):
+        if (rc_file := state.get('plt_rc_file', None)) is not None:
+            if (rc_file := Path(rc_file)).exists():
+                self._plt_rc_file = rc_file
+
     # ================ #
     # updating methods #
     # ================ #
 
     def start(self):
         self.visible = False
+        self.restore_global_state()
 
     @overload
     def plot_figure(self,
@@ -383,7 +398,7 @@ class PltImageView(ImageView, DynamicView, metaclass=abc.ABCMeta):
 
         rc_file = kwargs.pop('rc', None)
         if rc_file is None:
-            rc_file = RC_FILE
+            rc_file = self._plt_rc_file
         elif isinstance(rc_file, str):
             if '/' in rc_file:
                 rc_file = Path(rc_file)
