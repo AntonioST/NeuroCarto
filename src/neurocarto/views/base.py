@@ -324,9 +324,14 @@ class InvisibleView:
 S = TypeVar('S')
 
 
+@doc_link()
 class StateView(Generic[S], metaclass=abc.ABCMeta):
     """
-    This view component has something states can be saved and restored.
+    This view component can save a state with a channelmap into a project config.
+    It also can read the config and restore the state.
+
+    The state will be stored (invoke {#save_state()}) when a corresponding channelmap has saved.
+    The state will be restored (invoke {#restore_state()}) when a corresponding channelmap has loaded.
 
     :param S: stored information. It should be json-serializable. We usually use a TypedDict.
     """
@@ -350,25 +355,45 @@ class StateView(Generic[S], metaclass=abc.ABCMeta):
         pass
 
 
+@doc_link()
 class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
+    """
+    This view component can save a **global** state into a user config, which is shared across projects (channelmaps).
+    It also can read the config and restore the state.
+
+    Due to it also inherit from {StateView}, it is able to save a **local** state into a project config.
+    The state S can be either shared (user and project config) or separate.
+
+    For a local state, storing and restoring are following a channelmap file (as same as {StateView}).
+    However, for a global state, storing and restoring will not be triggered by {CartoApp} automatically.
+    The view needs to explicitly use {#save_global_state()} or {#restore_global_state()} to make it happen.
+
+    :param S: stored information. It should be json-serializable. We usually use a TypedDict.
+    """
+
     disable_save_global_state = False
     """disable {#restore_global_state()} for debugging purposes to prevent testing content from polluting config."""
 
-    @abc.abstractmethod
     def save_state(self, local=True) -> S | None:
         """
         Save current state into S.
 
-        :param local: Is this state saved into local config?
+        Default returning ``None``, which indicate this view only read config and never write config.
+
+        :param local: Is this state going to be saved into a project config?
         :return: json-serializable instance.
         """
-        pass
+        return None
 
     @final
     @doc_link()
     def save_global_state(self, state: S = None, *, sync=False, force=False):
         """
-        save state into global config.
+        save **state** into user config.
+
+        Although {CartoApp} will invoke {#save_state()} when the session is closed,
+        the timing is not guarantied. It is better to call this method when any global
+        option is modified.
 
         Implement note:
             do not overwrite this function, because this method will be
@@ -384,14 +409,16 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
     @doc_link()
     def restore_global_state(self, *, reload=False, force=False):
         """
-        read global config and invoke {StateView#restore_state()}.
+        read user config and invoke {StateView#restore_state()}.
+
+        Remember to invoke this method when {ViewBase#start()} to restore the global state.
 
         Implement note:
             do not overwrite this function, because this method will be
             replaced by {CartoApp}.
 
         :param reload: reload config from disk
-        :param force: force invoke {StateView#restore_state()} (give an empty dict)
+        :param force: force invoke {StateView#restore_state()} (give an empty dict), even when the config is not existed.
         """
         pass
 
@@ -438,7 +465,6 @@ R = TypeVar('R')
 
 # class RecordStep[R](NamedTuple): # python >= 3.11
 class RecordStep(NamedTuple):
-
     source: str
     """(class) name of the source RecordView"""
 

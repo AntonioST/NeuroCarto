@@ -224,9 +224,6 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
     # load/save #
     # ========= #
 
-    def save_state(self, local=True) -> None:
-        return None
-
     def restore_state(self, state: BlueprintScriptState):
         clear = state.get('clear', False)
         actions = state.get('actions', {})
