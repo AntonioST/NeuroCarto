@@ -315,10 +315,14 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param pure: Does not support UI function?
         :return: itself
+        :raise RuntimeError: when probe is missing.
         """
+        if (channelmap := self.channelmap) is None:
+            raise RuntimeError('probe missing')
+
         ret = object.__new__(BlueprintFunctions)
         ret.probe = self.probe  # type: ignore[misc]
-        ret.channelmap = self.channelmap  # type: ignore[misc]
+        ret.channelmap = channelmap  # type: ignore[misc]
         ret.electrodes = self.electrodes  # type: ignore[misc]
         ret.categories = self.categories  # type: ignore[misc]
 
@@ -348,10 +352,11 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param e: electrode index, index list, index array or index mask.
         :param overwrite: overwrite previous selected electrode.
+        :raise RuntimeError: when probe is missing.
         :see: {ProbeDesp#add_electrode()}
         """
         if (channelmap := self.channelmap) is None:
-            return
+            raise RuntimeError('probe missing')
 
         electrodes = self.electrodes
         if isinstance(e, (int, np.integer)):
@@ -370,10 +375,11 @@ class BlueprintFunctions(Generic[M, E]):
         delete electrode(s) *e* from the current channelmap.
 
         :param e: electrode index, index list, index array or index mask.
+        :raise RuntimeError: when probe is missing.
         :see: {ProbeDesp#del_electrode()}
         """
         if (channelmap := self.channelmap) is None:
-            return
+            raise RuntimeError('probe missing')
 
         electrodes = self.electrodes
         if isinstance(e, (int, np.integer)):
@@ -400,17 +406,19 @@ class BlueprintFunctions(Generic[M, E]):
             return np.array([], dtype=int)
         return self.index_blueprint(self.probe.all_channels(chmap))
 
+    @doc_link()
     def set_channelmap(self, chmap: M):
         """
         Apply the channelmap on the current channelmap.
 
         :param chmap:
+        :raise RuntimeError: when probe is missing. call {#new_channelmap()} first.
         """
+        if (channelmap := self.channelmap) is None:
+            raise RuntimeError('probe missing')
+
         # chmap may the same instance as self.channelmap
         # to prevent from we cannot get channels after clear_electrode()
-        if (channelmap := self.channelmap) is None:
-            return
-
         electrodes = self.probe.all_channels(chmap)
         self.probe.clear_electrode(channelmap)
         for t in electrodes:
@@ -435,13 +443,28 @@ class BlueprintFunctions(Generic[M, E]):
     # =================== #
 
     def blueprint(self) -> BLUEPRINT:
-        """blueprint copy."""
+        """
+        blueprint copy.
+
+        :return:
+        :raise RuntimeError: when probe is missing.
+        """
         if self._blueprint is None:
+            if self.channelmap is None:
+                raise RuntimeError('probe missing')
             return np.full_like(self.s, self.CATE_UNSET, dtype=int)
         return self._blueprint.copy()
 
     def new_blueprint(self) -> BLUEPRINT:
-        """new empty blueprint array."""
+        """
+        new empty blueprint array.
+
+        :return:
+        :raise RuntimeError: when probe is missing.
+        """
+        if self.channelmap is None:
+            raise RuntimeError('probe missing')
+
         return np.full_like(self.s, self.CATE_UNSET)
 
     @property
@@ -454,8 +477,12 @@ class BlueprintFunctions(Generic[M, E]):
         set blueprint.
 
         :param blueprint: a blueprint or a category value (reset all electrodes).
+        :raise RuntimeError: when probe is missing.
         :raise ValueError: length mismatch
         """
+        if self.channelmap is None:
+            raise RuntimeError('probe missing')
+
         if isinstance(blueprint, int):
             if self._blueprint is None:
                 self._blueprint = np.full_like(self.s, blueprint, dtype=int)
@@ -482,10 +509,11 @@ class BlueprintFunctions(Generic[M, E]):
         :param electrodes: electrode list
         :param blueprint:
         :return: *electrodes*
+        :raise RuntimeError: when probe is missing.
         :see: {#from_blueprint()}
         """
         if (channelmap := self.channelmap) is None:
-            raise RuntimeError()
+            raise RuntimeError('probe missing')
 
         if blueprint is None:
             blueprint = self.blueprint()
@@ -515,9 +543,10 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param electrodes: electrode list
         :return:
+        :raise RuntimeError: when probe is missing.
         :see: {#apply_blueprint()}
         """
-        blueprint = np.full_like(self._blueprint, self.CATE_UNSET)
+        blueprint = self.new_blueprint()
         c = {it.electrode: it.category for it in electrodes}
         for i, e in enumerate(self.electrodes):
             if (category := c.get(e.electrode, None)) is not None:
@@ -530,7 +559,11 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param electrodes:
         :return: electrode index array
+        :raise RuntimeError: when probe is missing.
         """
+        if self.channelmap is None:
+            raise RuntimeError('probe missing')
+
         ret = []
         pos = self._position_index
 
@@ -547,9 +580,10 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param file: file.blueprint.npy
         :return:
+        :raise RuntimeError: when probe is missing.
         """
         if (channelmap := self.channelmap) is None:
-            raise RuntimeError()
+            raise RuntimeError('probe missing')
 
         file = Path(file)
         if not file.name.endswith('.blueprint.npy'):
@@ -565,10 +599,10 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param file:
         :param blueprint:
-        :return:
+        :raise RuntimeError: when probe is missing.
         """
         if (channelmap := self.channelmap) is None:
-            raise RuntimeError()
+            raise RuntimeError('probe missing')
 
         if blueprint is None:
             blueprint = self._blueprint
@@ -597,7 +631,11 @@ class BlueprintFunctions(Generic[M, E]):
         :param mask: category value (or list), electrode mask or electrode index
         :param category:
         :return: a (copied) blueprint
+        :raise RuntimeError: when probe is missing.
         """
+        if self.channelmap is None:
+            raise RuntimeError('probe missing')
+
         if len(blueprint) != len(self.s):
             raise ValueError()
 
@@ -661,6 +699,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param blueprint: Array[category, N]
         :param other: blueprint Array[category, N]
         :return: blueprint Array[category, N]
+        :raise RuntimeError: when only one argument is given and the probe is missing.
         :raise ValueError: incorrect length
         """
         from .edit.category import merge_blueprint
