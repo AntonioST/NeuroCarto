@@ -291,15 +291,19 @@ def script_doc(script: BlueprintScriptInfo, html=False) -> str | None:
 def script_html_doc(script: BlueprintScriptInfo) -> str:
     head = script_signature(script)
     if (doc := script_doc(script, html=True)) is None:
-        return f'<b>{head}</b>'
-
-    return f"""
+        return f"""
+    <div style="padding-left: 2em">
+        <p><b>{head}</b></p>
+    </div>
+"""
+    else:
+        return f"""
     <div style="padding-left: 2em">
         <style type="text/css">
-            p.carto-script-head+div.chmap-script-doc {{
+            p.carto-script-head+div.carto-script-doc {{
                 display: none;
             }}
-            p.carto-script-head:hover+div.chmap-script-doc {{
+            p.carto-script-head:hover+div.carto-script-doc {{
                 display: block;
             }}
         </style>
