@@ -44,26 +44,30 @@ def get_probe_desp(name: str) -> type[ProbeDesp]:
     :raise RuntimeError: module not found; no {ProbeDesp} implementation found; not a {ProbeDesp} subtype.
     :see: {import_name()}
     """
-
     module = None
+
+    # NAME -> import neurocarto.probe_NAME
     if '.' not in name and ':' not in name:
         try:
             module = import_name('probe', f'neurocarto.probe_{name}:*')
         except ImportError:
             pass
 
+    # NAME -> import neurocarto.NAME
     if module is None and ':' not in name:
         try:
             module = import_name('probe', f'neurocarto.{name}:*')
         except ImportError:
             pass
 
+    # NAME -> import NAME
     if module is None and ':' not in name:
         try:
             module = import_name('probe', f'{name}:*')
         except ImportError:
             pass
 
+    # MODULE:NAME -> import MODULE.NAME
     if module is None:
         try:
             module = import_name('probe', name)

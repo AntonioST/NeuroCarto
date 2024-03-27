@@ -108,7 +108,7 @@ def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
     Module Path: ``[ROOT:]MODULE:NAME``, where
 
     ROOT:
-        a filepath insert into ``sys.path``.
+        a filepath prepend into ``sys.path``.
     MODULE:
         module path
     NAME:
@@ -177,11 +177,13 @@ def get_import_file(module_path: str, root: str = None) -> Path | None:
 
 
 def print_save(file: str) -> Path:
+    """Debug use function."""
     print('SAVE', file)
     return Path(file)
 
 
 def line_mark(message: str):
+    """Debug use function."""
     frame = inspect.stack()[1]
     filename = frame.filename
     try:
