@@ -10,7 +10,6 @@ from numpy.typing import NDArray
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import SPHINX_BUILD, doc_link
 from neurocarto.views.base import ViewBase, ControllerView
-from neurocarto.views.data import DataHandler
 
 if TYPE_CHECKING:
     from neurocarto.views.blueprint_script import BlueprintScriptView
@@ -46,16 +45,16 @@ def set_status_line(controller: ControllerView, message: str, *, decay: float = 
 
 @doc_link()
 def draw(self: BlueprintFunctions, controller: ControllerView,
-         a: NDArray[np.float_] | None, *,
-         view: str | type[ViewBase] = None):
-    """{DataHandler#on_data_update()}"""
+         a: NDArray[np.float_] | None):
+    """{BlueprintScriptView#on_data_update()}"""
     if a is not None and len(a) != len(self.s):
         raise ValueError('length mismatch')
 
-    if isinstance(controller, DataHandler):
-        controller.on_data_update(self.probe, a)
-    elif isinstance(view_target := controller.get_view(view), DataHandler):
-        view_target.on_data_update(self.probe, a)
+    edit: BlueprintScriptView
+    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
+        return
+
+    edit.on_data_update(self.probe, a)
 
 
 @doc_link()

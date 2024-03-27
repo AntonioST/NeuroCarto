@@ -17,7 +17,6 @@ from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import doc_link
 from neurocarto.views import RecordStep
 from neurocarto.views.base import EditorView, GlobalStateView, ControllerView, RecordView
-from neurocarto.views.data import DataHandler
 from neurocarto.views.image_plt import PltImageView
 
 if TYPE_CHECKING:
@@ -33,8 +32,12 @@ __all__ = [
 
 class BlueprintScriptState(TypedDict):
     """BlueprintScriptView stored user configuration."""
+
     clear: bool
+    """clear builtin actions list."""
+
     actions: dict[str, str]
+    """extra actions dict {name: module_path}"""
 
 
 class BlueprintScriptAction(TypedDict, total=False):
@@ -47,7 +50,7 @@ class BlueprintScriptAction(TypedDict, total=False):
     script_args: str
 
     # action=interrupt
-    interrupt: int
+    interrupt: int  # interrupted at which updating cycles.
 
     # other
     description: str
@@ -60,21 +63,27 @@ class ProbePlotElectrodeProtocol(Protocol):
     {ProbeDesp} extension protocol for plotting electrode data beside probe.
     """
 
+    @doc_link()
     def view_ext_blueprint_plot_categories(self, ax: Axes, chmap: Any, blueprint: NDArray[np.int_], color: dict[int, Any] = None, **kwargs):
         """
         plot electrode categories along the probe.
+
+        Note: {BlueprintScriptView} does not use this method for any UI actions,
+        but used by {BlueprintFunctions#plot_channelmap()} and {BlueprintFunctions#plot_blueprint()}.
 
         :param ax: matplotlib.Axes
         :param chmap:
         :param blueprint: Array[category:int, E], where E means all electrodes
         :param color: categories color {category: color}, where color is used by matplotlib.
         :param kwargs:
-        :return:
         """
 
+    @doc_link()
     def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: Any, data: NDArray[np.float_], **kwargs):
         """
         plot electrode data along the probe.
+
+        Note: {BlueprintScriptView} uses this method for any UI actions via {BlueprintFunctions#draw()},
 
         :param ax: matplotlib.Axes
         :param chmap:
@@ -85,7 +94,7 @@ class ProbePlotElectrodeProtocol(Protocol):
         pass
 
 
-class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
+class BlueprintScriptView(PltImageView, EditorView, ControllerView,
                           RecordView[BlueprintScriptAction], GlobalStateView[BlueprintScriptState]):
     """
     Blueprint script manager view.
@@ -171,6 +180,8 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
 
     def _on_script_select(self, old: str, name: str):
         old_input = self.script_input.value_input
+
+        # save script input, if it is not empty.
         if len(old) > 0 and len(old_input) > 0:
             self._script_input_cache[old] = old_input
 
@@ -186,12 +197,16 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             self.script_document.text = 'Import Fail'
             return
 
+        # try to reload previous script input. If no, use previous script input.
+        # In case that, user types input (accidentally) before switching the script.
         self.script_input.value_input = self._script_input_cache.get(name, old_input)
-        self.script_document.text = script_html_doc(script)
 
+        # update ui states.
+        self.script_document.text = script_html_doc(script)
         self._set_script_run_button_status(name)
 
     def _set_script_run_button_status(self, script: str):
+        # Is *script* running and selected by user?
         if script in self._running_script and script == self.script_select.value:
             self.script_run.label = 'Stop'
             self.script_run.button_type = 'danger'
@@ -201,13 +216,15 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
 
     def _on_run_script(self):
         script = self.script_select.value
-        if script in self._running_script:
+
+        if script in self._running_script:  # It is running, interrupt it
             self.interrupt_script(script)
-        elif len(script):
+        elif len(script):  # Or, running it.
             arg = self.script_input.value_input
             self.run_script(script, arg)
 
     def reset_blueprint(self):
+        """Reset blueprint."""
         if (blueprint := self.cache_blueprint) is None:
             return
 

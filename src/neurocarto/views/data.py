@@ -15,20 +15,7 @@ from neurocarto.util.bokeh_util import is_recursive_called, PathAutocompleteInpu
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.views.base import Figure, ViewBase, DynamicView, InvisibleView
 
-__all__ = ['DataView', 'DataHandler', 'Data1DView', 'FileDataView']
-
-
-class DataHandler:
-    """A data receiver view."""
-
-    def on_data_update(self, probe: ProbeDesp, data: NDArray[np.float_] | None):
-        """
-        Receive electrode data.
-
-        :param probe:
-        :param data: Array[float, N] electrode data.
-        """
-        pass
+__all__ = ['DataView', 'Data1DView', 'FileDataView']
 
 
 class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):

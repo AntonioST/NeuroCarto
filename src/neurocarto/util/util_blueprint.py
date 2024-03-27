@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from neurocarto.probe import ProbeDesp, M, E
 from neurocarto.util.edit.checking import use_probe
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
-from neurocarto.views.base import ViewBase, ControllerView, V
+from neurocarto.views.base import ControllerView, V
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -1017,17 +1017,16 @@ class BlueprintFunctions(Generic[M, E]):
             return controller.get_view(view)
         return None
 
-    @doc_link(DataHandler='neurocarto.views.data.DataHandler')
-    def draw(self, a: NDArray[np.float_] | None, *, view: str | type[ViewBase] = None):
+    @doc_link(BlueprintScriptView='neurocarto.views.blueprint_script.BlueprintScriptView')
+    def draw(self, a: NDArray[np.float_] | None):
         """
-        Send a drawable data array *a*  to a {DataHandler}.
+        Send a drawable data array *a*  to a {BlueprintScriptView}.
 
         :param a: Array[float, E], where E is all electrodes
-        :param view: which {DataHandler}
         """
         from .edit.actions import draw
         if (controller := self._controller) is not None:
-            draw(self, controller, a, view=view)
+            draw(self, controller, a)
 
     @doc_link()
     def set_status_line(self, message: str, *, decay: float = None):
