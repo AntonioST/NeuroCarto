@@ -88,13 +88,26 @@ def get_probe_desp(name: str) -> type[ProbeDesp]:
 class ElectrodeDesp:
     """An electrode interface for GUI interaction between different electrode implementations."""
 
-    s: int  # shank
-    x: float  # x position in um
-    y: float  # y position in um
-    electrode: Hashable  # for identify
-    channel: Any  # for display in hover
+    s: int
+    """shank"""
+
+    x: float
+    """x position in um"""
+
+    y: float
+    """y position in um"""
+
+    electrode: Hashable
+    """electrode identify. It should be a hashable."""
+
+    channel: Any
+    """channel identify. It is used for display (str-able)."""
+
     state: int = 0
+    """electrode selecting state"""
+
     category: int = 0
+    """electrode selecting category."""
 
     __match_args__ = 'electrode', 'channel', 'state', 'category'
 
@@ -162,8 +175,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     STATE_USED: ClassVar = 1
     """electrode is selected as readout channel"""
 
-    STATE_FORBIDDEN: ClassVar = 2
-    """electrode is excluded"""
+    STATE_DISABLED: ClassVar = 2
+    """electrode is disabled"""
 
     # predefined electrode categories
     CATE_UNSET: ClassVar = 0
@@ -187,14 +200,14 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         Used in {CartoApp#install_right_panel_views()} for dynamic generating options.
 
-        :return: dict of {description: code}, where code is used in new_channelmap(code)
+        :return: dict of ``{description: code}``, where code is used in new_channelmap(code)
         """
         pass
 
     @doc_link()
     def type_description(self, code: int | None) -> str | None:
         """
-        Get the description for given channelmap **code**.
+        Get the description for given channelmap *code*.
 
         Read the content from {#supported_type}.
 
@@ -215,11 +228,11 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         Export electrode states.
 
         Those states are used in {CartoApp#install_right_panel_views()} for generating buttons dynamically,
-        which means only manual states need to be exported. The state such as {#STATE_FORBIDDEN} is
+        which means only manual states need to be exported. The state such as {#STATE_DISABLED} is
         programming update for remaining electrodes that users cannot change electrode as this state.
 
 
-        :return: dict of {description: state}
+        :return: dict of ``{description: state}``
         :see: {#all_possible_states()}
         """
         pass
@@ -227,7 +240,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def state_description(self, state: int) -> str | None:
         """
-        Get the description for given electrode **state**.
+        Get the description for given electrode *state*.
 
         Read the content from {#possible_states}.
 
@@ -248,7 +261,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         Those categories are used in {CartoApp#install_right_panel_views()} for generating buttons dynamically.
 
-        :return: dict of {description: category}
+        :return: dict of ``{description: category}``
         :see: {#all_possible_categories()}
         """
         pass
@@ -256,7 +269,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def category_description(self, code: int) -> str | None:
         """
-        Get the description for given electrode category **code**.
+        Get the description for given electrode category *code*.
 
         Read the content from {#possible_categories}.
 
@@ -275,7 +288,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         Implement note: It finds all class variable that its name starts with 'STATE_*'.
 
-        :return: dict of {state_name: state_value}
+        :return: dict of ``{state_name: state_value}``
         """
         return {
             it[6:]: int(getattr(cls, it))
@@ -290,7 +303,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         Implement note: It finds all class variable that its name starts with 'CATE_*'.
 
-        :return: dict of {category_name: category_value}
+        :return: dict of ``{category_name: category_value}``
         """
         return {
             it[5:]: int(getattr(cls, it))

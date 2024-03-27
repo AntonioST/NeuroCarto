@@ -526,7 +526,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         for e in self.probe.all_channels(channelmap, electrodes):
             for t in self.probe.invalid_electrodes(channelmap, e, electrodes):
-                t.state = ProbeDesp.STATE_FORBIDDEN
+                t.state = ProbeDesp.STATE_DISABLED
             e.state = ProbeDesp.STATE_USED
 
         c = {it.electrode: it for it in electrodes}
@@ -738,7 +738,7 @@ class BlueprintFunctions(Generic[M, E]):
         Masking electrode belong to the categories.
 
         :param blueprint:
-        :param categories: If not given, use all categories except CATE_UNSET and CATE_FORBIDDEN.
+        :param categories: If not given, use all categories except ``CATE_UNSET`` and ``CATE_EXCLUDED``.
         :return: a blueprint mask.
         """
         from .edit.category import category_mask

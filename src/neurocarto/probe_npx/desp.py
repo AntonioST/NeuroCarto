@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from neurocarto.views.blueprint import ProbePlotBlueprintCallback
 elif SPHINX_BUILD:
     ProbeElectrodeDensityProtocol = 'neurocarto.views.data_density.ProbeElectrodeDensityProtocol'
+    ProbeElectrodeEfficiencyProtocol = 'neurocarto.views.view_efficient.ProbeElectrodeEfficiencyProtocol'
     ProbePlotBlueprintProtocol = 'neurocarto.views.blueprint.ProbePlotBlueprintProtocol'
     ProbePlotElectrodeProtocol = 'neurocarto.views.blueprint_script.ProbePlotElectrodeProtocol'
 
@@ -27,14 +28,26 @@ K: TypeAlias = tuple[int, int, int]
 
 
 class NpxElectrodeDesp(ElectrodeDesp):
-    electrode: K  # (shank, column, row)
+    """A Neuropixels electrode interface."""
+
+    electrode: K
+    """electrode identify. It is a 3-int tuple of (shank, column, row)"""
+
     channel: int
+    """channel identify."""
 
 
 class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
-    CATE_FULL: ClassVar = 11  # full-density
-    CATE_HALF: ClassVar = 12  # half-density
-    CATE_QUARTER: ClassVar = 13  # quarter-density
+    """A Neuropixels probe interface."""
+
+    CATE_FULL: ClassVar = 11
+    """electrode full-density category."""
+
+    CATE_HALF: ClassVar = 12
+    """electrode half-density category"""
+
+    CATE_QUARTER: ClassVar = 13
+    """electrode quarter-density category."""
 
     @property
     def supported_type(self) -> dict[str, int]:
@@ -243,6 +256,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         from .views import NpxReferenceControl
         return [NpxReferenceControl]
 
+    @doc_link()
     def view_ext_electrode_density(self, chmap: ChannelMap) -> NDArray[np.float_]:
         """
         Calculate electrode density along the probe.
@@ -254,7 +268,14 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         from .stat import npx_electrode_density
         return npx_electrode_density(chmap)
 
+    @doc_link()
     def view_ext_statistics_info(self, bp: BlueprintFunctions) -> dict[str, str]:
+        """
+
+        :param bp:
+        :return:
+        :see: {ProbeElectrodeEfficiencyProtocol}
+        """
         from .stat import npx_request_electrode, npx_channel_efficiency
 
         channelmap: ChannelMap = bp.channelmap
@@ -275,6 +296,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             'channel efficiency': f'{100 * efficiency:.2f}%',
         }
 
+    @doc_link()
     def view_ext_plot_blueprint(self, callback: ProbePlotBlueprintCallback, chmap: ChannelMap):
         """
 

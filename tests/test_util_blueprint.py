@@ -10,7 +10,7 @@ from neurocarto.util.util_blueprint import BlueprintFunctions
 
 DEFAULT_CATEGORIES = {
     'UNSET': 0,
-    'FORBIDDEN': 1,
+    'EXCLUDED': 1,
     'LOW': 2,
     'SET': 3,
 }

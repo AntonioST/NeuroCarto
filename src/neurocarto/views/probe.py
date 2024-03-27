@@ -45,7 +45,7 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
     STYLES: dict[int | str, dict[str, Any]] = {
         ProbeDesp.STATE_USED: dict(color='green'),
         ProbeDesp.STATE_UNUSED: dict(color='black'),
-        ProbeDesp.STATE_FORBIDDEN: dict(color='red', size=2, alpha=0.2),
+        ProbeDesp.STATE_DISABLED: dict(color='red', size=2, alpha=0.2),
         'highlight': dict(color='yellow', size=6, alpha=0.5)
     }
 
@@ -67,7 +67,7 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
         self.data_electrodes = {}  # {state : ColumnDataSource}
         """dict {state: ColumnDataSource}"""
 
-        for state in (ProbeDesp.STATE_UNUSED, ProbeDesp.STATE_USED, ProbeDesp.STATE_FORBIDDEN):
+        for state in (ProbeDesp.STATE_UNUSED, ProbeDesp.STATE_USED, ProbeDesp.STATE_DISABLED):
             self.data_electrodes[state] = ColumnDataSource(data=dict(x=[], y=[], e=[], c=[]))
             self.data_electrodes[state].selected.on_change('indices', as_callback(self._on_capture, state=state))
 
@@ -116,7 +116,7 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
             renderers=[
                 self.render_electrodes[ProbeDesp.STATE_USED],
                 self.render_electrodes[ProbeDesp.STATE_UNUSED],
-                self.render_electrodes[ProbeDesp.STATE_FORBIDDEN],
+                self.render_electrodes[ProbeDesp.STATE_DISABLED],
             ],
             tooltips=[  # hover
                 ('Channel', "@c"),
@@ -182,7 +182,7 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
 
         c = self.probe.all_channels(self.channelmap, self.electrodes)
         for e in self.probe.invalid_electrodes(self.channelmap, c, self.electrodes):
-            e.state = ProbeDesp.STATE_FORBIDDEN
+            e.state = ProbeDesp.STATE_DISABLED
         for e in c:
             e.state = ProbeDesp.STATE_USED
 
@@ -391,7 +391,7 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
                 captured.append(self._e2i[e])
                 self.probe.add_electrode(channelmap, e)
-            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
+            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_DISABLED], reset=True):
                 captured.append(self._e2i[e])
                 self.probe.add_electrode(channelmap, e, overwrite=True)
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_USED], reset=True):
@@ -403,7 +403,7 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
                 self.probe.del_electrode(channelmap, e)
             for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_UNUSED], reset=True):
                 captured.append(self._e2i[e])
-            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_FORBIDDEN], reset=True):
+            for e in self.get_captured_electrodes(self.data_electrodes[ProbeDesp.STATE_DISABLED], reset=True):
                 captured.append(self._e2i[e])
 
         self._reset_electrode_state()
