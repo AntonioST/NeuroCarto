@@ -30,7 +30,7 @@ marker('load files')
 bp = BlueprintFunctions.from_blueprint(blueprint, desp.all_possible_categories())
 blueprint = bp.set(bp.blueprint(), NpxProbeDesp.CATE_SET, NpxProbeDesp.CATE_FULL)
 categories = [
-    NpxProbeDesp.CATE_FULL, NpxProbeDesp.CATE_HALF, NpxProbeDesp.CATE_QUARTER, NpxProbeDesp.CATE_FORBIDDEN
+    NpxProbeDesp.CATE_FULL, NpxProbeDesp.CATE_HALF, NpxProbeDesp.CATE_QUARTER, NpxProbeDesp.CATE_EXCLUDED
 ]
 marker('setup bp')
 

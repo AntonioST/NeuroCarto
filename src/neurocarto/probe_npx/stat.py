@@ -145,7 +145,7 @@ def npx_channel_efficiency(bp: BlueprintFunctions, channelmap: ChannelMap = None
         match category:
             case NpxProbeDesp.CATE_SET | NpxProbeDesp.CATE_FULL | NpxProbeDesp.CATE_HALF | NpxProbeDesp.CATE_QUARTER:
                 channel += count
-            case NpxProbeDesp.CATE_FORBIDDEN:
+            case NpxProbeDesp.CATE_EXCLUDED:
                 channel -= count
 
     ae = 0 if electrode == 0 else max(channel / electrode, 0)

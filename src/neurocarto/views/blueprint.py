@@ -205,11 +205,11 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
             else:
                 impl.set_category_legend({
                     'select': 'green',
-                    'forbidden': 'pink',
+                    'excluded': 'pink',
                 })
                 impl.plot_blueprint({
                     bp.CATE_SET: 'green',
-                    bp.CATE_FORBIDDEN: 'pink',
+                    bp.CATE_EXCLUDED: 'pink',
                 })
 
     def reset_blueprint(self):

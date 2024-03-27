@@ -91,7 +91,7 @@ def category_mapping_probability(p: int) -> float:
             return 0.7  # 0.35, 0.175
         case NpxProbeDesp.CATE_LOW:
             return 0.6
-        case NpxProbeDesp.CATE_FORBIDDEN:
+        case NpxProbeDesp.CATE_EXCLUDED:
             return 0
         # case NpxProbeDesp.CATE_UNSET:
         case _:

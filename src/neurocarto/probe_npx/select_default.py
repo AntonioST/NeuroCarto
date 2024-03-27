@@ -22,8 +22,8 @@ def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxE
         if e.category == NpxProbeDesp.CATE_SET:
             _add(desp, ret, cand, e)
 
-        # remove forbidden electrodes from the candidate set
-        elif e.category == NpxProbeDesp.CATE_FORBIDDEN:
+        # remove excluded electrodes from the candidate set
+        elif e.category == NpxProbeDesp.CATE_EXCLUDED:
             try:
                 del cand[e.electrode]
             except KeyError:
@@ -36,7 +36,7 @@ def select_loop(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrod
                 **kwargs) -> ChannelMap:
     while len(cand):
         p, e = pick_electrode(cand)
-        if p == NpxProbeDesp.CATE_FORBIDDEN:
+        if p == NpxProbeDesp.CATE_EXCLUDED:
             break
         elif e is not None:
             update(desp, chmap, cand, e, p)
@@ -48,7 +48,7 @@ def select_loop(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrod
 
 def pick_electrode(cand: dict[K, NpxElectrodeDesp]) -> tuple[int, NpxElectrodeDesp | None]:
     if len(cand) == 0:
-        return NpxProbeDesp.CATE_FORBIDDEN, None
+        return NpxProbeDesp.CATE_EXCLUDED, None
 
     if len(ret := [e for e in cand.values() if e.category == NpxProbeDesp.CATE_FULL]) > 0:
         return NpxProbeDesp.CATE_FULL, random.choice(ret)
@@ -65,7 +65,7 @@ def pick_electrode(cand: dict[K, NpxElectrodeDesp]) -> tuple[int, NpxElectrodeDe
     if len(ret := [e for e in cand.values() if e.category == NpxProbeDesp.CATE_UNSET]) > 0:
         return NpxProbeDesp.CATE_UNSET, random.choice(ret)
 
-    return NpxProbeDesp.CATE_FORBIDDEN, None
+    return NpxProbeDesp.CATE_EXCLUDED, None
 
 
 def update(desp: NpxProbeDesp, chmap: ChannelMap, cand: dict[K, NpxElectrodeDesp], e: NpxElectrodeDesp, category: int):

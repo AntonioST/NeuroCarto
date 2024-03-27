@@ -233,7 +233,7 @@ class BlueprintFunctions(Generic[M, E]):
     CATE_SET: int
     """electrode pre-select category. Electrode must be selected"""
 
-    CATE_FORBIDDEN: int
+    CATE_EXCLUDED: int
     """electrode excluded category. Electrode must not be selected"""
 
     CATE_LOW: int
@@ -1159,7 +1159,7 @@ class BlueprintFunctions(Generic[M, E]):
         """
         get captured electrodes.
 
-        :param all: Included forbidden electrodes?
+        :param all: capture excluded electrodes?
         :return: index of captured electrodes.
         :see: {ProbeView#get_captured_electrodes_index()}
         """

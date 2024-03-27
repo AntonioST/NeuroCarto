@@ -123,7 +123,7 @@ Electrode colors indicate:
 
 * black : selectable electrodes
 * green: selected electrodes
-* red: un-selectable (forbidden) electrodes
+* red: un-selectable (disabled) electrodes
 * yellow: highlighted electrodes that related to the electrode captured by |bk-tool-icon-box-select|.
 
 Background Image
@@ -252,9 +252,9 @@ A custom channelmap
 
     There are recommended steps for building a blueprint.
 
-    1.  Set electrodes outside the brain with **forbidden** category, so forbidden electrodes are never selected.
+    1.  Set electrodes outside the brain with **Excluded** category, so forbidden electrodes are never selected.
 
-        select |electrodes-outside| set |forbidden|
+        select |electrodes-outside| set |excluded|
 
     2.  Set electrodes around the regions of interest (Hippocampus structure here) with **Set** or **Full Density** category.
 
@@ -278,7 +278,7 @@ A custom channelmap
 .. |policy-full-density| image:: _static/policy-full-density.png
 .. |electrodes-outside| image:: _static/electrodes-outside.png
 .. |custom-chmap| image:: _static/custom-chmap.png
-.. |forbidden| image:: _static/forbidden.png
+.. |excluded| image:: _static/forbidden.png
 .. |roi| image:: _static/roi.png
 .. |auto| image:: _static/auto.png
 

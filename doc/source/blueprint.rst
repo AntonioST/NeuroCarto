@@ -11,7 +11,7 @@ Electrode Category value colors:
 * orange: half-density
 * blue: quarter-density
 * transparent: low-density, unset
-* pink: forbidden
+* pink: excluded
 
 Commandline options
 -------------------

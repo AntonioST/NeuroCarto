@@ -55,14 +55,14 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def possible_categories(self) -> dict[str, int]:
         return {
             'Unset': self.CATE_UNSET,
-            'Set': self.CATE_SET,
+            'Pre Selected': self.CATE_SET,
             #
             'Full Density': self.CATE_FULL,
             'Half Density': self.CATE_HALF,
             #
             'Quarter Density': self.CATE_QUARTER,
             'Low priority': self.CATE_LOW,
-            'Forbidden': self.CATE_FORBIDDEN,
+            'Excluded': self.CATE_EXCLUDED,
         }
 
     @property
@@ -297,14 +297,14 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
                 self.CATE_FULL: 'green',
                 self.CATE_HALF: 'orange',
                 self.CATE_QUARTER: 'blue',
-                self.CATE_FORBIDDEN: 'pink',
+                self.CATE_EXCLUDED: 'pink',
             }
             callback.blueprint = callback.bp.set(callback.blueprint, self.CATE_SET, self.CATE_FULL)
             callback.set_category_legend({
                 'full-': 'green',
                 'half-': 'orange',
                 'quarter-': 'blue',
-                'forbidden': 'pink',
+                'excluded': 'pink',
             })
             callback.plot_blueprint(categories, size, offset)
 

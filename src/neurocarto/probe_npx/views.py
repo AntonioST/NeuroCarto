@@ -204,8 +204,8 @@ class NpxBadElectrodesView(ViewBase, InvisibleView, EditorView, RecordView[NpxBa
             row(
                 self.serial_number_input, new_help_button('serial number. 11 digit numbers'),
                 new_btn('Check', self._on_check), new_help_button('Check current channelmap has use any bad electrodes'),
-                new_btn('Load', self._on_load), new_help_button('Load bad electrodes and set as forbidden electrodes'),
-                new_btn('Save', self._on_save), new_help_button('Save forbidden electrodes as bad electrodes'),
+                new_btn('Load', self._on_load), new_help_button('Load bad electrodes and set as excluded electrodes'),
+                new_btn('Save', self._on_save), new_help_button('Save excluded electrodes as bad electrodes'),
             )
         ]
 
@@ -241,15 +241,15 @@ class NpxBadElectrodesView(ViewBase, InvisibleView, EditorView, RecordView[NpxBa
             return
 
         if len(bad_electrodes := self.get_bad_electrodes(serial_number)) > 0:
-            self.logger.debug('set %d bad electrodes as forbidden electrodes', len(bad_electrodes))
+            self.logger.debug('set %d bad electrodes as excluded electrodes', len(bad_electrodes))
             for electrode in bad_electrodes:
-                blueprint[electrode].category = NpxProbeDesp.CATE_FORBIDDEN
+                blueprint[electrode].category = NpxProbeDesp.CATE_EXCLUDED
 
             self.set_status('loaded', decay=5)
             self.update_probe()
 
             self.add_record(NpxBadElectrodesAction(action='load', serial_number=serial_number),
-                            'bad', 'set bad electrodes as forbidden')
+                            'bad', 'set bad electrodes as excluded')
         else:
             self.logger.debug('nothing to set')
 
@@ -262,13 +262,13 @@ class NpxBadElectrodesView(ViewBase, InvisibleView, EditorView, RecordView[NpxBa
             self.set_status('missing probe', decay=5)
             return
 
-        bad_electrodes = [i for i, e in enumerate(blueprint) if e.category == NpxProbeDesp.CATE_FORBIDDEN]
-        self.logger.debug('get %d forbidden electrodes as bad electrodes', len(bad_electrodes))
+        bad_electrodes = [i for i, e in enumerate(blueprint) if e.category == NpxProbeDesp.CATE_EXCLUDED]
+        self.logger.debug('get %d excluded electrodes as bad electrodes', len(bad_electrodes))
         self.save_bad_electrodes(serial_number, bad_electrodes)
         self.set_status('saved', decay=5)
 
         self.add_record(NpxBadElectrodesAction(action='save', serial_number=serial_number),
-                        'bad', 'save forbidden as bad electrodes')
+                        'bad', 'save excluded as bad electrodes')
 
     def _on_serial_number(self, serial_number: str):
         if len(serial_number) == 0:

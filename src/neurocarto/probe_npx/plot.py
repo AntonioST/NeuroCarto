@@ -974,7 +974,7 @@ def plot_category_area(ax: Axes,
             NpxProbeDesp.CATE_FULL: 'green',
             NpxProbeDesp.CATE_HALF: 'orange',
             NpxProbeDesp.CATE_QUARTER: 'blue',
-            NpxProbeDesp.CATE_FORBIDDEN: 'pink',
+            NpxProbeDesp.CATE_EXCLUDED: 'pink',
         }
 
     if electrode.ndim == 1:

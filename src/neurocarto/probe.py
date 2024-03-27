@@ -172,7 +172,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     CATE_SET: ClassVar = 1
     """electrode pre-select category. Electrode must be selected"""
 
-    CATE_FORBIDDEN: ClassVar = 2
+    CATE_EXCLUDED: ClassVar = 2
     """electrode excluded category. Electrode must not be selected"""
 
     CATE_LOW: ClassVar = 3

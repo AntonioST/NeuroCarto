@@ -19,7 +19,7 @@ def category_mask(self: BlueprintFunctions,
         except ValueError:
             pass
         try:
-            categories.remove(self.CATE_FORBIDDEN)
+            categories.remove(self.CATE_EXCLUDED)
         except ValueError:
             pass
 
