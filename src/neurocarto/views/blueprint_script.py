@@ -170,8 +170,9 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
         ]
 
     def _on_script_select(self, old: str, name: str):
-        if len(old) > 0:
-            self._script_input_cache[old] = self.script_input.value_input
+        old_input = self.script_input.value_input
+        if len(old) > 0 and len(old_input) > 0:
+            self._script_input_cache[old] = old_input
 
         if len(name) == 0:
             self.script_document.text = ''
@@ -185,7 +186,7 @@ class BlueprintScriptView(PltImageView, EditorView, DataHandler, ControllerView,
             self.script_document.text = 'Import Fail'
             return
 
-        self.script_input.value_input = self._script_input_cache.get(name, '')
+        self.script_input.value_input = self._script_input_cache.get(name, old_input)
         self.script_document.text = script_html_doc(script)
 
         self._set_script_run_button_status(name)
