@@ -1002,6 +1002,7 @@ class BlueprintFunctions(Generic[M, E]):
         else:
             return True
 
+    @doc_link()
     def use_view(self, view: str | type[V]) -> V | None:
         """
         Get corresponding {ViewBase} instance if activated.

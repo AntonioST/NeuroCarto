@@ -94,6 +94,7 @@ class ProbePlotElectrodeProtocol(Protocol):
         pass
 
 
+@doc_link()
 class BlueprintScriptView(PltImageView, EditorView, ControllerView,
                           RecordView[BlueprintScriptAction], GlobalStateView[BlueprintScriptState]):
     """

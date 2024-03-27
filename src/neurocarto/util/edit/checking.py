@@ -31,15 +31,22 @@ __all__ = [
 @doc_link()
 class RequestChannelmapType(NamedTuple):
     """
-    An annotation to indicate the probe request for a blueprint script.
+    An annotation data to indicate the probe request for a blueprint script.
 
     **Do not create by yourself**. In order to use this, use {use_probe()} and {get_use_probe()} instead.
     """
 
     probe: str | type[ProbeDesp] | None
+    """request probe name or type."""
+
     code: int | None
+    """request channelmap code."""
+
     create: bool = True
+    """create a channelmap when it is missing."""
+
     check: bool = True
+    """check it is existed and match to the request. raise error when mis-match"""
 
     @property
     def probe_name(self) -> str:
@@ -110,6 +117,8 @@ def use_probe(probe: str | type[ProbeDesp] = ProbeDesp, code: int = None, *,
         If ``True``, it requires *code* should be not ``None``.
         Force ``False`` if *probe* is omitted.
     :param check: check the current probe type automatically before entering the script.
+    :see: {get_use_probe()}
+    :see: {BlueprintFunctions#check_probe()}
     """
     if probe is None:
         raise ValueError('NoneType probe')
@@ -195,8 +204,16 @@ def check_probe(self: BlueprintFunctions,
         raise RequestChannelmapTypeError(request)
 
 
+@doc_link()
 class RequestView(NamedTuple):
+    """
+    An annotation data to indicate the view dependency for a blueprint script.
+
+    **Do not create by yourself**. In order to use this, use {use_view()} and {get_use_view()} instead.
+    """
+
     view_type: str | type[ViewBase]
+    """request view name or type."""
 
 
 @doc_link()
@@ -205,10 +222,20 @@ def use_view(view: str | type[ViewBase]):
     Decorate a blueprint script ({BlueprintScript}) to indicate this function
     request a particular {ViewBase} to work.
 
-    If also allow {BlueprintScriptView} to filter suitable scripts.
+    .. code-block:: python
 
-    :param view:
+        @use_view('AtlasView')
+        def my_function(bp: BlueprintFunctions):
+            if (atlas := bp.use_view('AtlasView')) is None:
+                raise RuntimeError('AtlasView is not loaded')
+
+    If also allow {BlueprintScriptView} to filter suitable scripts, depends on
+    existed views.
+
+    :param view: request view name or type.
     :return:
+    :see: {get_use_view()}
+    :see: {BlueprintFunctions#use_view()}
     """
 
     def _decorator(func):
