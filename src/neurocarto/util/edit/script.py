@@ -8,7 +8,7 @@ import re
 import sys
 import textwrap
 from pathlib import Path
-from typing import Protocol, TYPE_CHECKING, cast, NamedTuple
+from typing import Protocol, TYPE_CHECKING, cast, NamedTuple, Any
 
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import import_name, get_import_file, doc_link
@@ -142,7 +142,7 @@ class BlueprintScript(Protocol):
 
 @doc_link()
 class BlueprintScriptInfo(NamedTuple):
-    """{BlueprintScript} holder"""
+    """A {BlueprintScript} holder"""
 
     name: str
     """script name."""
@@ -178,7 +178,7 @@ class BlueprintScriptInfo(NamedTuple):
 
     def check_changed(self) -> bool:
         """
-        Does the script's source module file has modified?
+        Was source module file of the script modified from latest loading?
 
         :return: True when it has modified at this moment.
         """
@@ -191,7 +191,7 @@ class BlueprintScriptInfo(NamedTuple):
 
     def reload(self) -> Self:
         """
-        Reload script from file.
+        Reload the script from source module file.
 
         :return:
         """
@@ -209,7 +209,7 @@ class BlueprintScriptInfo(NamedTuple):
     @doc_link(use_probe='neurocarto.util.edit.checking.use_probe')
     def script_use_probe(self) -> RequestChannelmapType | None:
         """
-        Get probe requirement.
+        Get the probe requirement.
 
         :return:
         :see: {use_probe()}
@@ -220,7 +220,7 @@ class BlueprintScriptInfo(NamedTuple):
     @doc_link(use_view='neurocarto.util.edit.checking.use_view')
     def script_use_view(self) -> RequestView | None:
         """
-        Get view requirement
+        Get the view requirement
 
         :return:
         :see: {use_view()}
@@ -228,9 +228,9 @@ class BlueprintScriptInfo(NamedTuple):
         from neurocarto.util.edit.checking import get_use_view
         return get_use_view(self.script)
 
-    def __call__(self, bp: BlueprintFunctions, script_input: str):
+    def eval(self, bp: BlueprintFunctions, script_input: str) -> Any:
         """
-        Eval *script_input* and call actual script function.
+        Eval *script_input* and invoke actual script function.
 
         Although *script_input* should be a valid Python code,
         we cheat on the name resolution that take the undefined variable as a str by its name.
@@ -255,6 +255,17 @@ class BlueprintScriptInfo(NamedTuple):
                 return key
 
         return eval(f'__script_func__({script_input})', {}, Missing(__script_func__=functools.partial(self.script, bp)))
+
+    def __call__(self, bp: BlueprintFunctions, *args, **kwargs) -> Any:
+        """
+        Invoke the script function.
+
+        :param bp:
+        :param args: script function's positional arguments.
+        :param kwargs: script function's keyword arguments.
+        :return: script function's return.
+        """
+        return self.script(bp, *args, **kwargs)
 
 
 def script_signature(script: BlueprintScriptInfo) -> str:

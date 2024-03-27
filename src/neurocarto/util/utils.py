@@ -242,7 +242,7 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
     g = [kwargs, stack[1].frame.f_globals]
 
     def _decorator(func: T) -> T:
-        if func.__doc__ is not None:
+        if SPHINX_BUILD and func.__doc__ is not None:
             func.__doc__ = replace_doc_link(g, func.__doc__)
         return func
 
@@ -250,12 +250,11 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
 
 
 def replace_doc_link(context: list[dict], doc: str) -> str:
-    if SPHINX_BUILD:
-        replace = functools.partial(sphinx_doc_link_replace_ref, context)
-        doc = re.sub(r'\{(?P<module>[a-zA-Z0-9_.]+)?(#(?P<attr>[a-zA-Z0-9_]+))?(?P<func>\(\))?}', replace, doc)
+    replace = functools.partial(sphinx_doc_link_replace_ref, context)
+    doc = re.sub(r'\{(?P<module>[a-zA-Z0-9_.]+)?(#(?P<attr>[a-zA-Z0-9_]+))?(?P<func>\(\))?}', replace, doc)
 
-        replace = functools.partial(sphinx_doc_link_replace_word, context)
-        doc = re.sub(r'(?:(?<=^)|(?<=\n))(?P<indent> *)\{(?P<attr>[a-zA-Z0-9_]+)}', replace, doc)
+    replace = functools.partial(sphinx_doc_link_replace_word, context)
+    doc = re.sub(r'(?:(?<=^)|(?<=\n))(?P<indent> *)\{(?P<attr>[a-zA-Z0-9_]+)}', replace, doc)
 
     return doc
 

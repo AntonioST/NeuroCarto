@@ -109,7 +109,7 @@ def use_probe(probe: str | type[ProbeDesp] = ProbeDesp, code: int = None, *,
         def my_probe(bp: BlueprintFunctions):
             bp.check_probe('npx', 24) # no need anymore in common case.
 
-    If also allow {BlueprintScriptView} to filter suitable scripts for a probe.
+    It also allows {BlueprintScriptView} to filter suitable scripts for a probe.
 
     :param probe: probe type or its name. It is omitted, just check a probe is existed.
     :param code: channelmap code
@@ -229,7 +229,7 @@ def use_view(view: str | type[ViewBase]):
             if (atlas := bp.use_view('AtlasView')) is None:
                 raise RuntimeError('AtlasView is not loaded')
 
-    If also allow {BlueprintScriptView} to filter suitable scripts, depends on
+    It also allows {BlueprintScriptView} to filter suitable scripts, which depends on
     existed views.
 
     :param view: request view name or type.

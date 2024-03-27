@@ -116,11 +116,14 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
         'label': 'neurocarto.util.edit._actions:atlas_label',
         'probe-coor': 'neurocarto.util.edit._actions:adjust_atlas_mouse_brain_to_probe_coordinate',
     }
+    """Builtin scripts"""
 
     def __init__(self, config: CartoConfig):
         super().__init__(config, logger='neurocarto.view.blueprint_script')
         self.logger.warning('it is an experimental feature.')
+
         self.actions: dict[str, str | BlueprintScriptInfo] = dict(self.BUILTIN_ACTIONS)
+        """all scripts"""
 
         # long-running (as a generator) script control.
         self._running_script: dict[str, Generator | type[KeyboardInterrupt]] = {}
@@ -474,7 +477,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
 
         try:
             self.logger.debug('run_script(%s)[%s]', script.name, script_input)
-            ret = script(bp, script_input)
+            ret = script.eval(bp, script_input)
         except RequestChannelmapTypeError as e:
             request = e.request
             if chmap is None and request.match_probe(probe) and request.code is not None:
