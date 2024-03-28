@@ -13,7 +13,7 @@ description = "A web-interface channelmap editor for Neuropixels probe familiy"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-keywords = ["Eletrophysiology", "Neuropixels", 'Channelmap']
+keywords = ["Electrophysiology", "Neuropixels", 'Channelmap']
 classifiers = [
     # https://pypi.org/classifiers/
     "Development Status :: 3 - Alpha",
