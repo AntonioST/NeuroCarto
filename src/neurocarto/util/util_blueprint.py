@@ -61,21 +61,22 @@ def maybe_blueprint(self: BlueprintFunctions, a):
 def blueprint_function(func=None, *, set_return=True):
     """
     Decorate a blueprint function to make it is able to direct apply function on
-    internal blueprint.
+    the internal blueprint array.
 
-    The function should have a signature ``(blueprint, ...) -> blueprint``.
+    The function should have a signature ``(blueprint, ...) -> blueprint|None``.
 
     If the first parameter blueprint is given, it works as usually. ::
 
         bp.func(blueprint, ...)
 
-    If the first parameter blueprint is omitted, use {BlueprintFunctions#blueprint()} as first arguments,
+    If the first parameter *blueprint* is omitted,
+    use {BlueprintFunctions#blueprint()} as first arguments,
     and use {BlueprintFunctions#set_blueprint()} after it returns. ::
 
         bp.set_blueprint(bp.func(bp.blueprint(), ...))
 
     :param func:
-    :param set_return: check return and set the blueprint
+    :param set_return: check the return and set the blueprint
     """
 
     def _decorator(func):
@@ -623,9 +624,12 @@ class BlueprintFunctions(Generic[M, E]):
         np.save(file, self.probe.save_blueprint(s))
 
     @blueprint_function
+    @doc_link()
     def set(self, blueprint: BLUEPRINT, mask: int | list[int] | NDArray[np.bool_] | NDArray[np.int_], category: int) -> BLUEPRINT:
         """
         Set *category* on the blueprint with a *mask*.
+
+        It is a {blueprint_function()} function.
 
         :param blueprint:
         :param mask: category value (or list), electrode mask or electrode index
@@ -648,9 +652,12 @@ class BlueprintFunctions(Generic[M, E]):
         return ret
 
     @blueprint_function
+    @doc_link()
     def unset(self, blueprint: BLUEPRINT, mask: int | list[int] | NDArray[np.bool_] | NDArray[np.int_]) -> BLUEPRINT:
         """
         unset electrodes in the *blueprint* with a *mask*.
+
+        It is a {blueprint_function()} function.
 
         :param blueprint:
         :param mask: category value, electrode mask or electrode index
@@ -717,9 +724,12 @@ class BlueprintFunctions(Generic[M, E]):
         return ret
 
     @blueprint_function(set_return=False)
+    @doc_link()
     def count_categories(self, blueprint: BLUEPRINT, categories: int | list[int], mask: NDArray[np.bool_] = None) -> int:
         """
         count number of electrode belonging to *categories*.
+
+        It is a {blueprint_function()} function.
 
         :param blueprint:
         :param categories: category value or a category list.
@@ -733,9 +743,12 @@ class BlueprintFunctions(Generic[M, E]):
         return np.count_nonzero(t)
 
     @blueprint_function(set_return=False)
+    @doc_link()
     def mask(self, blueprint: BLUEPRINT, categories: int | list[int] = None) -> NDArray[np.bool_]:
         """
         Masking electrode belong to the categories.
+
+        It is a {blueprint_function()} function.
 
         :param blueprint:
         :param categories: If not given, use all categories except ``CATE_UNSET`` and ``CATE_EXCLUDED``.
@@ -760,6 +773,7 @@ class BlueprintFunctions(Generic[M, E]):
         pass
 
     @blueprint_function
+    @doc_link()
     def invalid(self, blueprint: BLUEPRINT, *,
                 electrodes: int | ELECTRODES | NDArray[np.bool_] | NDArray[np.int_] | M = None,
                 categories: int | list[int] = None,
@@ -767,6 +781,8 @@ class BlueprintFunctions(Generic[M, E]):
                 overwrite: bool = False):
         """
         Masking or set value on invalid electrodes for electrode in categories.
+
+        It is a {blueprint_function()} function.
 
         :param blueprint:
         :param electrodes: electrode index array, masking, or a channelmap (take selected electrodes).
@@ -865,6 +881,7 @@ class BlueprintFunctions(Generic[M, E]):
         return edge_rastering(self, edges, fill=fill, overwrite=overwrite)
 
     @blueprint_function
+    @doc_link()
     def fill(self, blueprint: BLUEPRINT,
              categories: int | list[int] = None, *,
              threshold: int = None,
@@ -872,6 +889,8 @@ class BlueprintFunctions(Generic[M, E]):
              unset: bool = False) -> BLUEPRINT:
         """
         fill each category zone as a rectangle zone.
+
+        It is a {blueprint_function()} function.
 
         :param blueprint: Array[category, N]
         :param categories: only consider given categories.
@@ -884,6 +903,7 @@ class BlueprintFunctions(Generic[M, E]):
         return fill(self, blueprint, categories, threshold=threshold, gap=gap, unset=unset)
 
     @blueprint_function
+    @doc_link()
     def extend(self, blueprint: BLUEPRINT,
                category: int,
                step: int | tuple[int, int],
@@ -893,6 +913,8 @@ class BlueprintFunctions(Generic[M, E]):
                overwrite: bool = False) -> BLUEPRINT:
         """
         extend the zone of each category's zone.
+
+        It is a {blueprint_function()} function.
 
         :param blueprint: Array[category, N]
         :param category: on which category zone.
@@ -909,6 +931,7 @@ class BlueprintFunctions(Generic[M, E]):
         return extend(self, blueprint, category, step, value, threshold=threshold, bi=bi, overwrite=overwrite)
 
     @blueprint_function
+    @doc_link()
     def reduce(self, blueprint: BLUEPRINT,
                category: int,
                step: int | tuple[int, int], *,
@@ -916,6 +939,8 @@ class BlueprintFunctions(Generic[M, E]):
                bi: bool = True) -> BLUEPRINT:
         """
         reduce the size of each category's zone.
+
+        It is a {blueprint_function()} function.
 
         :param blueprint: Array[category, N]
         :param category: on which category zone.
@@ -1435,6 +1460,8 @@ class BlueprintFunctions(Generic[M, E]):
         with a matplotlib axes.
 
         If *ax* is ``None``, create one with the rc file used by {PltImageView}.
+
+        It is a {blueprint_function()} function.
 
         :param blueprint: Array[category:int, E], where E means all electrodes
         :param colors: categories color {category: color}, where color is used by matplotlib.
