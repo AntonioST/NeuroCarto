@@ -120,10 +120,10 @@ def user_config_file(config: CartoConfig) -> Path:
     Get user config filepath.
 
     * When ``--config-file`` is given, use it.
-    * When ``--debug``, use ``.{USER_CONFIG_FILENAME}`` at current working directory.
+    * When ``--debug``, use ``.neurocarto.config.json`` at current working directory.
 
     :return: filepath.
-    :see: {#user_config_dir()}
+    :see: {user_config_dir()}
     """
     if (ret := config.config_file) is not None:
         if ret.is_dir():
@@ -144,7 +144,7 @@ def load_user_config(config: CartoConfig) -> dict[str, Any]:
     :return: user config dictionary
     :raise FileNotFoundError: config file does not exist.
     :raise IOError: wrap json.JSONDecodeError
-    :see: {#user_config_file()}
+    :see: {user_config_file()}
     """
     import json
 
@@ -168,7 +168,7 @@ def save_user_config(config: CartoConfig, user: dict[str, Any]) -> Path:
     :param config:
     :param user: user config
     :return: saved user confile path
-    :see: {#user_config_file()}
+    :see: {user_config_file()}
     """
     import json
 
