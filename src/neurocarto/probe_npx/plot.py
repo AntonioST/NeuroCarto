@@ -731,7 +731,7 @@ def plot_electrode_block(ax: Axes,
         raise ValueError()
 
 
-def plot_channelmap_grid(ax: Axes, chmap: ChannelMap, *,
+def plot_channelmap_grid(ax: Axes, chmap: ChannelMap,
                          height: float = 10,
                          shank_list: list[int] = None,
                          unit_column: bool = False,

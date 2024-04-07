@@ -542,6 +542,16 @@ class ChannelMap:
     def electrodes(self) -> Electrodes:
         return Electrodes(self.probe_type, self._electrodes)
 
+    def disconnect_channels(self) -> list[int]:
+        """
+        list of channel that it is not in used, or it is disconnected.
+
+        ``None`` channels are not included in the return list.
+
+        :return: list of channel numbers.
+        """
+        return [i for i, e in enumerate(self._electrodes) if e is not None and not e.in_used]
+
     # ==================== #
     # add/delete electrode #
     # ==================== #
