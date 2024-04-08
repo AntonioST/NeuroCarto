@@ -668,6 +668,8 @@ class ChannelHasUsedError(RuntimeError):
 class Channels(Sized, Iterable[Electrode | None]):
     """Dict-like accessor for navigating channels via channel ID."""
 
+    __slots__ = '_probe_type', '_electrodes'
+
     def __init__(self, probe_type: ProbeType, electrode: list[Electrode | None]):
         self._probe_type: Final = probe_type
         self._electrodes: Final = electrode
@@ -749,6 +751,8 @@ class Channels(Sized, Iterable[Electrode | None]):
 
 class Electrodes(Sized, Iterable[Electrode]):
     """Dict-like accessor for navigating channels via electrode position (shank, column, row)"""
+
+    __slots__ = '_probe_type', '_electrodes'
 
     def __init__(self, probe_type: ProbeType, electrode: list[Electrode | None]):
         self._probe_type: Final = probe_type

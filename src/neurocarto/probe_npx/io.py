@@ -101,7 +101,7 @@ def string_imro(chmap: ChannelMap) -> str:
     # channels
     match chmap.probe_type.code:
         case 0:
-            for ch, e in enumerate(chmap.electrodes):
+            for ch, e in enumerate(chmap.channels):
                 ret.append(f'({ch} 0 {chmap.reference} {e.ap_band_gain} {e.lf_band_gain} {1 if e.ap_hp_filter else 0})')
 
         case 21:
