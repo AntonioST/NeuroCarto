@@ -74,6 +74,10 @@ class ProbeType(NamedTuple):
         """number of blocks in one bank"""
         return self.n_channels // self.n_electrode_block
 
+    @classmethod
+    def __class_getitem__(cls, item: int | str) -> ProbeType:
+        return PROBE_TYPE[item]
+
 
 PROBE_TYPE_NP1 = ProbeType(0, 1, 2, 480, 960, 384, 32, 32, 20, 0, (192, 576, 960))
 # PROBE_TYPE_NHP1 = ProbeProfile(1, 2, 64, 128, 128, 32)

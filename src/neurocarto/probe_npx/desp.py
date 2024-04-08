@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp, ElectrodeDesp
-from neurocarto.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError, PROBE_TYPE
+from neurocarto.probe_npx.npx import ChannelMap, Electrode, e2p, e2cb, ProbeType, ChannelHasUsedError
 from neurocarto.util.utils import SPHINX_BUILD, doc_link
 
 if TYPE_CHECKING:
@@ -118,7 +118,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
 
     def all_electrodes(self, chmap: int | ProbeType | ChannelMap) -> list[NpxElectrodeDesp]:
         if isinstance(chmap, int):
-            probe_type = PROBE_TYPE[chmap]
+            probe_type = ProbeType[chmap]
         elif isinstance(chmap, ChannelMap):
             probe_type = chmap.probe_type
         elif isinstance(chmap, ProbeType):

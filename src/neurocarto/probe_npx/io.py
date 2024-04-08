@@ -49,8 +49,11 @@ def parse_imro(source: str) -> ChannelMap:
 
         if k == 0:  # first ()
             type_code, n = tuple(map(int, part.split(',')))
-            if type_code not in PROBE_TYPE:
-                raise RuntimeError(f"unsupported probe type : {type_code}")
+            try:
+                ProbeType[type_code]
+            except KeyError as e:
+                raise RuntimeError(f"unsupported probe type : {type_code}") from e
+
             k += 1
 
         elif type_code == 0:  # NP1
@@ -179,7 +182,7 @@ def from_probe(probe: Probe) -> ChannelMap:
         raise RuntimeError('not a Neuropixels probe')
 
     probe_type_raw = probe.annotations['probe_type']
-    probe_type = PROBE_TYPE[probe_type_raw]
+    probe_type = ProbeType[probe_type_raw]
     s = probe.shank_ids.astype(int)
     cr = probe.contact_positions.astype(int)
     cr[:, 0] %= probe_type.s_space
