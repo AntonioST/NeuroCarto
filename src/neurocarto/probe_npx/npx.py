@@ -414,6 +414,17 @@ class ChannelMap:
         """number of channels"""
         return _channelmap_len_(self._electrodes)
 
+    def __contains__(self, item: E | None) -> bool:
+        """Is the electrode *item* in the map?"""
+        if item is None:
+            for e in self._electrodes:
+                if e is None:
+                    return True
+            else:
+                return False
+
+        return self.get_electrode(item) is not None
+
     @property
     def n_shank(self) -> int:
         """number of shanks"""
@@ -665,6 +676,23 @@ class Channels(Sized, Iterable[Electrode | None]):
         """number of total channels"""
         return self._probe_type.n_channels
 
+    def __contains__(self, item: int | None) -> bool:
+        """
+        Is the channel *item* in the map?
+
+        :param item: channel ID, or ``None``.
+        :return: ``True`` if channel is set (when *item* is ``int``), or
+            ``True`` if there are at least one channel is unbound (when *item* is ``None``).
+        """
+        if item is None:
+            for e in self._electrodes:
+                if e is None:
+                    return True
+            else:
+                return False
+
+        return self._electrodes[item] is not None
+
     def __getitem__(self, item):
         """
         Get electrode via channel ID.
@@ -730,6 +758,19 @@ class Electrodes(Sized, Iterable[Electrode]):
         """number of channels (C)"""
         return _channelmap_len_(self._electrodes)
 
+    def __contains__(self, item) -> bool:
+        """
+        Is the electrode at position *item* existed?
+
+        :param item: tuple of (shank:I, column:I, row:I), where type I = `None | int | slice | tuple (union) | Iterable[int]`
+        :return: True when any electrodes found.
+        """
+        match self[item]:
+            case None | []:
+                return False
+            case _:
+                return True
+
     def __getitem__(self, item):
         """
         Get electrode via electrode positions.
@@ -762,7 +803,7 @@ class Electrodes(Sized, Iterable[Electrode]):
         """
         Copy electrode properties.
 
-        :param item: channel id, id-slicing, or id-array
+        :param item: tuple of (shank:I, column:I, row:I), where type I = `None | int | slice | tuple (union) | Iterable[int]`
         :param value: copy reference
         """
         shank, cols, rows = item
