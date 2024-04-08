@@ -898,13 +898,13 @@ def channel_coordinate(shank_map: ChannelMap,
             r.append(np.nan)
 
     if electrode_unit == 'cr':
-        return np.vstack([s, c, r]).T
+        return np.column_stack([s, c, r])
     else:
         s = np.array(s)
         x = np.array(c) * probe_type.c_space + s * probe_type.s_space
         y = np.array(r) * probe_type.r_space
 
-        return np.vstack([x, y]).T
+        return np.column_stack([x, y])
 
 
 def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType,
@@ -939,9 +939,9 @@ def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType,
         s *= probe_type.s_space
 
     j, i = np.mgrid[0:len(y), 0:len(x)]
-    e = np.vstack([
+    e = np.column_stack([
         x[i].ravel(), y[j].ravel()
-    ]).T
+    ])
 
     if electrode_unit == 'cr':
         return np.vstack([
@@ -952,9 +952,9 @@ def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType,
         ])
     else:
         return np.vstack([
-            np.vstack([
+            np.column_stack([
                 e[:, 0] + ss, e[:, 1]
-            ]).T
+            ])
             for ss in s
         ])
 

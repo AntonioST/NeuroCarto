@@ -73,7 +73,7 @@ Numpy Array
 
 * ``a: Array[int, *A]``: ``a.shape: A``, ``a.shape[i] == A[i]``
 * ``a: Array[int, A, B]``: ``a.T: Array[int, B, A]``
-* ``a: Array[int, N, (A, B, C)]``: ``a[:, 1]: Array[B:int, N]``
+* ``a: Array[int, N, (A, B, C)]``: ``a[:, 1]: Array[B:int, N]``, ``a[:, [1]]: Array[B:int, N, 1]``
 * ``a: Array[int, A]`` and ``b: Array[A, *B]``: ``a[b]: Array[int, *B]``
 * ``a: Array[int, A]`` and ``b: Array[bool, A]``: ``a[b]: Array[int, A']``
 

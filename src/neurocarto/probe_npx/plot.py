@@ -258,7 +258,7 @@ class ElectrodeMatData(NamedTuple):
 
         vmap = np.full((dr + 1, dc + 1), np.nan)
         vmap[r - r0, sc - c0] = v
-        for i in same_index(np.vstack([c, r]).T):
+        for i in same_index(np.column_stack([c, r])):
             i0 = i[0]
             vmap[r[i0] - r0, sc[i0] - c0] = reduce(v[i])
 
@@ -774,7 +774,7 @@ def plot_channelmap_grid(ax: Axes, chmap: ChannelMap,
             t[r + 1, c + 1] = 0  # unset used electrodes
 
             ar, ac = np.nonzero(t[1:, 1:] > 2)
-            a.append(np.vstack([np.full_like(ar, s), ac, ar]).T)
+            a.append(np.column_stack([np.full_like(ar, s), ac, ar]))
         e = np.vstack([e, *a])
 
     plot_electrode_grid(ax, probe, e, 'cr',
@@ -863,11 +863,11 @@ def plot_channelmap_matrix(ax: Axes,
     x = channel_coordinate(chmap, 'cr', include_unused=True).astype(float)  # Array[float, E, (S, C, R)]
 
     if data.ndim == 1:
-        x = np.vstack([x, data.T])  # Array[float, E, (S, C, R, V)]
+        x = np.hstack([x, data[:, None]])  # Array[float, E, (S, C, R, V)]
     elif data.ndim == 2:
         c = data[:, 0].astype(int)
-        v = data[:, 1]
-        x = np.vstack([x[c], v.T])  # Array[float, E, (S, C, R, V)]
+        v = data[:, [1]]  # Array[V:float, E, 1]
+        x = np.hstack([x[c], v])  # Array[float, E, (S, C, R, V)]
     else:
         raise ValueError()
 

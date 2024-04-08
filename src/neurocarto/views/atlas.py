@@ -456,7 +456,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         dy = (self._figure_y_range.end - self._figure_y_range.start) / 30
         th = min(dx, dy)
 
-        labels = np.vstack([x, data['y']]).T
+        labels = np.column_stack([x, data['y']])
         if (i := closest_point_index(labels, pos, th)) is not None:
             return self._labels[i]
         return None
