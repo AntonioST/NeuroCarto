@@ -608,7 +608,7 @@ def plot_channelmap_block(ax: Axes,
         electrode = np.array([
             (it.shank, it.column, it.row) for it in chmap.electrodes
             if it is not None and not it.in_used
-        ])
+        ]).reshape(-1, 3)
 
     elif selection in ('electrode', 'unused'):
         electrode = electrode_coordinate(probe, 'cr')
@@ -700,6 +700,8 @@ def plot_electrode_block(ax: Axes,
             data = data.with_height(height * 1000)
 
     if electrode_unit in ('cr', 'xy'):
+        kwargs.pop('lw', None)
+
         ret = []
         for i, j in zip(x - w / 2, y - h / 2):
             r = Rectangle((float(i), float(j)), w, h, lw=0, **kwargs)
