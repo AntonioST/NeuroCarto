@@ -562,7 +562,7 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Get an electrode index array from an electrode list.
 
-        :param electrodes:
+        :param electrodes: list of electrode.
         :return: electrode index array, follow *electrodes* ordering.
         :raise RuntimeError: when probe is missing.
         """
@@ -577,9 +577,7 @@ class BlueprintFunctions(Generic[M, E]):
             if (i := pos.get(p, None)) is not None:
                 ret.append(i)
 
-        ret = np.array(ret, dtype=int)
-        _, idx = np.unique(ret, return_index=True)
-        return ret[np.sort(idx)]
+        return np.array(ret, dtype=int)
 
     def load_blueprint(self, file: str | Path) -> BLUEPRINT:
         """
@@ -1568,4 +1566,3 @@ class BlueprintFunctions(Generic[M, E]):
             profile_script(self, controller, script, *args, **kwargs)
         else:
             raise RuntimeError()
-
