@@ -166,14 +166,14 @@ def index_of(ref: NDArray[np.int_],
 
 
 def interpolate_nan(a: NDArray[np.float_],
-                    space: int | tuple[int, int] = 1,
+                    kernel: int | tuple[int, int] = 1,
                     iteration: int = 1,
                     f: str | Callable[[NDArray[np.float_]], float] = 'mean',
                     n: float = np.nan) -> NDArray[np.float_]:
     """
 
     :param a: image Array[float, Y, X]
-    :param space: int or (sx:int, sy:int)
+    :param kernel: int or (sx:int, sy:int)
     :param iteration:
     :param f: interpolate function (Array[float]) -> float
     :param n: fill value after iteration
@@ -192,12 +192,14 @@ def interpolate_nan(a: NDArray[np.float_],
             raise ValueError()
 
     y, x = a.shape
-    if isinstance(space, tuple):
-        sx, sy = space
-        gy, gx = np.mgrid[-sy:sy + 1, -sx:sx + 1]
-    else:
-        space = int(space)
-        gy, gx = np.mgrid[-space:space + 1, -space:space + 1]
+    match kernel:
+        case (int(sx), int(sy)):
+            gy, gx = np.mgrid[-sy:sy + 1, -sx:sx + 1]
+        case int(kernel):
+            gy, gx = np.mgrid[-kernel:kernel + 1, -kernel:kernel + 1]
+        case _:
+            raise TypeError(f'{kernel=}')
+
     gx = gx.ravel()
     gy = gy.ravel()
 

@@ -5,9 +5,13 @@ import numpy as np
 from numpy.typing import NDArray
 
 from neurocarto.util.util_blueprint import BlueprintFunctions
+from neurocarto.util.utils import doc_link
 from .moving import move_i
 
-__all__ = ['load_data', 'interpolate_nan']
+__all__ = [
+    'load_data', 'save_data',
+    'interpolate_nan'
+]
 
 
 def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float_]:
@@ -18,10 +22,25 @@ def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float_]:
     return np.array([it.category for it in e], dtype=float)
 
 
+def save_data(self: BlueprintFunctions, file: str | Path, value: NDArray[np.float_]):
+    electrodes = self.apply_blueprint(blueprint=value.astype(int))
+    np.save(file, self.probe.save_blueprint(electrodes))
+
+
+@doc_link()
 def interpolate_nan(self: BlueprintFunctions,
                     a: NDArray[np.float_],
                     kernel: int | tuple[int, int] = 1,
                     f: str | Callable[[NDArray[np.float_]], float] = 'mean') -> NDArray[np.float_]:
+    """
+
+    :param self:
+    :param a:
+    :param kernel:
+    :param f:
+    :return:
+    :see: {BlueprintFunctions#interpolate_nan()}
+    """
     if isinstance(f, str):
         if f == 'mean':
             f = np.nanmean

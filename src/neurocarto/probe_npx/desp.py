@@ -401,10 +401,10 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         from .plot import plot_electrode_block, plot_probe_shape, electrode_coordinate
         probe_type = chmap.probe_type
 
-        electrodes = electrode_coordinate(probe_type, electrode_unit='xy') / 1000
+        electrodes = electrode_coordinate(probe_type, electrode_unit='cr')
         data = np.hstack([electrodes, data[:, None]])
 
-        plot_electrode_block(ax, probe_type, data, electrode_unit='xyv', shank_width_scale=shank_width_scale, **kwargs)
+        plot_electrode_block(ax, probe_type, data, electrode_unit='crv', shank_width_scale=shank_width_scale, **kwargs)
         plot_probe_shape(ax, probe_type, color=probe_color, shank_width_scale=shank_width_scale, label_axis=label_axis, **kwargs)
 
         if not label_axis:

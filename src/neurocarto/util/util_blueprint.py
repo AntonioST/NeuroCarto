@@ -156,6 +156,9 @@ class BlueprintFunctions(Generic[M, E]):
         :columns: 2
 
         * {#load_data()}
+        * {#save_data()}
+        * {#get_data()}
+        * {#put_data()}
         * {#interpolate_nan()}
         * {#draw()}
 
@@ -964,23 +967,76 @@ class BlueprintFunctions(Generic[M, E]):
         Load a numpy array that can be parsed by {ProbeDesp#load_blueprint()}.
         The data value is read from category value for electrodes.
 
-        Because E's category is expected as an int, this view also take it as an int by default.
+        For the Neuropixels, {NpxProbeDesp} use the numpy array in this form:
+
+           Array[int, E, (shank, col, row, state, category)]
+
+        Because E's category is expected as an int, this method also take it as an int by default.
+
+        :param file: data file
+        :return: Array[float, E] data array, where E is all electrodes.
+        """
+        from .edit.data import load_data
+        return load_data(self, file)
+
+    @doc_link()
+    def save_data(self, file: str | Path, data: NDArray[np.float_]):
+        """
+        Save a numpy array through {ProbeDesp#save_blueprint()}.
+        The data value is stored into the category value for each electrode.
 
         For the Neuropixels, {NpxProbeDesp} use the numpy array in this form:
 
            Array[int, E, (shank, col, row, state, category)]
 
-        :param file: data file
-        :return: data array.
-        """
-        from .edit.data import load_data
-        return load_data(self, file)
+        Because E's category is expected as an int, this method will cast it into an int by default.
 
+        :param file: data file
+        :param data: Array[float, E] data array, where E is all electrodes.
+        """
+        from .edit.data import save_data
+        return save_data(self, file, data)
+
+    def get_data(self, data: NDArray[np.float_], chmap: M) -> NDArray[np.float_]:
+        """
+        Get the value of the used electrode (donated by *chmap*) from the *data*.
+
+        :param data: Array[float, E], where E is all electrodes
+        :param chmap: a channelmap with number of channel C
+        :return: Array[float, C] channel data.
+        """
+        return data[self.selected_electrodes(chmap)]
+
+    def put_data(self, data: NDArray[np.float_], chmap: M, value: NDArray[np.float_]):
+        """
+        put the *value* of used electrodes from *chmap* into *data*.
+
+        :param data: Array[float, E], where E is all electrodes
+        :param chmap: a channelmap with number of channel C
+        :param value:  Array[float, C] channel data.
+        :return: *data*
+        """
+        data[self.selected_electrodes(chmap)] = value
+
+    @doc_link(
+        interpolate_nan='neurocarto.util.util_numpy.interpolate_nan',
+        plot_electrode_matrix='neurocarto.probe_npx.plot.plot_electrode_matrix',
+        ElectrodeMatData='neurocarto.probe_npx.plot.ElectrodeMatData'
+    )
     def interpolate_nan(self, a: NDArray[np.float_],
                         kernel: int | tuple[int, int] = 1,
                         f: str | Callable[[NDArray[np.float_]], float] = 'mean') -> NDArray[np.float_]:
         """
         Interpolate the NaN value in the data *a*.
+
+        Note: this method works different with {interpolate_nan()} on
+
+        * this method works on 1-d array, but the latter one works on 2-d array
+        * this method works on different shanks, but the latter one works single shanks
+          (you need to apply multiple times on different shanks)
+        * According to implementation, this method needs to be applied twice to get the same
+          result as the latter one.
+        * The latter one is also used in {plot_electrode_matrix()} and {ElectrodeMatData#interpolate_nan()}.
 
         :param a: data array.
         :param kernel: kernel size.

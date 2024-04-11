@@ -189,15 +189,24 @@ class ElectrodeMatData(NamedTuple):
         """
         Convert electrode array data into matrix data.
 
+        **Data shape and units**
+
+        the required shape of *electrode* is depended on *electrode_unit*.
+
+        * ``cr``: column and row, require shape ``Array[float, E, (S, C, R, V?)]``
+        * ``xy``: x and y position, require shape ``Array[float, E, (X, Y, V?)]``
+        * ``raw``:  require shape ``Array[V:float, E]`` or ``Array[V:float, S, C, R]``,
+
         :param probe: probe profile
-        :param electrode: Array[float, E, (S, C, R, V?)] (electrode_unit='cr'),
-                          Array[float, E, (X, Y, V?)] (electrode_unit='xy'), or
-                          Array[V:float, S, C, R] (electrode_unit='raw')
+        :param electrode: electrode data
         :param electrode_unit:
         :param reduce: function (Array[V, ?]) -> V used when data has same (s, x, y) position
         :return: ElectrodeMatData
         """
-        if electrode_unit == 'raw':
+        if electrode_unit == 'raw' and electrode.ndim == 1:
+            electrode = np.hstack([electrode_coordinate(probe, 'cr'), electrode[:, None]])
+            return cls._of(probe, electrode, 'cr')
+        elif electrode_unit == 'raw':
             return cls._of_raw(probe, electrode)
         else:
             return cls._of(probe, electrode, electrode_unit, reduce)
@@ -288,7 +297,8 @@ class ElectrodeMatData(NamedTuple):
 
     @property
     def shank_list(self) -> NDArray[np.int_]:
-        return np.unique(self.shank)
+        _, i = np.unique(self.shank, return_index=True)
+        return self.shank[i]
 
     @property
     def x(self) -> NDArray[np.int_]:
@@ -451,40 +461,6 @@ class ElectrodeMatData(NamedTuple):
             shank=np.concatenate([self.shank, snk]),
         )
 
-    def reorder_column(self, column_order: list[int] | NDArray[np.int_] | Literal['inc', 'dec']) -> Self:
-        mat = np.empty_like(self.mat)
-        col = np.empty_like(self.col)
-
-        used = np.zeros((self.total_columns,), dtype=bool)
-        for s in np.unique(self.shank):
-            sc = np.nonzero(self.shank == s)[0]
-            if len(sc) == 0:
-                continue
-
-            if isinstance(column_order, str):
-                if column_order == 'inc':
-                    oc = sc[np.argsort(self.col[sc])]
-                elif column_order == 'dec':
-                    oc = sc[np.argsort(-self.col[sc])]
-                else:
-                    raise ValueError()
-            else:
-                oc = sc[index_of(self.col[sc], column_order)]
-
-            mat[:, oc] = self.mat[:, sc]
-            col[oc] = self.col[sc]
-            assert not np.any(used[oc])
-            used[oc] = True
-
-        if np.all(used):
-            return self._replace(mat=mat, col=col)
-        else:
-            return self._replace(
-                mat=mat[:, used],
-                col=col[used],
-                shank=self.shank[used]
-            )
-
     @doc_link(interpolate_nan='neurocarto.util.util_numpy.interpolate_nan')
     def interpolate_nan(self, kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]]) -> Self:
         """
@@ -497,7 +473,7 @@ class ElectrodeMatData(NamedTuple):
         if not callable(kernel):
             from functools import partial
             from neurocarto.util.util_numpy import interpolate_nan
-            kernel = partial(interpolate_nan, space=kernel, iteration=2)
+            kernel = partial(interpolate_nan, kernel=kernel, iteration=2)
 
         kernel: Callable
         nc = self.n_col
@@ -895,11 +871,18 @@ def plot_electrode_matrix(ax: Axes,
                           **kwargs) -> ScalarMappable:
     """``ax.imshow`` the electrode data matrix.
 
+    **Data shape and units**
+
+    the required shape of *electrode* (if it is a numpy array) is depended on *electrode_unit*.
+
+    * ``cr``: column and row, require shape ``Array[float, E, (S, C, R, V?)]``
+    * ``xy``: x and y position, require shape ``Array[float, E, (X, Y, V?)]``
+    * ``raw``:  require shape ``Array[V:float, E]`` or ``Array[V:float, S, C, R]``,
+      where ``E=S*C*R``.
+
     :param ax:
     :param probe: probe type
-    :param electrode: Array[float, E, (S, C, R, V)] (electrode_unit='cr'),
-                      Array[float, E, (X, Y, V)] (electrode_unit='xy'),
-                      Array[V:float, S, C, r] (electrode_unit='raw'), or ElectrodeMatData
+    :param electrode: electrode data, or {ElectrodeMatData}
     :param electrode_unit:
     :param shank_list: show shank in order
     :param kernel: interpolate missing data (NaN) between channels.
@@ -922,8 +905,6 @@ def plot_electrode_matrix(ax: Axes,
 
     if shank_list is not None:
         data = data.reorder_shank(shank_list)
-        if shank_list[0] > shank_list[-1]:
-            data = data.reorder_column('dec')
 
     y0, y1 = data.y_range / 1000
     im = ax.imshow(
@@ -932,15 +913,14 @@ def plot_electrode_matrix(ax: Axes,
         cmap=cmap, origin='lower', aspect='auto', **kwargs
     )
 
-    shank_list = data.shank_list
+    n_shanks = len(data.shank_list)
 
     if shank_gap_color is not None:
-        for i in range(0, len(shank_list) + 1):
+        for i in range(0, n_shanks + 1):
             ax.axvline(i * nc, color=shank_gap_color, lw=2)
 
     ax.set_xlabel('Shanks')
-    ax.set_xticks(np.arange(0, len(shank_list)) * nc + nc // 2,
-                  shank_list)
+    ax.set_xticks(np.arange(0, n_shanks) * nc + nc // 2, shank_list)
 
     y_ticks = np.arange(int(math.ceil(y1)) + 1)
     ax.set_yticks(y_ticks, y_ticks)

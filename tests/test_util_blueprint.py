@@ -47,6 +47,7 @@ def bp_from_shape(shape: tuple[int, int, int]) -> BlueprintFunctions:
     return ret
 
 
+# noinspection PyMethodMayBeStatic
 class UtilBlueprintTest(unittest.TestCase):
 
     def test_build(self):
@@ -98,6 +99,48 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 0,
         ]))
 
+    def test_move_i(self):
+        bp = bp_from_shape((2, 3, 2))
+
+        blueprint = np.array([
+            2, 0,
+            1, 2,
+            0, 1,
+            # ----
+            4, 0,
+            3, 4,
+            0, 3,
+        ])
+
+        assert_array_equal(bp.move_i(blueprint, tx=0, ty=0), blueprint)
+        assert_array_equal(bp.move_i(blueprint, tx=0, ty=-1), np.array([
+            1, 2,
+            0, 1,
+            0, 0,
+            # ----
+            3, 4,
+            0, 3,
+            0, 0,
+        ]))
+        assert_array_equal(bp.move_i(blueprint, tx=0, ty=1), np.array([
+            0, 0,
+            2, 0,
+            1, 2,
+            # ----
+            0, 0,
+            4, 0,
+            3, 4,
+        ]))
+        assert_array_equal(bp.move_i(blueprint, tx=1), np.array([
+            0, 2,
+            0, 1,
+            0, 0,
+            # ----
+            0, 4,
+            0, 3,
+            0, 0,
+        ]))
+
     def test_interpolate_nan(self):
         bp = bp_from_shape((2, 3, 2))
 
@@ -129,6 +172,24 @@ class UtilBlueprintTest(unittest.TestCase):
             3, 3,
             2, 1,
         ], dtype=float))
+
+    def test_interpolate_nan_util_numpy(self):
+        from neurocarto.util.util_numpy import interpolate_nan
+        blueprint = np.array([
+            2, 0,
+            np.nan, 3,
+            2, 0,
+            # ----
+            2, 3,
+            3, np.nan,
+            2, 1,
+        ], dtype=float).reshape(2, 3, 2)
+
+        assert_array_equal(interpolate_nan(blueprint[0].copy(), (0, 1)), np.array([
+            2, 0,
+            2, 3,
+            2, 0,
+        ], dtype=float).reshape(3, 2))
 
     def assert_clustering(self, x: NDArray[np.int_], y: NDArray[np.int_]):
         for c in np.unique(x):
@@ -665,6 +726,7 @@ class UtilBlueprintTest(unittest.TestCase):
             0, 0,
             0, 0,
         ]))
+
 
 if __name__ == '__main__':
     unittest.main()
