@@ -402,7 +402,7 @@ class BlueprintFunctions(Generic[M, E]):
         """
         The selected electrodes in the current channelmap.
 
-        :return: electrode index array
+        :return: electrode index array, keep in ordering by its channel identify (skip ``None`` electrodes).
         :see: {ProbeDesp#all_channels()}
         """
         if chmap is None:
@@ -563,7 +563,7 @@ class BlueprintFunctions(Generic[M, E]):
         Get an electrode index array from an electrode list.
 
         :param electrodes:
-        :return: electrode index array
+        :return: electrode index array, follow *electrodes* ordering.
         :raise RuntimeError: when probe is missing.
         """
         if self.channelmap is None:
@@ -577,7 +577,9 @@ class BlueprintFunctions(Generic[M, E]):
             if (i := pos.get(p, None)) is not None:
                 ret.append(i)
 
-        return np.unique(np.array(ret, dtype=int))
+        ret = np.array(ret, dtype=int)
+        _, idx = np.unique(ret, return_index=True)
+        return ret[np.sort(idx)]
 
     def load_blueprint(self, file: str | Path) -> BLUEPRINT:
         """
@@ -1003,7 +1005,7 @@ class BlueprintFunctions(Generic[M, E]):
         Get the value of the used electrode (donated by *chmap*) from the *data*.
 
         :param data: Array[float, E], where E is all electrodes
-        :param chmap: a channelmap with number of channel C
+        :param chmap: a channelmap with number of (non-None) channel C
         :return: Array[float, C] channel data.
         """
         return data[self.selected_electrodes(chmap)]
@@ -1013,9 +1015,8 @@ class BlueprintFunctions(Generic[M, E]):
         put the *value* of used electrodes from *chmap* into *data*.
 
         :param data: Array[float, E], where E is all electrodes
-        :param chmap: a channelmap with number of channel C
+        :param chmap: a channelmap with number of (non-None) channel C
         :param value:  Array[float, C] channel data.
-        :return: *data*
         """
         data[self.selected_electrodes(chmap)] = value
 

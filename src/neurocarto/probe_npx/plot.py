@@ -301,7 +301,7 @@ class ElectrodeMatData(NamedTuple):
     @property
     def shank_list(self) -> NDArray[np.int_]:
         _, i = np.unique(self.shank, return_index=True)
-        return self.shank[i]
+        return self.shank[np.sort(i)]
 
     @property
     def x(self) -> NDArray[np.int_]:

@@ -427,7 +427,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         :param chmap: a channelmap instance
         :param electrodes: restrict electrode set that the return set is its subset.
-        :return: a list of {ElectrodeDesp}
+        :return: a list of {ElectrodeDesp}, keep in ordering by its channel identify (skip ``None`` electrodes).
         """
         pass
 
