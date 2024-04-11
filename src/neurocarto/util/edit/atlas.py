@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import textwrap
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -12,8 +13,6 @@ from neurocarto.views.base import ControllerView
 if TYPE_CHECKING:
     from neurocarto.views.atlas import AtlasBrainView, Label
 elif SPHINX_BUILD:
-    BoundView = 'neurocarto.views.base.BoundView'
-    AtlasBrainView = 'neurocarto.views.atlas.AtlasBrainView'
     Label = 'neurocarto.views.atlas.Label'
 
 __all__ = [
@@ -32,13 +31,11 @@ __all__ = [
 ]
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_get_slice.__doc__))
 def atlas_get_slice(controller: ControllerView, *, um=False) -> tuple[str | None, int | None]:
     """
-
-    :param controller:
-    :param um: is plane index in return um? If so, then use bregma as origin.
-    :return: tuple of (projection name, plane index)
+    {DOC}
+    :see: {BlueprintFunctions#atlas_get_slice()}
     """
     atlas: AtlasBrainView
     if (atlas := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
@@ -55,17 +52,13 @@ def atlas_get_slice(controller: ControllerView, *, um=False) -> tuple[str | None
     return name, index
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_set_slice.__doc__))
 def atlas_set_slice(controller: ControllerView,
                     view: str = None,
                     plane: int = None, *, um=False):
     """
-
-    :param controller:
-    :param view: 'coronal', 'sagittal', or 'transverse'
-    :param plane: plane index
-    :param um: is *plane* um? If so, then use bregma as origin.
-    :see: {AtlasBrainView#update_brain_view()}, {AtlasBrainView#update_brain_slice()}
+    {DOC}
+    :see: {BlueprintFunctions#atlas_set_slice()}
     """
     atlas: AtlasBrainView
     if (atlas := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
@@ -79,20 +72,26 @@ def atlas_set_slice(controller: ControllerView,
             atlas.update_brain_slice(plane)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_add_label.__doc__))
 def atlas_add_label(controller: ControllerView, text: str,
                     pos: tuple[float, float] | tuple[float, float, float], *,
                     origin: str = 'bregma', color: str = 'cyan', replace=True) -> Label | None:
-    """{AtlasBrainView#add_label()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#atlas_add_label()}
+    """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         return view.add_label(text, pos, origin=origin, color=color, replace=replace)
     return None
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_get_label.__doc__))
 def atlas_get_label(controller: ControllerView, index: int | str) -> Label | None:
-    """{AtlasBrainView#get_label()} and {AtlasBrainView#index_label()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#atlas_get_label()}
+    """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         if isinstance(index, str):
@@ -107,52 +106,67 @@ def atlas_get_label(controller: ControllerView, index: int | str) -> Label | Non
     return None
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_focus_label.__doc__))
 def atlas_focus_label(controller: ControllerView, label: int | str | Label):
-    """{AtlasBrainView#focus_label()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#atlas_focus_label()}
+    """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         view.focus_label(label)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_del_label.__doc__))
 def atlas_del_label(controller: ControllerView, i: int | str | Label | list[int | str | Label]):
-    """{AtlasBrainView#del_label()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#atlas_del_label()}
+    """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         view.del_label(i)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_clear_labels.__doc__))
 def atlas_clear_labels(controller: ControllerView):
-    """{AtlasBrainView#clear_labels()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#atlas_clear_labels()}
+    """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         view.clear_labels()
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_set_transform.__doc__))
 def atlas_set_transform(controller: ControllerView,
                         p: tuple[float, float] = None,
                         s: float | tuple[float, float] = None,
                         rt: float = None):
-    """{BoundView#update_boundary_transform()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#atlas_set_transform()}
+    """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         view.update_boundary_transform(p=p, s=s, rt=rt)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_set_anchor.__doc__))
 def atlas_set_anchor(controller: ControllerView,
                      p: tuple[float, float],
                      a: tuple[float, float] = (0, 0)):
-    """{BoundView#set_anchor_to()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#atlas_set_anchor()}
+    """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is not None:  # type: ignore[assignment]
         view.set_anchor_to(p, a)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_new_probe.__doc__))
 def atlas_new_probe(controller: ControllerView,
                     ap: float, dv: float, ml: float,
                     shank: int = 0,
@@ -160,18 +174,8 @@ def atlas_new_probe(controller: ControllerView,
                     depth: float = 0,
                     ref: str = 'bregma') -> probe_coor.ProbeCoordinate | None:
     """
-
-    :param controller:
-    :param ap: ap um, from ref (default bregma).
-    :param dv: dv um, from ref (default bregma).
-    :param ml: ml um, from ref (default bregma).
-    :param shank: shank index
-    :param rx: ap rotate degree
-    :param ry: dv rotate degree
-    :param rz: ml rotate degree
-    :param depth: insert depth
-    :param ref: reference origin.
-    :return: a probe coordinate. ``None`` if origin not set.
+    {DOC}
+    :see: {BlueprintFunctions#atlas_new_probe()}
     """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
@@ -182,18 +186,14 @@ def atlas_new_probe(controller: ControllerView,
     return probe_coor.ProbeCoordinate.from_bregma(name, ap, dv, ml, s=shank, rx=rx, ry=ry, rz=rz, depth=depth, ref=ref)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_current_probe.__doc__))
 def atlas_current_probe(bp: BlueprintFunctions,
                         controller: ControllerView,
                         shank: int = 0,
                         ref: str = 'bregma') -> probe_coor.ProbeCoordinate | None:
     """
-
-    :param bp:
-    :param controller:
-    :param shank:
-    :param ref:
-    :return: a probe coordinate. ``None`` if origin not set.
+    {DOC}
+    :see: {BlueprintFunctions#atlas_current_probe()}
     """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]
@@ -237,16 +237,13 @@ def atlas_current_probe(bp: BlueprintFunctions,
     return probe_coor.ProbeCoordinate(ap, 0, ml, shank, rot[0], rot[1], rot[2], depth)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.atlas_set_anchor_on_probe.__doc__))
 def atlas_set_anchor_on_probe(bp: BlueprintFunctions,
                               controller: ControllerView,
                               coor: probe_coor.ProbeCoordinate):
     """
-
-    :param bp:
-    :param controller:
-    :param coor:
-    :return:
+    {DOC}
+    :see: {BlueprintFunctions#atlas_set_anchor_on_probe()}
     """
     view: AtlasBrainView
     if (view := controller.get_view('AtlasBrainView')) is None:  # type: ignore[assignment]

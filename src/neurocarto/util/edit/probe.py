@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import textwrap
 from typing import Any
 
 import numpy as np
@@ -24,19 +25,25 @@ __all__ = [
 ]
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.new_channelmap.__doc__))
 def new_channelmap(controller: ControllerView, code: int | str) -> Any:
-    """{ProbeView#reset()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#new_channelmap()}
+    """
     app = controller.get_app()
     app.on_new(code)
     return app.probe_view.channelmap
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.capture_electrode.__doc__))
 def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
                       index: NDArray[np.int_] | NDArray[np.bool_],
                       state: list[int] = None):
-    """{ProbeView#set_captured_electrodes()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#capture_electrode()}
+    """
     electrodes = self.electrodes
     captured = [electrodes[int(it)] for it in np.arange(len(self.s))[index]]
 
@@ -53,9 +60,12 @@ def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
                 view.set_captured_electrodes(captured, data)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.captured_electrodes.__doc__))
 def captured_electrodes(controller: ControllerView, all=False) -> NDArray[np.int_]:
-    """{ProbeView#get_captured_electrodes_index()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#captured_electrodes()}
+    """
     view = controller.get_app().probe_view
     if all:
         captured = view.get_captured_electrodes_index(None, reset=False)
@@ -65,29 +75,38 @@ def captured_electrodes(controller: ControllerView, all=False) -> NDArray[np.int
     return np.unique(captured)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.set_state_for_captured.__doc__))
 def set_state_for_captured(self: BlueprintFunctions, controller: ControllerView,
                            state: int,
                            index: NDArray[np.int_] | NDArray[np.bool_] = None):
-    """{ProbeView#set_state_for_captured()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#set_state_for_captured()}
+    """
     if index is not None:
         capture_electrode(self, controller, index)
     controller.get_app().probe_view.set_state_for_captured(state)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.set_category_for_captured.__doc__))
 def set_category_for_captured(self: BlueprintFunctions, controller: ControllerView,
                               category: int,
                               index: NDArray[np.int_] | NDArray[np.bool_] = None):
-    """{ProbeView#set_category_for_captured()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#set_category_for_captured()}
+    """
     if index is not None:
         capture_electrode(self, controller, index)
     controller.get_app().probe_view.set_category_for_captured(category)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.refresh_selection.__doc__))
 def refresh_selection(self: BlueprintFunctions, controller: ControllerView, selector: str = None):
-    """{ProbeView#refresh_selection()}"""
+    """
+    {DOC}
+    :see: {BlueprintFunctions#refresh_selection()}
+    """
     view = controller.get_app().probe_view
 
     old_select_args = dict(view.selecting_parameters)
@@ -129,5 +148,3 @@ def select_electrodes(self: BlueprintFunctions, chmap: M = None,
         blueprint = self.apply_blueprint(blueprint=blueprint)
 
     return desp.select_electrodes(chmap, blueprint, **kwargs)
-
-

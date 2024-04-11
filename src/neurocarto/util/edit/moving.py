@@ -1,8 +1,11 @@
+import textwrap
+
 import numpy as np
 from numpy.typing import NDArray
 
 from neurocarto.probe import ElectrodeDesp
 from neurocarto.util.util_blueprint import BlueprintFunctions
+from neurocarto.util.utils import doc_link
 
 __all__ = [
     'contact_matrix', 'step_matrix', 'distance_matrix',
@@ -119,11 +122,16 @@ def distance_matrix(electrodes: list[ElectrodeDesp]) -> NDArray[np.complex_]:
     return xx + yy * 1j
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.move.__doc__))
 def move(self: BlueprintFunctions, a: NDArray, *,
          tx: int = 0, ty: int = 0,
          mask: NDArray[np.bool_] = None,
          axis: int = 0,
          init: float = 0) -> NDArray:
+    """
+    {DOC}
+    :see: {BlueprintFunctions#move()}
+    """
     s = self.s
     x = self.x
     y = self.y
@@ -171,11 +179,16 @@ def move(self: BlueprintFunctions, a: NDArray, *,
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.move_i.__doc__))
 def move_i(self: BlueprintFunctions, a: NDArray, *,
            tx: int = 0, ty: int = 0,
            mask: NDArray[np.bool_] = None,
            axis: int = 0,
            init: float = 0) -> NDArray:
+    """
+    {DOC}
+    :see: {BlueprintFunctions#move_i()}
+    """
     if tx == 0 and ty == 0:
         return a
 
@@ -221,12 +234,17 @@ def move_i(self: BlueprintFunctions, a: NDArray, *,
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.fill.__doc__))
 def fill(self: BlueprintFunctions,
          blueprint: NDArray[np.int_],
          categories: int | list[int] = None, *,
          threshold: int = None,
          gap: int | None = 1,
          unset: bool = False) -> NDArray[np.int_]:
+    """
+    {DOC}
+    :see: {BlueprintFunctions#fill()}
+    """
     if len(blueprint) != len(self.s):
         raise ValueError()
 
@@ -294,6 +312,7 @@ def fill(self: BlueprintFunctions,
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.extend.__doc__))
 def extend(self: BlueprintFunctions,
            blueprint: NDArray[np.int_],
            category: int,
@@ -302,6 +321,10 @@ def extend(self: BlueprintFunctions,
            threshold: int | tuple[int, int] = None,
            bi: bool = True,
            overwrite: bool = False) -> NDArray[np.int_]:
+    """
+    {DOC}
+    :see: {BlueprintFunctions#extend()}
+    """
     if len(blueprint) != len(self.s):
         raise ValueError()
 
@@ -354,12 +377,17 @@ def extend(self: BlueprintFunctions,
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.reduce.__doc__))
 def reduce(self: BlueprintFunctions,
            blueprint: NDArray[np.int_],
            category: int,
            step: int | tuple[int, int], *,
            threshold: int | tuple[int, int] = None,
            bi: bool = True) -> NDArray[np.int_]:
+    """
+    {DOC}
+    :see: {BlueprintFunctions#reduce()}
+    """
     if len(blueprint) != len(self.s):
         raise ValueError()
 

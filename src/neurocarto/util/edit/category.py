@@ -1,3 +1,4 @@
+import textwrap
 from typing import Sequence
 
 import numpy as np
@@ -5,13 +6,19 @@ from numpy.typing import NDArray
 
 from neurocarto.probe import M, E
 from neurocarto.util.util_blueprint import BlueprintFunctions
+from neurocarto.util.utils import doc_link
 
 __all__ = ['category_mask', 'invalid', 'merge_blueprint']
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.mask.__doc__))
 def category_mask(self: BlueprintFunctions,
                   blueprint: NDArray[np.int_],
                   categories: int | list[int] = None) -> NDArray[np.bool_]:
+    """
+    {DOC}
+    :see: {BlueprintFunctions#mask()}
+    """
     if categories is None:
         categories = list(self.categories.values())
         try:
@@ -33,11 +40,16 @@ def category_mask(self: BlueprintFunctions,
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.invalid.__doc__))
 def invalid(self: BlueprintFunctions,
             blueprint: NDArray[np.int_],
             electrodes: NDArray[np.int_] | NDArray[np.bool_],
             value: int = None, *,
             overwrite: bool = False) -> NDArray:
+    """
+    {DOC}
+    :see: {BlueprintFunctions#invalid()}
+    """
     if electrodes.dtype == np.bool_:
         blueprint[electrodes]  # check shape
         protected = electrodes
@@ -95,9 +107,14 @@ def apply_electrode_mask(self: BlueprintFunctions,
     return masking
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.merge.__doc__))
 def merge_blueprint(self: BlueprintFunctions,
                     blueprint: NDArray[np.int_],
                     other: NDArray[np.int_] | BlueprintFunctions) -> NDArray[np.int_]:
+    """
+    {DOC}
+    :see: {BlueprintFunctions#merge()}
+    """
     if isinstance(other, BlueprintFunctions):
         if (other := other.blueprint()) is None:
             raise TypeError()

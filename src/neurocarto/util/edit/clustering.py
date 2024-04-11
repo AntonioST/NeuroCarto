@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NamedTuple
+import textwrap
+from typing import NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
 
+from neurocarto.util.util_blueprint import BlueprintFunctions
+from neurocarto.util.utils import doc_link
 from .surrounding import surrounding, get_surrounding
-
-if TYPE_CHECKING:
-    from neurocarto.util.util_blueprint import BlueprintFunctions
 
 __all__ = ['ClusteringEdges', 'find_clustering', 'clustering_edges', 'edge_rastering']
 
@@ -68,18 +68,14 @@ class ClusteringEdges(NamedTuple):
         return self._replace(edges=edges)
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.find_clustering.__doc__))
 def find_clustering(self: BlueprintFunctions,
                     blueprint: NDArray[np.int_],
                     categories: int | list[int] = None, *,
                     diagonal=True) -> NDArray[np.int_]:
     """
-    find electrode clustering with the same category.
-
-    :param self:
-    :param blueprint: Array[category, N]
-    :param categories: only for given categories.
-    :param diagonal: does surrounding includes electrodes on diagonal?
-    :return: Array[int, N]
+    {DOC}
+    :see: {BlueprintFunctions#find_clustering()}
     """
     if len(blueprint) != len(self.s):
         raise ValueError()
@@ -118,15 +114,13 @@ def find_clustering(self: BlueprintFunctions,
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.clustering_edges.__doc__))
 def clustering_edges(self: BlueprintFunctions,
                      blueprint: NDArray[np.int_],
                      categories: int | list[int] = None) -> list[ClusteringEdges]:
     """
-    For each clustering block, calculate its edges.
-
-    :param blueprint:
-    :param categories:
-    :return: list of ClusteringEdges
+    {DOC}
+    :see: {BlueprintFunctions#clustering_edges()}
     """
     dx = self.dx
     dy = self.dy
@@ -308,17 +302,14 @@ def _cluster_edge(self: BlueprintFunctions,
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.edge_rastering.__doc__))
 def edge_rastering(self: BlueprintFunctions,
                    edges: ClusteringEdges | list[ClusteringEdges], *,
                    fill=False,
                    overwrite=False) -> NDArray[np.int_]:
     """
-    For given edges, put them on the blueprint.
-
-    :param edges:
-    :param fill: fill the area.
-    :param overwrite: latter result overwrite previous results
-    :return: blueprint
+    {DOC}
+    :see: {BlueprintFunctions#edge_rastering()}
     """
     match edges:
         case (ClusteringEdges() as edge) | [ClusteringEdges() as edge]:

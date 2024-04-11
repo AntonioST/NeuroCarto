@@ -1,3 +1,4 @@
+import textwrap
 from collections.abc import Callable
 from pathlib import Path
 
@@ -14,7 +15,12 @@ __all__ = [
 ]
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.load_data.__doc__))
 def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float_]:
+    """
+    {DOC}
+    :see: {BlueprintFunctions#load_data()}
+    """
     e = self.probe.all_electrodes(self.channelmap)
     for t in e:
         t.category = np.nan
@@ -22,23 +28,23 @@ def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float_]:
     return np.array([it.category for it in e], dtype=float)
 
 
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.save_data.__doc__))
 def save_data(self: BlueprintFunctions, file: str | Path, value: NDArray[np.float_]):
+    """
+    {DOC}
+    :see: {BlueprintFunctions#save_data()}
+    """
     electrodes = self.apply_blueprint(blueprint=value.astype(int))
     np.save(file, self.probe.save_blueprint(electrodes))
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.interpolate_nan.__doc__))
 def interpolate_nan(self: BlueprintFunctions,
                     a: NDArray[np.float_],
                     kernel: int | tuple[int, int] = 1,
                     f: str | Callable[[NDArray[np.float_]], float] = 'mean') -> NDArray[np.float_]:
     """
-
-    :param self:
-    :param a:
-    :param kernel:
-    :param f:
-    :return:
+    {DOC}
     :see: {BlueprintFunctions#interpolate_nan()}
     """
     if isinstance(f, str):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import textwrap
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
@@ -16,20 +17,15 @@ elif SPHINX_BUILD:
 __all__ = ['plot_blueprint']
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.plot_blueprint.__doc__))
 def plot_blueprint(bp: BlueprintFunctions,
                    blueprint: NDArray[np.int_],
                    colors: dict[int, Any] = None, *,
                    ax: Axes = None,
                    **kwargs):
     """
-
-    :param bp:
-    :param blueprint: Array[category:int, E], where E means all electrodes
-    :param colors: categories color {category: color}, where color is used by matplotlib.
-    :param ax:  matplotlib.Axes
-    :param kwargs:
-    :see: {ProbePlotElectrodeProtocol}
+    {DOC}
+    :see: {BlueprintFunctions#plot_blueprint()}
     """
     from matplotlib import pyplot as plt
     from neurocarto.views.blueprint_script import ProbePlotElectrodeProtocol

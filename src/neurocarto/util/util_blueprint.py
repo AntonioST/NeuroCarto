@@ -32,6 +32,7 @@ elif SPHINX_BUILD:
     ProbeView = 'neurocarto.views.probe.ProbeView'
     NpxProbeDesp = 'neurocarto.probe_npx.desp.NpxProbeDesp'
     AtlasBrainView = 'neurocarto.views.atlas.AtlasBrainView'
+    BoundView = 'neurocarto.views.base.BoundView'
     BlueprintScriptView = 'neurocarto.views.blueprint_script.BlueprintScriptView'
     ProbePlotElectrodeProtocol = 'neurocarto.views.blueprint_script.ProbePlotElectrodeProtocol'
 
@@ -1317,6 +1318,8 @@ class BlueprintFunctions(Generic[M, E]):
         :param view: 'coronal', 'sagittal', or 'transverse'
         :param plane: plane index
         :param um: is *plane* um? If so, then use bregma as origin.
+        :see: {AtlasBrainView#update_brain_view()}
+        :see: {AtlasBrainView#update_brain_slice()}
         """
         from .edit.atlas import atlas_set_slice
         if (controller := self._controller) is not None:
@@ -1348,6 +1351,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param index: label index or its content
         :see: {AtlasBrainView#get_label()}
+        :see: {AtlasBrainView#index_label()}
         """
         from .edit.atlas import atlas_get_label
         if (controller := self._controller) is not None:
@@ -1419,6 +1423,7 @@ class BlueprintFunctions(Generic[M, E]):
 
         :param p: target point on figure. figure (probe) origin as origin.
         :param a: anchor point on image, center point as origin.
+        :see: {BoundView#set_anchor_to()}
         """
         from .edit.atlas import atlas_set_anchor
         if (controller := self._controller) is not None:
@@ -1524,6 +1529,7 @@ class BlueprintFunctions(Generic[M, E]):
         :param ax: matplotlib.Axes
         :param kwargs:
         :raise TypeError: Probe not a {ProbePlotElectrodeProtocol}
+        :see: {ProbePlotElectrodeProtocol}
         """
         from .edit.plot import plot_blueprint
         if blueprint is None:
@@ -1561,3 +1567,4 @@ class BlueprintFunctions(Generic[M, E]):
             profile_script(self, controller, script, *args, **kwargs)
         else:
             raise RuntimeError()
+

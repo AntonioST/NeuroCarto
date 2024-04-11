@@ -328,8 +328,10 @@ def sphinx_doc_link_replace_ref(context: list[dict], m: re.Match) -> str:
         case (name, None, None):
             return f':class:`{name}`'
         case (name, func, '()'):
-            return f':meth:`{name}.{func}()`'
+            class_name = name[name.rfind('.') + 1:]
+            return f'{class_name}. :meth:`{name}.{func}()`'
         case (name, attr, None):
-            return f':attr:`{name}.{attr}`'
+            class_name = name[name.rfind('.') + 1:]
+            return f'{class_name}.:attr:`{name}.{attr}`'
         case _:
             return m.group()  # do not replace

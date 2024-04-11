@@ -30,6 +30,9 @@ __all__ = [
     'plot_electrode_grid',
     'plot_electrode_matrix',
     'plot_category_area',
+    #
+    'ElectrodeMatData',
+    'ElectrodeGridData',
 ]
 
 ELECTRODE_UNIT = Literal['cr', 'xy', 'raw']
