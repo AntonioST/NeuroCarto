@@ -1,7 +1,14 @@
+import argparse
+
 from neurocarto.main_app import main, CartoApp
 from neurocarto.util.bokeh_app import run_later, run_timeout
 from neurocarto.views.base import ViewBase, ControllerView
 from neurocarto.views.blueprint_script import BlueprintScriptView
+
+AP = argparse.ArgumentParser()
+AP.add_argument(metavar='FILE', nargs='?', default='res/Fig5d_data.npy', dest='FILE')
+AP.add_argument(metavar='THRESHOLD', nargs='?', type=int, default=3500, dest='THRESHOLD')
+OPT = AP.parse_args()
 
 
 class Tester(ViewBase, ControllerView):
@@ -30,8 +37,10 @@ class Tester(ViewBase, ControllerView):
 
     def set_value(self):
         self.set_status('set value ...')
+        file = OPT.FILE
+        threshold = OPT.THRESHOLD
         self.edit.add_script('demo', 'neurocarto.util.edit._actions:blueprint_simple_init_script_from_activity_data_with_a_threshold')
-        self.edit.script_input.value_input = '"res/Fig5d_data.npy", 3500'
+        self.edit.script_input.value_input = f'"{file}", {threshold}'
         run_later(self.run_script)
 
     def run_script(self):
@@ -44,11 +53,9 @@ class Tester(ViewBase, ControllerView):
 
 
 if __name__ == '__main__':
-    import sys
     from neurocarto.config import parse_cli
 
     main(parse_cli([
-        *sys.argv[1:],
         '-C', 'res',
         '--debug',
         '--view=-',

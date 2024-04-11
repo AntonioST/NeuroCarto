@@ -387,6 +387,7 @@ def blueprint_simple_init_script_from_activity_data_with_a_threshold(bp: Bluepri
     """
     bp.log_message(f'{filename=}', f'{threshold=}')
     data = bp.load_data(filename)
+    data[data == 0] = np.nan
 
     F = NpxProbeDesp.CATE_FULL
     H = NpxProbeDesp.CATE_HALF
