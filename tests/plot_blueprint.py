@@ -24,4 +24,4 @@ plot_probe_shape(ax, chmap.probe_type, height=height, color='gray', label_axis=T
 if len(sys.argv) == 2:
     plt.show()
 else:
-    plt.savefig(sys.argv[2])
+    plt.savefig(sys.argv[2], dpi=600)

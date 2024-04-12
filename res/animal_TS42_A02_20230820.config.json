@@ -1,0 +1,16 @@
+{
+  "AtlasBrainView": {
+    "atlas_brain": "allen_mouse_25um",
+    "brain_slice": "coronal",
+    "slice_plane": 340,
+    "slice_rot_w": 0,
+    "slice_rot_h": 0,
+    "image_dx": 3611.169767294579,
+    "image_dy": 2442.794978818415,
+    "image_sx": 1.0,
+    "image_sy": 1.0,
+    "image_rt": 10.0,
+    "regions": [],
+    "labels": []
+  }
+}
