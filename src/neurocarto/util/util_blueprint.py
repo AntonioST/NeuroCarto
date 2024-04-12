@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, overload, Generic, Final, Any
 import numpy as np
 from numpy.typing import NDArray
 
-from neurocarto.probe import ProbeDesp, M, E
+from neurocarto.probe import ProbeDesp, M, E, get_probe_desp
 from neurocarto.util.edit.checking import use_probe
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
 from neurocarto.views.base import ControllerView, V
@@ -245,7 +245,7 @@ class BlueprintFunctions(Generic[M, E]):
     """electrode low-priority category."""
 
     @doc_link()
-    def __init__(self, probe: ProbeDesp[M, E], chmap: int | str | M | None):
+    def __init__(self, probe: str | ProbeDesp[M, E], chmap: int | str | M | None):
         """
         initialization.
 
@@ -254,9 +254,11 @@ class BlueprintFunctions(Generic[M, E]):
         it is okay because the caller (like {BlueprintScriptView}) would handle it,
         and it only happened when user forget to create a probe before running a script.
 
-        :param probe:
+        :param probe: {ProbeDesp} or a module path
         :param chmap: channelmap instance.
         """
+        if isinstance(probe, str):
+            probe = get_probe_desp(probe)()
         self.probe: Final[ProbeDesp[M, E]] = probe
         """probe"""
 
@@ -965,8 +967,11 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def load_data(self, file: str | Path) -> NDArray[np.float_]:
         """
-        Load a numpy array that can be parsed by {ProbeDesp#load_blueprint()}.
-        The data value is read from category value for electrodes.
+        Load a data array.
+
+        If it is a numpy file ('.npy'), then it should be an ``Array[float, E]`` array.
+        Otherwise, it is a file that can be parsed by {ProbeDesp#load_blueprint()}, where
+        the value is read from category field.
 
         For the Neuropixels, {NpxProbeDesp} use the numpy array in this form:
 
@@ -983,14 +988,16 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def save_data(self, file: str | Path, data: NDArray[np.float_]):
         """
-        Save a numpy array through {ProbeDesp#save_blueprint()}.
-        The data value is stored into the category value for each electrode.
+        Save a numpy data array through {ProbeDesp#save_blueprint()}.
+        The data value is stored into the category field.
 
         For the Neuropixels, {NpxProbeDesp} use the numpy array in this form:
 
            Array[int, E, (shank, col, row, state, category)]
 
         Because E's category is expected as an int, this method will cast it into an int by default.
+
+        Note: If no specific requirement, use ``numpy.save`` first.
 
         :param file: data file
         :param data: Array[float, E] data array, where E is all electrodes.

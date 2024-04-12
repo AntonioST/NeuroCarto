@@ -21,6 +21,12 @@ def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float_]:
     {DOC}
     :see: {BlueprintFunctions#load_data()}
     """
+    file = Path(file)
+    if file.suffix == '.npy':
+        ret = np.load(file)
+        if ret.shape == (len(self.s),) and np.issubdtype(ret.dtype, np.number):
+            return ret.astype(float)
+
     e = self.probe.all_electrodes(self.channelmap)
     for t in e:
         t.category = np.nan
