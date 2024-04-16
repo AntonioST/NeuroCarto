@@ -25,7 +25,7 @@ writing.
 Documents
 ---------
 
-Please check [Documentation](https://readthedocs.org/projects/neurocarto) for more details.
+Please check [Documentation](https://neurocarto.readthedocs.io/en/latest/) for more details.
 
 Install and Run
 ---------------
