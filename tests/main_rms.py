@@ -22,10 +22,14 @@ AP.add_argument('-a', '--append', nargs='?', choices=APPEND_MODE, default=None, 
                 help='append result into output file.')
 AP.add_argument('-s', '--save', nargs='?', const='', default=None, dest='save_figure',
                 help='save figure. use -o when the value is omitted.')
+AP.add_argument('--plot', choices=('matrix', 'scatter'), default='matrix', dest='plot',
+                help='plot which kinds of figure.')
 AP.add_argument('-f', '--force', action='store_true', dest='force',
                 help='force re-generate output .npy file')
 AP.add_argument('--ap', metavar='LO,HI', default='1000,5000', dest='ap_band',
                 help='high pass filter band. (default=1000,5000)')
+AP.add_argument('--car', choices=('none', 'global', 'local'), default='global', dest='car',
+                help='common artifact removing along channels.')
 AP.add_argument('--sample-times', metavar='NUM', type=int, default=10, dest='sample_times',
                 help='number of sample segments. (default=10)')
 AP.add_argument('--sample-duration', metavar='SEC', type=float, default=1, dest='sample_duration',
@@ -100,21 +104,46 @@ def apply_filter(data: np.ndarray, f: np.ndarray):
     return convolve(data, f, mode='valid')
 
 
-def segment_glx_data_pre(glx: np.ndarray, t_slice: slice, f: np.ndarray):
-    # excluding sync channel
-    data = glx[:-1, t_slice]  # Array[int, C, T]
-    # as voltage
-    data = data.astype(float) * 0.195  # Array[float, C, T]
-    # median car
-    data -= np.median(data, axis=0)  # Array[float, C, T]
-    # high pass
-    return apply_filter(data, f)  # Array[float, C, T]
+def build_local_car_operator(pos: np.ndarray, window: float | tuple[float, float]) -> np.ndarray:
+    """
+
+    :param pos: Array[pos_um:int, C, 2]
+    :param window: a radius, or a radius range
+    :return: Array[float, C, C]
+    """
+    x = pos[:, 0]  # Array[int, C]
+    y = pos[:, 1]
+    dx = np.abs(np.subtract.outer(x, x))  # Array[int, C, C]
+    dy = np.abs(np.subtract.outer(y, y))
+    dd = np.sqrt(dx ** 2 + dy ** 2)  # Array[um:float, C, C]
+
+    n = len(pos)
+    ret = np.zeros_like(dd)
+
+    match window:
+        case int(radius) | float(radius):
+            for i in range(n):
+                c = dd[i] <= radius
+                if np.any(c):
+                    ret[i, c] = -1 / np.count_nonzero(c)
+                ret[i, i] = 1
+        case (int(exclude) | float(exclude), int(radius) | float(radius)):
+            for i in range(n):
+                c = (exclude <= dd[i]) & (dd[i] <= radius)
+                if np.any(c):
+                    ret[i, c] = -1 / np.count_nonzero(c)
+                ret[i, i] = 1
+        case _:
+            raise TypeError()
+
+    return ret
 
 
 def segment_glx_data(glx_file: Path, glx_map: ChannelMap,
                      sample_times=10,
                      sample_duration=1,
                      ap_band: tuple[int, int] = (1000, 5000),
+                     car='global',
                      prefix: str = ''):
     glx_data = open_glx(glx_file, glx_map)
 
@@ -125,13 +154,35 @@ def segment_glx_data(glx_file: Path, glx_map: ChannelMap,
     sample_time_range = uniform_sample((0, total_duration), sample_duration, sample_times)
 
     f = construct_filter(ap_band, sample_rate)
+    if car == 'local':
+        # c = build_local_car_operator(glx_map.channel_pos, 100)
+        c = build_local_car_operator(glx_map.channel_pos, (40, 140))
 
     print(f'load    {prefix} ...')
     out = np.zeros((total_channel - 1,), dtype=float)  # Array[float, C]
     for i, (t0, t1) in enumerate(sample_time_range):
         print(f'process {prefix} {i + 1}/{len(sample_time_range)} ...', end='\r')
-        t_slice = slice(int(t0 * sample_rate), int(t1 * sample_rate))
-        data = segment_glx_data_pre(glx_data, t_slice, f)  # Array[float, C, T]
+        t = slice(int(t0 * sample_rate), int(t1 * sample_rate))
+
+        # excluding sync channel
+        data = glx_data[:-1, t]  # Array[int, C, T]
+
+        # as voltage
+        data = data.astype(float) * 0.195  # Array[float, C, T]
+
+        # average car on T
+        data -= np.mean(data, axis=1, keepdims=True)  # Array[float, C, T]
+
+        if car == 'global':
+            # median car on C
+            data -= np.median(data, axis=0)  # Array[float, C, T]
+        elif car == 'local':
+            # Array[float, C, C] @ Array[float, C, T]
+            data = c @ data  # Array[float, C, T]
+
+        # high pass
+        data = apply_filter(data, f)  # Array[float, C, T]
+
         data = np.sqrt(np.mean(np.power(data, 2), axis=1))  # Array[float, C]
         np.add(out, data, out=out)
     print()
@@ -168,7 +219,7 @@ def compute_data(bp: BlueprintFunctions, opt) -> np.ndarray:
     for i, glx_file in enumerate(glx_files):
         glx_file = glx_file.with_suffix('.bin')
         glx_map = ChannelMap.from_meta(glx_file.with_suffix('.meta'))
-        glx_rms = segment_glx_data(glx_file, glx_map, sample_times, sample_duration, ap_band,
+        glx_rms = segment_glx_data(glx_file, glx_map, sample_times, sample_duration, ap_band, opt.car,
                                    prefix=f'[{i + 1}/{len(glx_files)}] {glx_file}')
 
         if append_mode not in ('min', 'mean', 'max'):
@@ -196,16 +247,32 @@ def plot_data(bp: BlueprintFunctions, data: np.ndarray, opt):
     with plt.rc_context(fname=RC_FILE):
         fig, ax = plt.subplots(gridspec_kw=dict(top=0.95))
 
-        im = plot.plot_electrode_matrix(
-            ax, bp.channelmap.probe_type, data, 'raw',
-            shank_list=[3, 2, 1, 0],
-            kernel=(0, 1),
-            vmax=6,
-            vmin=0,
-            cmap='plasma'
-        )
+        if opt.plot == 'matrix':
+            im = plot.plot_electrode_matrix(
+                ax, bp.channelmap.probe_type, data, 'raw',
+                shank_list=[3, 2, 1, 0],
+                kernel=(0, 1),
+                vmax=6,
+                vmin=0,
+                cmap='plasma'
+            )
 
-        insert_colorbar(ax, im)
+            insert_colorbar(ax, im)
+
+        elif opt.plot == 'scatter':
+            i = np.nonzero(~np.isnan(data))[0]
+            s = np.array([3, 2, 1, 0])
+            data -= np.nanmin(data)
+            x = s[bp.s[i]] + data[i] / np.nanmax(data)  # shank as x
+            y = bp.y[i] / 1000  # mm
+            ax.scatter(x, y, s=5)
+
+            for x in np.unique(bp.s):
+                ax.axvline(x, color='gray', lw=0.5)
+
+        else:
+            raise ValueError()
+
         ax.set_ylim(0, 6)
 
         if opt.save_figure is None:
