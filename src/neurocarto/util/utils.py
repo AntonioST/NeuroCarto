@@ -181,8 +181,8 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
     Match rules:
 
     * ``{class}`` : ``:class:~``
-    * ``{class#attr}`` : ``:attr:~``
-    * ``{class#meth()}`` : ``:meth:~``
+    * ``{class#attr}`` : ``class :attr:~``
+    * ``{class#meth()}`` : ``class :meth:~``
     * ``{module#class}`` : ``:class:~``
     * ``{module#func()}`` : ``:func:~``
     * ``{#attr}`` : ``:attr:~``
@@ -194,9 +194,10 @@ def doc_link(**kwargs: str) -> Callable[[T], T]:
     Limitation:
 
     * not support ForwardReference
+    * not support attribute documents.
 
     :param kwargs: extra
-    :return:
+    :return: decorator.
     """
     stack = inspect.stack()
     g = [kwargs, stack[1].frame.f_globals]

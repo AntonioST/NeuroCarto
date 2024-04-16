@@ -22,7 +22,7 @@ def line_mark(message: str):
     """
     print the current line number.
 
-    Debug use function.
+    It is a debugging use function.
 
     :param message:
     """
@@ -38,6 +38,12 @@ def line_mark(message: str):
 
 
 class TimeMarker:
+    """
+    print the time interval between calls.
+
+    It is a debugging use function.
+    """
+
     def __init__(self, disable=False):
         self.t = time.time()
         self.disable = disable

@@ -15,10 +15,12 @@ __all__ = [
 
 def is_sorted(a: NDArray[np.number], strict=False) -> bool:
     """
-    [reference](https://stackoverflow.com/a/47004507)
+    Is *a* sorted?
 
-    :param a:
-    :param strict:
+    `reference <https://stackoverflow.com/a/47004507>`_
+
+    :param a: Array[number, N]
+    :param strict: strict increase
     :return:
     """
     if strict:
@@ -29,9 +31,10 @@ def is_sorted(a: NDArray[np.number], strict=False) -> bool:
 
 def same_index(a: NDArray[np.number]) -> list[NDArray[np.int_]]:
     """
+    Get index of save value.
 
     :param a: Array[V, N] or Array[V, N, M]
-    :return: list of Array[N, *]
+    :return: list of index Array[N, *] for particular duplicated value V.
     """
     if a.ndim not in (1, 2):
         raise ValueError(f'wrong dimension number : {a.ndim}')
@@ -85,11 +88,12 @@ def _same_index_d(d: NDArray[np.number]) -> NDArray[np.int_]:
 
 def closest_point_index(a: NDArray[np.float_], p: float | Sequence[float] | NDArray[np.float_], v: float) -> int | None:
     """
+    Find the index of closed point in *a*.
 
     :param a: Array[V:float, N[, D]]
     :param p: V or Array[V:float, D]
     :param v: V threshold
-    :return: N index
+    :return: index of N
     """
 
     if a.ndim == 1:
@@ -119,14 +123,15 @@ def closest_point_index(a: NDArray[np.float_], p: float | Sequence[float] | NDAr
 
 
 def index_of(ref: NDArray[np.int_],
-             a: int | list[int] | NDArray[np.int_],
+             val: int | list[int] | NDArray[np.int_],
              missing: int | Literal['error', 'drop'] = 'error') -> NDArray[np.int_]:
-    """Get channels index in *ref* channel
+    """
+    Get index of *ref* for each value in *a*.
 
-    :param ref: reference array.
-    :param a: value array.
+    :param ref: reference Array[V, A].
+    :param val: value Array[V, B].
     :param missing: {'error', 'drop'} or int
-    :return: a value index in ref
+    :return: index Array[A, B]
     :raise TypeError: unknown 'missing'
     :raise ValueError: channel not in *ref*
     """
@@ -136,29 +141,29 @@ def index_of(ref: NDArray[np.int_],
     elif not isinstance(missing, int):
         raise TypeError(f'unknown missing : {missing}')
 
-    a = np.asarray(a)
-    if len(_missing := np.setdiff1d(a, ref)) > 0:
+    val = np.asarray(val)
+    if len(_missing := np.setdiff1d(val, ref)) > 0:
         if missing == 'error':
             raise ValueError(f'do not contain all channels : {_missing}')
 
     if is_sorted(ref):
-        idx = np.searchsorted(ref, a, side='left')
+        idx = np.searchsorted(ref, val, side='left')
         if missing == 'drop':
             tmp = idx < len(ref)
             idx = idx[tmp]
-            a = a[tmp]
-            idx = idx[ref[idx] == a]
+            val = val[tmp]
+            idx = idx[ref[idx] == val]
         elif isinstance(missing, int):
-            idx[ref[idx % len(ref)] != a] = missing
+            idx[ref[idx % len(ref)] != val] = missing
             idx[idx >= len(ref)] = missing
 
     else:
-        diff = np.subtract.outer(ref, a)
+        diff = np.subtract.outer(ref, val)
         idx, ord = np.nonzero(diff == 0)
         if missing == 'drop':
             idx = idx[np.argsort(ord)]
         elif isinstance(missing, int):
-            tmp = np.full_like(a, missing)
+            tmp = np.full_like(val, missing)
             tmp[ord] = idx
             idx = tmp
 
@@ -171,6 +176,7 @@ def interpolate_nan(a: NDArray[np.float_],
                     f: str | Callable[[NDArray[np.float_]], float] = 'mean',
                     n: float = np.nan) -> NDArray[np.float_]:
     """
+    interpolate NaN value in *a*.
 
     :param a: image Array[float, Y, X]
     :param kernel: int or (sx:int, sy:int)
