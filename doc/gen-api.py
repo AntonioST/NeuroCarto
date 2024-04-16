@@ -1,10 +1,34 @@
 import os
+import textwrap
 from pathlib import Path
 
 src = Path('../src/neurocarto')
 dst = Path('source/api')
 
 src_files = ['neurocarto.rst']
+
+CONTENT_FILE = """\
+neurocarto.{module}
+{module_len}
+
+.. automodule:: neurocarto.{module}
+   :members:
+   :undoc-members:
+"""
+
+CONTENT_DIR = """\
+neurocarto.{module}
+{module_len}
+
+.. automodule:: neurocarto.{module}
+   :members:
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Modules:
+
+{module_list}
+"""
 
 for p, ds, fs in os.walk(src):
     for f in fs:
@@ -15,16 +39,9 @@ for p, ds, fs in os.walk(src):
 
             if not o.exists():
                 print('new', o)
-                k = '.'.join(['neurocarto', *r.parts])
+                k = '.'.join(r.parts)
                 with open(o, 'w') as of:
-                    print(f"""\
-{k}
-{"=" * len(k)}
-
-.. automodule:: {k}
-   :members:
-   :undoc-members:
-""", file=of)
+                    print(CONTENT_FILE.format(module=k, module_len='=' * (len(k) + 11)), file=of)
 
     for d in ds:
         if d != '__pycache__':
@@ -33,20 +50,19 @@ for p, ds, fs in os.walk(src):
             src_files.append(o.name)
             if not o.exists():
                 print('new', o)
-                k = '.'.join(['neurocarto', *r.parts])
-                with open(o, 'w') as of:
-                    print(f"""\
-{k}
-{"=" * len(k)}
+                k = '.'.join(r.parts)
 
-.. automodule:: {k}
-    :members:
-   
-modules
--------
-.. toctree::
-    :maxdepth: 1
-""", file=of)
+                module_list = []
+                for f in (Path(p) / d).iterdir():
+                    if f.suffix == '.py' and not f.name.startswith('_'):
+                        module_list.append(k + '.' + f.stem)
+                    elif f.is_dir() and (f / '__init__.py').exists():
+                        module_list.append(k + '.' + f.name)
+
+                module_list.sort()
+                module_list_content = textwrap.indent('\n'.join(module_list), '    ')
+                with open(o, 'w') as of:
+                    print(CONTENT_DIR.format(module=k, module_len='=' * (len(k) + 11), module_list=module_list_content), file=of)
 
 for f in dst.iterdir():
     if f.suffix == '.rst':

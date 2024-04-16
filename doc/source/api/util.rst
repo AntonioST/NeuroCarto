@@ -14,4 +14,5 @@ neurocarto.util
     util.util_blueprint
     util.util_numpy
     util.utils
+    util.debug
 

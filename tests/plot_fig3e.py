@@ -8,7 +8,7 @@ from neurocarto.probe_npx import plot
 from neurocarto.probe_npx.desp import NpxProbeDesp
 from neurocarto.probe_npx.npx import ChannelMap
 from neurocarto.probe_npx.stat import npx_electrode_probability
-from neurocarto.util.utils import print_save
+from neurocarto.util.debug import print_save
 
 file = Path('res/Fig3_example.imro')
 desp = NpxProbeDesp()

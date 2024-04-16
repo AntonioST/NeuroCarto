@@ -10,7 +10,8 @@ from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp, M, E
 from neurocarto.util.bokeh_app import run_timeout
 from neurocarto.util.bokeh_util import as_callback
-from neurocarto.util.utils import TimeMarker, doc_link
+from neurocarto.util.debug import TimeMarker
+from neurocarto.util.utils import doc_link
 from neurocarto.views.base import Figure, ViewBase, RecordView, RecordStep
 
 if TYPE_CHECKING:

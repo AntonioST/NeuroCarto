@@ -13,7 +13,8 @@ from neurocarto.config import CartoConfig, parse_cli, setup_logger
 from neurocarto.probe import get_probe_desp, ProbeDesp, M
 from neurocarto.util.bokeh_app import BokehApplication, run_server, run_later
 from neurocarto.util.bokeh_util import ButtonFactory, col_layout, as_callback, new_help_button
-from neurocarto.util.utils import TimeMarker, doc_link
+from neurocarto.util.debug import TimeMarker
+from neurocarto.util.utils import doc_link
 from neurocarto.views import *
 from neurocarto.views.record import RecordManager
 from . import files

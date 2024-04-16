@@ -5,8 +5,8 @@ from matplotlib import pyplot as plt
 
 from neurocarto.probe_npx.desp import NpxProbeDesp
 from neurocarto.probe_npx.npx import ChannelMap
+from neurocarto.util.debug import print_save
 from neurocarto.util.util_blueprint import BlueprintFunctions
-from neurocarto.util.utils import print_save
 
 rc = matplotlib.rc_params_from_file('tests/default.matplotlibrc', fail_on_error=True, use_default_template=True)
 plt.rcParams.update(rc)

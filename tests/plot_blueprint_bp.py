@@ -11,8 +11,8 @@ from matplotlib.patches import Polygon
 
 from neurocarto.probe_npx.desp import NpxProbeDesp
 from neurocarto.probe_npx.npx import ChannelMap
+from neurocarto.util.debug import TimeMarker
 from neurocarto.util.util_blueprint import BlueprintFunctions
-from neurocarto.util.utils import TimeMarker
 
 marker = TimeMarker()
 marker('import')

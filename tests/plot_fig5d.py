@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from neurocarto.probe_npx.npx import ChannelMap
 from neurocarto.probe_npx.plot import plot_channelmap_block, plot_probe_shape
-from neurocarto.util.utils import print_save
+from neurocarto.util.debug import print_save
 
 rc = matplotlib.rc_params_from_file('tests/default.matplotlibrc', fail_on_error=True, use_default_template=True)
 plt.rcParams.update(rc)

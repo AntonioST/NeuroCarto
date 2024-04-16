@@ -6,7 +6,6 @@ import os
 import re
 import sys
 import textwrap
-import time
 from collections.abc import Callable
 from pathlib import Path
 from types import FunctionType, ModuleType
@@ -22,10 +21,6 @@ __all__ = [
     # dynamic import
     'import_name',
     'get_import_file',
-    # profile
-    'print_save',
-    'line_mark',
-    'TimeMarker',
     # documenting
     'SPHINX_BUILD',
     'doc_link'
@@ -104,6 +99,7 @@ def as_set(x, n: int) -> set[int]:
 
 def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
     """
+    load a symbol (could be a function, a class or module itself) from a module.
 
     Module Path: ``[ROOT:]MODULE:NAME``, where
 
@@ -115,7 +111,7 @@ def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
          variable name. Use '*' to return a module.
 
 
-    :param desp:
+    :param desp: description of the *module_path*. used in error message.
     :param module_path:
     :param root: PYTHONPATH
     :param reload: reload the module.
@@ -129,7 +125,7 @@ def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
 
     module_path, _, name = module_path.partition(':')
     if len(name) == 0:
-        raise ValueError(f'not a {desp} pattern "module_path:name" : {module_path}')
+        raise ValueError(f'not a {desp} module path : {module_path}')
 
     import importlib
     try:
@@ -149,16 +145,16 @@ def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
     try:
         return getattr(module, name)
     except AttributeError as e:
-        raise ImportError(f"{module_path}:{name}") from e
+        raise ImportError(f"cannot load {desp} from {module_path}:{name}") from e
 
 
 def get_import_file(module_path: str, root: str = None) -> Path | None:
     """
-    Try to find correspond python module file.
+    Try to find python module file according to the *module_path*.
 
     :param module_path:
     :param root:
-    :return: found path.
+    :return: found filepath.
     """
     if module_path.count(':') > 1:
         root, _, module_path = module_path.partition(':')
@@ -174,44 +170,6 @@ def get_import_file(module_path: str, root: str = None) -> Path | None:
             if (p := Path(root) / module_file).exists():
                 return p
     return None
-
-
-def print_save(file: str) -> Path:
-    """Debug use function."""
-    print('SAVE', file)
-    return Path(file)
-
-
-def line_mark(message: str):
-    """Debug use function."""
-    frame = inspect.stack()[1]
-    filename = frame.filename
-    try:
-        filename = filename[filename.index('neurocarto/'):]
-    except ValueError:
-        pass
-
-    filename = filename.replace('.py', '').replace('/', '.')
-    print(filename, f'@{frame.lineno}', f'{frame.function}()', '::', message)
-
-
-class TimeMarker:
-    def __init__(self, disable=False):
-        self.t = time.time()
-        self.disable = disable
-
-    def reset(self):
-        self.t = time.time()
-
-    def __call__(self, message: str = None) -> float:
-        t = time.time()
-        d = t - self.t
-        self.t = t
-
-        if message is not None and not self.disable:
-            print(message, f'use {d:.2f}')
-
-        return d
 
 
 def doc_link(**kwargs: str) -> Callable[[T], T]:
