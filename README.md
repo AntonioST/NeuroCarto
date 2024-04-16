@@ -1,6 +1,8 @@
 NeuroCarto: A Neuropixels Channelmap Editor
 ===========================================
 
+[![Documentation Status](https://readthedocs.org/projects/neurocarto/badge/?version=latest)](https://neurocarto.readthedocs.io/en/latest/?badge=latest)
+
 NeuroCarto is a neural probe channel map editor for the Neuropixels probe family.
 It allows user to create a blueprint for arranging electrodes in a desired density
 and generate a custom channel map.
@@ -23,7 +25,7 @@ writing.
 Documents
 ---------
 
-Please check [wiki](https://github.com/AntonioST/chmap_editor/wiki) for more details.
+Please check [Documentation](https://readthedocs.org/projects/neurocarto) for more details.
 
 Install and Run
 ---------------
