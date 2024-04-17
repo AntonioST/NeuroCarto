@@ -560,12 +560,12 @@ class BlueprintFunctions(Generic[M, E]):
                 blueprint[i] = category
         return blueprint
 
-    def index_blueprint(self, electrodes: ELECTRODES) -> NDArray[np.int_]:
+    def index_blueprint(self, electrodes: ELECTRODES | NDArray[np.int_]) -> NDArray[np.int_]:
         """
         Get an electrode index array from an electrode list.
 
-        :param electrodes: list of electrode.
-        :return: electrode index array, follow *electrodes* ordering.
+        :param electrodes: list of electrode or an Array[int, N, (S,X,Y)].
+        :return: electrode index Array[E:int, N], follow *electrodes* ordering.
         :raise RuntimeError: when probe is missing.
         """
         if self.channelmap is None:
@@ -574,10 +574,18 @@ class BlueprintFunctions(Generic[M, E]):
         ret = []
         pos = self._position_index
 
-        for e in electrodes:
-            p = int(e.s), int(e.x / self.dx), int(e.y / self.dy)
-            if (i := pos.get(p, None)) is not None:
-                ret.append(i)
+        if isinstance(electrodes, list):
+            for e in electrodes:
+                p = int(e.s), int(e.x / self.dx), int(e.y / self.dy)
+                if (i := pos.get(p, None)) is not None:
+                    ret.append(i)
+        elif isinstance(electrodes, np.ndarray):
+            for (s, x, y) in electrodes:
+                p = int(s), int(x / self.dx), int(y / self.dy)
+                if (i := pos.get(p, None)) is not None:
+                    ret.append(i)
+        else:
+            raise TypeError()
 
         return np.array(ret, dtype=int)
 
@@ -969,11 +977,17 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Load a data array.
 
-        If it is a numpy file ('.npy'), then it should be an ``Array[float, E]`` array.
-        Otherwise, it is a file that can be parsed by {ProbeDesp#load_blueprint()}, where
-        the value is read from category field.
+        **support data type**
 
-        For the Neuropixels, {NpxProbeDesp} use the numpy array in this form:
+        * numpy file ('.npy') with shape  ``Array[float, E]``.
+        * csv file ('.csv') with reader ``s,x,y,value``.
+        * data file supported by {ProbeDesp#load_blueprint()}.
+
+          The value is read from category field.
+
+        **Neuropixels**
+
+        For the Neuropixels, {NpxProbeDesp} use the numpy array in this form::
 
            Array[int, E, (shank, col, row, state, category)]
 
@@ -988,16 +1002,24 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def save_data(self, file: str | Path, data: NDArray[np.float_]):
         """
-        Save a numpy data array through {ProbeDesp#save_blueprint()}.
-        The data value is stored into the category field.
+        Save a numpy data array.
 
-        For the Neuropixels, {NpxProbeDesp} use the numpy array in this form:
+        **support data type**
+
+        * csv file ('.csv') with reader ``shank,x,y,value``.
+        * data file supported by {ProbeDesp#load_blueprint()}.
+
+          The data value is stored into the category field.
+
+        Note: If no specific requirement, use ``numpy.save`` first.
+
+        **Neuropixels**
+
+        For the Neuropixels, {NpxProbeDesp} use the numpy array in this form::
 
            Array[int, E, (shank, col, row, state, category)]
 
         Because E's category is expected as an int, this method will cast it into an int by default.
-
-        Note: If no specific requirement, use ``numpy.save`` first.
 
         :param file: data file
         :param data: Array[float, E] data array, where E is all electrodes.
