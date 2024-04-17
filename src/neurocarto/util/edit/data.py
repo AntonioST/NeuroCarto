@@ -47,6 +47,8 @@ def save_data(self: BlueprintFunctions, file: str | Path, value: NDArray[np.floa
     """
     {DOC}
     :see: {BlueprintFunctions#save_data()}
+    :see: {save_csv_data()}
+    :see: {load_date_from_blueprint_file()}
     """
     file = Path(file)
     match file.suffix:

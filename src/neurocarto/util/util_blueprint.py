@@ -299,6 +299,12 @@ class BlueprintFunctions(Generic[M, E]):
         self._controller: ControllerView | None = None
         self._blueprint_changed = False
 
+    def __len__(self) -> int:
+        """number of total electrodes"""
+        if self.channelmap is None:
+            return 0
+        return len(self.s)
+
     def __getattr__(self, item: str):
         if item.startswith('CATE_'):
             if (ret := self.categories.get(item[5:], None)) is not None:
@@ -340,11 +346,12 @@ class BlueprintFunctions(Generic[M, E]):
         ret.dy = self.dy  # type: ignore[misc]
         ret._position_index = self._position_index
         ret._blueprint = self._blueprint.copy()
+        ret._blueprint_changed = False
 
         if pure:
             ret._controller = None
         else:
-            ret._controller = self._controller
+            ret._controller = getattr(self, '_controller', None)
 
         return ret  # type: ignore[return-value]
 
@@ -639,7 +646,7 @@ class BlueprintFunctions(Generic[M, E]):
 
     @blueprint_function
     @doc_link()
-    def set(self, blueprint: BLUEPRINT, mask: int | list[int] | NDArray[np.bool_] | NDArray[np.int_], category: int) -> BLUEPRINT:
+    def set(self, blueprint: BLUEPRINT, mask: int | slice | list[int] | NDArray[np.bool_] | NDArray[np.int_], category: int) -> BLUEPRINT:
         """
         Set *category* on the blueprint with a *mask*.
 
@@ -667,7 +674,7 @@ class BlueprintFunctions(Generic[M, E]):
 
     @blueprint_function
     @doc_link()
-    def unset(self, blueprint: BLUEPRINT, mask: int | list[int] | NDArray[np.bool_] | NDArray[np.int_]) -> BLUEPRINT:
+    def unset(self, blueprint: BLUEPRINT, mask: int | slice | list[int] | NDArray[np.bool_] | NDArray[np.int_]) -> BLUEPRINT:
         """
         unset electrodes in the *blueprint* with a *mask*.
 
@@ -980,7 +987,7 @@ class BlueprintFunctions(Generic[M, E]):
         **support data type**
 
         * numpy file ('.npy') with shape  ``Array[float, E]``.
-        * csv file ('.csv') with reader ``s,x,y,value``.
+        * csv file ('.csv', '.tsv') with reader ``shank,x,y,value``.
         * data file supported by {ProbeDesp#load_blueprint()}.
 
           The value is read from category field.
@@ -1006,12 +1013,12 @@ class BlueprintFunctions(Generic[M, E]):
 
         **support data type**
 
-        * csv file ('.csv') with reader ``shank,x,y,value``.
+        * csv file ('.csv', '.tsv') with reader ``shank,x,y,value``.
         * data file supported by {ProbeDesp#load_blueprint()}.
 
           The data value is stored into the category field.
 
-        Note: If no specific requirement, use ``numpy.save`` first.
+        Note: If no specific requirement, consider use ``numpy.save`` first.
 
         **Neuropixels**
 
@@ -1037,15 +1044,17 @@ class BlueprintFunctions(Generic[M, E]):
         """
         return data[self.selected_electrodes(chmap)]
 
-    def put_data(self, data: NDArray[np.float_], chmap: M, value: NDArray[np.float_]):
+    def put_data(self, data: NDArray[np.float_], chmap: M, value: NDArray[np.float_]) -> NDArray[np.float_]:
         """
         put the *value* of used electrodes from *chmap* into *data*.
 
         :param data: Array[float, E], where E is all electrodes
         :param chmap: a channelmap with number of (non-None) channel C
         :param value:  Array[float, C] channel data.
+        :return: *data*
         """
         data[self.selected_electrodes(chmap)] = value
+        return data
 
     @doc_link(
         interpolate_nan='neurocarto.util.util_numpy.interpolate_nan',
@@ -1063,8 +1072,6 @@ class BlueprintFunctions(Generic[M, E]):
         * this method works on 1-d array, but the latter one works on 2-d array
         * this method works on different shanks, but the latter one works single shanks
           (you need to apply multiple times on different shanks)
-        * According to implementation, this method needs to be applied twice to get the same
-          result as the latter one.
         * The latter one is also used in {plot_electrode_matrix()} and {ElectrodeMatData#interpolate_nan()}.
 
         :param a: data array.

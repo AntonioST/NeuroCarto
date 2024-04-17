@@ -6,7 +6,6 @@ import os
 import re
 import sys
 import textwrap
-from collections.abc import Callable
 from pathlib import Path
 from types import FunctionType, ModuleType
 from typing import TypeVar, Any, TypeGuard, overload
@@ -172,7 +171,7 @@ def get_import_file(module_path: str, root: str = None) -> Path | None:
     return None
 
 
-def doc_link(**kwargs: str) -> Callable[[T], T]:
+def doc_link(**kwargs: str):
     """
     A decorator to replace the text with pattern ``{CLASS}``
     into sphinx cross-reference link (if environment variable ``SPHINX_BUILD`` is set)
