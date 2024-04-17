@@ -7,7 +7,7 @@ from neurocarto.views.blueprint_script import BlueprintScriptView
 
 AP = argparse.ArgumentParser()
 AP.add_argument(metavar='FILE', nargs='?', default='res/Fig5d_data.npy', dest='FILE')
-AP.add_argument(metavar='THRESHOLD', nargs='?', type=int, default=3500, dest='THRESHOLD')
+AP.add_argument(metavar='THRESHOLD', nargs='?', type=float, default=3.8, dest='THRESHOLD')
 OPT = AP.parse_args()
 
 
