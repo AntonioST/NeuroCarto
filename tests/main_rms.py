@@ -21,8 +21,6 @@ AP.add_argument('-a', '--append', nargs='?', choices=APPEND_MODE, default=None, 
                 help='append result into output file.')
 AP.add_argument('-s', '--save', nargs='?', const='', default=None, dest='save_figure',
                 help='save figure. use -o when the value is omitted.')
-AP.add_argument('--plot', choices=('matrix', 'scatter'), default='matrix', dest='plot',
-                help='plot which kinds of figure.')
 AP.add_argument('-f', '--force', action='store_true', dest='force',
                 help='force re-generate output .npy file')
 AP.add_argument('--ap', metavar='LO,HI', default='1000,5000', dest='ap_band',
@@ -145,8 +143,7 @@ def segment_glx_data(glx_file: Path, glx_map: ChannelMap,
                      sample_times=10,
                      sample_duration=1,
                      ap_band: tuple[int, int] = (1000, 5000),
-                     car='global',
-                     prefix: str = ''):
+                     car='global'):
     glx_data = open_glx(glx_file, glx_map)
 
     total_channel, total_time_step = glx_data.shape
@@ -159,10 +156,10 @@ def segment_glx_data(glx_file: Path, glx_map: ChannelMap,
     if car == 'local':
         c = build_local_car_operator(glx_map.channel_pos, local_car_window)
 
-    print(f'load    {prefix} ...')
     out = np.zeros((total_channel - 1,), dtype=float)  # Array[float, C]
     for i, (t0, t1) in enumerate(sample_time_range):
-        print(f'process {prefix} {i + 1}/{len(sample_time_range)} ...', end='\r')
+        print(f'process {i + 1}/{len(sample_time_range)} ...', end='\r')
+
         t = slice(int(t0 * sample_rate), int(t1 * sample_rate))
 
         # excluding sync channel
@@ -183,7 +180,8 @@ def segment_glx_data(glx_file: Path, glx_map: ChannelMap,
 
         data = np.sqrt(np.mean(np.power(data, 2), axis=1))  # Array[float, C]
         np.add(out, data, out=out)
-    print()
+
+    print(' ' * 80, end='\r')
     return out / len(sample_time_range)  # Array[float, C]
 
 
@@ -217,8 +215,9 @@ def compute_data(bp: BlueprintFunctions, opt) -> np.ndarray:
     for i, glx_file in enumerate(glx_files):
         glx_file = glx_file.with_suffix('.bin')
         glx_map = ChannelMap.from_meta(glx_file.with_suffix('.meta'))
-        glx_rms = segment_glx_data(glx_file, glx_map, sample_times, sample_duration, ap_band, opt.car,
-                                   prefix=f'[{i + 1}/{len(glx_files)}] {glx_file}')
+
+        print(f'load [{i + 1}/{len(glx_files)}] {glx_file} ...')
+        glx_rms = segment_glx_data(glx_file, glx_map, sample_times, sample_duration, ap_band, opt.car)
 
         if append_mode not in ('min', 'mean', 'max'):
             bp.put_data(ret, glx_map, glx_rms)
@@ -245,35 +244,31 @@ def plot_data(bp: BlueprintFunctions, data: np.ndarray, opt):
     with plt.rc_context(fname='tests/default.matplotlibrc'):
         fig, ax = plt.subplots(gridspec_kw=dict(top=0.90))
 
-        if opt.plot == 'matrix':
-            im = plot.plot_electrode_matrix(
-                ax, bp.channelmap.probe_type, data, 'raw',
-                shank_list=[3, 2, 1, 0],
-                kernel=(0, 1),
-                vmax=6,
-                vmin=0,
-                cmap='plasma'
-            )
+        # image
+        im = plot.plot_electrode_matrix(
+            ax, bp.channelmap.probe_type, data, 'raw',
+            shank_list=[3, 2, 1, 0],
+            kernel=(0, 1),  # (C, R)
+            vmax=6,
+            vmin=0,
+        )
 
-            insert_colorbar(ax, im)
+        # scatter
+        # i = np.nonzero(~np.isnan(data))[0]
+        # s = np.array([3, 2, 1, 0])
+        # data -= np.nanmin(data)
+        # x = s[bp.s[i]] + data[i] / np.nanmax(data)  # shank as x
+        # y = bp.y[i] / 1000  # mm
+        # ax.scatter(2 * x, y, s=1, c='g')
+        #
+        # for x in np.unique(bp.s):
+        #     ax.axvline(2 * x, color='gray', lw=0.5)
 
-        elif opt.plot == 'scatter':
-            i = np.nonzero(~np.isnan(data))[0]
-            s = np.array([3, 2, 1, 0])
-            data -= np.nanmin(data)
-            x = s[bp.s[i]] + data[i] / np.nanmax(data)  # shank as x
-            y = bp.y[i] / 1000  # mm
-            ax.scatter(x, y, s=5)
-
-            for x in np.unique(bp.s):
-                ax.axvline(x, color='gray', lw=0.5)
-
-            ax.set_xticks(np.arange(len(s)) + 0.5, s)
-
-        else:
-            raise ValueError()
-
+        #
+        insert_colorbar(ax, im)
         ax.set_ylim(0, 6)
+
+        #
 
         if opt.save_figure is None:
             print('show...')

@@ -153,29 +153,24 @@ def plot_data(bp: BlueprintFunctions, data: np.ndarray, opt):
         fig, ax = plt.subplots(gridspec_kw=dict(top=0.90))
 
         # image
-        vmin = np.round(np.nanmin(data), 1)
-        vmax = np.round(np.nanmax(data) + 0.1, 1)
-        print(f'{vmin=}, {vmax=}')
-
         im = plot.plot_electrode_matrix(
             ax, bp.channelmap.probe_type, data, 'raw',
             shank_list=[3, 2, 1, 0],
-            kernel=(0, 1),
-            vmax=vmax,
-            vmin=vmin,
-            cmap='jet'
+            kernel=(0, 1),  # (C, R)
+            vmax=6,
+            vmin=0,
         )
 
         # scatter
-        i = np.nonzero(~np.isnan(data))[0]
-        s = np.array([3, 2, 1, 0])
-        data -= vmin
-        x = s[bp.s[i]] + data[i] / (vmax - vmin)  # shank as x
-        y = bp.y[i] / 1000  # mm
-        ax.scatter(2 * x, y, s=1, c='g')
-
-        for x in np.unique(bp.s):
-            ax.axvline(2 * x, color='gray', lw=0.5)
+        # i = np.nonzero(~np.isnan(data))[0]
+        # s = np.array([3, 2, 1, 0])
+        # data -= np.nanmin(data)
+        # x = s[bp.s[i]] + data[i] / np.nanmax(data)  # shank as x
+        # y = bp.y[i] / 1000  # mm
+        # ax.scatter(2 * x, y, s=1, c='g')
+        #
+        # for x in np.unique(bp.s):
+        #     ax.axvline(2 * x, color='gray', lw=0.5)
 
         #
         insert_colorbar(ax, im)
