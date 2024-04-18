@@ -24,7 +24,12 @@ __all__ = [
     'plot_electrode_block',
     'plot_electrode_grid',
     'plot_electrode_matrix',
+    'plot_electrode_curve',
     'plot_category_area',
+    #
+    'cast_electrode_data',
+    'cast_electrode_grid',
+    'cast_electrode_curve',
 ]
 
 ELECTRODE_UNIT = Literal['cr', 'xy', 'raw']
@@ -306,7 +311,7 @@ def plot_electrode_block(ax: Axes,
 
         ret = []
         for ss, cc, rr, xx, yy in zip(s, c, r, x, y):
-            a = Rectangle((float(xx - w / 2), float(yy - w / 2)), w, h, lw=0, **kwargs)
+            a = Rectangle((float(xx - w / 2), float(yy - h / 2)), w, h, lw=0, **kwargs)
             ret.append(a)
             ax.add_artist(a)
         return ret
@@ -414,7 +419,7 @@ def plot_electrode_grid(ax: Axes,
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param color: grid line color
     :param label:
-    :param kwargs: pass to ax.plot(kwargs)
+    :param kwargs: pass to ``ax.plot(kwargs)``
     """
     s_step = probe.s_space / 1000
     h_step = probe.c_space / 1000 * shank_width_scale
@@ -565,6 +570,133 @@ def plot_electrode_matrix(ax: Axes,
     ax.set_ylabel('Distance from Tip (mm)')
 
     return im
+
+
+@doc_link(
+    DOC=textwrap.dedent(cast_electrode_data.__doc__)
+)
+def cast_electrode_curve(probe: ProbeType,
+                         electrode: NDArray[np.float_],
+                         electrode_unit: ELECTRODE_UNIT = 'cr', *,
+                         kernel: int | NDArray[np.float_] | Literal['norm'] = None) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+    """
+    smooth electrode data into 1d value data per shank.
+
+    {DOC}
+
+    :param probe: probe type
+    :param electrode: electrode data
+    :param electrode_unit: electrode value unit
+    :param kernel: smoothing kernel ``Array[float, Y]``, where Y use 1-um bins
+    :return: value Array[float, S, R] and y Array[um:float, R]
+    """
+    v_step = probe.r_space
+
+    match kernel:
+        case None:
+            kernel = probe.r_space * 5
+            kernel = np.ones((kernel,)) / kernel
+        case int(kernel):
+            kernel = np.ones((kernel,)) / kernel
+        case 'norm':
+            from scipy.stats import norm
+            s = probe.r_space
+            kernel = norm.pdf(np.linspace(-3 * s, 3 * s, 6 * s + 1), 0, s)
+        case _ if isinstance(kernel, np.ndarray):
+            pass
+        case _:
+            raise TypeError()
+
+    data = cast_electrode_data(probe, electrode, electrode_unit)
+
+    ns, nc, nr = data.shape
+    y = np.arange(0, int(nr * v_step) + 1)  # um
+    value = np.zeros((ns, len(y)), dtype=float)
+
+    k2 = len(kernel) // 2
+    ks = slice(k2, k2 + len(y))
+    for s, c, r in zip(*np.nonzero(~np.isnan(data))):
+        v = np.zeros_like(y)
+        ri = np.searchsorted(y, r * v_step)
+        v[ri] = data[s, c, r]
+        value[s] += np.convolve(v, kernel, mode='full')[ks]
+
+    return value, y
+
+
+@doc_link(
+    DOC=textwrap.dedent(cast_electrode_data.__doc__)
+)
+def plot_electrode_curve(ax: Axes,
+                         probe: ProbeType,
+                         electrode: NDArray[np.float_],
+                         electrode_unit: ELECTRODE_UNIT = 'cr', *,
+                         kernel: int | NDArray[np.float_] | Literal['norm'] = None,
+                         shank_list: list[int] = None,
+                         height: float | None = None,
+                         direction: Literal['left', 'right'] = 'right',
+                         vmax: float | None = None,
+                         normalize: float | None = 1,
+                         shank_width_scale: float = 1,
+                         label: str = None,
+                         **kwargs):
+    """
+
+    {DOC}
+
+    :param ax:
+    :param probe: probe type
+    :param electrode: electrode data
+    :param electrode_unit: electrode value unit
+    :param kernel: smoothing kernel ``Array[float, Y]``, where Y use 1-um bins
+    :param shank_list: show shank in order
+    :param height: y limitation of curve.
+    :param direction: the direction of the position value for the curves
+    :param vmax: max value.
+    :param normalize: normalize the max value to fit into the inter-shank space.
+    :param shank_width_scale: scaling the width of a shank for visualizing purpose.
+    :param label:
+    :param kwargs: pass to ``ax.plot(kwargs)``
+    """
+    s_step = probe.s_space / 1000
+    h_step = probe.c_space / 1000 * shank_width_scale
+    v_step = probe.r_space / 1000
+
+    match direction:
+        case 'right':
+            xa = probe.n_col_shank * h_step
+            xb = s_step - (probe.n_col_shank + 1) * h_step
+        case 'left':
+            xa = -h_step / 2
+            xb = -(s_step - (probe.n_col_shank + 1) * h_step)
+        case _:
+            raise ValueError()
+
+    data = cast_electrode_data(probe, electrode, electrode_unit)
+    ns, nc, nr = data.shape
+
+    value, y = cast_electrode_curve(probe, data, 'raw', kernel=kernel)
+
+    if normalize is not None:
+        if vmax is None:
+            vmax = np.max(value)
+        value = value * normalize / vmax
+
+    if shank_list is None:
+        shank_list = list(range(ns))
+
+    y = y / 1000  # mm
+    if height is not None:
+        yx = y <= height
+        y = y[yx]
+        value = value[:, yx]
+
+    for si, ss in enumerate(shank_list):
+        x = xa + si * s_step + value[ss] * xb
+        ax.plot(x, y, **kwargs)
+
+    if label is not None:
+        ax.plot([np.nan], [np.nan], label=label, **kwargs)
 
 
 @doc_link()
