@@ -844,11 +844,21 @@ class UtilBlueprintTestData(unittest.TestCase):
             2, 1,
         ], dtype=float).reshape(2, 3, 2)
 
-        assert_array_equal(interpolate_nan(blueprint[0].copy(), (0, 1)), np.array([
+        assert_array_equal(interpolate_nan(blueprint[0].copy(), (1, 0)), np.array([
             2, 0,
             2, 3,
             2, 0,
         ], dtype=float).reshape(3, 2))
+
+        assert_array_equal(interpolate_nan(blueprint.copy(), (1, 0)), np.array([
+            2, 0,
+            2, 3,
+            2, 0,
+            # ----
+            2, 3,
+            3, 2,
+            2, 1,
+        ], dtype=float).reshape(2, 3, 2))
 
     def test_interpolate_nan_edge_util_numpy(self):
         from neurocarto.util.util_numpy import interpolate_nan
@@ -863,7 +873,7 @@ class UtilBlueprintTestData(unittest.TestCase):
             2, 3,
         ], dtype=float).reshape(6, 2)
 
-        assert_array_equal(interpolate_nan(blueprint.copy(), (0, 1)), np.array([
+        assert_array_equal(interpolate_nan(blueprint.copy(), (1, 0)), np.array([
             N, N,
             N, N,
             N, 3,
@@ -885,7 +895,7 @@ class UtilBlueprintTestData(unittest.TestCase):
             2, 3,
         ], dtype=float).reshape(6, 2)
 
-        assert_array_equal(interpolate_nan(blueprint.copy(), (0, 1)), np.array([
+        assert_array_equal(interpolate_nan(blueprint.copy(), (1, 0)), np.array([
             2, 3,
             2, 3,
             N, 3,

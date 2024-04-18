@@ -9,7 +9,7 @@ from matplotlib.cm import ScalarMappable
 from numpy.typing import NDArray
 
 from neurocarto.probe import ElectrodeDesp
-from neurocarto.util.util_numpy import index_of, closest_point_index, same_index
+from neurocarto.util.util_numpy import closest_point_index, interpolate_nan
 from neurocarto.util.utils import doc_link
 from .desp import NpxProbeDesp
 from .npx import ChannelMap, ProbeType, channel_coordinate, electrode_coordinate
@@ -31,7 +31,6 @@ __all__ = [
     'plot_electrode_matrix',
     'plot_category_area',
     #
-    'ElectrodeMatData',
     'ElectrodeGridData',
 ]
 
@@ -175,317 +174,81 @@ class ElectrodeGridData(NamedTuple):
             ax.plot([x0, x1], [y0, y0], color=color, **kwargs)
 
 
-class ElectrodeMatData(NamedTuple):
-    """Electrode data in matrix form"""
+def cast_electrode_data(probe: ProbeType,
+                        electrode: NDArray[np.float_],
+                        electrode_unit: ELECTRODE_UNIT | Literal['crv', 'xyv']) -> NDArray[np.float_]:
+    """
 
-    probe: ProbeType
-    mat: NDArray[np.float_]  # Array[V:float, R, C]
-    col: NDArray[np.int_]  # Array[int, C]
-    row: NDArray[np.int_]  # Array[int, R]
-    shank: NDArray[np.int_]  # Array[S:int, C]
+    **Data shape and units**
 
-    @classmethod
-    def of(cls, probe: ProbeType,
-           electrode: NDArray[np.float_],
-           electrode_unit: ELECTRODE_UNIT = 'cr',
-           reduce: Callable[[NDArray[np.float_]], float] = np.mean) -> Self:
-        """
-        Convert electrode array data into matrix data.
+    the required shape of *electrode* is depended on *electrode_unit*.
 
-        **Data shape and units**
+    * ``cr``: column and row, require shape ``Array[float, E, (S, C, R, V)]``
+    * ``xy``: x and y position, require shape ``Array[float, E, (X, Y, V)]``
+    * ``raw``:  require shape ``Array[V:float, E]`` or ``Array[V:float, S, C, R]``,
 
-        the required shape of *electrode* is depended on *electrode_unit*.
+    :param electrode:
+    :param electrode_unit:
+    :return: Array[V:float, S, C, R]
+    """
+    shape = (probe.n_shank, probe.n_col_shank, probe.n_row_shank)
 
-        * ``cr``: column and row, require shape ``Array[float, E, (S, C, R, V?)]``
-        * ``xy``: x and y position, require shape ``Array[float, E, (X, Y, V?)]``
-        * ``raw``:  require shape ``Array[V:float, E]`` or ``Array[V:float, S, C, R]``,
+    match electrode_unit:
+        case 'raw' if electrode.shape == shape:
+            return electrode
+        case 'raw' if electrode.ndim == 1:
+            ret = np.full(shape, np.nan)
+            for (s, c, r), v in zip(electrode_coordinate(probe, 'cr'), electrode):
+                ret[s, c, r] = v
+            return ret
 
-        :param probe: probe profile
-        :param electrode: electrode data
-        :param electrode_unit:
-        :param reduce: function (Array[V, ?]) -> V used when data has same (s, x, y) position
-        :return: ElectrodeMatData
-        """
-        if electrode_unit == 'raw' and electrode.ndim == 1:
-            electrode = np.hstack([electrode_coordinate(probe, 'cr'), electrode[:, None]])
-            return cls._of(probe, electrode, 'cr')
-        elif electrode_unit == 'raw':
-            return cls._of_raw(probe, electrode)
-        else:
-            return cls._of(probe, electrode, electrode_unit, reduce)
+        case 'raw':
+            raise RuntimeError(f'electrode.ndim={electrode.ndim} not fit to raw unit')
 
-    @classmethod
-    def _of_raw(cls, probe: ProbeType,
-                electrode: NDArray[np.float_]) -> Self:
-        s, c, r = electrode.shape
-        vmap = electrode.transpose(2, 0, 1).reshape(r, -1)  # Array[V:float, R, S*C]
-        row = np.arange(r)
-        col = np.tile(np.arange(c), s)  # [0,1,0,1, ...]
-        shk = np.repeat(np.arange(s), c)  # [0,0,1,1,...]
-        return ElectrodeMatData(probe, vmap, col=col, row=row, shank=shk)
+        case 'cr':
+            ret = np.full(shape, np.nan)
+            for s, c, r in electrode.astype(int):
+                ret[s, c, r] = 1
+            return ret
 
-    @classmethod
-    def _of(cls, probe: ProbeType,
-            electrode: NDArray[np.float_],
-            electrode_unit: ELECTRODE_UNIT = 'cr',
-            reduce: Callable[[NDArray[np.float_]], float] = np.mean) -> Self:
-        nc = probe.n_col_shank
-        s_step = probe.s_space
-        h_step = probe.c_space
-        v_step = probe.r_space
+        case 'crv':
+            ret = np.full(shape, np.nan)
+            for s, c, r, v in electrode:
+                ret[int(s), int(c), int(r)] = v
+            return ret
 
-        if electrode_unit == 'cr':
-            s = electrode[:, 0].astype(int)  # Array[s, E]
-            c = electrode[:, 1].astype(int)  # Array[c, E]
-            r = electrode[:, 2].astype(int)  # Array[r, E]
-            v = electrode[:, 3]  # Array[float, E]
+        case 'xy':
+            ret = np.full(shape, np.nan)
+            cr = electrode_coordinate(probe, 'cr')
+            xy = electrode_coordinate(probe, 'xy')
 
-        elif electrode_unit == 'xy':
-            x = electrode[:, 0]
-            y = electrode[:, 1]
-            v = electrode[:, 2]
+            if np.max(electrode[:, 1]) < 10:  # mm
+                electrode = electrode.copy()
+                electrode[:, 0] *= 1000
+                electrode[:, 1] *= 1000
 
-            if np.max(y) < 10:  # mm:
-                x = (x * 1000)
-                y = (y * 1000)
+            for x, y in electrode:
+                if (i := closest_point_index(xy, [x, y], 0)) is not None:
+                    ret[tuple(cr[i])] = 1
+            return ret
 
-            x = x.astype(int)
-            y = y.astype(int)
+        case 'xyv':
+            ret = np.full(shape, np.nan)
+            cr = electrode_coordinate(probe, 'cr')
+            xy = electrode_coordinate(probe, 'xy')
 
-            s = x // s_step
-            c = (x % s_step) // h_step
-            r = y // v_step
+            if np.max(electrode[:, 1]) < 10:  # mm
+                electrode = electrode.copy()
+                electrode[:, 0] *= 1000
+                electrode[:, 1] *= 1000
 
-        else:
-            raise ValueError(f'unsupported electrode unit : {electrode_unit}')
+            for x, y, v in electrode:
+                if (i := closest_point_index(xy, [x, y], 0)) is not None:
+                    ret[tuple(cr[i])] = v
+            return ret
 
-        sc = c + s * nc  # Array[sc, E]
-
-        c0 = int(np.min(sc))
-        c1 = int(np.max(sc))
-        r0 = int(np.min(r))
-        r1 = int(np.max(r))
-        dc = c1 - c0
-        dr = r1 - r0
-
-        vmap = np.full((dr + 1, dc + 1), np.nan)
-        vmap[r - r0, sc - c0] = v
-        for i in same_index(np.column_stack([c, r])):
-            i0 = i[0]
-            vmap[r[i0] - r0, sc[i0] - c0] = reduce(v[i])
-
-        rr = np.arange(r0, r1 + 1)
-        cc = np.arange(c0, c1 + 1)
-        return ElectrodeMatData(probe, vmap, col=cc % nc, row=rr, shank=cc // nc)
-
-    @property
-    def n_row(self) -> int:
-        """R """
-        return len(self.row)
-
-    @property
-    def n_col(self) -> int:
-        """len(unique(C)) """
-        return len(np.unique(self.col))
-
-    @property
-    def n_shank(self) -> int:
-        """len(unique(S)) """
-        return len(np.unique(self.shank))
-
-    @property
-    def total_columns(self) -> int:
-        """C """
-        return len(self.col)
-
-    @property
-    def shank_list(self) -> NDArray[np.int_]:
-        _, i = np.unique(self.shank, return_index=True)
-        return self.shank[np.sort(i)]
-
-    @property
-    def x(self) -> NDArray[np.int_]:
-        """Array[um, C]"""
-        return self.col * self.probe.c_space + self.shank * self.probe.s_space
-
-    @property
-    def y(self) -> NDArray[np.int_]:
-        """Array[um, R]"""
-        return self.row * self.probe.r_space
-
-    @property
-    def y_range(self) -> NDArray[np.int_]:
-        """Array[um, (min, max)]"""
-        return self.row[[0, -1]] * self.probe.r_space
-
-    def irc(self, s: int, r: int, c: int) -> tuple[int, int]:
-        """
-
-        :param s:
-        :param r:
-        :param c:
-        :return: (ir, ic)
-        """
-        ir = int(np.nonzero(self.row == r)[0][0])
-        ic = int(np.nonzero((self.shank == s) & (self.col == c))[0][0])
-        return ir, ic
-
-    def src(self, ir: int, ic: int) -> tuple[int, int, int]:
-        """
-        :param ir: index of row
-        :param ic: index of col
-        :return: (shank, row, col)
-        """
-        return int(self.shank[ic]), int(self.row[ir]), int(self.col[ic])
-
-    def with_shank(self, shank: int, nc: int | None = None) -> Self:
-        """
-
-        :param shank:
-        :param nc: at least column number. 0 means allow empty result. None means use profile setting
-        :return:
-        """
-        sc = self.shank == shank
-        if nc is None:
-            nc = self.probe.n_col_shank
-
-        if np.any(sc) or nc == 0:
-            return self._replace(mat=self.mat[:, sc], col=self.col[sc], shank=self.shank[sc])
-        else:
-            nr = self.n_row
-            shape = (nr, nc)  # if self.mat.ndim == 2 else (nr, nc, self.n_sample)
-            mat = np.full(shape, np.nan, dtype=self.mat.dtype)
-            col = self.col
-            for c in range(nc):
-                cx = sc & (col == c)
-                if np.any(cx):
-                    mat[:, c] = self.mat[:, cx]
-            return self._replace(mat=mat, col=np.arange(nc), shank=np.full((nc,), shank))
-
-    def with_row(self, row: int | tuple[int, int] | NDArray[np.int_]) -> Self:
-        if isinstance(row, int):
-            row = np.arange(row + 1)
-        elif isinstance(row, tuple):
-            row = np.arange(row[0], row[1] + 1)
-
-        if len(self.row) == len(row) and np.all(self.row == row):
-            return self
-
-        ri = index_of(self.row, row, missing=-1)
-        mat = self.mat[ri].copy()
-        mat[ri == -1] = np.nan
-
-        return self._replace(mat=mat, row=row)
-
-    def with_height(self, height: float | tuple[float, float]) -> Self:
-        """
-
-        :param height: max height in um or a range.
-        :return:
-        """
-        y = self.y
-        if isinstance(height, (int, float)):
-            ri = y <= height
-        elif isinstance(height, tuple):
-            ri = np.logical_and(height[0] <= y, y <= height[1])
-        else:
-            raise TypeError()
-
-        if np.all(ri):
-            return self
-
-        mat = self.mat[ri]
-        row = self.row[ri]
-
-        return self._replace(mat=mat, row=row)
-
-    def sort_by_row(self) -> Self:
-        i = np.argsort(self.row)
-        return self._replace(mat=self.mat[i], row=self.row[i])
-
-    def reorder_shank(self, shank_order: list[int] | NDArray[np.int_] | Literal['inc', 'dec']) -> Self:
-        mat = np.empty_like(self.mat)
-        col = np.empty_like(self.col)
-        shank = np.empty_like(self.shank)
-        used = np.zeros((self.total_columns,), dtype=bool)
-
-        if isinstance(shank_order, str):
-            if shank_order == 'inc':
-                shank_order = list(np.unique(self.shank))
-            elif shank_order == 'dec':
-                shank_order = list(np.unique(self.shank)[::-1])
-            else:
-                raise ValueError()
-
-        for s in shank_order:
-            sc = np.nonzero(self.shank == s)[0]
-            if (nc := len(sc)) == 0:
-                continue
-
-            oc = np.nonzero(~used)[0][:nc]
-            mat[:, oc] = self.mat[:, sc]
-            col[oc] = self.col[sc]
-            shank[oc] = self.shank[sc]
-
-            assert not np.any(used[oc])
-            used[oc] = True
-
-        if np.all(used):
-            return self._replace(mat=mat, col=col, shank=shank)
-        else:
-            return self._replace(mat=mat[:, used], col=col[used], shank=shank[used])
-
-    def extend_shank(self, shank: int, init: float = np.nan,
-                     column_order: list[int] | NDArray[np.int_] | Literal['inc', 'dec'] = 'inc') -> Self:
-        if np.any(self.shank == shank):
-            raise RuntimeError()
-
-        if isinstance(column_order, str):
-            if column_order == 'inc':
-                nc = self.probe.n_col_shank
-                col = np.arange(nc)
-            elif column_order == 'dec':
-                nc = self.probe.n_col_shank
-                col = np.arange(nc)[::-1]
-            else:
-                raise ValueError()
-        else:
-            col = np.array(column_order, dtype=int)
-            nc = len(col)
-
-        nr = self.n_row
-        shape = (nr, nc)  # if self.mat.ndim == 2 else (nr, nc, self.n_sample)
-        mat = np.full(shape, init, dtype=self.mat.dtype)
-        snk = np.full((nc,), shank)
-
-        return self._replace(
-            mat=np.hstack([self.mat, mat]),
-            col=np.concatenate([self.col, col]),
-            shank=np.concatenate([self.shank, snk]),
-        )
-
-    @doc_link(interpolate_nan='neurocarto.util.util_numpy.interpolate_nan')
-    def interpolate_nan(self, kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]]) -> Self:
-        """
-
-        :param kernel: interpolate missing data (NaN) between channels.
-            It is pass to {interpolate_nan()}.
-            Default (when use ``True``) is ``(0, 1)``.
-        :return:
-        """
-        if not callable(kernel):
-            from functools import partial
-            from neurocarto.util.util_numpy import interpolate_nan
-            kernel = partial(interpolate_nan, kernel=kernel, iteration=2)
-
-        kernel: Callable
-        nc = self.n_col
-        tc = self.total_columns
-        mat = self.mat.copy()
-        for i in range(0, tc + 1, nc):  # foreach shanks
-            ii = slice(i, i + nc)
-            mat[:, ii] = kernel(mat[:, ii])
-        return self._replace(mat=mat)
+        case _:
+            raise ValueError()
 
 
 def plot_probe_shape(ax: Axes,
@@ -611,11 +374,13 @@ def plot_channelmap_block(ax: Axes,
 
 def plot_electrode_block(ax: Axes,
                          probe: ProbeType,
-                         electrode: NDArray[np.float_] | ElectrodeMatData,
+                         electrode: NDArray[np.float_],
                          electrode_unit: ELECTRODE_UNIT | Literal['crv', 'xyv'] = 'cr', *,
                          height: float | None = 10,
                          shank_width_scale: float = 1,
+                         sparse=True,
                          fill=True,
+                         cmap: str = None,
                          **kwargs):
     """
 
@@ -625,9 +390,11 @@ def plot_electrode_block(ax: Axes,
                       Array[float, E, (X, Y, V?)] (electrode_unit='xy' or 'xyv'),
                       Array[V:float, S, C, r] (electrode_unit='raw'), or ElectrodeMatData
     :param electrode_unit:
+    :param sparse: If sparse, plot data block as rectangles. use an image otherwise.
     :param height: max height (mm) of probe need to plot
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param fill: fill rectangle
+    :param cmap: colormap used by ``ax.imshow(kwargs)``.
     :param kwargs: pass to ``Rectangle(kwargs)`` or ``ax.imshow(kwargs)``.
     """
     from matplotlib.patches import Rectangle
@@ -643,73 +410,58 @@ def plot_electrode_block(ax: Axes,
         w = int(h_step * 0.8)
         h = int(v_step * 0.8)
 
-    x = y = data = None
-    if isinstance(electrode, ElectrodeMatData):
-        data = electrode
-        electrode_unit = 'raw'
-    elif electrode_unit == 'raw':
-        data = ElectrodeMatData.of(probe, electrode, 'raw')
-    elif electrode_unit == 'crv':
-        data = ElectrodeMatData.of(probe, electrode, 'cr')
-        electrode_unit = 'raw'
-    elif electrode_unit == 'xyv':
-        data = ElectrodeMatData.of(probe, electrode, 'xy')
-        electrode_unit = 'raw'
-    elif electrode_unit == 'cr':
-        s = electrode[:, 0]
-        x = electrode[:, 1] * h_step + s * s_step
-        y = electrode[:, 2] * v_step
-    elif electrode_unit == 'xy':
-        x = electrode[:, 0]
-        y = electrode[:, 1]
-    else:
-        raise ValueError(f'unsupported electrode unit : {electrode_unit}')
+    data = cast_electrode_data(probe, electrode, electrode_unit)
 
-    if x is not None:
-        if np.max(y, initial=0) > 10:  # um
-            x /= 1000
-            y /= 1000
+    if sparse:
+        s, c, r = np.nonzero(~np.isnan(data))
+        x = c * h_step + s * s_step
+        y = r * v_step
 
         if height is not None:
             yx = y <= height
+            s = s[yx]
+            c = c[yx]
+            r = r[yx]
             x = x[yx]
             y = y[yx]
-    else:
-        if height is not None:
-            data = data.with_height(height * 1000)
 
-    if electrode_unit in ('cr', 'xy'):
         kwargs.pop('lw', None)
 
         ret = []
-        for i, j in zip(x - w / 2, y - h / 2):
-            r = Rectangle((float(i), float(j)), w, h, lw=0, **kwargs)
-            ret.append(r)
-            ax.add_artist(r)
+        for ss, cc, rr, xx, yy in zip(s, c, r, x, y):
+            a = Rectangle((float(xx - w / 2), float(yy - w / 2)), w, h, lw=0, **kwargs)
+            ret.append(a)
+            ax.add_artist(a)
         return ret
 
-    elif electrode_unit == 'raw':
-        vmin = kwargs.pop('vmin', np.nanmin(data.mat))
-        vmax = kwargs.pop('vmax', np.nanmax(data.mat))
+    else:
+        y = np.arange(data.shape[2]) * v_step
+        if height is not None:
+            yx = y <= height
+            y = y[yx]
+            data = data[:, :, yx]
+
+        vmin = kwargs.pop('vmin', np.nanmin(data))
+        vmax = kwargs.pop('vmax', np.nanmax(data))
 
         ret = []
-        for s in data.shank_list:
-            extent = [s * s_step - w / 2, s * s_step + h_step * (probe.n_col_shank - 1) + w / 2,
-                      *data.y_range / 1000.0]
+        for s in range(data.shape[0]):
+            extent = [s * s_step - w / 2,
+                      s * s_step + h_step * (data.shape[1] - 1) + w / 2,
+                      0, y[-1]]
 
             im = ax.imshow(
-                data.with_shank(s).mat,  # Array[V:float, R, C]
+                data[s].T,  # Array[V:float, R, C]
                 origin='lower',
                 extent=extent,
                 aspect='auto',
                 vmin=vmin,
                 vmax=vmax,
+                cmap=cmap,
                 **kwargs
             )
             ret.append(im)
         return ret
-    else:
-        raise ValueError()
 
 
 def plot_channelmap_grid(ax: Axes, chmap: ChannelMap,
@@ -821,7 +573,6 @@ def plot_channelmap_matrix(ax: Axes,
                            data: NDArray[np.float_], *,
                            shank_list: list[int] = None,
                            kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]] | None = None,
-                           reduce: Callable[[NDArray[np.float_]], float] = np.mean,
                            cmap='magma',
                            shank_gap_color: str | None = 'w',
                            **kwargs) -> ScalarMappable:
@@ -854,7 +605,6 @@ def plot_channelmap_matrix(ax: Axes,
         ax, chmap.probe_type, x, 'cr',
         shank_list=shank_list,
         kernel=kernel,
-        reduce=reduce,
         cmap=cmap,
         shank_gap_color=shank_gap_color,
         **kwargs
@@ -864,11 +614,10 @@ def plot_channelmap_matrix(ax: Axes,
 @doc_link(interpolate_nan='neurocarto.util.util_numpy.interpolate_nan')
 def plot_electrode_matrix(ax: Axes,
                           probe: ProbeType,
-                          electrode: NDArray[np.float_] | ElectrodeMatData,
+                          electrode: NDArray[np.float_],
                           electrode_unit: ELECTRODE_UNIT = 'cr', *,
                           shank_list: list[int] = None,
                           kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]] | None = None,
-                          reduce: Callable[[NDArray[np.float_]], float] = np.mean,
                           cmap='magma',
                           shank_gap_color: str | None = 'w',
                           **kwargs) -> ScalarMappable:
@@ -891,41 +640,41 @@ def plot_electrode_matrix(ax: Axes,
     :param kernel: interpolate missing data (NaN) between channels.
         It is pass to {interpolate_nan()}.
         Default (when use ``True``) is ``(0, 1)``.
-    :param reduce: function used when data has same (s, x, y) position
     :param cmap: colormap used in ax.imshow(cmap)
     :param shank_gap_color: color of shank gao line. Use None to disable plotting.
     :param kwargs: pass to ax.imshow(kwargs)
     """
-    if isinstance(electrode, ElectrodeMatData):
-        data = electrode
-    else:
-        data = ElectrodeMatData.of(probe, electrode, electrode_unit, reduce)
+    data = cast_electrode_data(probe, electrode, electrode_unit)
 
     if kernel is not None:
-        data = data.interpolate_nan(kernel)
-
-    nc = probe.n_col_shank
+        data = interpolate_nan(data, kernel)
 
     if shank_list is not None:
-        data = data.reorder_shank(shank_list)
+        data = data[shank_list]
 
-    y0, y1 = data.y_range / 1000
+    ns, nc, nr = data.shape
+    # Array[V, S, C, R] -> Array[V, R, S, C] -> Array[V, R, S*C]
+    flat_data = data.transpose(2, 0, 1).reshape(nr, ns * nc)
+
+    _, _, r = np.nonzero(~np.isnan(data))
+    r = np.max(r)
+    y = r * probe.r_space / 1000
+    flat_data = flat_data[np.arange(nr) <= r, :]
+
     im = ax.imshow(
-        data.mat,
-        extent=[0, data.total_columns, y0, y1],
+        flat_data,
+        extent=[0, ns * nc, 0, y],
         cmap=cmap, origin='lower', aspect='auto', **kwargs
     )
 
-    n_shanks = len(data.shank_list)
-
     if shank_gap_color is not None:
-        for i in range(0, n_shanks + 1):
+        for i in range(0, ns + 1):
             ax.axvline(i * nc, color=shank_gap_color, lw=2)
 
     ax.set_xlabel('Shanks')
     ax.set_xticks(np.arange(0, len(shank_list)) * nc + nc // 2, shank_list)
 
-    y_ticks = np.arange(int(math.ceil(y1)) + 1)
+    y_ticks = np.arange(int(math.ceil(y)) + 1)
     ax.set_yticks(y_ticks, y_ticks)
     ax.set_yticks(np.arange(len(y_ticks) * 10) * 0.1, minor=True)
     ax.set_ylabel('Distance from Tip (mm)')

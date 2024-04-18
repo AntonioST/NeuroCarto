@@ -178,8 +178,8 @@ def interpolate_nan(a: NDArray[np.float_],
     """
     interpolate NaN value in *a*.
 
-    :param a: image Array[float, Y, X]
-    :param kernel: int or (sx:int, sy:int)
+    :param a: image Array[float, (N,) Y, X]
+    :param kernel: int or (sy:int, sx:int)
     :param iteration:
     :param f: interpolate function (Array[float]) -> float
     :param n: fill value after iteration
@@ -197,9 +197,16 @@ def interpolate_nan(a: NDArray[np.float_],
         else:
             raise ValueError()
 
-    y, x = a.shape
+    if a.ndim == 2:
+        y, x = a.shape
+        z = 0
+    elif a.ndim == 3:
+        z, y, x = a.shape
+    else:
+        raise RuntimeError()
+
     match kernel:
-        case (int(sx), int(sy)):
+        case (int(sy), int(sx)):
             gy, gx = np.mgrid[-sy:sy + 1, -sx:sx + 1]
         case int(kernel):
             gy, gx = np.mgrid[-kernel:kernel + 1, -kernel:kernel + 1]
@@ -210,24 +217,41 @@ def interpolate_nan(a: NDArray[np.float_],
     gy = gy.ravel()
 
     for _ in range(iteration):
-        jj, ii = np.nonzero(np.isnan(a))
-        if len(jj) == 0:
-            break
-
-        r = np.full_like(jj, np.nan, dtype=a.dtype)
-        for k, j, i in zip(range(len(jj)), jj, ii):
-            gj = gy + j
-            gi = gx + i
-            gj = np.where(gj < 0, j, gj)
-            gi = np.where(gi < 0, i, gi)
-            gj = np.where(gj >= y, j, gj)
-            gi = np.where(gi >= x, i, gi)
-
-            r[k] = f(a[gj, gi])
-
-        a[jj, ii] = r
+        if z == 0:
+            if not _interpolate_nan(a, gy, gx, f):
+                break
+        else:
+            false_count = 0
+            for i in range(z):
+                if not _interpolate_nan(a[i], gy, gx, f):
+                    false_count += 1
+            if false_count == n:
+                break
 
     if not np.isnan(n):
         a[np.isnan(a)] = n
 
     return a
+
+
+def _interpolate_nan(a: NDArray[np.float_], gy: NDArray[np.int_], gx: NDArray[np.int_], f) -> bool:
+    y, x = a.shape
+
+    jj, ii = np.nonzero(np.isnan(a))
+    if len(jj) == 0:
+        return False
+
+    r = np.full_like(jj, np.nan, dtype=a.dtype)
+    for k, j, i in zip(range(len(jj)), jj, ii):
+        gj = gy + j
+        gi = gx + i
+        gj = np.where(gj < 0, j, gj)
+        gi = np.where(gi < 0, i, gi)
+        gj = np.where(gj >= y, j, gj)
+        gi = np.where(gi >= x, i, gi)
+
+        r[k] = f(a[gj, gi])
+
+    a[jj, ii] = r
+
+    return True

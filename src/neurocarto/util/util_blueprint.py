@@ -1059,7 +1059,6 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link(
         interpolate_nan='neurocarto.util.util_numpy.interpolate_nan',
         plot_electrode_matrix='neurocarto.probe_npx.plot.plot_electrode_matrix',
-        ElectrodeMatData='neurocarto.probe_npx.plot.ElectrodeMatData'
     )
     def interpolate_nan(self, a: NDArray[np.float_],
                         kernel: int | tuple[int, int] = 1,
@@ -1072,7 +1071,7 @@ class BlueprintFunctions(Generic[M, E]):
         * this method works on 1-d array, but the latter one works on 2-d array
         * this method works on different shanks, but the latter one works single shanks
           (you need to apply multiple times on different shanks)
-        * The latter one is also used in {plot_electrode_matrix()} and {ElectrodeMatData#interpolate_nan()}.
+        * The latter one is also used in {plot_electrode_matrix()}.
 
         :param a: data array.
         :param kernel: kernel size.
