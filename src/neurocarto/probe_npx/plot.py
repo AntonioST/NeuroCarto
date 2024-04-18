@@ -1,8 +1,7 @@
 import math
-import sys
 import textwrap
 from collections.abc import Callable
-from typing import Literal, NamedTuple
+from typing import Literal
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -15,11 +14,6 @@ from neurocarto.util.utils import doc_link
 from .desp import NpxProbeDesp
 from .npx import ChannelMap, ProbeType, channel_coordinate, electrode_coordinate
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 __all__ = [
     'channel_coordinate',
     'electrode_coordinate',
@@ -31,148 +25,9 @@ __all__ = [
     'plot_electrode_grid',
     'plot_electrode_matrix',
     'plot_category_area',
-    #
-    'ElectrodeGridData',
 ]
 
 ELECTRODE_UNIT = Literal['cr', 'xy', 'raw']
-
-
-class ElectrodeGridData(NamedTuple):
-    """Electrode arrangement in boundary mode"""
-
-    probe: ProbeType
-    v_grid: np.ndarray  # Array[int, S, R, C+1]
-    h_grid: np.ndarray  # Array[int, S, R+1, C]
-    col: np.ndarray  # Array[int, C]
-    row: np.ndarray  # Array[int, R]
-
-    @classmethod
-    def of(cls, probe: ProbeType,
-           electrode: NDArray[np.int_],
-           electrode_unit: ELECTRODE_UNIT = 'cr') -> Self:
-        s_step = probe.s_space
-        h_step = probe.c_space
-        v_step = probe.r_space
-
-        n_row = probe.n_row_shank
-        n_col = probe.n_col_shank
-
-        v_grid = np.zeros((probe.n_shank, n_row, n_col + 1), dtype=int)
-        h_grid = np.zeros((probe.n_shank, n_row + 1, n_col), dtype=int)
-
-        if electrode_unit == 'cr':
-            s = electrode[:, 0].astype(int)
-            c = electrode[:, 1].astype(int)
-            r = electrode[:, 2].astype(int)
-        elif electrode_unit == 'xy':
-            x = electrode[:, 0]
-            y = electrode[:, 1]
-
-            if np.max(y) < 10:  # mm:
-                x = (x * 1000)
-                y = (y * 1000)
-
-            x = x.astype(int)
-            y = y.astype(int)
-
-            s = x // s_step
-            c = (x % s_step) // h_step
-            r = y // v_step
-        else:
-            raise ValueError(f'unsupported electrode unit : {electrode_unit}')
-
-        for ss, cc, rr in zip(s, c, r):
-            v_grid[ss, rr, cc] += 1
-            v_grid[ss, rr, cc + 1] += 1
-            h_grid[ss, rr, cc] += 1
-            h_grid[ss, rr + 1, cc] += 1
-
-        return ElectrodeGridData(probe, v_grid, h_grid, np.arange(n_col), np.arange(n_row))
-
-    @property
-    def n_row(self) -> int:
-        """
-        :return: R
-        """
-        return len(self.row)
-
-    @property
-    def n_col(self) -> int:
-        """
-        :return: C
-        """
-        return len(self.col)
-
-    @property
-    def n_shank(self) -> int:
-        """
-        :return: S
-        """
-        return self.v_grid.shape[0]
-
-    @property
-    def shank_list(self) -> NDArray[np.int_]:
-        return np.arange(self.n_shank)
-
-    @property
-    def y(self) -> NDArray[np.int_]:
-        """Array[um, R]"""
-        return self.row * self.probe.r_space
-
-    @property
-    def y_range(self) -> NDArray[np.int_]:
-        """Array[um, (min, max)]"""
-        return self.row[[0, -1]] * self.probe.r_space
-
-    def with_height(self, height: float) -> Self:
-        """
-
-        :param height: um
-        :return:
-        """
-        rx = np.max(np.nonzero(self.row * self.probe.r_space <= height)[0])
-        return self._replace(
-            v_grid=self.v_grid[:, :rx, :],
-            h_grid=self.h_grid[:, :rx + 1, :],
-            row=self.row[:rx]
-        )
-
-    def plot_shank(self, ax: Axes, shank: int,
-                   cx: tuple[float, float, float] = None,
-                   color: str = 'k',
-                   shank_width_scale: float = 1,
-                   **kwargs):
-        """
-
-        :param ax:
-        :param shank:
-        :param cx: (c0, cw) custom position for *shank*
-        :param color:
-        :param shank_width_scale: scaling the width of a shank for visualizing purpose.
-        :param kwargs: pass to ax.plot(**kwargs)
-        """
-        s_step = self.probe.s_space
-        h_step = self.probe.c_space * shank_width_scale
-        v_step = self.probe.r_space
-
-        if cx is None:
-            cx = (
-                (shank * s_step + 0 * h_step - h_step / 2) / 1000,
-                h_step / 1000,
-            )
-
-        for y, x in zip(*np.nonzero(self.v_grid[shank] % 2 == 1)):
-            x0 = cx[0] + x * cx[1]
-
-            y0 = (y * v_step - v_step / 2) / 1000
-            ax.plot([x0, x0], [y0, y0 + v_step / 1000], color=color, **kwargs)
-
-        for y, x in zip(*np.nonzero(self.h_grid[shank] % 2 == 1)):
-            x0 = cx[0] + x * cx[1]
-            x1 = x0 + cx[1]
-            y0 = (y * v_step - v_step / 2) / 1000
-            ax.plot([x0, x1], [y0, y0], color=color, **kwargs)
 
 
 def cast_electrode_data(probe: ProbeType,
@@ -249,6 +104,25 @@ def cast_electrode_data(probe: ProbeType,
 
         case _:
             raise ValueError()
+
+
+def cast_electrode_grid(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+
+    :param data: Array[bool, S, C, R]
+    :return: v_grid:Array[int, S, C+1, R] and h_grid:Array[int, S, C, R+1]
+    """
+    s, c, r = data.shape
+    v_grid = np.zeros((s, c + 1, r), dtype=int)
+    h_grid = np.zeros((s, c, r + 1), dtype=int)
+
+    for ss, cc, rr in zip(*np.nonzero(data)):
+        v_grid[ss, cc, rr] += 1
+        v_grid[ss, cc + 1, rr] += 1
+        h_grid[ss, cc, rr] += 1
+        h_grid[ss, cc, rr + 1] += 1
+
+    return v_grid, h_grid
 
 
 def plot_probe_shape(ax: Axes,
@@ -470,7 +344,6 @@ def plot_electrode_block(ax: Axes,
 def plot_channelmap_grid(ax: Axes, chmap: ChannelMap,
                          height: float = 10,
                          shank_list: list[int] = None,
-                         unit_column: bool = False,
                          unused=True,
                          half_as_full=False,
                          color: str = 'g',
@@ -515,7 +388,6 @@ def plot_channelmap_grid(ax: Axes, chmap: ChannelMap,
     plot_electrode_grid(ax, probe, e, 'cr',
                         shank_list=shank_list,
                         height=height,
-                        unit_column=unit_column,
                         color=color,
                         **kwargs)
 
@@ -526,7 +398,6 @@ def plot_electrode_grid(ax: Axes,
                         electrode_unit: ELECTRODE_UNIT = 'cr', *,
                         shank_list: list[int] = None,
                         height: float | None = 10,
-                        unit_column: bool | tuple[float, ...] = False,
                         shank_width_scale: float = 1,
                         color: str = 'g',
                         label: str = None,
@@ -540,33 +411,45 @@ def plot_electrode_grid(ax: Axes,
     :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
     :param shank_list: show shank in list
     :param height: max height (mm) of probe need to plot
-    :param unit_column: let one column as 1 mm, or (c0, c1, ..., cS, cw)
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param color: grid line color
     :param label:
     :param kwargs: pass to ax.plot(kwargs)
     """
-    data = ElectrodeGridData.of(probe, electrode, electrode_unit)
+    s_step = probe.s_space / 1000
+    h_step = probe.c_space / 1000 * shank_width_scale
+    v_step = probe.r_space / 1000
+
+    data = cast_electrode_data(probe, electrode, electrode_unit)
+    v_grid, h_grid = cast_electrode_grid(data > 0)
+
+    s, c, r = data.shape
 
     if height is not None:
-        data = data.with_height(height * 1000)
+        y = np.arange(r) * v_step
+        yx = np.max(np.nonzero(y <= height)[0])
+        v_grid = v_grid[:, :, :yx]
+        h_grid = h_grid[:, :, :yx + 1]
 
-    for s in data.shank_list:
-        cx = None
-        if shank_list is None:
-            si = s
-        else:
-            try:
-                si = shank_list.index(s)
-            except ValueError:
-                continue
+    if shank_list is None:
+        shank_list = list(range(s))
 
-        if unit_column is True:
-            cx = (si * data.probe.n_col_shank, 1)
-        elif isinstance(unit_column, tuple):
-            cx = (unit_column[si], unit_column[-1])
+    for si, ss in enumerate(shank_list):
+        cx = (
+            si * s_step - h_step / 2,  # base
+            h_step,  # step
+        )
 
-        data.plot_shank(ax, s, cx, color, shank_width_scale=shank_width_scale, **kwargs)
+        for x, y in zip(*np.nonzero(v_grid[ss] % 2 == 1)):
+            x0 = cx[0] + x * cx[1]
+            y0 = (y * v_step - v_step / 2)
+            ax.plot([x0, x0], [y0, y0 + v_step], color=color, **kwargs)
+
+        for x, y in zip(*np.nonzero(h_grid[ss] % 2 == 1)):
+            x0 = cx[0] + x * cx[1]
+            x1 = x0 + cx[1]
+            y0 = (y * v_step - v_step / 2)
+            ax.plot([x0, x1], [y0, y0], color=color, **kwargs)
 
     if label is not None:
         ax.plot([np.nan], [np.nan], color=color, label=label, **kwargs)
@@ -684,19 +567,20 @@ def plot_electrode_matrix(ax: Axes,
     return im
 
 
+@doc_link()
 def plot_category_area(ax: Axes,
                        probe: ProbeType,
                        electrode: NDArray[np.int_] | list[ElectrodeDesp], *,
                        color: dict[int, str] = None,
                        **kwargs):
     """
+    Plot category blocks for a blueprint *electrode*.
 
     :param ax:
-    :param probe:
+    :param probe: probe type
     :param electrode: Array[category:int, N], Array[int, N, (S, C, R, category)] or list of ElectrodeDesp
-    :param color:
-    :param kwargs:
-    :return:
+    :param color: category mapping dictionary
+    :param kwargs: pass to {plot_electrode_block()}
     """
     if isinstance(electrode, list):
         _electrode = np.zeros((len(electrode), 4))
