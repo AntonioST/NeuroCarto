@@ -12,6 +12,7 @@ from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp, ElectrodeDesp
 from neurocarto.util.bokeh_app import run_later
 from neurocarto.util.bokeh_util import is_recursive_called, PathAutocompleteInput
+from neurocarto.util.debug import TimeMarker
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.views.base import Figure, ViewBase, DynamicView, InvisibleView
 
@@ -64,7 +65,13 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
 
     def update(self):
         """update the electrode data"""
-        if (data := self.data()) is None:
+        mark = TimeMarker()
+        mark.reset()
+        data = self.data()
+        t = mark()
+        self.logger.debug('data() used %.2f sec', t)
+
+        if data is None:
             return
 
         if self.data_electrode is not None:
@@ -109,6 +116,7 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
 
         :param data: Array[float, [S,], (v, y), Y]
         :param height: ratio of max(data) / shank_space
+        :param vmax:
         :return: Array[float, [S,], (x, y), Y]
         """
         if self.probe is None:

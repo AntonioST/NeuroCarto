@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from neurocarto.probe_npx import NpxProbeDesp, NpxElectrodeDesp
-from neurocarto.probe_npx.npx import ChannelMap, Electrode
+from neurocarto.probe_npx.npx import ChannelMap
 from neurocarto.probe_npx.select import ElectrodeSelector, load_select
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import doc_link
@@ -26,76 +26,24 @@ __all__ = [
 ]
 
 
-class ElectrodeDensity:
-    def __init__(self, electrode: int, channel: int):
-        self.electrode = electrode
-        self.channel = channel
-
-    def __add__(self, other: ElectrodeDensity) -> ElectrodeDensity:
-        return ElectrodeDensity(self.electrode + other.electrode, self.channel + other.channel)
-
-    def __iadd__(self, other: ElectrodeDensity) -> Self:
-        self.electrode += other.electrode
-        self.channel += other.channel
-        return self
-
-    def __float__(self) -> float:
-        return self.channel / self.electrode
-
-    def __str__(self):
-        return f'{self.channel}/{self.electrode}'
-
-
 def npx_electrode_density(chmap: ChannelMap) -> NDArray[np.float_]:
     """
 
     :param chmap:
     :return: density curve array. Array[float, S, (v, y), Y].
     """
-    from scipy.ndimage import maximum_filter
+    from neurocarto.probe_npx.plot import cast_electrode_curve
 
-    kind = chmap.probe_type
-    electrodes = set([(it.shank, it.column, it.row) for it in chmap.electrodes])
-    C = kind.n_col_shank
-    R = kind.n_row_shank
-
-    def find(s: int, c: int, r: int) -> ElectrodeDensity:
-        if 0 <= r < R and 0 <= c < C:
-            if (s, c, r) in electrodes:
-                return ElectrodeDensity(1, 1)
-            else:
-                return ElectrodeDensity(1, 0)
-        return ElectrodeDensity(0, 0)
-
-    def density(ch: Electrode) -> float:
-        s = ch.shank
-        c = ch.column
-        r = ch.row
-
-        d = ElectrodeDensity(1, 1)
-        d += find(s, c - 1, r - 1)
-        d += find(s, c, r - 1)
-        d += find(s, c + 1, r - 1)
-        d += find(s, c - 1, r)
-        d += find(s, c + 1, r)
-        d += find(s, c - 1, r + 1)
-        d += find(s, c, r + 1)
-        d += find(s, c + 1, r + 1)
-        return float(d)
-
-    y = np.arange(0, kind.n_row_shank, dtype=float)
-
-    ret = []
-
-    for shank in range(kind.n_shank):
-        x = np.zeros_like(y)
-        for ch in chmap.electrodes[shank, :, :]:
-            x[ch.row] = max(density(ch), x[ch.row])
-
-        x = maximum_filter(x, size=3, mode='nearest')
-        ret.append(np.vstack([x, y * kind.r_space]))
-
-    return np.array(ret)
+    bp = BlueprintFunctions(NpxProbeDesp(), chmap)
+    data = np.zeros(len(bp))
+    data[bp.selected_electrodes(chmap)] += 1
+    data, y = cast_electrode_curve(chmap.probe_type, data, electrode_unit='raw', kernel='norm')
+    ns, nr = data.shape
+    ir = np.arange(0, nr, 7)
+    ret = np.zeros((ns, 2, len(ir)))
+    ret[:, 0, :] = data[:, ir] / 0.133
+    ret[:, 1, :] = y[ir]
+    return ret
 
 
 @doc_link()
