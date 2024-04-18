@@ -1,5 +1,6 @@
 import math
 import sys
+import textwrap
 from collections.abc import Callable
 from typing import Literal, NamedTuple
 
@@ -178,18 +179,17 @@ def cast_electrode_data(probe: ProbeType,
                         electrode: NDArray[np.float_],
                         electrode_unit: ELECTRODE_UNIT | Literal['crv', 'xyv']) -> NDArray[np.float_]:
     """
-
     **Data shape and units**
 
     the required shape of *electrode* is depended on *electrode_unit*.
 
-    * ``cr``: column and row, require shape ``Array[float, E, (S, C, R, V)]``
-    * ``xy``: x and y position, require shape ``Array[float, E, (X, Y, V)]``
+    * ``cr``: column and row, require shape ``Array[float, E, (S, C, R)]``
+    * ``crv``: column and row, require shape ``Array[float, E, (S, C, R, V)]``
+    * ``xy``: x and y position, require shape ``Array[float, E, (X, Y)]``
+    * ``xyv``: x and y position, require shape ``Array[float, E, (X, Y, V)]``
     * ``raw``:  require shape ``Array[V:float, E]`` or ``Array[V:float, S, C, R]``,
 
-    :param electrode:
-    :param electrode_unit:
-    :return: Array[V:float, S, C, R]
+    where ``E=S*C*R`` means all electrodes for the *probe*.
     """
     shape = (probe.n_shank, probe.n_col_shank, probe.n_row_shank)
 
@@ -326,6 +326,7 @@ def plot_channelmap_block(ax: Axes,
                           reverse_shank: bool = False,
                           **kwargs):
     """
+    Plot channel in rectangles.
 
     :param ax:
     :param chmap: channelmap instance
@@ -372,6 +373,7 @@ def plot_channelmap_block(ax: Axes,
                          height=height, fill=fill, shank_width_scale=shank_width_scale, **kwargs)
 
 
+@doc_link(DOC=textwrap.dedent(cast_electrode_data.__doc__))
 def plot_electrode_block(ax: Axes,
                          probe: ProbeType,
                          electrode: NDArray[np.float_],
@@ -383,14 +385,15 @@ def plot_electrode_block(ax: Axes,
                          cmap: str = None,
                          **kwargs):
     """
+    Plot electrodes in rectangles per electrodes or per shanks.
+
+    {DOC}
 
     :param ax:
-    :param probe: probe profile
-    :param electrode: Array[float, E, (S, C, R, V?)] (electrode_unit='cr' or 'crv'),
-                      Array[float, E, (X, Y, V?)] (electrode_unit='xy' or 'xyv'),
-                      Array[V:float, S, C, r] (electrode_unit='raw'), or ElectrodeMatData
-    :param electrode_unit:
-    :param sparse: If sparse, plot data block as rectangles. use an image otherwise.
+    :param probe: probe type
+    :param electrode: electrode data
+    :param electrode_unit: electrode value unit
+    :param sparse: If sparse, plot data block as rectangles (ignore V). use an image otherwise.
     :param height: max height (mm) of probe need to plot
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param fill: fill rectangle
@@ -473,6 +476,7 @@ def plot_channelmap_grid(ax: Axes, chmap: ChannelMap,
                          color: str = 'g',
                          **kwargs):
     """
+    Plot a channel map in grid block style.
 
     :param ax:
     :param chmap: channelmap  instance
@@ -528,6 +532,7 @@ def plot_electrode_grid(ax: Axes,
                         label: str = None,
                         **kwargs):
     """
+    Plot each electrode in grid rectangles.
 
     :param ax:
     :param probe: probe type
@@ -577,6 +582,7 @@ def plot_channelmap_matrix(ax: Axes,
                            shank_gap_color: str | None = 'w',
                            **kwargs) -> ScalarMappable:
     """
+    Plot channel value.
 
     :param ax:
     :param chmap: channelmap instance
@@ -584,8 +590,7 @@ def plot_channelmap_matrix(ax: Axes,
     :param shank_list: show shank in order
     :param kernel: interpolate missing data (NaN) between channels.
         It is pass to {interpolate_nan()}.
-        Default (when use ``True``) is ``(0, 1)``.
-    :param reduce: function used when data has same (s, x, y) position
+        Default is ``(0, 1)`` on row-axis.
     :param cmap: colormap used in ax.imshow(cmap)
     :param shank_gap_color:
     :param kwargs: pass to ax.imshow(kwargs)
@@ -611,7 +616,10 @@ def plot_channelmap_matrix(ax: Axes,
     )
 
 
-@doc_link(interpolate_nan='neurocarto.util.util_numpy.interpolate_nan')
+@doc_link(
+    interpolate_nan='neurocarto.util.util_numpy.interpolate_nan',
+    DOC=textwrap.dedent(cast_electrode_data.__doc__)
+)
 def plot_electrode_matrix(ax: Axes,
                           probe: ProbeType,
                           electrode: NDArray[np.float_],
@@ -621,25 +629,19 @@ def plot_electrode_matrix(ax: Axes,
                           cmap='magma',
                           shank_gap_color: str | None = 'w',
                           **kwargs) -> ScalarMappable:
-    """``ax.imshow`` the electrode data matrix.
+    """
+    Plot electrode value.
 
-    **Data shape and units**
-
-    the required shape of *electrode* (if it is a numpy array) is depended on *electrode_unit*.
-
-    * ``cr``: column and row, require shape ``Array[float, E, (S, C, R, V?)]``
-    * ``xy``: x and y position, require shape ``Array[float, E, (X, Y, V?)]``
-    * ``raw``:  require shape ``Array[V:float, E]`` or ``Array[V:float, S, C, R]``,
-      where ``E=S*C*R``.
+    {DOC}
 
     :param ax:
     :param probe: probe type
-    :param electrode: electrode data, or {ElectrodeMatData}
-    :param electrode_unit:
+    :param electrode: electrode data
+    :param electrode_unit: electrode value unit
     :param shank_list: show shank in order
     :param kernel: interpolate missing data (NaN) between channels.
         It is pass to {interpolate_nan()}.
-        Default (when use ``True``) is ``(0, 1)``.
+        Default is ``(0, 1)`` on row-axis.
     :param cmap: colormap used in ax.imshow(cmap)
     :param shank_gap_color: color of shank gao line. Use None to disable plotting.
     :param kwargs: pass to ax.imshow(kwargs)

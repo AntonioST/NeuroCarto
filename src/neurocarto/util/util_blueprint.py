@@ -1068,10 +1068,8 @@ class BlueprintFunctions(Generic[M, E]):
 
         Note: this method works different with {interpolate_nan()} on
 
-        * this method works on 1-d array, but the latter one works on 2-d array
-        * this method works on different shanks, but the latter one works single shanks
-          (you need to apply multiple times on different shanks)
-        * The latter one is also used in {plot_electrode_matrix()}.
+        * this method works on 1-d array, but the latter one works on 2-d or 3-d array.
+        * TBD
 
         :param a: data array.
         :param kernel: kernel size.
