@@ -7,7 +7,6 @@ from matplotlib.axes import Axes
 
 from neurocarto.probe_npx import ChannelMap, plot
 from neurocarto.util.util_blueprint import BlueprintFunctions
-from neurocarto.views.image_plt import RC_FILE
 
 APPEND_MODE = ('overwrite', 'min', 'mean', 'max')
 
@@ -36,6 +35,9 @@ AP.add_argument('--sample-duration', metavar='SEC', type=float, default=1, dest=
                 help='duration of the sample segments. (default=1)')
 AP.add_argument(metavar='GLX_FILES', nargs='+', type=Path, action='extend', dest='FILES',
                 help='Spike Glx files.')
+
+# local_car_window =100
+local_car_window = (100, 300)  # um
 
 
 def uniform_sample(r, d: float, t: int):
@@ -155,8 +157,7 @@ def segment_glx_data(glx_file: Path, glx_map: ChannelMap,
 
     f = construct_filter(ap_band, sample_rate)
     if car == 'local':
-        # c = build_local_car_operator(glx_map.channel_pos, 100)
-        c = build_local_car_operator(glx_map.channel_pos, (40, 140))
+        c = build_local_car_operator(glx_map.channel_pos, local_car_window)
 
     print(f'load    {prefix} ...')
     out = np.zeros((total_channel - 1,), dtype=float)  # Array[float, C]
@@ -170,8 +171,8 @@ def segment_glx_data(glx_file: Path, glx_map: ChannelMap,
         # as voltage
         data = data.astype(float) * 0.195  # Array[float, C, T]
 
-        # average car on T
-        data -= np.mean(data, axis=1, keepdims=True)  # Array[float, C, T]
+        # high pass
+        data = apply_filter(data, f)  # Array[float, C, T]
 
         if car == 'global':
             # median car on C
@@ -179,9 +180,6 @@ def segment_glx_data(glx_file: Path, glx_map: ChannelMap,
         elif car == 'local':
             # Array[float, C, C] @ Array[float, C, T]
             data = c @ data  # Array[float, C, T]
-
-        # high pass
-        data = apply_filter(data, f)  # Array[float, C, T]
 
         data = np.sqrt(np.mean(np.power(data, 2), axis=1))  # Array[float, C]
         np.add(out, data, out=out)
@@ -244,8 +242,8 @@ def compute_data(bp: BlueprintFunctions, opt) -> np.ndarray:
 
 
 def plot_data(bp: BlueprintFunctions, data: np.ndarray, opt):
-    with plt.rc_context(fname=RC_FILE):
-        fig, ax = plt.subplots(gridspec_kw=dict(top=0.95))
+    with plt.rc_context(fname='tests/default.matplotlibrc'):
+        fig, ax = plt.subplots(gridspec_kw=dict(top=0.90))
 
         if opt.plot == 'matrix':
             im = plot.plot_electrode_matrix(
@@ -270,6 +268,8 @@ def plot_data(bp: BlueprintFunctions, data: np.ndarray, opt):
             for x in np.unique(bp.s):
                 ax.axvline(x, color='gray', lw=0.5)
 
+            ax.set_xticks(np.arange(len(s)) + 0.5, s)
+
         else:
             raise ValueError()
 
@@ -284,11 +284,11 @@ def plot_data(bp: BlueprintFunctions, data: np.ndarray, opt):
                 save_figure = Path(opt.OUTPUT).with_suffix('.png')
 
             print(f'save {save_figure}')
-            plt.savefig(save_figure)
+            plt.savefig(save_figure, dpi=600)
 
 
 def insert_colorbar(ax: Axes, im):
-    cax = ax.inset_axes([0, 1.03, 1, 0.02])  # [x0, y0, width, height]
+    cax = ax.inset_axes([0, 1.1, 1, 0.02])  # [x0, y0, width, height]
     return ax.figure.colorbar(im, cax=cax, orientation='horizontal')
 
 
