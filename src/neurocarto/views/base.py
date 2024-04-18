@@ -24,9 +24,11 @@ else:
 if TYPE_CHECKING:
     from neurocarto.main_app import CartoApp
     from neurocarto.probe import ProbeDesp, M, E
+    from neurocarto.util.util_blueprint import BlueprintFunctions
 elif SPHINX_BUILD:
     ProbeDesp = 'neurocarto.probe.ProbeDesp'
     CartoApp = 'neurocarto.main_app.CartoApp'
+    BlueprintFunctions = 'neurocarto.util.util_blueprint.BlueprintFunctions'
 
 __all__ = [
     'Figure',
@@ -249,14 +251,28 @@ class ControllerView:
         """
         raise RuntimeError()
 
+    @doc_link()
+    def new_blueprint_function(self, probe: str | ProbeDesp, chmap: int | str | M | None = None) -> BlueprintFunctions:
+        """
+        Create a {BlueprintFunctions} with controller supports.
+
+        :param probe: {ProbeDesp} or a module path
+        :param chmap: channelmap instance.
+        :return: an empty {BlueprintFunctions}
+        """
+        from neurocarto.util.util_blueprint import BlueprintFunctions
+        ret = BlueprintFunctions(probe, chmap)
+        ret._controller = self
+        return ret
+
 
 @doc_link(
     init_view='neurocarto.views.utils.init_view'
 )
 class ExtensionView:
     """
-    This view component require some probe specific operations, and only provide its function
-    when the probe fit the requirements.
+    This view component require some probe specific operations,
+    and it is only enabled/activated when the probe fit the requirements.
 
     In general, it requires a {ProbeDesp} implement some functions or a Protocol class.
     {init_view()} use {#is_supported()} to determine whether it needs to initialize this view or not.

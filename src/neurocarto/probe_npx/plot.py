@@ -923,7 +923,7 @@ def plot_electrode_matrix(ax: Axes,
             ax.axvline(i * nc, color=shank_gap_color, lw=2)
 
     ax.set_xlabel('Shanks')
-    ax.set_xticks(np.arange(0, n_shanks) * nc + nc // 2, shank_list)
+    ax.set_xticks(np.arange(0, len(shank_list)) * nc + nc // 2, shank_list)
 
     y_ticks = np.arange(int(math.ceil(y1)) + 1)
     ax.set_yticks(y_ticks, y_ticks)

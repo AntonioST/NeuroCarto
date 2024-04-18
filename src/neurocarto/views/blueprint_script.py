@@ -457,8 +457,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
                     interrupt_at: int = None) -> BlueprintFunctions | None:
         from neurocarto.util.edit.checking import RequestChannelmapTypeError, check_probe
 
-        bp = BlueprintFunctions(probe, chmap)
-        bp._controller = self
+        bp = self.new_blueprint_function(probe, chmap)
         if (blueprint := self.cache_blueprint) is not None:
             bp.set_blueprint(blueprint)
 

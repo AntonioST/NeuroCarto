@@ -147,7 +147,7 @@ def load_meta(path: str | Path) -> ChannelMap:
 def load_imro(path: str | Path) -> ChannelMap:
     path = Path(path)
     if path.suffix != '.imro':
-        raise IOError()
+        raise IOError(f'unknown file format {path.suffix}')
 
     return ChannelMap.parse(path.read_text().split('\n')[0])
 
