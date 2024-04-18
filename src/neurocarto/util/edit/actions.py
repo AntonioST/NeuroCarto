@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-import time
+import textwrap
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -25,7 +25,6 @@ __all__ = [
     'call_script',
     'interrupt_script',
     'set_script_input',
-    'profile_script',
 ]
 
 
@@ -57,9 +56,11 @@ def draw(self: BlueprintFunctions, controller: ControllerView,
     edit.on_data_update(self.probe, a)
 
 
-@doc_link()
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.has_script.__doc__))
 def has_script(controller: ControllerView, script: str) -> bool:
-    """{BlueprintScriptView#run_script()}"""
+    """
+    {DOC}
+    """
     edit: BlueprintScriptView
     if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
         return False
@@ -125,48 +126,3 @@ def set_script_input(controller: ControllerView, script: str | None, *text: str 
     elif script in edit.actions:
         edit._script_input_cache[script] = script_input
 
-
-@doc_link()
-def profile_script(self: BlueprintFunctions, controller: ControllerView, script: str, /, *args, **kwargs):
-    """{BlueprintScriptView#run_script()}"""
-
-    edit: BlueprintScriptView
-    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
-        return
-
-    import cProfile
-
-    info = edit.get_script(script)
-    profile = cProfile.Profile()
-
-    try:
-        edit.logger.debug('profile_script(%s)', script)
-
-        t = time.time()
-        profile.enable()
-        try:
-            ret = info.script(self, *args, **kwargs)
-            if inspect.isgenerator(ret):
-                try:
-                    while True:
-                        ret.send(None)
-                except StopIteration:
-                    pass
-        finally:
-            profile.disable()
-            t = time.time() - t
-
-        edit.logger.debug('profile_script(%s) done. spent %.4fs', script, t)
-        _save_profile_data(controller, script, profile)
-    except BaseException as e:
-        edit.logger.debug('profile_script(%s) fail. spent %.4fs', script, t, exc_info=e)
-        _save_profile_data(controller, script, profile)
-        raise e
-
-
-def _save_profile_data(controller: ControllerView, script: str, profile):
-    from neurocarto.files import user_cache_file
-    dat_file = user_cache_file(controller.get_app().config, f'profile-{script}.dat')
-    print(f'save {dat_file}')
-    profile.dump_stats(dat_file)
-    print(f'python -m gprof2dot -f pstats {dat_file} | dot -T png -o profile-{script}.png')

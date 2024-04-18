@@ -1589,12 +1589,33 @@ class BlueprintFunctions(Generic[M, E]):
 
             python -m gprof2dot -f pstats profile-SCRIPT.dat | dot -T png -o profile-SCRIPT.png
 
+        **Add profiling action in {BlueprintScriptView}**
+
+        1.  Create a function at somewhere
+
+            .. code-block:: python
+
+                def profile_call(bp: BlueprintFunctions, script: str, *args, **kwargs):
+                    bp.misc_profile_script(script, *args, **kwargs)
+
+        2.  Add function into user config
+
+            .. code-block:: json
+
+                {
+                  "BlueprintScriptView": {
+                    "actions": {
+                      "profile": "path:profile_call"
+                    }
+                  }
+                }
+
         :param script: script name
         :param args: script positional arguments
         :param kwargs: script keyword arguments
         :see: {#call_script()}
         """
-        from .edit.actions import profile_script
+        from .edit.debug import profile_script
         if (controller := self._controller) is not None:
             profile_script(self, controller, script, *args, **kwargs)
         else:
