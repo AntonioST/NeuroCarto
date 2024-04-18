@@ -202,7 +202,7 @@ def compute_data(bp: BlueprintFunctions, opt) -> np.ndarray:
     output_file: Path = opt.OUTPUT
     if append_mode is None or not output_file.exists():
         output_file.unlink(missing_ok=True)
-        ret = np.full((len(bp.s),), np.nan, dtype=float)
+        ret = np.full((len(bp),), np.nan, dtype=float)
     else:
         assert output_file.exists()
         assert append_mode in APPEND_MODE

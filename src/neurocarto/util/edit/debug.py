@@ -89,6 +89,6 @@ def profile_script(self: BlueprintFunctions, controller: ControllerView, script:
     else:
         edit.logger.debug('profile_script(%s) done. spent %.4fs', script, profile.duration)
 
-    print(f'python -m gprof2dot -f pstats {dat_file} | dot -T png -o profile-{script}.png')
+    profile.print_command()
     if (e := profile.exception) is not None:
         raise e

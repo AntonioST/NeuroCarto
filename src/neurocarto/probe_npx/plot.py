@@ -613,13 +613,14 @@ def cast_electrode_curve(probe: ProbeType,
     y = np.arange(0, int(nr * v_step) + 1)  # um
     value = np.zeros((ns, len(y)), dtype=float)
 
+    for s, c, r in zip(*np.nonzero(~np.isnan(data))):
+        ri = np.searchsorted(y, r * v_step)
+        value[s, ri] += data[s, c, r]
+
     k2 = len(kernel) // 2
     ks = slice(k2, k2 + len(y))
-    for s, c, r in zip(*np.nonzero(~np.isnan(data))):
-        v = np.zeros_like(y)
-        ri = np.searchsorted(y, r * v_step)
-        v[ri] = data[s, c, r]
-        value[s] += np.convolve(v, kernel, mode='full')[ks]
+    for s in range(ns):
+        value[s] = np.convolve(value[s], kernel, mode='full')[ks]
 
     return value, y
 

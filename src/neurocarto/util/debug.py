@@ -75,42 +75,60 @@ class Profiler:
         :param capture_exception: capture exception when ``__exit__``.
         :param dump_on_exit: dump file when ``__exit__`` if enabled.
         """
-        import cProfile
 
         if isinstance(enable, str):
             enable = len(os.getenv(enable, '')) > 0
 
-        self.file = file
+        self.file = Path(file)
         self.enable = enable
         self.capture_exception = capture_exception
         self.dump_on_exit = dump_on_exit
 
-        self.profile = cProfile.Profile()
         self.start_time: float | None = None
         self.duration: float = 0
         self.repeat: int = 0
         self.exception: BaseException | None = None
 
+        self._profile = None
+
     def __enter__(self):
         if self.enable:
+            if self._profile is None:
+                import cProfile
+                self._profile = cProfile.Profile()
+
             self.start_time = time.time()
-            self.profile.enable()
+            self._profile.enable()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.enable:
-            self.profile.disable()
+            self._profile.disable()
             t = time.time() - self.start_time
             self.duration += t
             self.repeat += 1
 
             if self.dump_on_exit:
-                self.profile.dump_stats(self.file)
+                self._profile.dump_stats(self.file)
 
         self.exception = exc_val
         if self.capture_exception:
             return True
 
     def dump_file(self) -> Path | None:
-        self.profile.dump_stats(self.file)
+        """
+        dump profile stat result into file.
+
+        :return: saved file.
+        """
+        if self._profile is not None:
+            self._profile.dump_stats(self.file)
+
         return self.file
+
+    def print_command(self):
+        """
+        print the command that convert the stat dump file into a dot graph file.
+        """
+        png_file = self.file.with_suffix('.png')
+        print(f'python -m gprof2dot -f pstats {self.file} | dot -T png -o {png_file}')

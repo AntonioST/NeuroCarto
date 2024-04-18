@@ -12,7 +12,6 @@ from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp, ElectrodeDesp
 from neurocarto.util.bokeh_app import run_later
 from neurocarto.util.bokeh_util import is_recursive_called, PathAutocompleteInput
-from neurocarto.util.debug import TimeMarker
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.views.base import Figure, ViewBase, DynamicView, InvisibleView
 
@@ -65,11 +64,14 @@ class DataView(ViewBase, InvisibleView, DynamicView, metaclass=abc.ABCMeta):
 
     def update(self):
         """update the electrode data"""
-        mark = TimeMarker()
-        mark.reset()
-        data = self.data()
-        t = mark()
-        self.logger.debug('data() used %.2f sec', t)
+        from neurocarto.util.debug import Profiler
+
+        with Profiler('.neurocarto.profile-data.dat', enable='NEUROCARTO_PROFILE_VIEW_DATA') as profile:
+            data = self.data()
+
+        if profile.enable:
+            self.logger.debug('data() used %.2f sec', profile.duration)
+            profile.print_command()
 
         if data is None:
             return
