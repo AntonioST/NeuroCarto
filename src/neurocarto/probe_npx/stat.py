@@ -34,14 +34,15 @@ def npx_electrode_density(chmap: ChannelMap) -> NDArray[np.float_]:
     """
     from neurocarto.probe_npx.plot import cast_electrode_curve
 
+    probe_type = chmap.probe_type
     bp = BlueprintFunctions(NpxProbeDesp(), chmap)
     data = np.zeros(len(bp))
-    data[bp.selected_electrodes(chmap)] += 1
-    data, y = cast_electrode_curve(chmap.probe_type, data, electrode_unit='raw', kernel='norm')
+    data[bp.selected_electrodes(chmap)] += probe_type.r_space / probe_type.n_col_shank
+    data, y = cast_electrode_curve(probe_type, data, electrode_unit='raw', kernel='norm')
     ns, nr = data.shape
     ir = np.arange(0, nr, 7)
     ret = np.zeros((ns, 2, len(ir)))
-    ret[:, 0, :] = data[:, ir] / 0.133
+    ret[:, 0, :] = data[:, ir]
     ret[:, 1, :] = y[ir]
     return ret
 
