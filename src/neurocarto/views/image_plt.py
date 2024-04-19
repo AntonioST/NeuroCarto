@@ -382,8 +382,10 @@ class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metac
         """
         A context manager of matplotlib axes.
 
-        >>> with self.plot_figure() as ax:
-        ...     ax.plot(...)
+        .. code-block:: python
+
+            with self.plot_figure() as ax:
+                ax.plot(...)
 
         Once context closed, call {#set_image()} with parameters *image*, *boundary* and *offset* filled.
 
