@@ -32,10 +32,30 @@ __all__ = [
     'cast_electrode_curve',
 ]
 
+PROBE_TYPE = int | str | ChannelMap | ProbeType
 ELECTRODE_UNIT = Literal['cr', 'xy', 'raw']
 
 
-def cast_electrode_data(probe: ProbeType,
+@doc_link()
+def cast_probe_type(probe: PROBE_TYPE) -> ProbeType:
+    """
+    cast probe type identify to {ProbeType}
+
+    :param probe: any probe type identify.
+    :return: {ProbeType} instance
+    """
+    match probe:
+        case int() | str():
+            return ProbeType[probe]
+        case ChannelMap(probe_type=ret):
+            return ret
+        case ProbeType():
+            return probe
+        case _:
+            raise TypeError()
+
+
+def cast_electrode_data(probe: PROBE_TYPE,
                         electrode: NDArray[np.float_],
                         electrode_unit: ELECTRODE_UNIT | Literal['crv', 'xyv']) -> NDArray[np.float_]:
     """
@@ -51,6 +71,7 @@ def cast_electrode_data(probe: ProbeType,
 
     where ``E=S*C*R`` means all electrodes for the *probe*.
     """
+    probe: ProbeType = cast_probe_type(probe)
     shape = (probe.n_shank, probe.n_col_shank, probe.n_row_shank)
 
     match electrode_unit:
@@ -131,7 +152,7 @@ def cast_electrode_grid(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def plot_probe_shape(ax: Axes,
-                     probe: ProbeType | ChannelMap,
+                     probe: PROBE_TYPE,
                      height: float = 10,
                      color: str | None = 'k',
                      label_axis=False,
@@ -142,7 +163,7 @@ def plot_probe_shape(ax: Axes,
     Plot the probe shape.
 
     :param ax:
-    :param probe: probe type
+    :param probe: probe type, see {cast_probe_type()}
     :param height: max height (mm) of probe need to plot
     :param color: probe color
     :param label_axis: add labels on axes
@@ -150,8 +171,7 @@ def plot_probe_shape(ax: Axes,
     :param reverse_shank:
     :param kwargs: pass to ax.plot(kwargs)
     """
-    if isinstance(probe, ChannelMap):
-        probe = probe.probe_type
+    probe: ProbeType = cast_probe_type(probe)
 
     s_step = probe.s_space / 1000
     h_step = probe.c_space / 1000
@@ -254,7 +274,7 @@ def plot_channelmap_block(ax: Axes,
 
 @doc_link(DOC=textwrap.dedent(cast_electrode_data.__doc__))
 def plot_electrode_block(ax: Axes,
-                         probe: ProbeType,
+                         probe: PROBE_TYPE,
                          electrode: NDArray[np.float_],
                          electrode_unit: ELECTRODE_UNIT | Literal['crv', 'xyv'] = 'cr', *,
                          height: float | None = 10,
@@ -269,7 +289,7 @@ def plot_electrode_block(ax: Axes,
     {DOC}
 
     :param ax:
-    :param probe: probe type
+    :param probe: probe type, see {cast_probe_type()}
     :param electrode: electrode data
     :param electrode_unit: electrode value unit
     :param sparse: If sparse, plot data block as rectangles (ignore V). use an image otherwise.
@@ -281,6 +301,7 @@ def plot_electrode_block(ax: Axes,
     """
     from matplotlib.patches import Rectangle
 
+    probe: ProbeType = cast_probe_type(probe)
     s_step = probe.s_space / 1000
     h_step = probe.c_space / 1000 * shank_width_scale
     v_step = probe.r_space / 1000
@@ -360,7 +381,6 @@ def plot_channelmap_grid(ax: Axes, chmap: ChannelMap,
     :param chmap: channelmap  instance
     :param height: max height (mm) of probe need to plot
     :param shank_list: show shank in list
-    :param unit_column: let one column as 1 mm
     :param unused: show disconnected channels
     :param half_as_full: make unused electrode which over half of surrounding electrode are read-out channels as a channel.
     :param color:
@@ -398,7 +418,7 @@ def plot_channelmap_grid(ax: Axes, chmap: ChannelMap,
 
 
 def plot_electrode_grid(ax: Axes,
-                        probe: ProbeType,
+                        probe: PROBE_TYPE,
                         electrode: NDArray[np.int_],
                         electrode_unit: ELECTRODE_UNIT = 'cr', *,
                         shank_list: list[int] = None,
@@ -411,7 +431,7 @@ def plot_electrode_grid(ax: Axes,
     Plot each electrode in grid rectangles.
 
     :param ax:
-    :param probe: probe type
+    :param probe: probe type, see {cast_probe_type()}
     :param electrode: Array[int, E, (S, C, R)|(X, Y)]
     :param electrode_unit: 'xy'=(X,Y), 'cr'=(S,C,R)
     :param shank_list: show shank in list
@@ -421,6 +441,7 @@ def plot_electrode_grid(ax: Axes,
     :param label:
     :param kwargs: pass to ``ax.plot(kwargs)``
     """
+    probe: ProbeType = cast_probe_type(probe)
     s_step = probe.s_space / 1000
     h_step = probe.c_space / 1000 * shank_width_scale
     v_step = probe.r_space / 1000
@@ -495,7 +516,7 @@ def plot_channelmap_matrix(ax: Axes,
         raise ValueError()
 
     return plot_electrode_matrix(
-        ax, chmap.probe_type, x, 'cr',
+        ax, chmap, x, 'cr',
         shank_list=shank_list,
         kernel=kernel,
         cmap=cmap,
@@ -509,7 +530,7 @@ def plot_channelmap_matrix(ax: Axes,
     DOC=textwrap.dedent(cast_electrode_data.__doc__)
 )
 def plot_electrode_matrix(ax: Axes,
-                          probe: ProbeType,
+                          probe: PROBE_TYPE,
                           electrode: NDArray[np.float_],
                           electrode_unit: ELECTRODE_UNIT = 'cr', *,
                           shank_list: list[int] = None,
@@ -523,7 +544,7 @@ def plot_electrode_matrix(ax: Axes,
     {DOC}
 
     :param ax:
-    :param probe: probe type
+    :param probe: probe type, see {cast_probe_type()}
     :param electrode: electrode data
     :param electrode_unit: electrode value unit
     :param shank_list: show shank in order
@@ -534,6 +555,7 @@ def plot_electrode_matrix(ax: Axes,
     :param shank_gap_color: color of shank gao line. Use None to disable plotting.
     :param kwargs: pass to ax.imshow(kwargs)
     """
+    probe: ProbeType = cast_probe_type(probe)
     data = cast_electrode_data(probe, electrode, electrode_unit)
 
     if kernel is not None:
@@ -575,7 +597,7 @@ def plot_electrode_matrix(ax: Axes,
 @doc_link(
     DOC=textwrap.dedent(cast_electrode_data.__doc__)
 )
-def cast_electrode_curve(probe: ProbeType,
+def cast_electrode_curve(probe: PROBE_TYPE,
                          electrode: NDArray[np.float_],
                          electrode_unit: ELECTRODE_UNIT = 'cr', *,
                          kernel: int | NDArray[np.float_] | Literal['norm'] = None) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
@@ -584,12 +606,13 @@ def cast_electrode_curve(probe: ProbeType,
 
     {DOC}
 
-    :param probe: probe type
+    :param probe: probe type, see {cast_probe_type()}
     :param electrode: electrode data
     :param electrode_unit: electrode value unit
     :param kernel: smoothing kernel ``Array[float, Y]``, where Y use 1-um bins
     :return: value Array[float, S, R] and y Array[um:float, R]
     """
+    probe: ProbeType = cast_probe_type(probe)
     v_step = probe.r_space
 
     match kernel:
@@ -629,7 +652,7 @@ def cast_electrode_curve(probe: ProbeType,
     DOC=textwrap.dedent(cast_electrode_data.__doc__)
 )
 def plot_electrode_curve(ax: Axes,
-                         probe: ProbeType,
+                         probe: PROBE_TYPE,
                          electrode: NDArray[np.float_],
                          electrode_unit: ELECTRODE_UNIT = 'cr', *,
                          kernel: int | NDArray[np.float_] | Literal['norm'] = None,
@@ -646,7 +669,7 @@ def plot_electrode_curve(ax: Axes,
     {DOC}
 
     :param ax:
-    :param probe: probe type
+    :param probe: probe type, see {cast_probe_type()}
     :param electrode: electrode data
     :param electrode_unit: electrode value unit
     :param kernel: smoothing kernel ``Array[float, Y]``, where Y use 1-um bins
@@ -659,6 +682,7 @@ def plot_electrode_curve(ax: Axes,
     :param label:
     :param kwargs: pass to ``ax.plot(kwargs)``
     """
+    probe: ProbeType = cast_probe_type(probe)
     s_step = probe.s_space / 1000
     h_step = probe.c_space / 1000 * shank_width_scale
     v_step = probe.r_space / 1000
@@ -702,7 +726,7 @@ def plot_electrode_curve(ax: Axes,
 
 @doc_link()
 def plot_category_area(ax: Axes,
-                       probe: ProbeType,
+                       probe: PROBE_TYPE,
                        electrode: NDArray[np.int_] | list[ElectrodeDesp], *,
                        color: dict[int, str] = None,
                        **kwargs):
@@ -710,11 +734,13 @@ def plot_category_area(ax: Axes,
     Plot category blocks for a blueprint *electrode*.
 
     :param ax:
-    :param probe: probe type
+    :param probe: probe type, see {cast_probe_type()}
     :param electrode: Array[category:int, N], Array[int, N, (S, C, R, category)] or list of ElectrodeDesp
     :param color: category mapping dictionary
     :param kwargs: pass to {plot_electrode_block()}
     """
+    probe: ProbeType = cast_probe_type(probe)
+
     if isinstance(electrode, list):
         _electrode = np.zeros((len(electrode), 4))
         for i, t in enumerate(electrode):  # type: int, ElectrodeDesp

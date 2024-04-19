@@ -172,7 +172,7 @@ def plot_data(bp: BlueprintFunctions, data: np.ndarray, opt):
 
 def plot_data_matrix(bp: BlueprintFunctions, ax: Axes, data: np.ndarray):
     im = plot.plot_electrode_matrix(
-        ax, bp.channelmap.probe_type, data, 'raw',
+        ax, bp.channelmap, data, 'raw',
         shank_list=[3, 2, 1, 0],
         kernel=(0, 1),  # (C, R)
         vmax=6,
@@ -195,7 +195,7 @@ def plot_data_scatter(bp: BlueprintFunctions, ax: Axes, data: np.ndarray):
 
 
 def plot_data_curve(bp: BlueprintFunctions, ax: Axes, data: np.ndarray):
-    lines, y = plot.cast_electrode_curve(bp.channelmap.probe_type, data, 'raw', kernel='norm')
+    lines, y = plot.cast_electrode_curve(bp.channelmap, data, 'raw', kernel='norm')
 
     # normalize
     lines -= np.min(lines)

@@ -29,7 +29,7 @@ fg, ax = plt.subplots(
 height = 6
 for i, chmap in enumerate(chmaps):
     plot_channelmap_block(ax[i], chmap, height=height, color='k', shank_width_scale=2)
-    plot_probe_shape(ax[i], chmap.probe_type, height=height, color='gray', label_axis=True, shank_width_scale=2)
+    plot_probe_shape(ax[i], chmap, height=height, color='gray', label_axis=True, shank_width_scale=2)
 
     if i != 0:
         ax[i].set_ylabel(None)

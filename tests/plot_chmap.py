@@ -15,7 +15,7 @@ fg, ax = plt.subplots()
 height = 6
 plot.plot_channelmap_block(ax, chmap, height=height, color='k', shank_width_scale=2)
 # plot.plot_channelmap_grid(ax, chmap, height=height, color='g', shank_width_scale=2, half_as_full=True)
-plot.plot_probe_shape(ax, chmap.probe_type, height=height, color='gray', label_axis=True, shank_width_scale=2)
+plot.plot_probe_shape(ax, chmap, height=height, color='gray', label_axis=True, shank_width_scale=2)
 
 if len(sys.argv) == 2:
     plt.show()

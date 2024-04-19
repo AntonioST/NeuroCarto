@@ -37,9 +37,9 @@ with plt.rc_context(fname='tests/default.matplotlibrc'):
     fg, ax = plt.subplots(gridspec_kw=dict(top=0.9))
     height = 6
 
-    ims = plot.plot_electrode_block(ax, chmap.probe_type, prob.probability, electrode_unit='raw', height=height,
+    ims = plot.plot_electrode_block(ax, chmap, prob.probability, electrode_unit='raw', height=height,
                                     cmap='YlOrBr', vmin=0, vmax=1, sparse=False, shank_width_scale=2)
-    plot.plot_probe_shape(ax, chmap.probe_type, height=height, color='gray', label_axis=True, shank_width_scale=2)
+    plot.plot_probe_shape(ax, chmap, height=height, color='gray', label_axis=True, shank_width_scale=2)
 
     cax = ax.inset_axes([0, 1.1, 1, 0.02])  # [x0, y0, width, height]
     ax.figure.colorbar(ims[0], cax=cax, orientation='horizontal')

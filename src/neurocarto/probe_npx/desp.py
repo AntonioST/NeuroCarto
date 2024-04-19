@@ -365,10 +365,8 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         """
         from .plot import plot_probe_shape, plot_category_area
 
-        probe_type = chmap.probe_type
-
-        plot_category_area(ax, probe_type, blueprint, color=color, shank_width_scale=shank_width_scale, **kwargs)
-        plot_probe_shape(ax, probe_type, color=probe_color, shank_width_scale=shank_width_scale, label_axis=label_axis, **kwargs)
+        plot_category_area(ax, chmap, blueprint, color=color, shank_width_scale=shank_width_scale, **kwargs)
+        plot_probe_shape(ax, chmap, color=probe_color, shank_width_scale=shank_width_scale, label_axis=label_axis, **kwargs)
 
         if not label_axis:
             ax.set_xlabel(None)
@@ -399,10 +397,9 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         :see: {ProbePlotElectrodeProtocol}, {plot_electrode_block()}, {plot_probe_shape()}
         """
         from .plot import plot_electrode_block, plot_probe_shape
-        probe_type = chmap.probe_type
 
-        plot_electrode_block(ax, probe_type, data, electrode_unit='raw', shank_width_scale=shank_width_scale, **kwargs)
-        plot_probe_shape(ax, probe_type, color=probe_color, shank_width_scale=shank_width_scale, label_axis=label_axis, **kwargs)
+        plot_electrode_block(ax, chmap, data, electrode_unit='raw', shank_width_scale=shank_width_scale, **kwargs)
+        plot_probe_shape(ax, chmap, color=probe_color, shank_width_scale=shank_width_scale, label_axis=label_axis, **kwargs)
 
         if not label_axis:
             ax.set_xlabel(None)

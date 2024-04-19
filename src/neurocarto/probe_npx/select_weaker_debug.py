@@ -83,7 +83,7 @@ def main(chmap_file: str, debug_fig_file=None, chmap_fig_file=None):
             fg, ax = plt.subplots()
             height = 6
             plot.plot_channelmap_block(ax, chmap, height=height, color='k', shank_width_scale=2)
-            plot.plot_probe_shape(ax, chmap.probe_type, height=height, color='gray', label_axis=True, shank_width_scale=2)
+            plot.plot_probe_shape(ax, chmap, height=height, color='gray', label_axis=True, shank_width_scale=2)
 
             plt.savefig(Path(chmap_fig_file).with_suffix('.png'))
 

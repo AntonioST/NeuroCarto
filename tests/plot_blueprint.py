@@ -18,8 +18,8 @@ blueprint = desp.load_blueprint(file.with_suffix('.blueprint.npy'), chmap)
 
 fg, ax = plt.subplots()
 height = 6
-plot_category_area(ax, chmap.probe_type, blueprint, height=height, shank_width_scale=2)
-plot_probe_shape(ax, chmap.probe_type, height=height, color='gray', label_axis=True, shank_width_scale=2)
+plot_category_area(ax, chmap, blueprint, height=height, shank_width_scale=2)
+plot_probe_shape(ax, chmap, height=height, color='gray', label_axis=True, shank_width_scale=2)
 
 if len(sys.argv) == 2:
     plt.show()
