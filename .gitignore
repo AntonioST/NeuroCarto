@@ -11,13 +11,14 @@ dist/
 
 # tests output
 res/*.png
+tests/*.dat
+tests/*.png
+./*.dat
+./*.npy
+./*.png
 
 # mypy cache
 .mypy_cache/
 
 # coverage output
 .coverage
-
-# profile results
-tests/*.png
-tests/*.dat

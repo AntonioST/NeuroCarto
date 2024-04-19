@@ -79,7 +79,7 @@ class Profiler:
         if isinstance(enable, str):
             enable = len(os.getenv(enable, '')) > 0
 
-        self.file = Path(file)
+        self.file = Path(file).with_suffix('.dat')
         self.enable = enable
         self.capture_exception = capture_exception
         self.dump_on_exit = dump_on_exit
@@ -95,7 +95,7 @@ class Profiler:
         if self.enable:
             if self._profile is None:
                 import cProfile
-                self._profile = cProfile.Profile()
+                self._profile = cProfile.Profile(time.perf_counter)
 
             self.start_time = time.time()
             self._profile.enable()
@@ -126,9 +126,22 @@ class Profiler:
 
         return self.file
 
+    def build_command(self) -> str:
+        png_file = self.file.with_suffix('.png')
+        return f'python -m gprof2dot -f pstats {self.file} | dot -T png -o {png_file}'
+
     def print_command(self):
         """
         print the command that convert the stat dump file into a dot graph file.
         """
-        png_file = self.file.with_suffix('.png')
-        print(f'python -m gprof2dot -f pstats {self.file} | dot -T png -o {png_file}')
+        print(self.build_command())
+
+    def run_command(self) -> BaseException | None:
+        import subprocess
+
+        command = self.build_command()
+        print(command)
+        try:
+            subprocess.run(command, shell=True)
+        except BaseException as e:
+            return e

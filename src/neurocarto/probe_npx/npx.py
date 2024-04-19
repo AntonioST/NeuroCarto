@@ -274,7 +274,7 @@ class ChannelMap:
         if isinstance(probe_type, (int, str)):
             probe_type = PROBE_TYPE[probe_type]
         elif not isinstance(probe_type, ProbeType):
-            raise TypeError()
+            raise TypeError(f'{type(probe_type)=}')
 
         self.probe_type: Final[ProbeType] = probe_type
         self._electrodes: Final[list[Electrode | None]] = [None] * probe_type.n_channels
