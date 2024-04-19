@@ -110,7 +110,7 @@ def compute_data(bp: BlueprintFunctions, opt) -> np.ndarray:
     output_file: Path = opt.OUTPUT
     if append_mode is None or not output_file.exists():
         output_file.unlink(missing_ok=True)
-        ret = np.full((len(bp.s),), np.nan, dtype=float)
+        ret = np.full((len(bp),), np.nan, dtype=float)
     else:
         assert output_file.exists()
         assert append_mode in APPEND_MODE
@@ -152,31 +152,11 @@ def plot_data(bp: BlueprintFunctions, data: np.ndarray, opt):
     with plt.rc_context(fname='tests/default.matplotlibrc'):
         fig, ax = plt.subplots(gridspec_kw=dict(top=0.90))
 
-        # image
-        im = plot.plot_electrode_matrix(
-            ax, bp.channelmap.probe_type, data, 'raw',
-            shank_list=[3, 2, 1, 0],
-            kernel=(0, 1),  # (C, R)
-            vmax=6,
-            vmin=0,
-        )
+        plot_data_matrix(bp, ax, data)
+        # plot_data_scatter(bp, ax, data)
+        # plot_data_curve(bp, ax, data)
 
-        # scatter
-        # i = np.nonzero(~np.isnan(data))[0]
-        # s = np.array([3, 2, 1, 0])
-        # data -= np.nanmin(data)
-        # x = s[bp.s[i]] + data[i] / np.nanmax(data)  # shank as x
-        # y = bp.y[i] / 1000  # mm
-        # ax.scatter(2 * x, y, s=1, c='g')
-        #
-        # for x in np.unique(bp.s):
-        #     ax.axvline(2 * x, color='gray', lw=0.5)
-
-        #
-        insert_colorbar(ax, im)
         ax.set_ylim(0, 6)
-
-        #
 
         if opt.save_figure is None:
             print('show...')
@@ -188,6 +168,44 @@ def plot_data(bp: BlueprintFunctions, data: np.ndarray, opt):
 
             print(f'save {save_figure}')
             plt.savefig(save_figure, dpi=600)
+
+
+def plot_data_matrix(bp: BlueprintFunctions, ax: Axes, data: np.ndarray):
+    im = plot.plot_electrode_matrix(
+        ax, bp.channelmap.probe_type, data, 'raw',
+        shank_list=[3, 2, 1, 0],
+        kernel=(0, 1),  # (C, R)
+        vmax=6,
+        vmin=0,
+    )
+
+    insert_colorbar(ax, im)
+
+
+def plot_data_scatter(bp: BlueprintFunctions, ax: Axes, data: np.ndarray):
+    i = np.nonzero(~np.isnan(data))[0]
+    s = np.array([3, 2, 1, 0])
+    data -= np.nanmin(data)
+    x = s[bp.s[i]] + data[i] / np.nanmax(data)  # shank as x
+    y = bp.y[i] / 1000  # mm
+    ax.scatter(2 * x, y, s=1, c='g')
+
+    for x in np.unique(bp.s):
+        ax.axvline(2 * x, color='gray', lw=0.5)
+
+
+def plot_data_curve(bp: BlueprintFunctions, ax: Axes, data: np.ndarray):
+    lines, y = plot.cast_electrode_curve(bp.channelmap.probe_type, data, 'raw', kernel='norm')
+
+    # normalize
+    lines -= np.min(lines)
+    lines /= np.max(lines) / 2
+
+    y = y / 1000  # mm
+
+    shank_list = np.array([3, 2, 1, 0])
+    for i, s in enumerate(shank_list):
+        ax.plot(lines[s] + 2 * i, y, color='k', )
 
 
 def insert_colorbar(ax: Axes, im):
