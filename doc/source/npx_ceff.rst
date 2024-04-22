@@ -18,5 +18,3 @@ Calculate some value for a channelmap and a blueprint.
 * **channel efficiency**: The efficiency of channel used. It also can be used to determine the
   compatible a blueprint.
 
-* **remain channels**: How many electrodes be selected under low-priority category.
-* **remain electrode**: How many electrodes belong to low-priority category.
