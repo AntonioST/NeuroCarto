@@ -238,6 +238,9 @@ def sphinx_doc_link_replace_word(context: list[dict], m: re.Match) -> str:
     except KeyError:
         return m.group()
 
+    if not isinstance(value, str):
+        return m.group()
+
     if indent is None or len(indent) == 0:
         return value
 

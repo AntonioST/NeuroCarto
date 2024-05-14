@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import TypedDict, Final
 
 import numpy as np
-from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement, TextInput, Tooltip
+from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement
 from numpy.typing import NDArray
 
 from neurocarto.config import CartoConfig
 from neurocarto.util.bokeh_app import run_later
-from neurocarto.util.bokeh_util import SliderFactory, is_recursive_called, PathAutocompleteInput, as_callback, new_help_button
+from neurocarto.util.bokeh_util import SliderFactory, is_recursive_called, PathAutocompleteInput, new_help_button
 from neurocarto.views.base import Figure, BoundView, StateView, BoundaryState
 
 if sys.version_info >= (3, 11):
@@ -104,7 +104,9 @@ class ImageHandler(metaclass=abc.ABCMeta):
         logger.debug('from file %s', filename)
         image = np.asarray(Image.open(filename, mode='r'))
 
-        w, h, _ = image.shape
+        w, h, c = image.shape
+        if c == 3:
+            image = np.dstack([image, np.full((w, h), 255, dtype=np.uint8)])
         image = np.flipud(image.view(dtype=np.uint32).reshape((w, h)))
 
         logger.debug('as image %s', image.shape)
@@ -187,10 +189,6 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
             if self.visible:
                 slider.visible = not slider.disabled
 
-        if image is not None:
-            resolution = image.resolution
-            self.resolution_input.value = f'{resolution[0]},{resolution[1]}'
-
     def save_current_state(self) -> ImageViewState | None:
         if (image := self.image) is None:
             return None
@@ -242,28 +240,14 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
             global_alpha=1, syncable=False,
         )
 
-    # TODO need a better design to provide resolution changing mechanism
-    # How do we distinguish an image source between resolution self-contained and not contained?
-    resolution_input: TextInput
-
-    def _setup_title(self, **kwargs) -> list[UIElement]:
-        ret = super()._setup_title(**kwargs)
-
-        self.resolution_input = TextInput(max_width=100, description=Tooltip(content='image resolution. format "10" or "10,10"'))
-        self.resolution_input.on_change('value', as_callback(self._on_resolution_changed))
-
-        # visible_btn?, view_title, help?, resolution_input, help, status_div
-        ret.insert(-1, self.resolution_input)
-        ret.insert(-1, new_help_button('change image resolution. Need a value or "W,H"', position='right'))
-
-        return ret
-
     index_slider: Slider = None
+    alpha_slider: Slider = None
 
     def _setup_content(self, slider_width: int = 300,
                        support_index=True,
                        support_rotate=True,
                        support_scale=True,
+                       support_alpha=False,
                        **kwargs) -> list[UIElement]:
         """
 
@@ -281,6 +265,8 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         ret = []
         if support_index:
             ret.append(row(*self.setup_index_slider(new_slider=new_slider)))
+        if support_alpha:
+            ret.append(row(*self.setup_alpha_slider(new_slider=new_slider)))
         if support_rotate:
             ret.append(row(*self.setup_rotate_slider(new_slider=new_slider)))
         if support_scale:
@@ -298,55 +284,34 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
         return [self.index_slider]
 
+    def setup_alpha_slider(self, *,
+                           new_slider: SliderFactory = None) -> list[UIElement]:
+        if new_slider is None:
+            new_slider = SliderFactory(width=300, align='end')
+
+        self.alpha_slider = new_slider('Alpha', (0, 255, 1, 255), self._on_alpha_changed)
+
+        return [self.alpha_slider]
+
     def _on_index_changed(self, s: int):
         if is_recursive_called():
             return
 
         self.update_image(s)
 
-    def get_resolution_value(self, r: str = None) -> tuple[float, float] | None:
-        if r is None:
-            try:
-                r = self.resolution_input.value
-            except AttributeError:
-                return None
-
-        if r == '':
-            return None
-
-        try:
-            if ',' in r:
-                f = r.partition(',')
-                return float(f[0].strip()), float(f[2].strip())
-            else:
-                f = float(r)
-                return f, f
-        except ValueError:
-            return None
-
-    def _on_resolution_changed(self, r: str | float):
-        if is_recursive_called() or r == '':
+    def _on_alpha_changed(self, a: int):
+        if is_recursive_called():
             return
 
-        match r:
-            case str():
-                f = self.get_resolution_value(r)
-            case float(f):
-                f = (f, f)
-            case _:
-                raise TypeError()
+        if (image := self._image) is None:
+            return
 
-        if f is None:
-            if (image := self.image) is None:
-                self.resolution_input.value = ''
-            else:
-                f = image.resolution
-                self.resolution_input.value = f'{f[0]},{f[1]}'
+        try:
+            image.alpha = a
+        except AttributeError:
+            pass
         else:
-            if (image := self.image) is not None:
-                image.resolution = f
-
-            self.update_boundary_transform(s=1)
+            self.update_image(self.index_slider.value)
 
     # ================ #
     # updating methods #
@@ -477,12 +442,7 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
                 self.logger.debug('restore(%s)', image.filename)
             except KeyError:
                 self.logger.info('fail restore(%s) ', image.filename)
-                f = self.get_resolution_value()
-                if f is None:
-                    self.reset_boundary()
-                else:
-                    image.resolution = f
-                    self.update_boundary_transform(s=1)
+                self.reset_boundary()
                 return
 
         if state is not None:

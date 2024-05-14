@@ -40,6 +40,28 @@ class NumpyImageHandler(ImageHandler):
             return image
 
     @property
+    def alpha(self) -> int:
+        if (image := self.image) is None:
+            return 0
+
+        if image.ndim == 3:
+            image = image[0]
+
+        alpha = (image & 0xFF000000) >> 24
+
+        return int(np.unique(alpha)[0])
+
+    @alpha.setter
+    def alpha(self, value: int | float):
+        if (image := self.image) is None:
+            return
+
+        if isinstance(value, float):
+            value = int(255 * value)
+
+        self.image = (image & 0x00FFFFFF) | ((value << 24) & 0xFF000000)
+
+    @property
     def width(self) -> float:
         if (image := self.image) is None:
             return 0
