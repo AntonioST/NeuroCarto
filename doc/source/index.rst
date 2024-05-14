@@ -6,6 +6,21 @@
 Welcome to NeuroCarto's documentation!
 =======================================
 
+.. image:: https://img.shields.io/github/v/tag/AntonioST/NeuroCarto?label=Github
+   :alt: GitHub Tag
+   :target: https://github.com/AntonioST/NeuroCarto
+
+.. image:: https://img.shields.io/pypi/v/neurocarto
+   :alt: PyPI - Version
+   :target: https://pypi.org/project/neurocarto/
+
+.. image:: https://img.shields.io/pypi/pyversions/neurocarto
+   :alt: PyPI - Python Version
+
+.. image:: https://readthedocs.org/projects/neurocarto/badge/?version=latest
+   :alt: Documentation Status
+   :target: https://neurocarto.readthedocs.io/en/latest/?badge=latest
+
 NeuroCarto is a neural probe channel map editor for the Neuropixels probe family.
 It allows user to create a blueprint for arranging electrodes in a desired density
 and generate a custom channel map.

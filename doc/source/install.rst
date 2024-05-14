@@ -9,9 +9,6 @@ Require ``Python 3.10``, and (recommended) a Python virtual environment.
 Install
 -------
 
-:warning:
-    So far this package hasn't been uploaded to https://pypi.org/.
-
 ::
 
     pip install neurocarto

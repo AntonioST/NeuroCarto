@@ -1,6 +1,8 @@
 NeuroCarto: A Neuropixels Channelmap Editor
 ===========================================
 
+[![PyPI - Version](https://img.shields.io/pypi/v/neurocarto)](https://pypi.org/project/neurocarto/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/neurocarto)
 [![Documentation Status](https://readthedocs.org/projects/neurocarto/badge/?version=latest)](https://neurocarto.readthedocs.io/en/latest/?badge=latest)
 
 NeuroCarto is a neural probe channel map editor for the Neuropixels probe family.
@@ -36,8 +38,9 @@ Require `Python 3.10`.
 
 ### Install
 
-
-This package will upload onto PyPI soon.
+```shell
+pip install neurocarto
+```
 
 ### Run
 
