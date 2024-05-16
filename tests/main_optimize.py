@@ -20,11 +20,11 @@ aef, cef = npx_channel_efficiency(bp, chmap, blueprint)
 print(f'Aeff={aef}')
 print(f'Ceff={cef}')
 
-sample_times = 100
+sample_times = 400
 
 t = TimeMarker()
 t.reset('generate_channelmap')
-maps, aefs, cefs = generate_channelmap(bp, chmap, blueprint, sample_times=sample_times)
+maps, aefs, cefs = generate_channelmap(bp, chmap, blueprint, sample_times=sample_times, n_worker=4)
 t(f'generate_channelmap({sample_times=})')
 
 # ----------------------------------------------------------------------------------------------------------------------

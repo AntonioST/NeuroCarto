@@ -133,6 +133,7 @@ def load_blueprint(bp: BlueprintFunctions, filename: str):
 @use_probe(NpxProbeDesp)
 def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *,
                         single_process=False,
+                        n_worker: int = 1,
                         **kwargs):
     """
     Sample and find the optimized channelmap that has maxima channel efficiency.
@@ -148,24 +149,31 @@ def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *,
         return
 
     from .optimize import optimize_channelmap as _optimize_channelmap
+
+    chmap = None
+    aeff = 0
+    ceff = 0
+
     if single_process:
         chmap, aeff, ceff = _optimize_channelmap(bp, bp.channelmap, blueprint,
                                                  sample_times=sample_times,
                                                  **kwargs)
     else:
-        import multiprocessing
-        with multiprocessing.Pool(1) as pool:
+        import threading
 
-            job = pool.apply_async(_optimize_channelmap, (bp.clone(pure=True), bp.channelmap, blueprint, sample_times), kwargs)
-            pool.close()
+        def target():
+            nonlocal chmap, aeff, ceff
+            chmap, aeff, ceff = _optimize_channelmap(bp, bp.channelmap, blueprint,
+                                                     sample_times=sample_times,
+                                                     n_worker=n_worker,
+                                                     **kwargs)
 
-            while True:
-                try:
-                    chmap, aeff, ceff = job.get(0)
-                except multiprocessing.TimeoutError:
-                    yield 1
-                else:
-                    break
+        thread = threading.Thread(target=target, daemon=True)
+        thread.start()
+
+        while thread.is_alive():
+            yield 1
+        thread.join()
 
     bp.set_status_line(f'finished. got max(Ceff)={100 * ceff:.2f}% and Aeff={100 * aeff:.2f}')
     bp.set_channelmap(chmap)
