@@ -49,7 +49,9 @@ class TimeMarker:
         self.t = time.time()
         self.disable = disable
 
-    def reset(self):
+    def reset(self, message: str = None):
+        if message is not None and not self.disable:
+            print(message, '(reset)')
         self.t = time.time()
 
     def __call__(self, message: str = None) -> float:

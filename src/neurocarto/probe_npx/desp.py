@@ -288,7 +288,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         ucs = ', '.join(map(lambda it: f's{it[0]}={it[1]}', enumerate(used_channel_on_shanks)))
 
         electrodes = npx_request_electrode(bp)
-        efficiency = npx_channel_efficiency(bp)
+        _, efficiency = npx_channel_efficiency(bp)
 
         return {
             'used channels': f'{used_channel}, total={channelmap.probe_type.n_channels}, ({ucs})',

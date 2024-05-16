@@ -72,13 +72,16 @@ def npx_request_electrode(bp: BlueprintFunctions, blueprint: NDArray[np.int_] = 
 
 
 @doc_link()
-def npx_channel_efficiency(bp: BlueprintFunctions, channelmap: ChannelMap = None, blueprint: NDArray[np.int_] = None) -> float:
+def npx_channel_efficiency(bp: BlueprintFunctions,
+                           channelmap: ChannelMap = None,
+                           blueprint: NDArray[np.int_] = None) -> tuple[float, float]:
     """
+    Calculate the area and channel efficiency for a channel map with a given blueprint.
 
     :param bp:
     :param channelmap: channelmap outcomes from *blueprint*
     :param blueprint: a given blueprint.
-    :return: channel efficiency value
+    :return: tuple of area and channel efficiency value
     """
     if channelmap is None:
         channelmap = bp.channelmap
@@ -88,6 +91,8 @@ def npx_channel_efficiency(bp: BlueprintFunctions, channelmap: ChannelMap = None
 
     electrode = npx_request_electrode(bp, blueprint)
     channel = 0
+    excluded = 0
+    total = channelmap.probe_type.n_channels
 
     selected = blueprint[bp.selected_electrodes(channelmap)]
     for category, count in zip(*np.unique(selected, return_counts=True)):
@@ -95,11 +100,12 @@ def npx_channel_efficiency(bp: BlueprintFunctions, channelmap: ChannelMap = None
             case NpxProbeDesp.CATE_SET | NpxProbeDesp.CATE_FULL | NpxProbeDesp.CATE_HALF | NpxProbeDesp.CATE_QUARTER:
                 channel += count
             case NpxProbeDesp.CATE_EXCLUDED:
-                channel -= count
+                excluded += count
 
     ae = 0 if electrode == 0 else max(channel / electrode, 0)
     ce = 0 if ae == 0 else min(ae, 1 / ae)
-    return ce
+    ex = (total - excluded) / total
+    return ae, ce * ex
 
 
 class ElectrodeProbability(NamedTuple):
@@ -197,7 +203,7 @@ def _npx_electrode_probability_0(probe: NpxProbeDesp, chmap: ChannelMap, bluepri
             complete += 1
 
         bp.set_blueprint(blueprint)
-        channel_efficiency.append(npx_channel_efficiency(bp))
+        channel_efficiency.append(npx_channel_efficiency(bp)[1])
 
     return ElectrodeProbability(sample_times, mat, complete, np.array(channel_efficiency))
 

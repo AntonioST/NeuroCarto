@@ -147,47 +147,28 @@ def optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, *,
         bp.log_message('empty blueprint')
         return
 
-    _bp = bp.clone(pure=True)
-
+    from .optimize import optimize_channelmap as _optimize_channelmap
     if single_process:
-        chmap, ceff = _optimize_channelmap(_bp, sample_times, **kwargs)
+        chmap, aeff, ceff = _optimize_channelmap(bp, bp.channelmap, blueprint,
+                                                 sample_times=sample_times,
+                                                 **kwargs)
     else:
         import multiprocessing
         with multiprocessing.Pool(1) as pool:
 
-            job = pool.apply_async(_optimize_channelmap, (_bp, sample_times), kwargs)
+            job = pool.apply_async(_optimize_channelmap, (bp.clone(pure=True), bp.channelmap, blueprint, sample_times), kwargs)
             pool.close()
 
             while True:
                 try:
-                    chmap, ceff = job.get(0)
+                    chmap, aeff, ceff = job.get(0)
                 except multiprocessing.TimeoutError:
                     yield 1
                 else:
                     break
 
-    bp.set_status_line(f'finished. got max(Ceff)={100 * ceff:.2f}%')
+    bp.set_status_line(f'finished. got max(Ceff)={100 * ceff:.2f}% and Aeff={100 * aeff:.2f}')
     bp.set_channelmap(chmap)
-
-
-def _optimize_channelmap(bp: BlueprintFunctions, sample_times: int = 100, **kwargs):
-    from neurocarto.probe_npx.npx import ChannelMap
-    from neurocarto.probe_npx.stat import npx_channel_efficiency
-
-    blueprint_arr = bp.blueprint()
-    blueprint_lst = bp.apply_blueprint(blueprint=blueprint_arr)
-
-    chmap: ChannelMap = bp.channelmap
-    ceff = npx_channel_efficiency(bp, chmap, blueprint_arr)
-    max_chmap = (chmap, ceff)
-
-    for i in range(sample_times):
-        chmap = bp.select_electrodes(chmap, blueprint_lst, **kwargs)
-        ceff = npx_channel_efficiency(bp, chmap, blueprint_arr)
-        if ceff > max_chmap[1]:
-            max_chmap = (chmap, ceff)
-
-    return max_chmap
 
 
 @use_view('AtlasBrainView')
