@@ -336,6 +336,7 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
             bp.log_message('fail to figure current probe coordinate')
             return
 
+        assert coor.bregma is not None
         bp.set_script_input(
             None,
             f'{coor.x / 1000:.1f}',
@@ -357,6 +358,31 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
 
         if label is not None:
             bp.atlas_add_label(label, (ap, dv, ml), origin=ref, color=color)
+
+
+@use_view('AtlasBrainView')
+def highlight_electrode_inside_region(bp: BlueprintFunctions,
+                                      region: str):
+    """
+    Capture electrodes inside a region.
+
+    :param bp:
+    :param region: (str) region ID, acronym or its partial description
+    """
+    if (region := bp.atlas_get_region_name(name := region)) is None:
+        bp.log_message(f'region "{name}" not found')
+        return
+
+    try:
+        mask = bp.atlas_mask_region(region)
+    except BaseException as e:
+        bp.log_message(repr(e))
+        return
+
+    if np.count_nonzero(mask) == 0:
+        bp.log_message(f'no electrode inside "{region}"')
+    else:
+        bp.capture_electrode(mask)
 
 
 @use_probe(NpxProbeDesp, create=False)

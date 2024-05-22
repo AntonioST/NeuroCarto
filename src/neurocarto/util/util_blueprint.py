@@ -183,6 +183,7 @@ class BlueprintFunctions(Generic[M, E]):
     .. hlist::
         :columns: 2
 
+        * {#atlas_get_region_name()}
         * {#atlas_set_slice()}
         * {#atlas_add_label()}
         * {#atlas_add_label()}
@@ -192,6 +193,8 @@ class BlueprintFunctions(Generic[M, E]):
         * {#atlas_set_anchor()}
         * {#atlas_new_probe()}
         * {#atlas_set_anchor_on_probe()}
+        * {#atlas_coor_electrode()}
+        * {#atlas_mask_region()}
 
     **Blueprint script view functions**
 
@@ -280,8 +283,12 @@ class BlueprintFunctions(Generic[M, E]):
 
         if chmap is not None:
             self.s: Final[NDArray[np.int_]] = np.array([it.s for it in self.electrodes])
+            """shank"""
             self.x: Final[NDArray[np.int_]] = np.array([it.x for it in self.electrodes])
+            """x position in um"""
             self.y: Final[NDArray[np.int_]] = np.array([it.y for it in self.electrodes])
+            """y position in um"""
+
             self.dx: Final[float] = float(np.min(np.diff(np.unique(self.x))))
             self.dy: Final[float] = float(np.min(np.diff(np.unique(self.y))))
             if self.dx <= 0 or self.dy <= 0:
@@ -1329,6 +1336,20 @@ class BlueprintFunctions(Generic[M, E]):
     # AtlasBrainView related #
     # ====================== #
 
+    @doc_link(Structure='neurocarto.util.atlas_struct.Structure')
+    def atlas_get_region_name(self, region: int | str) -> str | None:
+        """
+        Get region acronym.
+
+        :param region: region ID, acronym or its partial description
+        :return: region acronym
+        :see: {Structure}
+        """
+        from .edit.atlas import atlas_get_region_name
+        if (controller := self._controller) is not None:
+            return atlas_get_region_name(controller, region)
+        return None
+
     @doc_link()
     def atlas_get_slice(self, *, um=False) -> tuple[str | None, int | None]:
         """
@@ -1461,7 +1482,6 @@ class BlueprintFunctions(Generic[M, E]):
         if (controller := self._controller) is not None:
             atlas_set_anchor(controller, p, a)
 
-    @doc_link()
     def atlas_new_probe(self,
                         ap: float, dv: float, ml: float,
                         shank: int = 0,
@@ -1487,7 +1507,6 @@ class BlueprintFunctions(Generic[M, E]):
             return atlas_new_probe(controller, ap, dv, ml, shank, rx, ry, rz, depth, ref)
         return None
 
-    @doc_link()
     def atlas_current_probe(self, shank: int = 0, ref: str = 'bregma') -> ProbeCoordinate | None:
         """
         Get the current coordinate of the probe.
@@ -1503,7 +1522,6 @@ class BlueprintFunctions(Generic[M, E]):
             return atlas_current_probe(self, controller, shank, ref)
         return None
 
-    @doc_link()
     def atlas_set_anchor_on_probe(self, coor: ProbeCoordinate):
         """
         Update atlas image boundary transform to anchor insertion point onto the probe.
@@ -1513,6 +1531,44 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.atlas import atlas_set_anchor_on_probe
         if (controller := self._controller) is not None:
             atlas_set_anchor_on_probe(self, controller, coor)
+
+    @doc_link()
+    def atlas_coor_electrode(self, coor: ProbeCoordinate = None,
+                             electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float_] = None,
+                             bregma: str | None = 'bregma') -> NDArray[np.float_]:
+        """
+        Transform electrode position to altas coordinate (AP,DV,ML) according the given probe coordinate.
+
+        :param coor: probe coordinate
+        :param electrode: electrode index (Array[int, N]), mask (Array[bool, E]) or position (Array[um:float, N, (x, y)])
+        :param bregma: use which bregma coordinate as origin.
+        :return: electrode position in Array[um:float, N, (ap, dv, ml)]
+        :see: use {#atlas_current_probe()} when *coor* is ``None``.
+        """
+        from .edit.atlas import atlas_coor_electrode
+        if (controller := self._controller) is None:
+            raise RuntimeError('cannot determine current atlas')
+
+        return atlas_coor_electrode(self, controller, coor, electrode, bregma)
+
+    @doc_link()
+    def atlas_mask_region(self, region: str, coor: ProbeCoordinate = None,
+                          electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float_] = None) -> NDArray[np.bool_]:
+        """
+        Return a mask that electrode located in the given region.
+
+        :param region: region name
+        :param coor: probe coordinate
+        :param electrode: electrode index (Array[int, N]), mask (Array[bool, E]) or position (Array[um:float, N, (x, y)])
+        :return: Array[bool, N]
+        :see: use {#atlas_current_probe()} when *coor* is ``None``.
+        :see: use {#atlas_coor_electrode()}
+        """
+        from .edit.atlas import atlas_mask_region
+        if (controller := self._controller) is None:
+            raise RuntimeError('cannot determine current atlas')
+
+        return atlas_mask_region(self, controller, region, coor, electrode)
 
     # =================== #
     # matplotlib plotting #

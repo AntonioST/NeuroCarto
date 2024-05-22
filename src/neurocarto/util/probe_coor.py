@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from typing import NamedTuple
+from typing import NamedTuple, overload
 
 import numpy as np
 from numpy.typing import NDArray
@@ -44,29 +44,58 @@ class ProbeCoordinate(NamedTuple):
     depth: float = 0
     """shank s insert depth (um)"""
 
-    @classmethod
-    def from_bregma(cls, atlas_name: str, ap: float, dv: float, ml: float, ref: str = 'bregma', **kwargs) -> Self:
-        """
+    bregma: tuple[float, float, float] | None = None
+    """bregma coordinate (ap, dv, ml)"""
 
-        :param atlas_name: atlas brain name
-        :param ap: um
-        :param dv: um
-        :param ml: um
-        :param ref: reference origin, default use 'bregma'
-        :param kwargs: {ProbeCoordinate}'s other parameters.
+    def to_origin(self) -> Self:
+        """
+        move coordinate to atlas-origin.
+        """
+        if self.bregma is None:
+            return self
+
+        return self._replace(
+            x=self.bregma[0] - self.x,
+            y=self.bregma[1] + self.y,
+            z=self.bregma[2] + self.z,
+            bregma=None
+        )
+
+    @overload
+    def to_bregma(self, atlas_name: tuple[float, float, float]) -> Self:
+        pass
+
+    @overload
+    def to_bregma(self, atlas_name: str, ref: str = 'bregma') -> Self:
+        pass
+
+    def to_bregma(self, atlas_name, ref: str = 'bregma') -> Self:
+        """
+        move coordinate to bregma-origin.
+
+        :param atlas_name: atlas name
+        :param ref:
         :return:
-        :raises KeyError:
         """
-        from neurocarto.util.atlas_brain import REFERENCE
-        bregma = REFERENCE[ref][atlas_name]
+        match atlas_name:
+            case str():
+                from neurocarto.util.atlas_brain import REFERENCE
+                bregma = REFERENCE[ref][atlas_name]
+            case (int() | float(), int() | float(), int() | float()):
+                bregma = atlas_name
+            case _:
+                raise TypeError()
 
-        x = bregma[0] - ap
-        y = bregma[1] + dv
-        z = bregma[2] + ml
-        return ProbeCoordinate(x, y, z, **kwargs)  # type: ignore[return-value]
+        return self.to_origin()._replace(
+            x=bregma[0] - self.x,
+            y=self.y - bregma[1],
+            z=self.z - bregma[2],
+            bregma=bregma
+        )
 
 
 def get_plane_at(view: SliceView, pc: ProbeCoordinate) -> SlicePlane:
+    pc = pc.to_origin()
     a = np.deg2rad([pc.rx, pc.ry, pc.rz])
     dw, dh = view.angle_offset(tuple(a))
     return view.plane_at((pc.x, pc.y, pc.z), um=True).with_offset(dw, dh)
@@ -178,7 +207,9 @@ def project(a: NDArray[np.float_], p: NDArray[np.float_]) -> NDArray[np.float_]:
             raise ValueError()
 
 
-def project_b2i(bregma: tuple[float, float, float], view: SlicePlane, p: NDArray[np.float_], *,
+def project_b2i(bregma: tuple[float, float, float] | None,
+                view: SlicePlane,
+                p: NDArray[np.float_], *,
                 keep_plane: bool = False) -> NDArray[np.float_]:
     """
     project coordinate from bregma-origin to image-origin.
@@ -201,9 +232,12 @@ def project_b2i(bregma: tuple[float, float, float], view: SlicePlane, p: NDArray
     cx = view.width / 2
     cy = view.height / 2
 
-    q[0] = bregma[0] - p[0]
-    q[1] = p[1] + bregma[1]
-    q[2] = p[2] + bregma[2]
+    if bregma is not None:
+        q[0] = bregma[0] - p[0]
+        q[1] = p[1] + bregma[1]
+        q[2] = p[2] + bregma[2]
+    else:
+        q[:] = p
 
     q = q[view.slice.project_index, :]
     q = q[[1, 2, 0], :]
@@ -216,7 +250,7 @@ def project_b2i(bregma: tuple[float, float, float], view: SlicePlane, p: NDArray
     return q
 
 
-def project_i2b(bregma: tuple[float, float, float], view: SlicePlane, p: NDArray[np.float_]) -> NDArray[np.float_]:
+def project_i2b(bregma: tuple[float, float, float] | None, view: SlicePlane, p: NDArray[np.float_]) -> NDArray[np.float_]:
     """
     project coordinate from image-origin to bregma-origin.
 
@@ -237,16 +271,17 @@ def project_i2b(bregma: tuple[float, float, float], view: SlicePlane, p: NDArray
     cx = view.width / 2
     cy = view.height / 2
 
-    x = p[0] + cx
-    y = cy - p[1]
+    x = p[0] + cx  # x position to image-corner
+    y = cy - p[1]  # y position to image-corner
 
     pi, xi, yi = view.slice.project_index
     q[xi] = x
     q[yi] = y
     q[pi] = view.plane_idx_at(x, y, um=True) * view.resolution
 
-    q[0] = bregma[0] - q[0]
-    q[1] -= bregma[1]
-    q[2] -= bregma[2]
+    if bregma is not None:
+        q[0] = bregma[0] - q[0]
+        q[1] -= bregma[1]
+        q[2] -= bregma[2]
 
     return q

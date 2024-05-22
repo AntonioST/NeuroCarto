@@ -572,10 +572,10 @@ class BoundaryState(TypedDict):
     """Boundary parameters"""
 
     dx: float
-    """x moving"""
+    """x moving (um)"""
 
     dy: float
-    """y moving"""
+    """y moving (um)"""
 
     sx: float
     """x scaling"""

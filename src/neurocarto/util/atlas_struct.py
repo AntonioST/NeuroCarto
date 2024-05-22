@@ -52,6 +52,9 @@ class Structures:
         else:
             raise TypeError()
 
+    def __iter__(self) -> Iterator[Structure]:
+        return iter(self._structure.values())
+
     @property
     def regions(self) -> list[ACRONYM]:
         return list(self._structure)

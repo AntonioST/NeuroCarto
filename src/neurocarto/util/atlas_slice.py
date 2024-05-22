@@ -76,7 +76,7 @@ class SliceView(metaclass=abc.ABCMeta):
         self.reference = reference
         """Image Array[uint, AP, DV, ML]"""
 
-        self.resolution = int(brain.resolution[get_args(SLICE).index(name)])
+        self.resolution = int(brain.resolution[get_args(SLICE).index(name)])  # FIXME change to (x,y,z)
         """um/pixel"""
 
         self.grid_y, self.grid_x = np.mgrid[0:self.height, 0:self.width]
@@ -315,6 +315,8 @@ class SliceView(metaclass=abc.ABCMeta):
             case _:
                 raise TypeError()
 
+        if plane < 0:
+            raise ValueError('negative plane index')
         return SlicePlane(plane, ax, ay, dw, dh, self)
 
 
@@ -417,7 +419,7 @@ class SlicePlane(NamedTuple):
     slice: SliceView
 
     @property
-    def slice_name(self) -> str:
+    def slice_name(self) -> SLICE:
         return self.slice.name
 
     @property

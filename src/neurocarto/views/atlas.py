@@ -589,8 +589,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         origin = REFERENCE['bregma'][self.brain_view.brain.atlas_name]
 
-        qp = np.zeros_like(p)  # Array[float, 3, N]
-        qb = np.zeros((3, n), dtype=float)  # Array[float, 3, N]
+        qp = np.zeros_like(p)  # Array[um:float, 3, N]
+        qb = np.zeros((3, n), dtype=float)  # Array[mm:float, 3, N]
         for i, ref in enumerate(LABEL_REFS):
             if not np.any(mask := o == i):
                 continue
@@ -599,12 +599,12 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                 case 'probe':
                     q = p[:, mask]  # Array[float, (x,y,1), N']
                     qp[:, mask] = q
-                    qb[:, mask] = probe_coor.project_i2b(origin, self.brain_slice, (a_ @ q) / 1000)
+                    qb[:, mask] = probe_coor.project_i2b(origin, self.brain_slice, a_ @ q) / 1000
 
                 case 'image':
                     q = p[:, mask]  # Array[float, (x,y,1), N']
                     qp[:, mask] = a @ q
-                    qb[:, mask] = probe_coor.project_i2b(origin, self.brain_slice, q / 1000)
+                    qb[:, mask] = probe_coor.project_i2b(origin, self.brain_slice, q) / 1000
 
                 case 'bregma':
                     q = p[:, mask]  # Array[float, (ap,dv,ml), N']
