@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -362,12 +362,14 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
 
 @use_view('AtlasBrainView')
 def highlight_electrode_inside_region(bp: BlueprintFunctions,
-                                      region: str):
+                                      region: str,
+                                      mode: Literal['replace', 'append', 'exclude'] = 'replace'):
     """
     Capture electrodes inside a region.
 
     :param bp:
     :param region: (str) region ID, acronym or its partial description
+    :param mode: (one of 'replace', 'append' or 'exclude') capture mode
     """
     if (region := bp.atlas_get_region_name(name := region)) is None:
         bp.log_message(f'region "{name}" not found')
@@ -382,7 +384,7 @@ def highlight_electrode_inside_region(bp: BlueprintFunctions,
     if np.count_nonzero(mask) == 0:
         bp.log_message(f'no electrode inside "{region}"')
     else:
-        bp.capture_electrode(mask)
+        bp.capture_electrode(mask, mode=mode)
 
 
 @use_probe(NpxProbeDesp, create=False)

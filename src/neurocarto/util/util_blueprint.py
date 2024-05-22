@@ -4,7 +4,7 @@ import functools
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, overload, Generic, Final, Any
+from typing import TYPE_CHECKING, overload, Generic, Final, Any, Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -1263,17 +1263,19 @@ class BlueprintFunctions(Generic[M, E]):
 
     @doc_link()
     def capture_electrode(self, index: NDArray[np.int_] | NDArray[np.bool_],
-                          state: list[int] = None):
+                          state: list[int] = None,
+                          mode: Literal['replace', 'append', 'exclude'] = 'replace'):
         """
         Capture electrodes.
 
         :param index: index (Array[E, N]) or bool (Array[bool, E]) array.
         :param state: restrict electrodes on given states.
+        :param mode:
         :see: {ProbeView#set_captured_electrodes()}
         """
         from .edit.probe import capture_electrode
         if (controller := self._controller) is not None:
-            capture_electrode(self, controller, index, state)
+            capture_electrode(self, controller, index, state, mode)
 
     @doc_link()
     def captured_electrodes(self, all=False) -> NDArray[np.int_]:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import textwrap
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -39,13 +39,27 @@ def new_channelmap(controller: ControllerView, code: int | str) -> Any:
 @doc_link(DOC=textwrap.dedent(BlueprintFunctions.capture_electrode.__doc__))
 def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
                       index: NDArray[np.int_] | NDArray[np.bool_],
-                      state: list[int] = None):
+                      state: list[int] = None,
+                      mode: Literal['replace', 'append', 'exclude'] = 'replace'):
     """
     {DOC}
     :see: {BlueprintFunctions#capture_electrode()}
     """
     electrodes = self.electrodes
-    captured = [electrodes[int(it)] for it in np.arange(len(self.s))[index]]
+    captured = set([int(it) for it in np.arange(len(self.s))[index]])
+    previous = set([int(it) for it in captured_electrodes(controller, all=True)])
+
+    match mode:
+        case 'replace':
+            pass
+        case 'append':
+            captured.update(previous)
+        case 'exclude':
+            captured = previous.difference(captured)
+        case _:
+            raise ValueError(f'unknown mode "{mode}"')
+
+    captured = [electrodes[it] for it in captured]
 
     view = controller.get_app().probe_view
     if state is None:
