@@ -5,7 +5,7 @@
 
 [project]
 name = 'neurocarto'
-version = '0.0.0'
+version = '0.0.1'
 authors = [
     { name = "Ta-Shun Su", email = "antoniost29@gmail.com" },
 ]
@@ -37,7 +37,7 @@ dynamic = ["dependencies"]
 
 [project.urls]
 Homepage = "https://github.com/AntonioST/NeuroCarto"
-Documentation = "https://github.com/AntonioST/NeuroCarto/wiki"
+Documentation = "https://neurocarto.readthedocs.io/en/latest/"
 Repository = "https://github.com/AntonioST/NeuroCarto"
 Issues = "https://github.com/AntonioST/NeuroCarto/issues"
 
