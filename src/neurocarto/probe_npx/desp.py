@@ -398,7 +398,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         """
         from .plot import plot_electrode_block, plot_probe_shape
 
-        plot_electrode_block(ax, chmap, data, electrode_unit='raw', shank_width_scale=shank_width_scale, **kwargs)
+        plot_electrode_block(ax, chmap, data, electrode_unit='raw', shank_width_scale=shank_width_scale, sparse=False, **kwargs)
         plot_probe_shape(ax, chmap, color=probe_color, shank_width_scale=shank_width_scale, label_axis=label_axis, **kwargs)
 
         if not label_axis:
