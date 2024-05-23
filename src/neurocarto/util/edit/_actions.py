@@ -417,6 +417,7 @@ def blueprint_simple_init_script_from_activity_data_with_a_threshold(bp: Bluepri
     data = bp.interpolate_nan(data)
     bp.draw(data)
 
+    bp.clear_blueprint()
     bp[np.isnan(data)] = X
     bp.reduce(X, 20, bi=False)
     bp.fill(X, gap=None, threshold=10, unset=True)

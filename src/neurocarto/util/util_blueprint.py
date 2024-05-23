@@ -129,6 +129,7 @@ class BlueprintFunctions(Generic[M, E]):
         * {#new_blueprint()}
         * {#blueprint_changed}
         * {#set_blueprint()}
+        * {#clear_blueprint()}
         * {#apply_blueprint()}
         * {#from_blueprint()}
         * {#index_blueprint()}
@@ -521,6 +522,17 @@ class BlueprintFunctions(Generic[M, E]):
 
         self._blueprint = blueprint
         self._blueprint_changed = True
+
+    def clear_blueprint(self) -> BLUEPRINT:
+        """
+        unset blueprint.
+
+        :return: previous blueprint before clearing
+        """
+        ret = self.blueprint()
+        self._blueprint = self.new_blueprint()
+        self._blueprint_changed = True
+        return ret
 
     @doc_link()
     def apply_blueprint(self, electrodes: ELECTRODES = None, blueprint: BLUEPRINT = None) -> ELECTRODES:
