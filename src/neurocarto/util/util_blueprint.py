@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, overload, Generic, Final, Any, Literal
 
 import numpy as np
 from neurocarto.probe import ProbeDesp, M, E, get_probe_desp
-from neurocarto.util.edit.checking import use_probe
+from neurocarto.util.edit.checking import use_probe, use_view
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
 from neurocarto.views.base import ControllerView, V
 from numpy.typing import NDArray
@@ -42,7 +42,7 @@ elif SPHINX_BUILD:
         """Prevent sphinx from printing BLUEPRINT as ``ndarray[int64]``"""
         pass
 
-__all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function', 'use_probe']
+__all__ = ['BlueprintFunctions', 'ClusteringEdges', 'blueprint_function', 'use_probe', 'use_view']
 
 
 def maybe_blueprint(self: BlueprintFunctions, a):
