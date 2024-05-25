@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
-
 from neurocarto.probe_npx import NpxProbeDesp, utils
 from neurocarto.util.edit.checking import use_probe, use_view
 from neurocarto.util.util_blueprint import BlueprintFunctions
@@ -37,27 +36,72 @@ def npx24_stripe(bp: BlueprintFunctions, row: int = 0):
 
 
 @use_probe(NpxProbeDesp, 24)
-def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] = 0, row: int = 0):
+def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] | Literal['selected'] = 0, row: int = 0):
     """
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *half* density.
 
     :param bp:
-    :param shank: (int|[int, int]=0) on which shank/s.
+    :param shank: (int|[int, int]|'selected'=0) on which shank/s.
+        Use 'select' for selected electrodes.
     :param row: (int=0) start row in um.
     """
-    bp.set_channelmap(utils.npx24_half_density(shank, row, um=True))
+    match shank:
+        case 'selected':
+            if len(electrodes := bp.captured_electrodes(all=True)) == 0:
+                return
+
+            # npx 24 arrange electrode in S-R-C ordering
+            match row % 2:
+                case 0:
+                    mask = (electrodes % 4 == 0) | (electrodes % 4 == 3)
+                case 1:
+                    mask = (electrodes % 4 == 1) | (electrodes % 4 == 2)
+                case _:
+                    raise RuntimeError('unreachable')
+
+            bp.add_electrodes(electrodes[mask])
+
+        case int() | [int(), int()] | (int(), int()):
+            bp.set_channelmap(utils.npx24_half_density(shank, row, um=True))
+        case _:
+            raise ValueError()
 
 
 @use_probe(NpxProbeDesp, 24)
-def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | None = None, row: int = 0):
+def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | Literal['selected'] | None = None, row: int = 0):
     """
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *quarter* density.
 
     :param bp:
-    :param shank: (int|[int, int]=None) on which shank/s. use ``None`` for four shanks.
+    :param shank: (int|[int, int]|'selected'=None) on which shank/s.
+        Use 'select' for selected electrodes.
+        Use ``None`` for four shanks.
     :param row: (int=0) start row in um.
     """
-    bp.set_channelmap(utils.npx24_quarter_density(shank, row, um=True))
+    match shank:
+        case 'selected':
+            if len(electrodes := bp.captured_electrodes(all=True)) == 0:
+                return
+
+            # npx 24 arrange electrode in S-R-C ordering
+            match row % 4:
+                case 0:
+                    mask = (electrodes % 8 == 0) | (electrodes % 8 == 5)
+                case 1:
+                    mask = (electrodes % 8 == 1) | (electrodes % 8 == 4)
+                case 2:
+                    mask = (electrodes % 8 == 2) | (electrodes % 8 == 7)
+                case 3:
+                    mask = (electrodes % 8 == 3) | (electrodes % 8 == 6)
+                case _:
+                    raise RuntimeError('unreachable')
+
+            bp.add_electrodes(electrodes[mask])
+
+        case None | int() | [int(), int()] | (int(), int()):
+            bp.set_channelmap(utils.npx24_quarter_density(shank, row, um=True))
+        case _:
+            raise ValueError()
 
 
 @use_probe(NpxProbeDesp, 24)

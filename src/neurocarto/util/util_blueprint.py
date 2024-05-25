@@ -7,12 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, overload, Generic, Final, Any, Literal
 
 import numpy as np
-from numpy.typing import NDArray
-
 from neurocarto.probe import ProbeDesp, M, E, get_probe_desp
 from neurocarto.util.edit.checking import use_probe
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
 from neurocarto.views.base import ControllerView, V
+from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -386,7 +385,7 @@ class BlueprintFunctions(Generic[M, E]):
         elif isinstance(e, (list, tuple)):
             es = [electrodes[int(it)] for it in e]
         else:
-            es = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
+            es = [electrodes[int(it)] for it in np.arange(len(electrodes))[e]]
 
         for t in es:
             self.probe.add_electrode(channelmap, t, overwrite=overwrite)
