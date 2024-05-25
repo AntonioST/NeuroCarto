@@ -4,13 +4,12 @@ import sys
 from typing import NamedTuple
 
 import numpy as np
-from numpy.typing import NDArray
-
 from neurocarto.probe_npx import NpxProbeDesp, NpxElectrodeDesp
 from neurocarto.probe_npx.npx import ChannelMap
 from neurocarto.probe_npx.select import ElectrodeSelector, load_select
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import doc_link
+from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -90,9 +89,10 @@ def npx_channel_efficiency(bp: BlueprintFunctions,
         blueprint = bp._blueprint
 
     electrode = npx_request_electrode(bp, blueprint)
+    total = channelmap.probe_type.n_channels
+    unused = total - len(channelmap)
     channel = 0
     excluded = 0
-    total = channelmap.probe_type.n_channels
 
     selected = blueprint[bp.selected_electrodes(channelmap)]
     for category, count in zip(*np.unique(selected, return_counts=True)):
@@ -104,7 +104,7 @@ def npx_channel_efficiency(bp: BlueprintFunctions,
 
     ae = 0 if electrode == 0 else max(channel / electrode, 0)
     ce = 0 if ae == 0 else min(ae, 1 / ae)
-    ex = (total - excluded) / total
+    ex = (total - excluded - unused) / total
     return ae, ce * ex
 
 
