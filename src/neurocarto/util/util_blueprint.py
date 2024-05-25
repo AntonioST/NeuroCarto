@@ -171,6 +171,7 @@ class BlueprintFunctions(Generic[M, E]):
         :columns: 2
 
         * {#capture_electrode()}
+        * {#clear_capture_electrode()}
         * {#captured_electrodes()}
         * {#set_state_for_captured()}
         * {#set_category_for_captured()}
@@ -382,6 +383,8 @@ class BlueprintFunctions(Generic[M, E]):
         electrodes = self.electrodes
         if isinstance(e, (int, np.integer)):
             es = [electrodes[int(e)]]
+        elif len(e) == 0:  # empty array
+            return
         elif isinstance(e, (list, tuple)):
             es = [electrodes[int(it)] for it in e]
         else:
@@ -405,10 +408,12 @@ class BlueprintFunctions(Generic[M, E]):
         electrodes = self.electrodes
         if isinstance(e, (int, np.integer)):
             es = [electrodes[int(e)]]
+        elif len(e) == 0:  # empty array
+            return
         elif isinstance(e, (list, tuple)):
             es = [electrodes[int(it)] for it in e]
         else:
-            es = [electrodes[int(it)] for it in np.arange((len(electrodes)))[e]]
+            es = [electrodes[int(it)] for it in np.arange(len(electrodes))[e]]
 
         for t in es:
             self.probe.del_electrode(channelmap, t)
@@ -1287,6 +1292,17 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.probe import capture_electrode
         if (controller := self._controller) is not None:
             capture_electrode(self, controller, index, state, mode)
+
+    @doc_link()
+    def clear_capture_electrode(self):
+        """
+        clear capturing.
+
+        :see: {ProbeView#clear_capture_electrode()}
+        """
+        from .edit.probe import clear_capture_electrode
+        if (controller := self._controller) is not None:
+            clear_capture_electrode(controller)
 
     @doc_link()
     def captured_electrodes(self, all=False) -> NDArray[np.int_]:

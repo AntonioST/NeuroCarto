@@ -4,8 +4,6 @@ from collections.abc import Iterable
 from typing import Any, TypedDict, Generic, TYPE_CHECKING
 
 from bokeh.models import ColumnDataSource, GlyphRenderer, tools, UIElement, Div
-from typing_extensions import Required
-
 from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp, M, E
 from neurocarto.util.bokeh_app import run_timeout
@@ -13,6 +11,7 @@ from neurocarto.util.bokeh_util import as_callback
 from neurocarto.util.debug import TimeMarker
 from neurocarto.util.utils import doc_link
 from neurocarto.views.base import Figure, ViewBase, RecordView, RecordStep
+from typing_extensions import Required
 
 if TYPE_CHECKING:
     from bokeh.server.callbacks import TimeoutCallback
@@ -291,10 +290,10 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
             e = d.data['e']
             return [e[it] for it in selected_index]
 
-    def set_captured_electrodes(self, electrodes: list[int] | list[E], d: ColumnDataSource = None):
+    def set_capture_electrodes(self, electrodes: list[int] | list[E], d: ColumnDataSource = None):
         if d is None:
             for data in self.data_electrodes.values():
-                self.set_captured_electrodes(electrodes, data)
+                self.set_capture_electrodes(electrodes, data)
         else:
             i = set([
                 it if isinstance(it, int) else self._e2i[it]
@@ -304,6 +303,13 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
             e = d.data['e']
             s = [ii for ii, ie in enumerate(e) if ie in i]
             d.selected.indices = s
+
+    def clear_capture_electrode(self, d: ColumnDataSource = None):
+        if d is None:
+            for data in self.data_electrodes.values():
+                self.clear_capture_electrode(data)
+        else:
+            d.selected.indices = []
 
     _captured_electrodes: list[E] = []
     _captured_callback: TimeoutCallback | None = None

@@ -4,12 +4,11 @@ import textwrap
 from typing import Any, Literal
 
 import numpy as np
-from numpy.typing import NDArray
-
 from neurocarto.probe import ProbeDesp, ElectrodeDesp, M
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import SPHINX_BUILD, doc_link
 from neurocarto.views.base import ControllerView
+from numpy.typing import NDArray
 
 if SPHINX_BUILD:
     ProbeView = 'neurocarto.views.probe.ProbeView'
@@ -17,6 +16,7 @@ if SPHINX_BUILD:
 __all__ = [
     'new_channelmap',
     'capture_electrode',
+    'clear_capture_electrode',
     'captured_electrodes',
     'set_state_for_captured',
     'set_category_for_captured',
@@ -63,7 +63,7 @@ def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
 
     view = controller.get_app().probe_view
     if state is None:
-        view.set_captured_electrodes(captured)
+        view.set_capture_electrodes(captured)
     else:
         for s in state:
             try:
@@ -71,7 +71,16 @@ def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
             except KeyError:
                 pass
             else:
-                view.set_captured_electrodes(captured, data)
+                view.set_capture_electrodes(captured, data)
+
+
+@doc_link(DOC=textwrap.dedent(BlueprintFunctions.clear_capture_electrode.__doc__))
+def clear_capture_electrode(controller: ControllerView):
+    """
+    {DOC}
+    :see: {BlueprintFunctions#clear_capture_electrode()}
+    """
+    controller.get_app().probe_view.clear_capture_electrode()
 
 
 @doc_link(DOC=textwrap.dedent(BlueprintFunctions.captured_electrodes.__doc__))

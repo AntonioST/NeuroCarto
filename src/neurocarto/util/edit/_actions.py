@@ -47,7 +47,8 @@ def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] | Literal[
     """
     match shank:
         case 'selected':
-            if len(electrodes := bp.captured_electrodes(all=True)) == 0:
+            if len(electrodes := bp.captured_electrodes(all=True)) < 4:
+                bp.log_message('need capture more electrodes')
                 return
 
             # npx 24 arrange electrode in S-R-C ordering
@@ -60,6 +61,7 @@ def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] | Literal[
                     raise RuntimeError('unreachable')
 
             bp.add_electrodes(electrodes[mask])
+            bp.clear_capture_electrode()
 
         case int() | [int(), int()] | (int(), int()):
             bp.set_channelmap(utils.npx24_half_density(shank, row, um=True))
@@ -80,7 +82,8 @@ def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | Liter
     """
     match shank:
         case 'selected':
-            if len(electrodes := bp.captured_electrodes(all=True)) == 0:
+            if len(electrodes := bp.captured_electrodes(all=True)) < 8:
+                bp.log_message('need capture more electrodes')
                 return
 
             # npx 24 arrange electrode in S-R-C ordering
@@ -97,6 +100,7 @@ def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | Liter
                     raise RuntimeError('unreachable')
 
             bp.add_electrodes(electrodes[mask])
+            bp.clear_capture_electrode()
 
         case None | int() | [int(), int()] | (int(), int()):
             bp.set_channelmap(utils.npx24_quarter_density(shank, row, um=True))
