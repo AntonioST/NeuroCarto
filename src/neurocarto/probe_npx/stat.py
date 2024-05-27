@@ -4,12 +4,13 @@ import sys
 from typing import NamedTuple
 
 import numpy as np
+from numpy.typing import NDArray
+
 from neurocarto.probe_npx import NpxProbeDesp, NpxElectrodeDesp
 from neurocarto.probe_npx.npx import ChannelMap
 from neurocarto.probe_npx.select import ElectrodeSelector, load_select
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import doc_link
-from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -203,7 +204,7 @@ def _npx_electrode_probability_0(probe: NpxProbeDesp, chmap: ChannelMap, bluepri
             complete += 1
 
         bp.set_blueprint(blueprint)
-        channel_efficiency.append(npx_channel_efficiency(bp)[1])
+        channel_efficiency.append(npx_channel_efficiency(bp, chmap)[1])
 
     return ElectrodeProbability(sample_times, mat, complete, np.array(channel_efficiency))
 
