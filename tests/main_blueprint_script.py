@@ -59,6 +59,7 @@ if __name__ == '__main__':
         '-C', 'res',
         '--debug',
         '--view=-',
+        '--view=neurocarto.views.data_density:ElectrodeDensityDataView',
         '--view=blueprint',
         '--view=neurocarto.views.blueprint_script:BlueprintScriptView',
         '--view=tests:main_blueprint_script:Tester',
