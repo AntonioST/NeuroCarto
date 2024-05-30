@@ -426,6 +426,7 @@ def plot_electrode_grid(ax: Axes,
                         shank_width_scale: float = 1,
                         color: str = 'g',
                         label: str = None,
+                        transform: tuple[float | list[float]|None, float|None, float|None] = None,
                         **kwargs):
     """
     Plot each electrode in grid rectangles.
@@ -439,12 +440,22 @@ def plot_electrode_grid(ax: Axes,
     :param shank_width_scale: scaling the width of a shank for visualizing purpose.
     :param color: grid line color
     :param label:
+    :param transform: distance tuple of (shank, column, row). shank distance could be a list of shank coordinates.
     :param kwargs: pass to ``ax.plot(kwargs)``
     """
     probe: ProbeType = cast_probe_type(probe)
-    s_step = probe.s_space / 1000
-    h_step = probe.c_space / 1000 * shank_width_scale
-    v_step = probe.r_space / 1000
+    if transform is None:
+        s_step = probe.s_space / 1000
+        h_step = probe.c_space / 1000 * shank_width_scale
+        v_step = probe.r_space / 1000
+    else:
+        s_step, h_step, v_step = transform
+        if s_step is None:
+            s_step = probe.s_space / 1000
+        if h_step is None:
+            h_step = probe.c_space / 1000 * shank_width_scale
+        if v_step is None:
+            v_step = probe.r_space / 1000
 
     data = cast_electrode_data(probe, electrode, electrode_unit)
     v_grid, h_grid = cast_electrode_grid(data > 0)
@@ -461,8 +472,9 @@ def plot_electrode_grid(ax: Axes,
         shank_list = list(range(s))
 
     for si, ss in enumerate(shank_list):
+        _s_step = float(s_step[ss]) if isinstance(s_step, (tuple, list, np.ndarray)) else si * float(s_step)
         cx = (
-            si * s_step - h_step / 2,  # base
+            _s_step - h_step / 2,  # base
             h_step,  # step
         )
 
