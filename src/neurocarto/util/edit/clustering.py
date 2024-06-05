@@ -52,6 +52,14 @@ class ClusteringEdges(NamedTuple):
                    tl: tuple[int, int] = None,
                    bl: tuple[int, int] = None,
                    br: tuple[int, int] = None) -> ClusteringEdges:
+        """
+
+        :param tr: top-right corner position in ``(dx,dy)``.
+        :param tl: top-left corner position. Default use ``(-dx,dy)``.
+        :param bl: bottom-right corner position. Default use ``(dx,-dy)``.
+        :param br: bottom-left corner position. Default use ``(-dx,-dy)``.
+        :return:
+        """
         if tl is None and bl is None and br is None:
             w, h = tr
             tl = -w, h
