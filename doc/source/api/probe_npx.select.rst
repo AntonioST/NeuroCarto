@@ -9,6 +9,7 @@ Implementations
 
     probe_npx.select_default
     probe_npx.select_weaker
+    probe_npx.select_random
 
 Functions
 ---------

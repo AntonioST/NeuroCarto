@@ -58,6 +58,7 @@ It is an internal package for providing functions to the :class:`~neurocarto.uti
     util.edit.category
     util.edit.moving
     util.edit.surrounding
+    util.edit.optimize
     util.edit.probe
     util.edit.plot
     util.edit.atlas
