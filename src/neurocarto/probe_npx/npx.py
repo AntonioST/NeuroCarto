@@ -302,25 +302,49 @@ class ChannelMap:
 
     @classmethod
     def parse(cls, source: str) -> Self:
-        """Parse imro table."""
+        """
+        Parse imro table.
+
+        :param source: an imro table.
+        :return:
+        """
         from .io import parse_imro
         return parse_imro(source)
 
     @classmethod
     def from_meta(cls, path: str | Path) -> Self:
-        """Read imro table from meta file."""
+        """
+        Read imro table from SpikeGLX meta file.
+
+        :param path: file path
+        :return:
+        """
         from .io import load_meta
         return load_meta(path)
 
     @classmethod
     def from_imro(cls, path: str | Path) -> Self:
-        """Read imro file."""
+        """
+        Read imro file.
+
+        :param path: file path
+        :return:
+        """
         from .io import load_imro
         return load_imro(path)
 
     @classmethod
     def from_probe(cls, probe: Probe) -> Self:
-        """From probeinterface.Probe"""
+        """
+        From probeinterface.Probe
+
+        **NOTE**
+
+        The package ``probeinterface`` is optional dependency.
+
+        :param probe:
+        :return:
+        """
         from .io import from_probe
         return from_probe(probe)
 
@@ -335,9 +359,33 @@ class ChannelMap:
         save_imro(self, path)
 
     def to_probe(self) -> Probe:
-        """to probeinterface.Probe"""
+        """
+        to probeinterface.Probe
+
+        **NOTE**
+
+        The package ``probeinterface`` is optional dependency.
+
+        :return:
+        """
         from .io import to_probe
         return to_probe(self)
+
+    def to_numpy(self, unit: Literal['cr', 'xy', 'sxy'] = 'cr') -> NDArray[np.int_]:
+        """
+        To a numpy array. Empty channels are skipped.
+
+        The layout of returned array is depending on the *unit*
+
+        * ``cr``: column and row, return ``Array[int, N, (S, C, R)]``
+        * ``xy``: x and y position, return ``Array[um:int, N, (X, Y)]``
+        * ``sxy``: x and y position with shank, return ``Array[int, N, (S, X, Y)]``
+
+        :param unit: electrode ordering kind
+        :return:
+        """
+        from .io import to_numpy
+        return to_numpy(self, unit)
 
     def to_pandas(self) -> pd.DataFrame:
         """
@@ -352,6 +400,10 @@ class ChannelMap:
             0           -1      -1   -1    False   -1    -1
             1            1       1  144     True  282  2160
             ...        ...     ...  ...      ...  ...   ...
+
+        **NOTE**
+
+        The package ``pandas`` is optional dependency.
 
         :return: a pandas dataframe
         """
@@ -373,6 +425,10 @@ class ChannelMap:
             │ 0       ┆ null  ┆ null   ┆ null ┆ false   ┆ null ┆ null │
             │ 1       ┆ 1     ┆ 1      ┆ 144  ┆ true    ┆ 282  ┆ 2160 │
             └─────────┴───────┴────────┴──────┴─────────┴──────┴──────┘
+
+        **NOTE**
+
+        The package ``polars`` is optional dependency.
 
         :return: a polars dataframe
         """

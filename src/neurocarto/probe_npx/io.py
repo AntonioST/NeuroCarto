@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import sys
+import textwrap
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Literal
 
+import numpy as np
+from numpy.typing import NDArray
+
+from neurocarto.util.utils import doc_link
 from .meta import NpxMeta
 from .npx import *
 
@@ -19,6 +24,7 @@ __all__ = [
     'load_imro',
     'save_imro',
     'from_probe',
+    'to_numpy',
     'to_probe',
     'to_pandas',
     'to_polars'
@@ -29,7 +35,12 @@ __all__ = [
 # imro table expression #
 # ===================== #
 
+@doc_link(DOC=textwrap.dedent(ChannelMap.parse.__doc__))
 def parse_imro(source: str) -> ChannelMap:
+    """
+    {DOC}
+    :see: {ChannelMap#parse()}
+    """
     source = source.strip()
     if not source.startswith('(') or not source.endswith(')'):
         raise RuntimeError('not imro format')
@@ -91,7 +102,12 @@ def parse_imro(source: str) -> ChannelMap:
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(ChannelMap.to_imro.__doc__))
 def string_imro(chmap: ChannelMap) -> str:
+    """
+    {DOC}
+    :see: {ChannelMap#to_imro()}
+    """
     if len(chmap) != chmap.n_channels:
         raise RuntimeError()
 
@@ -129,7 +145,12 @@ def string_imro(chmap: ChannelMap) -> str:
 # SpikeGLX imro/meta file #
 # ======================= #
 
+@doc_link(DOC=textwrap.dedent(ChannelMap.from_meta.__doc__))
 def load_meta(path: str | Path) -> ChannelMap:
+    """
+    {DOC}
+    :see: {ChannelMap#from_meta()}
+    """
     path = Path(path)
     if path.suffix != '.meta':
         raise IOError()
@@ -144,7 +165,12 @@ def load_meta(path: str | Path) -> ChannelMap:
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(ChannelMap.from_imro.__doc__))
 def load_imro(path: str | Path) -> ChannelMap:
+    """
+    {DOC}
+    :see: {ChannelMap#from_imro()}
+    """
     path = Path(path)
     if path.suffix != '.imro':
         raise IOError(f'unknown file format {path.suffix}')
@@ -161,7 +187,12 @@ def _load_meta(path: Path) -> dict[str, Any]:
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(ChannelMap.save_imro.__doc__))
 def save_imro(chmap: ChannelMap, path: str | Path):
+    """
+    {DOC}
+    :see: {ChannelMap#save_imro()}
+    """
     path = Path(path)
     if path.suffix != '.imro':
         raise IOError()
@@ -175,7 +206,12 @@ def save_imro(chmap: ChannelMap, path: str | Path):
 # probeinterface #
 # ============== #
 
+@doc_link(DOC=textwrap.dedent(ChannelMap.from_probe.__doc__))
 def from_probe(probe: Probe) -> ChannelMap:
+    """
+    {DOC}
+    :see: {ChannelMap#from_probe()}
+    """
     if probe.manufacturer != 'IMEC':
         raise RuntimeError('not a Neuropixels probe')
     if 'Neuropixels' not in probe.model_name:
@@ -200,31 +236,56 @@ def from_probe(probe: Probe) -> ChannelMap:
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(ChannelMap.to_probe.__doc__))
 def to_probe(chmap: ChannelMap) -> Probe:
+    """
+    {DOC}
+    :see: {ChannelMap#to_probe()}
+    """
     from probeinterface.io import _read_imro_string  # type: ignore[import]
     return _read_imro_string(string_imro(chmap))
 
+
+# ================ #
+# numpy electrodes #
+# ================ #
+
+@doc_link(DOC=textwrap.dedent(ChannelMap.to_numpy.__doc__))
+def to_numpy(chmap: ChannelMap, unit: Literal['cr', 'xy', 'sxy'] = 'cr') -> NDArray[np.int_]:
+    """
+    {DOC}
+    :see: {ChannelMap#to_numpy()}
+    """
+
+    match unit:
+        case 'cr':
+            def mapper(e: Electrode):
+                return e.shank, e.column, e.row
+        case 'xy':
+            from .npx import e2p
+
+            def mapper(e: Electrode):
+                x, y = e2p(chmap.probe_type, e)
+                return int(x), int(y)
+        case 'sxy':
+            def mapper(e: Electrode):
+                x, y = e2p(chmap.probe_type, e)
+                return e.shank, int(x), int(y)
+        case _:
+            raise ValueError(f'unsupported unit: {unit}')
+
+    return np.array([mapper(e) for e in chmap.electrodes])
 
 # ======================= #
 # pandas/polars dataframe #
 # ======================= #
 
+
+@doc_link(DOC=textwrap.dedent(ChannelMap.to_pandas.__doc__))
 def to_pandas(chmap: ChannelMap) -> pd.DataFrame:
     """
-    To a pandas dataframe.
-
-    Use ``-1`` to fill empty channels.
-
-    ::
-
-                 shank  column  row  in_used    x     y
-        channel
-        0           -1      -1   -1    False   -1    -1
-        1            1       1  144     True  282  2160
-        ...        ...     ...  ...      ...  ...   ...
-
-    :param chmap:
-    :return: a pandas dataframe
+    {DOC}
+    :see: {ChannelMap#to_pandas()}
     """
     import pandas as pd
 
@@ -243,25 +304,11 @@ def to_pandas(chmap: ChannelMap) -> pd.DataFrame:
     return ret
 
 
+@doc_link(DOC=textwrap.dedent(ChannelMap.to_polars.__doc__))
 def to_polars(chmap: ChannelMap) -> pl.DataFrame:
     """
-    To a polars dataframe.
-
-    Use ``null`` to fill empty channels.
-
-    ::
-
-        ┌─────────┬───────┬────────┬──────┬─────────┬──────┬──────┐
-        │ channel ┆ shank ┆ column ┆ row  ┆ in_used ┆ x    ┆ y    │
-        │ i64     ┆ i64?  ┆ i64?   ┆ i64? ┆ bool    ┆ i64? ┆ i64? │
-        ╞═════════╪═══════╪════════╪══════╪═════════╪══════╪══════╡
-        │ 0       ┆ null  ┆ null   ┆ null ┆ false   ┆ null ┆ null │
-        │ 1       ┆ 1     ┆ 1      ┆ 144  ┆ true    ┆ 282  ┆ 2160 │
-        └─────────┴───────┴────────┴──────┴─────────┴──────┴──────┘
-
-
-    :param chmap:
-    :return: a polars dataframe
+    {DOC}
+    :see: {ChannelMap#to_polars()}
     """
     import polars as pl
 
