@@ -342,16 +342,16 @@ class BlueprintFunctions(Generic[M, E]):
             raise RuntimeError('probe missing')
 
         ret = object.__new__(BlueprintFunctions)
-        ret.probe = self.probe  # type: ignore[misc]
-        ret.channelmap = channelmap  # type: ignore[misc]
-        ret.electrodes = self.electrodes  # type: ignore[misc]
-        ret.categories = self.categories  # type: ignore[misc]
+        ret.probe = self.probe
+        ret.channelmap = channelmap
+        ret.electrodes = self.electrodes
+        ret.categories = self.categories
 
-        ret.s = self.s  # type: ignore[misc]
-        ret.x = self.x  # type: ignore[misc]
-        ret.y = self.y  # type: ignore[misc]
-        ret.dx = self.dx  # type: ignore[misc]
-        ret.dy = self.dy  # type: ignore[misc]
+        ret.s = self.s
+        ret.x = self.x
+        ret.y = self.y
+        ret.dx = self.dx
+        ret.dy = self.dy
         ret._position_index = self._position_index
         ret._blueprint = self._blueprint.copy()
         ret._blueprint_changed = False
@@ -361,7 +361,7 @@ class BlueprintFunctions(Generic[M, E]):
         else:
             ret._controller = getattr(self, '_controller', None)
 
-        return ret  # type: ignore[return-value]
+        return ret
 
     # ==================== #
     # channelmap functions #

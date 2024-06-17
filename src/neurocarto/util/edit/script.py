@@ -174,7 +174,7 @@ class BlueprintScriptInfo(NamedTuple):
 
         script_file = get_import_file(module_path)
         time_stamp = None if script_file is None or not script_file.exists() else script_file.stat().st_mtime
-        return BlueprintScriptInfo(name, module_path, script_file, time_stamp, script)  # type: ignore[return-value]
+        return BlueprintScriptInfo(name, module_path, script_file, time_stamp, script)
 
     def check_changed(self) -> bool:
         """

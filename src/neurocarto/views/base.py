@@ -9,12 +9,11 @@ from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast, final,
 import numpy as np
 from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch, Div, tools
 from bokeh.plotting import figure as Figure
-from numpy.typing import NDArray
-
 from neurocarto.config import CartoConfig
 from neurocarto.util.bokeh_app import run_timeout, remove_timeout
 from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
+from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -513,7 +512,7 @@ class RecordStep(NamedTuple):
             record['category'],
             record['description'],
             record['record'],
-        )  # type: ignore[return-value]
+        )
 
 
 class RecordView(Generic[R], metaclass=abc.ABCMeta):
@@ -751,11 +750,11 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
     def get_boundary_state(self) -> BoundaryState:
         """Get current boundary parameters."""
         data = self.data_boundary.data
-        dx = float(data['x'][0])  # type: ignore
-        dy = float(data['y'][0])  # type: ignore
-        w = float(data['w'][0])  # type: ignore
-        h = float(data['h'][0])  # type: ignore
-        rt = float(data['r'][0])  # type: ignore
+        dx = float(data['x'][0])
+        dy = float(data['y'][0])
+        w = float(data['w'][0])
+        h = float(data['h'][0])
+        rt = float(data['r'][0])
         ow = self.width
         oh = self.height
 
@@ -888,7 +887,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         y = boundary['dy'] - h / 2
 
         if (rt := boundary['rt']) != 0:
-            from scipy.ndimage import rotate  # type: ignore[import]
+            from scipy.ndimage import rotate
             image = rotate(image, -rt, reshape=False)
 
         return dict(image=[image], dw=[w], dh=[h], x=[x], y=[y])

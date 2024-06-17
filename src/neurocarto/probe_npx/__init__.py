@@ -1,3 +1,3 @@
-from .desp import NpxProbeDesp, NpxElectrodeDesp
-from .npx import ChannelMap, Electrode, ProbeType, ChannelHasUsedError
+from .desp import *
+from .npx import *
 from .utils import *

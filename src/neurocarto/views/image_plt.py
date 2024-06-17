@@ -9,16 +9,15 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import ContextManager, overload, Literal, Any, TYPE_CHECKING, NamedTuple, TypedDict
 
-import matplotlib.pyplot as plt  # type: ignore[import]
+import matplotlib.pyplot as plt
 import numpy as np
 from bokeh.models import UIElement
-from numpy.typing import NDArray
-
 from neurocarto.config import CartoConfig
 from neurocarto.util.utils import doc_link
 from neurocarto.views.base import Figure, DynamicView, ViewBase, GlobalStateView
 from neurocarto.views.image import ImageView, ImageHandler
 from neurocarto.views.image_npy import NumpyImageHandler
+from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self

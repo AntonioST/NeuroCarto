@@ -13,7 +13,7 @@ __all__ = ['get_atlas_brain', 'BrainGlobeAtlas', 'REFERENCE']
 
 def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
                     check_latest=False) -> BrainGlobeAtlas:
-    from bg_atlasapi import BrainGlobeAtlas  # type: ignore[import]
+    from bg_atlasapi import BrainGlobeAtlas
 
     if isinstance(source, int):
         source = f"allen_mouse_{source}um"

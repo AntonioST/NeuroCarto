@@ -6,16 +6,16 @@ from pathlib import Path
 from typing import Any, TYPE_CHECKING, Literal
 
 import numpy as np
+from neurocarto.util.utils import doc_link
 from numpy.typing import NDArray
 
-from neurocarto.util.utils import doc_link
 from .meta import NpxMeta
 from .npx import *
 
 if TYPE_CHECKING:
-    import pandas as pd  # type: ignore[import]
-    import polars as pl  # type: ignore[import]
-    from probeinterface import Probe  # type: ignore[import]
+    import pandas as pd
+    import polars as pl
+    from probeinterface import Probe
 
 __all__ = [
     'parse_imro',
@@ -242,7 +242,7 @@ def to_probe(chmap: ChannelMap) -> Probe:
     {DOC}
     :see: {ChannelMap#to_probe()}
     """
-    from probeinterface.io import _read_imro_string  # type: ignore[import]
+    from probeinterface.io import _read_imro_string
     return _read_imro_string(string_imro(chmap))
 
 

@@ -8,7 +8,6 @@ from bokeh.events import MenuItemClick
 from bokeh.io import curdoc
 from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, TextAreaInput, UIElement
 from bokeh.themes import Theme
-
 from neurocarto.config import CartoConfig, parse_cli, setup_logger
 from neurocarto.probe import get_probe_desp, ProbeDesp, M
 from neurocarto.util.bokeh_app import BokehApplication, run_server, run_later
@@ -17,6 +16,7 @@ from neurocarto.util.debug import TimeMarker
 from neurocarto.util.utils import doc_link
 from neurocarto.views import *
 from neurocarto.views.record import RecordManager
+
 from . import files
 
 __all__ = ['CartoApp', 'main', 'CartoUserConfig']
@@ -151,7 +151,7 @@ class CartoApp(BokehApplication):
                     self.user_views_config[type(view).__name__] = state
 
         file = files.save_user_config(self.config, self.user_views_config)
-        self.logger.debug(f'save user config : %s', file)
+        self.logger.debug('save user config : %s', file)
 
     def get_editor_userconfig(self) -> CartoUserConfig:
         """
@@ -253,11 +253,11 @@ class CartoApp(BokehApplication):
             data = np.load(file)
         except FileNotFoundError as e:
             self.log_message(f'File not found : {file}')
-            self.logger.warning(f'blueprint file not found : %s', file, exc_info=e)
+            self.logger.warning('blueprint file not found : %s', file, exc_info=e)
             return False
         except BaseException as e:
             self.log_message(f'load blueprint fail : {file}')
-            self.logger.warning(f'load blueprint file fail : %s', file, exc_info=e)
+            self.logger.warning('load blueprint file fail : %s', file, exc_info=e)
             return False
         else:
             self.log_message(f'load blueprint : {file.name}')
@@ -614,7 +614,7 @@ class CartoApp(BokehApplication):
                 chmap = self.load_chmap(file)
         except FileNotFoundError as x:
             self.log_message(f'File not found : {file}')
-            self.logger.warning(f'channelmap file not found : %s', file, exc_info=x)
+            self.logger.warning('channelmap file not found : %s', file, exc_info=x)
             return
 
         self.output_imro.value_input = self._load_file_save_name(file)
@@ -682,10 +682,10 @@ class CartoApp(BokehApplication):
         self.logger.debug('on_save(%s)', name)
         chmap = self.probe_view.channelmap
         if chmap is None:
-            self.log_message(f'no channelmap')
+            self.log_message('no channelmap')
 
         elif not self.probe.is_valid(chmap):
-            self.log_message(f'incomplete channelmap')
+            self.log_message('incomplete channelmap')
             path = self.get_blueprint_file(name)
             if (code := self.probe.channelmap_code(chmap)) is not None:
                 path = path.with_name(path.name.replace('.blueprint', f'.{code}.blueprint'))

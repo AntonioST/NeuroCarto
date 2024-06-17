@@ -5,9 +5,6 @@ from typing import TypedDict, TYPE_CHECKING, Generator, ClassVar, Any, Protocol,
 
 import numpy as np
 from bokeh.models import Select, TextInput, Div, Button
-from numpy.typing import NDArray
-from typing_extensions import Required
-
 from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp, ElectrodeDesp, M, E
 from neurocarto.util.bokeh_app import run_later, run_timeout
@@ -18,6 +15,8 @@ from neurocarto.util.utils import doc_link
 from neurocarto.views import RecordStep
 from neurocarto.views.base import EditorView, GlobalStateView, ControllerView, RecordView
 from neurocarto.views.image_plt import PltImageView
+from numpy.typing import NDArray
+from typing_extensions import Required
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -251,7 +250,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
         clear = state.get('clear', False)
         actions = state.get('actions', {})
         if clear:
-            self.actions = actions  # type: ignore[assignment]
+            self.actions = actions
         else:
             self.actions.update(actions)
 
