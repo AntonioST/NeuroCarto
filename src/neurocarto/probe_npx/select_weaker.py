@@ -37,7 +37,7 @@ class Struct(NamedTuple):
     index: dict[K, int]
     categories: NDArray[np.int_]
     channels: NDArray[np.int_]
-    probability: NDArray[np.float_]
+    probability: NDArray[np.float64]
 
     @classmethod
     def new(cls, desp: NpxProbeDesp, chmap: ChannelMap):

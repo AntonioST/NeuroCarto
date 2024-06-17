@@ -86,7 +86,7 @@ def _same_index_d(d: NDArray[np.number]) -> NDArray[np.int_]:
     return np.unique(j)
 
 
-def closest_point_index(a: NDArray[np.float_], p: float | Sequence[float] | NDArray[np.float_], v: float) -> int | None:
+def closest_point_index(a: NDArray[np.float64], p: float | Sequence[float] | NDArray[np.float64], v: float) -> int | None:
     """
     Find the index of closed point in *a*.
 
@@ -170,11 +170,11 @@ def index_of(ref: NDArray[np.int_],
     return np.atleast_1d(idx)
 
 
-def interpolate_nan(a: NDArray[np.float_],
+def interpolate_nan(a: NDArray[np.float64],
                     kernel: int | tuple[int, int] = 1,
                     iteration: int = 1,
-                    f: str | Callable[[NDArray[np.float_]], float] = 'mean',
-                    n: float = np.nan) -> NDArray[np.float_]:
+                    f: str | Callable[[NDArray[np.float64]], float] = 'mean',
+                    n: float = np.nan) -> NDArray[np.float64]:
     """
     interpolate NaN value in *a*.
 
@@ -234,7 +234,7 @@ def interpolate_nan(a: NDArray[np.float_],
     return a
 
 
-def _interpolate_nan(a: NDArray[np.float_], gy: NDArray[np.int_], gx: NDArray[np.int_], f) -> bool:
+def _interpolate_nan(a: NDArray[np.float64], gy: NDArray[np.int_], gx: NDArray[np.int_], f) -> bool:
     y, x = a.shape
 
     jj, ii = np.nonzero(np.isnan(a))

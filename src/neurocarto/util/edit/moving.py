@@ -14,7 +14,7 @@ __all__ = [
 ]
 
 
-def contact_matrix(electrodes: list[ElectrodeDesp] | NDArray[np.complex_],
+def contact_matrix(electrodes: list[ElectrodeDesp] | NDArray[np.complex128],
                    step: float | tuple[float, float] = 1) -> NDArray[np.bool_]:
     """
     norm-1 contact matrix.
@@ -50,7 +50,7 @@ def contact_matrix(electrodes: list[ElectrodeDesp] | NDArray[np.complex_],
     return dx & dy
 
 
-def step_matrix(electrodes: list[ElectrodeDesp] | NDArray[np.complex_], dx: float = 0, dy: float = 0) -> NDArray[np.complex_]:
+def step_matrix(electrodes: list[ElectrodeDesp] | NDArray[np.complex128], dx: float = 0, dy: float = 0) -> NDArray[np.complex128]:
     """
     norm-1 stepping matrix.
 
@@ -67,7 +67,7 @@ def step_matrix(electrodes: list[ElectrodeDesp] | NDArray[np.complex_], dx: floa
         raise TypeError()
 
 
-def _step_matrix_electrodes(electrodes: list[ElectrodeDesp], dx: float = 0, dy: float = 0) -> NDArray[np.complex_]:
+def _step_matrix_electrodes(electrodes: list[ElectrodeDesp], dx: float = 0, dy: float = 0) -> NDArray[np.complex128]:
     s = np.array([it.s for it in electrodes], dtype=int)
     x = np.array([it.x for it in electrodes], dtype=int)
     y = np.array([it.y for it in electrodes], dtype=int)
@@ -87,7 +87,7 @@ def _step_matrix_electrodes(electrodes: list[ElectrodeDesp], dx: float = 0, dy: 
     return xx + yy * 1j
 
 
-def _step_matrix_matrix(electrodes: NDArray[np.complex_], dx: float = 0, dy: float = 0) -> NDArray[np.complex_]:
+def _step_matrix_matrix(electrodes: NDArray[np.complex128], dx: float = 0, dy: float = 0) -> NDArray[np.complex128]:
     xx = np.real(electrodes)
     yy = np.imag(electrodes)
 
@@ -103,7 +103,7 @@ def _step_matrix_matrix(electrodes: NDArray[np.complex_], dx: float = 0, dy: flo
     return xx / dx + yy / dy * 1j
 
 
-def distance_matrix(electrodes: list[ElectrodeDesp]) -> NDArray[np.complex_]:
+def distance_matrix(electrodes: list[ElectrodeDesp]) -> NDArray[np.complex128]:
     """
     norm-2 distance matrix.
 

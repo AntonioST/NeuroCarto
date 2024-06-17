@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 __all__ = ['BrainGlobeAtlas']
 
 JSON: TypeAlias = dict[str, Any]
-COORD: TypeAlias = tuple[float, float, float] | list[float] | NDArray[np.float_]
+COORD: TypeAlias = tuple[float, float, float] | list[float] | NDArray[np.float64]
 MESH: TypeAlias = Any
 ACRONYM: TypeAlias = str
 MESH: TypeAlias = Any  #

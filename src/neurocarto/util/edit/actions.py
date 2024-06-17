@@ -43,7 +43,7 @@ def set_status_line(controller: ControllerView, message: str, *, decay: float = 
 
 @doc_link()
 def draw(self: BlueprintFunctions, controller: ControllerView,
-         a: NDArray[np.float_] | None):
+         a: NDArray[np.float64] | None):
     """{BlueprintScriptView#on_data_update()}"""
     if a is not None and len(a) != len(self.s):
         raise ValueError('length mismatch')

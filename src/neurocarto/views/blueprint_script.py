@@ -78,7 +78,7 @@ class ProbePlotElectrodeProtocol(Protocol):
         """
 
     @doc_link()
-    def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: Any, data: NDArray[np.float_], **kwargs):
+    def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: Any, data: NDArray[np.float64], **kwargs):
         """
         plot electrode data along the probe.
 
@@ -273,7 +273,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
     cache_probe: ProbeDesp | None = None
     cache_chmap: Any | None = None
     cache_blueprint: list[ElectrodeDesp] | None = None
-    cache_data: NDArray[np.float_] | None = None
+    cache_data: NDArray[np.float64] | None = None
 
     def on_probe_update(self, probe, chmap, electrodes):
         update_select = (
@@ -332,7 +332,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
         except IndexError:
             self.script_select.value = ""
 
-    def on_data_update(self, probe: ProbeDesp, data: NDArray[np.float_] | None):
+    def on_data_update(self, probe: ProbeDesp, data: NDArray[np.float64] | None):
         if self.cache_probe is None:
             self.cache_probe = probe
 

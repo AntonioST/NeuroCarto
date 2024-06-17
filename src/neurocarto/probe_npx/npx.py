@@ -534,7 +534,7 @@ class ChannelMap:
     # =================== #
 
     @property
-    def channel_shank(self) -> NDArray[np.float_]:
+    def channel_shank(self) -> NDArray[np.float64]:
         """
 
         :return: Array[shank:int|NaN, C]
@@ -542,7 +542,7 @@ class ChannelMap:
         return np.array([it.shank if it is not None else np.nan for it in self.channels], dtype=float)
 
     @property
-    def channel_pos_x(self) -> NDArray[np.float_]:
+    def channel_pos_x(self) -> NDArray[np.float64]:
         """
 
         :return: Array[um:float, C]
@@ -550,7 +550,7 @@ class ChannelMap:
         return channel_coordinate(self, electrode_unit='xy')[:, 0]
 
     @property
-    def channel_pos_y(self) -> NDArray[np.float_]:
+    def channel_pos_y(self) -> NDArray[np.float64]:
         """
 
         :return: Array[um:float, C]
@@ -558,7 +558,7 @@ class ChannelMap:
         return channel_coordinate(self, electrode_unit='xy')[:, 1]
 
     @property
-    def channel_pos(self) -> NDArray[np.float_]:
+    def channel_pos(self) -> NDArray[np.float64]:
         """
 
         :return: Array[um:float, C, 2]
@@ -925,7 +925,7 @@ class Electrodes(Sized, Iterable[Electrode]):
 
 def channel_coordinate(shank_map: ChannelMap,
                        electrode_unit: ELECTRODE_UNIT = 'cr',
-                       include_unused=False) -> NDArray[np.float_]:
+                       include_unused=False) -> NDArray[np.float64]:
     """
     Get coordinate of all channels.
 
@@ -1031,7 +1031,7 @@ def e2p(probe_type: ProbeType, e: E) -> tuple[float, float]:
 
 
 @overload
-def e2p(probe_type: ProbeType, e: Es) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+def e2p(probe_type: ProbeType, e: Es) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     pass
 
 

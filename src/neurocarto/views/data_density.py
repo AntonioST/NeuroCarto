@@ -26,7 +26,7 @@ class ProbeElectrodeDensityProtocol(Protocol):
     {ProbeDesp} extension protocol for calculate electrode density distribution curve.
     """
 
-    def view_ext_electrode_density(self, chmap: Any) -> NDArray[np.float_]:
+    def view_ext_electrode_density(self, chmap: Any) -> NDArray[np.float64]:
         """
         Calculate electrode density along the probe.
 

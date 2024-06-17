@@ -257,7 +257,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         return [NpxReferenceControl]
 
     @doc_link()
-    def view_ext_electrode_density(self, chmap: ChannelMap) -> NDArray[np.float_]:
+    def view_ext_electrode_density(self, chmap: ChannelMap) -> NDArray[np.float64]:
         """
         Calculate electrode density along the probe.
 
@@ -380,7 +380,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         plot_electrode_block='neurocarto.probe_npx.plot.plot_electrode_block',
         plot_probe_shape='neurocarto.probe_npx.plot.plot_probe_shape',
     )
-    def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: ChannelMap, data: NDArray[np.float_], *,
+    def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: ChannelMap, data: NDArray[np.float64], *,
                                           probe_color: str | None = None,
                                           shank_width_scale=0.5,
                                           label_axis=False,

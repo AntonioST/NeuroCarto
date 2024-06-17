@@ -112,7 +112,7 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
     _cache_channelmap_code: int | None = None
     _cache_shank_space: list[tuple[float, float]] | None = None
 
-    def transform(self, data: NDArray[np.float_], height: float = 1, vmax: float = None) -> NDArray[np.float_]:
+    def transform(self, data: NDArray[np.float64], height: float = 1, vmax: float = None) -> NDArray[np.float64]:
         """
         normalize and transform 2D value array to 2D curve array.
 
@@ -189,14 +189,14 @@ class Data1DView(DataView, metaclass=abc.ABCMeta):
         self._cache_shank_space = shank_space
 
     @classmethod
-    def arr_to_dict(cls, data: NDArray[np.float_]) -> dict:
+    def arr_to_dict(cls, data: NDArray[np.float64]) -> dict:
         """
 
         :param data: Array[float, [S,], (x, y), Y]
         :return: dict(x=[array[x]], y=[array[y]])
         """
-        xx: list[NDArray[np.float_]]
-        yy: list[NDArray[np.float_]]
+        xx: list[NDArray[np.float64]]
+        yy: list[NDArray[np.float64]]
 
         if data.ndim == 2:  # ((x,y),Y)
             xx = [data[0]]

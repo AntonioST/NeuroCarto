@@ -1003,7 +1003,7 @@ class BlueprintFunctions(Generic[M, E]):
     # ==================== #
 
     @doc_link()
-    def load_data(self, file: str | Path) -> NDArray[np.float_]:
+    def load_data(self, file: str | Path) -> NDArray[np.float64]:
         """
         Load a data array.
 
@@ -1030,7 +1030,7 @@ class BlueprintFunctions(Generic[M, E]):
         return load_data(self, file)
 
     @doc_link()
-    def save_data(self, file: str | Path, data: NDArray[np.float_]):
+    def save_data(self, file: str | Path, data: NDArray[np.float64]):
         """
         Save a numpy data array.
 
@@ -1057,7 +1057,7 @@ class BlueprintFunctions(Generic[M, E]):
         from .edit.data import save_data
         return save_data(self, file, data)
 
-    def get_data(self, data: NDArray[np.float_], chmap: M) -> NDArray[np.float_]:
+    def get_data(self, data: NDArray[np.float64], chmap: M) -> NDArray[np.float64]:
         """
         Get the value of the used electrode (donated by *chmap*) from the *data*.
 
@@ -1067,7 +1067,7 @@ class BlueprintFunctions(Generic[M, E]):
         """
         return data[self.selected_electrodes(chmap)]
 
-    def put_data(self, data: NDArray[np.float_], chmap: M, value: NDArray[np.float_]) -> NDArray[np.float_]:
+    def put_data(self, data: NDArray[np.float64], chmap: M, value: NDArray[np.float64]) -> NDArray[np.float64]:
         """
         put the *value* of used electrodes from *chmap* into *data*.
 
@@ -1083,9 +1083,9 @@ class BlueprintFunctions(Generic[M, E]):
         interpolate_nan='neurocarto.util.util_numpy.interpolate_nan',
         plot_electrode_matrix='neurocarto.probe_npx.plot.plot_electrode_matrix',
     )
-    def interpolate_nan(self, a: NDArray[np.float_],
+    def interpolate_nan(self, a: NDArray[np.float64],
                         kernel: int | tuple[int, int] = 1,
-                        f: str | Callable[[NDArray[np.float_]], float] = 'mean') -> NDArray[np.float_]:
+                        f: str | Callable[[NDArray[np.float64]], float] = 'mean') -> NDArray[np.float64]:
         """
         Interpolate the NaN value in the data *a*.
 
@@ -1156,7 +1156,7 @@ class BlueprintFunctions(Generic[M, E]):
         return None
 
     @doc_link(BlueprintScriptView='neurocarto.views.blueprint_script.BlueprintScriptView')
-    def draw(self, a: NDArray[np.float_] | None):
+    def draw(self, a: NDArray[np.float64] | None):
         """
         Send a drawable data array *a*  to a {BlueprintScriptView}.
 
@@ -1563,8 +1563,8 @@ class BlueprintFunctions(Generic[M, E]):
 
     @doc_link()
     def atlas_coor_electrode(self, coor: ProbeCoordinate = None,
-                             electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float_] = None,
-                             bregma: str | None = 'bregma') -> NDArray[np.float_]:
+                             electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float64] = None,
+                             bregma: str | None = 'bregma') -> NDArray[np.float64]:
         """
         Transform electrode position to altas coordinate (AP,DV,ML) according the given probe coordinate.
 
@@ -1582,7 +1582,7 @@ class BlueprintFunctions(Generic[M, E]):
 
     @doc_link()
     def atlas_mask_region(self, region: str, coor: ProbeCoordinate = None,
-                          electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float_] = None) -> NDArray[np.bool_]:
+                          electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float64] = None) -> NDArray[np.bool_]:
         """
         Return a mask that electrode located in the given region.
 

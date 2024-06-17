@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 
-def npx_electrode_density(chmap: ChannelMap) -> NDArray[np.float_]:
+def npx_electrode_density(chmap: ChannelMap) -> NDArray[np.float64]:
     """
 
     :param chmap:
@@ -116,11 +116,11 @@ class ElectrodeProbability(NamedTuple):
     """summation matrix Array[count:int, S, C, R]"""
     complete: int
     """number of sample that get a complete result"""
-    channel_efficiency_: NDArray[np.float_]
+    channel_efficiency_: NDArray[np.float64]
     """collected channel_efficiency array."""
 
     @property
-    def probability(self) -> NDArray[np.float_]:
+    def probability(self) -> NDArray[np.float64]:
         """probability matrix Array[prob:float, S, C, R]"""
         return self.summation.astype(float) / self.sample_times
 
