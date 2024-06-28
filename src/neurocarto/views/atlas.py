@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import get_args, TypedDict, Final, NamedTuple
+from typing import get_args, TypedDict, Final, NamedTuple, TYPE_CHECKING
 
 import numpy as np
 from bokeh.events import DoubleTap
@@ -9,12 +9,15 @@ from numpy.typing import NDArray
 
 from neurocarto.config import CartoConfig
 from neurocarto.util import probe_coor
-from neurocarto.util.atlas_brain import BrainGlobeAtlas, get_atlas_brain, REFERENCE
+from neurocarto.util.atlas_brain import get_atlas_brain, REFERENCE
 from neurocarto.util.atlas_slice import SlicePlane, SLICE, SliceView
 from neurocarto.util.atlas_struct import Structures
 from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
 from neurocarto.util.util_numpy import closest_point_index
 from neurocarto.views.base import Figure, StateView, BoundView, BoundaryState
+
+if TYPE_CHECKING:
+    from brainglobe_atlasapi import BrainGlobeAtlas
 
 __all__ = ['AtlasBrainView', 'AtlasBrainViewState', 'Label']
 

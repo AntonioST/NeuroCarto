@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import NamedTuple, Iterator
+from typing import NamedTuple, Iterator, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
-from .atlas_brain import BrainGlobeAtlas
+if TYPE_CHECKING:
+    from brainglobe_atlasapi import BrainGlobeAtlas
 
 __all__ = ['Structures', 'Structure']
 

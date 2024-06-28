@@ -1,5 +1,5 @@
 probeinterface
-bg-atlasapi
+brainglobe-atlasapi
 Pillow
 tifffile
 pandas
