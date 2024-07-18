@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
+
 from neurocarto.probe_npx import NpxProbeDesp, utils
 from neurocarto.util.edit.checking import use_probe, use_view
 from neurocarto.util.util_blueprint import BlueprintFunctions
@@ -411,13 +412,13 @@ def adjust_atlas_mouse_brain_to_probe_coordinate(bp: BlueprintFunctions,
 @use_view('AtlasBrainView')
 def highlight_electrode_inside_region(bp: BlueprintFunctions,
                                       region: str,
-                                      mode: Literal['replace', 'append', 'exclude'] = 'replace'):
+                                      mode: Literal['r', 'replace', 'a', 'append', 'x', 'exclude'] = 'replace'):
     """
     Capture electrodes inside a region.
 
     :param bp:
     :param region: (str) region ID, acronym or its partial description
-    :param mode: (one of 'replace', 'append' or 'exclude') capture mode
+    :param mode: (one of 'r' ('replace'), 'a' ('append') or 'x' ('exclude')) capture mode
     """
     if (region := bp.atlas_get_region_name(name := region)) is None:
         bp.log_message(f'region "{name}" not found')

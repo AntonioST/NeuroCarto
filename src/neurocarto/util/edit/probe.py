@@ -4,11 +4,12 @@ import textwrap
 from typing import Any, Literal
 
 import numpy as np
+from numpy.typing import NDArray
+
 from neurocarto.probe import ProbeDesp, ElectrodeDesp, M
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import SPHINX_BUILD, doc_link
 from neurocarto.views.base import ControllerView
-from numpy.typing import NDArray
 
 if SPHINX_BUILD:
     ProbeView = 'neurocarto.views.probe.ProbeView'
@@ -40,7 +41,7 @@ def new_channelmap(controller: ControllerView, code: int | str) -> Any:
 def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
                       index: NDArray[np.int_] | NDArray[np.bool_],
                       state: list[int] = None,
-                      mode: Literal['replace', 'append', 'exclude'] = 'replace'):
+                      mode: Literal['r', 'replace', 'a', 'append', 'x', 'exclude'] = 'replace'):
     """
     {DOC}
     :see: {BlueprintFunctions#capture_electrode()}
@@ -50,11 +51,11 @@ def capture_electrode(self: BlueprintFunctions, controller: ControllerView,
     previous = set([int(it) for it in captured_electrodes(controller, all=True)])
 
     match mode:
-        case 'replace':
+        case 'r' | 'replace':
             pass
-        case 'append':
+        case 'a' | 'append':
             captured.update(previous)
-        case 'exclude':
+        case 'x' | 'exclude':
             captured = previous.difference(captured)
         case _:
             raise ValueError(f'unknown mode "{mode}"')

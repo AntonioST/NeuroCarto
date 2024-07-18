@@ -7,11 +7,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, overload, Generic, Final, Any, Literal
 
 import numpy as np
+from numpy.typing import NDArray
+
 from neurocarto.probe import ProbeDesp, M, E, get_probe_desp
 from neurocarto.util.edit.checking import use_probe, use_view
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
 from neurocarto.views.base import ControllerView, V
-from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -1280,7 +1281,7 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link()
     def capture_electrode(self, index: NDArray[np.int_] | NDArray[np.bool_],
                           state: list[int] = None,
-                          mode: Literal['replace', 'append', 'exclude'] = 'replace'):
+                          mode: Literal['r', 'replace', 'a', 'append', 'x', 'exclude'] = 'replace'):
         """
         Capture electrodes.
 
