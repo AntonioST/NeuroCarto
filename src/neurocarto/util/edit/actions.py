@@ -5,11 +5,10 @@ import textwrap
 from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
-
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import SPHINX_BUILD, doc_link
 from neurocarto.views.base import ViewBase, ControllerView
+from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from neurocarto.views.blueprint_script import BlueprintScriptView
@@ -44,13 +43,13 @@ def set_status_line(controller: ControllerView, message: str, *, decay: float = 
 
 @doc_link()
 def draw(self: BlueprintFunctions, controller: ControllerView,
-         a: NDArray[np.float_] | None):
+         a: NDArray[np.float64] | None):
     """{BlueprintScriptView#on_data_update()}"""
     if a is not None and len(a) != len(self.s):
         raise ValueError('length mismatch')
 
     edit: BlueprintScriptView
-    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
+    if (edit := controller.get_view('BlueprintScriptView')) is None:
         return
 
     edit.on_data_update(self.probe, a)
@@ -62,7 +61,7 @@ def has_script(controller: ControllerView, script: str) -> bool:
     {DOC}
     """
     edit: BlueprintScriptView
-    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
+    if (edit := controller.get_view('BlueprintScriptView')) is None:
         return False
 
     try:
@@ -77,7 +76,7 @@ def has_script(controller: ControllerView, script: str) -> bool:
 def call_script(self: BlueprintFunctions, controller: ControllerView, script: str, /, *args, **kwargs):
     """{BlueprintScriptView#run_script()}"""
     edit: BlueprintScriptView
-    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
+    if (edit := controller.get_view('BlueprintScriptView')) is None:
         return
 
     info = edit.get_script(script)
@@ -100,7 +99,7 @@ def call_script(self: BlueprintFunctions, controller: ControllerView, script: st
 def interrupt_script(controller: ControllerView, script: str) -> bool:
     """{BlueprintScriptView#interrupt_script()}"""
     edit: BlueprintScriptView
-    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
+    if (edit := controller.get_view('BlueprintScriptView')) is None:
         return False
 
     try:
@@ -113,7 +112,7 @@ def interrupt_script(controller: ControllerView, script: str) -> bool:
 
 def set_script_input(controller: ControllerView, script: str | None, *text: str | None):
     edit: BlueprintScriptView
-    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
+    if (edit := controller.get_view('BlueprintScriptView')) is None:
         return False
 
     if script is None:

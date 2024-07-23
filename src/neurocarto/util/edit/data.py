@@ -21,7 +21,7 @@ __all__ = [
 
 
 @doc_link(DOC=textwrap.dedent(BlueprintFunctions.load_data.__doc__))
-def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float_]:
+def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float64]:
     """
     {DOC}
     :see: {BlueprintFunctions#load_data()}
@@ -43,7 +43,7 @@ def load_data(self: BlueprintFunctions, file: str | Path) -> NDArray[np.float_]:
 
 
 @doc_link(DOC=textwrap.dedent(BlueprintFunctions.save_data.__doc__))
-def save_data(self: BlueprintFunctions, file: str | Path, value: NDArray[np.float_]):
+def save_data(self: BlueprintFunctions, file: str | Path, value: NDArray[np.float64]):
     """
     {DOC}
     :see: {BlueprintFunctions#save_data()}
@@ -68,7 +68,7 @@ def load_date_from_blueprint_file(self: BlueprintFunctions, file: str | Path):
     return np.array([it.category for it in e], dtype=float)
 
 
-def save_data_into_blueprint_file(self: BlueprintFunctions, file: str | Path, value: NDArray[np.float_]):
+def save_data_into_blueprint_file(self: BlueprintFunctions, file: str | Path, value: NDArray[np.float64]):
     electrodes = self.apply_blueprint(blueprint=value.astype(int))
     np.save(file, self.probe.save_blueprint(electrodes))
 
@@ -76,7 +76,7 @@ def save_data_into_blueprint_file(self: BlueprintFunctions, file: str | Path, va
 @doc_link()
 def load_csv_data(self: BlueprintFunctions, file: str | Path, *,
                   comments: str = '#',
-                  delimiter: str = ',') -> NDArray[np.float_]:
+                  delimiter: str = ',') -> NDArray[np.float64]:
     """
     Load electrode data array from a csv file.
 
@@ -122,7 +122,7 @@ def load_csv_data(self: BlueprintFunctions, file: str | Path, *,
 
 
 @doc_link()
-def save_csv_data(self: BlueprintFunctions, file: str | Path, data: NDArray[np.float_], *,
+def save_csv_data(self: BlueprintFunctions, file: str | Path, data: NDArray[np.float64], *,
                   comments: str = '#',
                   delimiter: str = ','):
     """
@@ -154,9 +154,9 @@ def save_csv_data(self: BlueprintFunctions, file: str | Path, data: NDArray[np.f
 
 @doc_link(DOC=textwrap.dedent(BlueprintFunctions.interpolate_nan.__doc__))
 def interpolate_nan(self: BlueprintFunctions,
-                    a: NDArray[np.float_],
+                    a: NDArray[np.float64],
                     kernel: int | tuple[int, int] = 1,
-                    f: str | Callable[[NDArray[np.float_]], float] = 'mean') -> NDArray[np.float_]:
+                    f: str | Callable[[NDArray[np.float64]], float] = 'mean') -> NDArray[np.float64]:
     """
     {DOC}
     :see: {BlueprintFunctions#interpolate_nan()}

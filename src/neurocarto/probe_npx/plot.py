@@ -56,8 +56,8 @@ def cast_probe_type(probe: PROBE_TYPE) -> ProbeType:
 
 
 def cast_electrode_data(probe: PROBE_TYPE,
-                        electrode: NDArray[np.float_],
-                        electrode_unit: ELECTRODE_UNIT | Literal['crv', 'xyv']) -> NDArray[np.float_]:
+                        electrode: NDArray[np.float64],
+                        electrode_unit: ELECTRODE_UNIT | Literal['crv', 'xyv']) -> NDArray[np.float64]:
     """
     **Data shape and units**
 
@@ -283,7 +283,7 @@ def plot_channelmap_block(ax: Axes,
 @doc_link(DOC=textwrap.dedent(cast_electrode_data.__doc__))
 def plot_electrode_block(ax: Axes,
                          probe: PROBE_TYPE,
-                         electrode: NDArray[np.float_],
+                         electrode: NDArray[np.float64],
                          electrode_unit: ELECTRODE_UNIT | Literal['crv', 'xyv'] = 'cr', *,
                          height: float | None = 10,
                          shank_list: list[int] = None,
@@ -438,7 +438,7 @@ def plot_electrode_grid(ax: Axes,
                         shank_width_scale: float = 1,
                         color: str = 'g',
                         label: str = None,
-                        transform: tuple[float | list[float] | NDArray[np.float_] | None, float | None, float | None] = None,
+                        transform: tuple[float | list[float] | NDArray[np.float64] | None, float | None, float | None] = None,
                         **kwargs):
     """
     Plot each electrode in grid rectangles.
@@ -512,9 +512,9 @@ def plot_electrode_grid(ax: Axes,
 @doc_link(interpolate_nan='neurocarto.util.util_numpy.interpolate_nan')
 def plot_channelmap_matrix(ax: Axes,
                            chmap: ChannelMap,
-                           data: NDArray[np.float_], *,
+                           data: NDArray[np.float64], *,
                            shank_list: list[int] = None,
-                           kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]] | None = None,
+                           kernel: int | tuple[int, int] | Callable[[NDArray[np.float64]], NDArray[np.float64]] | None = None,
                            cmap='magma',
                            shank_gap_color: str | None = 'w',
                            **kwargs) -> ScalarMappable:
@@ -559,10 +559,10 @@ def plot_channelmap_matrix(ax: Axes,
 )
 def plot_electrode_matrix(ax: Axes,
                           probe: PROBE_TYPE,
-                          electrode: NDArray[np.float_],
+                          electrode: NDArray[np.float64],
                           electrode_unit: ELECTRODE_UNIT = 'cr', *,
                           shank_list: list[int] = None,
-                          kernel: int | tuple[int, int] | Callable[[NDArray[np.float_]], NDArray[np.float_]] | None = None,
+                          kernel: int | tuple[int, int] | Callable[[NDArray[np.float64]], NDArray[np.float64]] | None = None,
                           cmap='magma',
                           shank_gap_color: str | None = 'w',
                           **kwargs) -> ScalarMappable:
@@ -626,9 +626,9 @@ def plot_electrode_matrix(ax: Axes,
     DOC=textwrap.dedent(cast_electrode_data.__doc__)
 )
 def cast_electrode_curve(probe: PROBE_TYPE,
-                         electrode: NDArray[np.float_],
+                         electrode: NDArray[np.float64],
                          electrode_unit: ELECTRODE_UNIT = 'cr', *,
-                         kernel: int | NDArray[np.float_] | Literal['norm'] = None) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+                         kernel: int | NDArray[np.float64] | Literal['norm'] = None) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     smooth electrode data into 1d value data per shank.
 
@@ -681,9 +681,9 @@ def cast_electrode_curve(probe: PROBE_TYPE,
 )
 def plot_electrode_curve(ax: Axes,
                          probe: PROBE_TYPE,
-                         electrode: NDArray[np.float_],
+                         electrode: NDArray[np.float64],
                          electrode_unit: ELECTRODE_UNIT = 'cr', *,
-                         kernel: int | NDArray[np.float_] | Literal['norm'] = None,
+                         kernel: int | NDArray[np.float64] | Literal['norm'] = None,
                          shank_list: list[int] = None,
                          height: float | None = None,
                          direction: Literal['left', 'right'] = 'right',

@@ -600,7 +600,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link(
         distance_matrix='neurocarto.util.edit.moving.distance_matrix'
     )
-    def electrode_distance_matrix(self, chmap: int | M) -> NDArray[np.float_]:
+    def electrode_distance_matrix(self, chmap: int | M) -> NDArray[np.float64]:
         """
         Get distance matrix.
 

@@ -5,9 +5,6 @@ from typing import TypedDict, TYPE_CHECKING, Generator, ClassVar, Any, Protocol,
 
 import numpy as np
 from bokeh.models import Select, TextInput, Div, Button
-from numpy.typing import NDArray
-from typing_extensions import Required
-
 from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp, ElectrodeDesp, M, E
 from neurocarto.util.bokeh_app import run_later, run_timeout
@@ -18,6 +15,8 @@ from neurocarto.util.utils import doc_link
 from neurocarto.views import RecordStep
 from neurocarto.views.base import EditorView, GlobalStateView, ControllerView, RecordView
 from neurocarto.views.image_plt import PltImageView
+from numpy.typing import NDArray
+from typing_extensions import Required
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -79,7 +78,7 @@ class ProbePlotElectrodeProtocol(Protocol):
         """
 
     @doc_link()
-    def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: Any, data: NDArray[np.float_], **kwargs):
+    def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: Any, data: NDArray[np.float64], **kwargs):
         """
         plot electrode data along the probe.
 
@@ -251,7 +250,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
         clear = state.get('clear', False)
         actions = state.get('actions', {})
         if clear:
-            self.actions = actions  # type: ignore[assignment]
+            self.actions = actions
         else:
             self.actions.update(actions)
 
@@ -274,7 +273,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
     cache_probe: ProbeDesp | None = None
     cache_chmap: Any | None = None
     cache_blueprint: list[ElectrodeDesp] | None = None
-    cache_data: NDArray[np.float_] | None = None
+    cache_data: NDArray[np.float64] | None = None
 
     def on_probe_update(self, probe, chmap, electrodes):
         update_select = (
@@ -333,7 +332,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
         except IndexError:
             self.script_select.value = ""
 
-    def on_data_update(self, probe: ProbeDesp, data: NDArray[np.float_] | None):
+    def on_data_update(self, probe: ProbeDesp, data: NDArray[np.float64] | None):
         if self.cache_probe is None:
             self.cache_probe = probe
 

@@ -4,11 +4,10 @@ import inspect
 import textwrap
 from typing import TYPE_CHECKING
 
-from numpy.typing import NDArray
-
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import SPHINX_BUILD, doc_link
 from neurocarto.views.base import ControllerView
+from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from neurocarto.views.blueprint_script import BlueprintScriptView
@@ -64,7 +63,7 @@ def profile_script(self: BlueprintFunctions, controller: ControllerView, script:
     """
 
     edit: BlueprintScriptView
-    if (edit := controller.get_view('BlueprintScriptView')) is None:  # type: ignore[assignment]
+    if (edit := controller.get_view('BlueprintScriptView')) is None:
         return
 
     from neurocarto.util.debug import Profiler

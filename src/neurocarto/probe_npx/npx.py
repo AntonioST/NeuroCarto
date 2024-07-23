@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any, NamedTuple, Final, Literal, overload, cast, TYPE_CHECKING
 
 import numpy as np
+from neurocarto.util.utils import all_int, as_set, align_arr, doc_link
 from numpy.typing import NDArray
 
-from neurocarto.util.utils import all_int, as_set, align_arr, doc_link
 from .meta import NpxMeta
 
 if sys.version_info >= (3, 11):
@@ -18,9 +18,9 @@ else:
     from typing_extensions import Self
 
 if TYPE_CHECKING:
-    import pandas as pd  # type: ignore[import]
-    import polars as pl  # type: ignore[import]
-    from probeinterface import Probe  # type: ignore[import]
+    import pandas as pd
+    import polars as pl
+    from probeinterface import Probe
     from .plot import ELECTRODE_UNIT
 
 __all__ = [
@@ -534,7 +534,7 @@ class ChannelMap:
     # =================== #
 
     @property
-    def channel_shank(self) -> NDArray[np.float_]:
+    def channel_shank(self) -> NDArray[np.float64]:
         """
 
         :return: Array[shank:int|NaN, C]
@@ -542,7 +542,7 @@ class ChannelMap:
         return np.array([it.shank if it is not None else np.nan for it in self.channels], dtype=float)
 
     @property
-    def channel_pos_x(self) -> NDArray[np.float_]:
+    def channel_pos_x(self) -> NDArray[np.float64]:
         """
 
         :return: Array[um:float, C]
@@ -550,7 +550,7 @@ class ChannelMap:
         return channel_coordinate(self, electrode_unit='xy')[:, 0]
 
     @property
-    def channel_pos_y(self) -> NDArray[np.float_]:
+    def channel_pos_y(self) -> NDArray[np.float64]:
         """
 
         :return: Array[um:float, C]
@@ -558,7 +558,7 @@ class ChannelMap:
         return channel_coordinate(self, electrode_unit='xy')[:, 1]
 
     @property
-    def channel_pos(self) -> NDArray[np.float_]:
+    def channel_pos(self) -> NDArray[np.float64]:
         """
 
         :return: Array[um:float, C, 2]
@@ -873,7 +873,7 @@ class Electrodes(Sized, Iterable[Electrode]):
                     if e is not None:
                         e.copy(value)
                 return [e for e in self._electrodes if e is not None]
-            case (shank, column, row) if all_int(shank, column, row):  # type: ignore
+            case (shank, column, row) if all_int(shank, column, row):
                 for e in self._electrodes:
                     if e is not None and e.shank == shank and e.column == column and e.row == row:
                         e.copy(value)
@@ -925,7 +925,7 @@ class Electrodes(Sized, Iterable[Electrode]):
 
 def channel_coordinate(shank_map: ChannelMap,
                        electrode_unit: ELECTRODE_UNIT = 'cr',
-                       include_unused=False) -> NDArray[np.float_]:
+                       include_unused=False) -> NDArray[np.float64]:
     """
     Get coordinate of all channels.
 
@@ -1031,7 +1031,7 @@ def e2p(probe_type: ProbeType, e: E) -> tuple[float, float]:
 
 
 @overload
-def e2p(probe_type: ProbeType, e: Es) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+def e2p(probe_type: ProbeType, e: Es) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     pass
 
 
@@ -1091,9 +1091,9 @@ def e2cr(probe_type: ProbeType, e):
     match e:
         case e if all_int(e):
             e = int(e)
-        case (s, e) if all_int(s, e):  # type: ignore
+        case (s, e) if all_int(s, e):
             e = int(e)
-        case (s, c, r) if all_int(s, c, r):  # type: ignore
+        case (s, c, r) if all_int(s, c, r):
             return int(c), int(r)
         case Electrode(column=c, row=r):
             return c, r
@@ -1139,10 +1139,10 @@ def cr2e(probe_type: ProbeType, p):
             pass
         case e if all_int(e):
             return int(e)
-        case (c, r) if all_int(c, r):  # type: ignore
+        case (c, r) if all_int(c, r):
             c = int(c)
             r = int(r)
-        case (s, c, r) if all_int(s, c, r):  # type: ignore
+        case (s, c, r) if all_int(s, c, r):
             c = int(c)
             r = int(r)
         case Electrode(column=c, row=r):

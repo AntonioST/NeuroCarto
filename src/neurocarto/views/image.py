@@ -8,12 +8,11 @@ from typing import TypedDict, Final
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement
-from numpy.typing import NDArray
-
 from neurocarto.config import CartoConfig
 from neurocarto.util.bokeh_app import run_later
 from neurocarto.util.bokeh_util import SliderFactory, is_recursive_called, PathAutocompleteInput, new_help_button
 from neurocarto.views.base import Figure, BoundView, StateView, BoundaryState
+from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -87,7 +86,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
 
         from .image_npy import NumpyImageHandler
         logger.debug('from numpy %s', image.shape)
-        return NumpyImageHandler(image, filename)  # type: ignore[return-value]
+        return NumpyImageHandler(image, filename)
 
     @classmethod
     def from_file(cls, filename: str | Path) -> Self:
@@ -97,7 +96,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         :return:
         """
         logger = logging.getLogger('neurocarto.image')
-        from PIL import Image  # type: ignore[import]
+        from PIL import Image
         from .image_npy import NumpyImageHandler
 
         filename = str(filename)
@@ -110,7 +109,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         image = np.flipud(image.view(dtype=np.uint32).reshape((w, h)))
 
         logger.debug('as image %s', image.shape)
-        return NumpyImageHandler(image, filename)  # type: ignore[return-value]
+        return NumpyImageHandler(image, filename)
 
     @classmethod
     def from_tiff(cls, filename: str | Path) -> Self:
@@ -123,7 +122,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         image = tifffile.TiffFile(filename, mode='r').asarray()  # TODO memmap?
 
         logger.debug('as image %s', image.shape)
-        return NumpyImageHandler(image, filename)  # type: ignore[return-value]
+        return NumpyImageHandler(image, filename)
 
 
 class ImageView(BoundView, metaclass=abc.ABCMeta):
@@ -162,14 +161,14 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
     @property
     def width(self) -> float:
         try:
-            return self._image.width  # type: ignore
+            return self._image.width
         except (TypeError, AttributeError):
             return 0
 
     @property
     def height(self) -> float:
         try:
-            return self._image.height  # type: ignore
+            return self._image.height
         except (TypeError, AttributeError):
             return 0
 

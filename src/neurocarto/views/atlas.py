@@ -5,8 +5,6 @@ from typing import get_args, TypedDict, Final, NamedTuple, TYPE_CHECKING
 import numpy as np
 from bokeh.events import DoubleTap
 from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div, CheckboxGroup, tools, Range
-from numpy.typing import NDArray
-
 from neurocarto.config import CartoConfig
 from neurocarto.util import probe_coor
 from neurocarto.util.atlas_brain import get_atlas_brain, REFERENCE
@@ -15,6 +13,7 @@ from neurocarto.util.atlas_struct import Structures
 from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
 from neurocarto.util.util_numpy import closest_point_index
 from neurocarto.views.base import Figure, StateView, BoundView, BoundaryState
+from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from brainglobe_atlasapi import BrainGlobeAtlas
@@ -131,14 +130,14 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     @property
     def width(self) -> float:
         try:
-            return self._brain_slice.width  # type: ignore[union-attr]
+            return self._brain_slice.width
         except (TypeError, AttributeError):
             return 0
 
     @property
     def height(self) -> float:
         try:
-            return self._brain_slice.height  # type: ignore[union-attr]
+            return self._brain_slice.height
         except (TypeError, AttributeError):
             return 0
 
@@ -177,8 +176,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                       palette_region: str = 'Turbo256',
                       boundary_color: str = 'black',
                       **kwargs):
-        self._figure_x_range = f.x_range  # type: ignore[assignment]
-        self._figure_y_range = f.y_range  # type: ignore[assignment]
+        self._figure_x_range = f.x_range
+        self._figure_y_range = f.y_range
 
         self.render_brain = f.image(
             'image', x='x', y='y', dw='dw', dh='dh', source=self.data_brain,

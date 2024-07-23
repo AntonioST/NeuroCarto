@@ -249,7 +249,7 @@ class ProbeView(Generic[M, E], ViewBase, RecordView[ProbeViewAction]):
             case list():
                 ret = [electrodes[it] for it in s]
             case _ if isinstance(s, ColumnDataSource):
-                ret = [electrodes[it] for it in s.data['e']]  # type: ignore
+                ret = [electrodes[it] for it in s.data['e']]
             case _:
                 raise TypeError()
 

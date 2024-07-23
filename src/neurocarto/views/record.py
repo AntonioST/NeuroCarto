@@ -8,13 +8,13 @@ from typing import NamedTuple, TYPE_CHECKING
 
 import numpy as np
 from bokeh.models import DataTable, ColumnDataSource, TableColumn, TextInput, Div, CDSView, CustomJS, Toggle, Button, AutocompleteInput
-from numpy.typing import NDArray
-
 from neurocarto.config import CartoConfig, parse_cli
 from neurocarto.files import user_cache_file
 from neurocarto.util.bokeh_app import run_later
 from neurocarto.util.bokeh_util import ButtonFactory, as_callback, is_recursive_called
 from neurocarto.util.utils import doc_link
+from numpy.typing import NDArray
+
 from .base import RecordStep, RecordView, R, ViewBase, ControllerView, InvisibleView
 
 if TYPE_CHECKING:
@@ -508,11 +508,11 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
             selectors.append(filters.BooleanFilter(booleans=list(booleans)))
 
         if len(selectors) == 0:
-            self.history_step_view.filter = filters.AllIndices()  # type: ignore[assignment]
+            self.history_step_view.filter = filters.AllIndices()
         elif len(selectors) == 1:
             self.history_step_view.filter = selectors[0]
         else:
-            self.history_step_view.filter = filters.IntersectionFilter(operands=selectors)  # type: ignore[assignment]
+            self.history_step_view.filter = filters.IntersectionFilter(operands=selectors)
 
     def _on_filter_category(self, column: str, value: str):
         from bokeh.models import filters

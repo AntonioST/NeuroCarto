@@ -336,8 +336,8 @@ def atlas_set_anchor_on_probe(bp: BlueprintFunctions,
 def atlas_coor_electrode(bp: BlueprintFunctions,
                          controller: ControllerView | AtlasBrainView,
                          coor: probe_coor.ProbeCoordinate = None,
-                         electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float_] = None,
-                         bregma: str | None = 'bregma') -> NDArray[np.float_]:
+                         electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float64] = None,
+                         bregma: str | None = 'bregma') -> NDArray[np.float64]:
     """
     {DOC}
     :see: {BlueprintFunctions#atlas_coor_electrode()}
@@ -366,7 +366,7 @@ def atlas_mask_region(bp: BlueprintFunctions,
                       controller: ControllerView | AtlasBrainView,
                       region: str,
                       coor: probe_coor.ProbeCoordinate = None,
-                      electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float_] = None) -> NDArray[np.bool_]:
+                      electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float64] = None) -> NDArray[np.bool_]:
     """
     {DOC}
     :see: {BlueprintFunctions#atlas_mask_region()}
@@ -398,7 +398,7 @@ def atlas_mask_region(bp: BlueprintFunctions,
 
 
 def _electrode_coor(bp: BlueprintFunctions,
-                    electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float_] = None) -> NDArray[np.float_]:
+                    electrode: NDArray[np.int_] | NDArray[np.bool_] | NDArray[np.float64] = None) -> NDArray[np.float64]:
     """
 
     :param bp:

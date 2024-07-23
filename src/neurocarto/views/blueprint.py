@@ -4,13 +4,12 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Div, CheckboxGroup, UIElement
-from numpy.typing import NDArray
-
 from neurocarto.config import parse_cli, CartoConfig
 from neurocarto.util.bokeh_util import as_callback
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
 from neurocarto.views.base import Figure, ViewBase, InvisibleView, DynamicView
+from numpy.typing import NDArray
 
 if SPHINX_BUILD:
     ProbeDesp = 'neurocarto.probe.ProbeDesp'
@@ -247,7 +246,7 @@ class BlueprintView(ViewBase, InvisibleView, DynamicView):
         for edge in edges:
             i = categories.index(edge.category)
 
-            xs[i].append([edge.x + offset])  # type: ignore[operator]
+            xs[i].append([edge.x + offset])
             ys[i].append([edge.y])
 
         self.data_blueprint.data = dict(xs=xs, ys=ys, c=colors)

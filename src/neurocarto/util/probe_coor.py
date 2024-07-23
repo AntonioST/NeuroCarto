@@ -101,7 +101,7 @@ def get_plane_at(view: SliceView, pc: ProbeCoordinate) -> SlicePlane:
     return view.plane_at((pc.x, pc.y, pc.z), um=True).with_offset(dw, dh)
 
 
-def prepare_affine_matrix(dx: float, dy: float, sx: float, sy: float, rt: float) -> NDArray[np.float_]:
+def prepare_affine_matrix(dx: float, dy: float, sx: float, sy: float, rt: float) -> NDArray[np.float64]:
     r"""
 
     :param dx: x-axis offset
@@ -134,7 +134,7 @@ def prepare_affine_matrix(dx: float, dy: float, sx: float, sy: float, rt: float)
     return td @ ts @ tr
 
 
-def prepare_affine_matrix_both(dx: float, dy: float, sx: float, sy: float, rt: float) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+def prepare_affine_matrix_both(dx: float, dy: float, sx: float, sy: float, rt: float) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     r"""
 
     :param dx: x-axis offset
@@ -181,7 +181,7 @@ def prepare_affine_matrix_both(dx: float, dy: float, sx: float, sy: float, rt: f
     return td @ ts @ tr, tr_ @ ts_ @ td_
 
 
-def project(a: NDArray[np.float_], p: NDArray[np.float_]) -> NDArray[np.float_]:
+def project(a: NDArray[np.float64], p: NDArray[np.float64]) -> NDArray[np.float64]:
     r"""
     project coordinate from image-origin to probe-origin, or opposite
     (depends on :math:`A_{3 \times 3}` to probe-origin or :math:`A_{3 \times 3}^{-1}` to image-origin).
@@ -209,8 +209,8 @@ def project(a: NDArray[np.float_], p: NDArray[np.float_]) -> NDArray[np.float_]:
 
 def project_b2i(bregma: tuple[float, float, float] | None,
                 view: SlicePlane,
-                p: NDArray[np.float_], *,
-                keep_plane: bool = False) -> NDArray[np.float_]:
+                p: NDArray[np.float64], *,
+                keep_plane: bool = False) -> NDArray[np.float64]:
     """
     project coordinate from bregma-origin to image-origin.
 
@@ -250,7 +250,7 @@ def project_b2i(bregma: tuple[float, float, float] | None,
     return q
 
 
-def project_i2b(bregma: tuple[float, float, float] | None, view: SlicePlane, p: NDArray[np.float_]) -> NDArray[np.float_]:
+def project_i2b(bregma: tuple[float, float, float] | None, view: SlicePlane, p: NDArray[np.float64]) -> NDArray[np.float64]:
     """
     project coordinate from image-origin to bregma-origin.
 
