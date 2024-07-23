@@ -17,8 +17,9 @@ tests/*.png
 ./*.npy
 ./*.png
 
-# mypy cache
+# linter cache
 .mypy_cache/
+.ruff_cache/
 
 # coverage output
 .coverage
