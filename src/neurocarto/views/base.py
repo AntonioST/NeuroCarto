@@ -202,7 +202,8 @@ class ViewBase(metaclass=abc.ABCMeta):
         """
         log messages in {CartoApp}.
 
-        Implement note:
+        .. warning::
+
            do not overwrite this function, because this method will be
            replaced by {CartoApp}.
 
@@ -227,7 +228,8 @@ class ControllerView:
         """
         Get {CartoApp} instance.
 
-        Implement note:
+        .. warning::
+
             do not overwrite this function, because this method will be
             replaced by {CartoApp}.
 
@@ -241,7 +243,8 @@ class ControllerView:
         """
         Get corresponding {ViewBase} instance if activated.
 
-        Implement note:
+        .. warning::
+
             do not overwrite this function, because this method will be
             replaced by {CartoApp}.
 
@@ -410,7 +413,8 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
         the timing is not guarantied. It is better to call this method when any global
         option is modified.
 
-        Implement note:
+        .. warning::
+
             do not overwrite this function, because this method will be
             replaced by {CartoApp}.
 
@@ -428,7 +432,8 @@ class GlobalStateView(StateView[S], Generic[S], metaclass=abc.ABCMeta):
 
         Remember to invoke this method when {ViewBase#start()} to restore the global state.
 
-        Implement note:
+        .. warning::
+
             do not overwrite this function, because this method will be
             replaced by {CartoApp}.
 
@@ -465,10 +470,11 @@ class EditorView(DynamicView):
         """
         notify GUI probe has updated.
 
-        Implement note:
+        .. warning::
+
             do not call this method in {DynamicView#on_probe_update()}. It may cause
             recursive call.
-        Implement note:
+
             do not overwrite this function, because this method will be
             replaced by {CartoApp}.
         """
@@ -528,7 +534,8 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
         """
         add a record into history.
 
-        Implement note:
+        .. warning::
+
             do not overwrite this function, because this method will be
             replaced by {RecordManager}.
 
@@ -557,7 +564,8 @@ class RecordView(Generic[R], metaclass=abc.ABCMeta):
         """
         Replay the record step.
 
-        Use Note:
+        .. warning::
+
             Do not call this method directly, because it might cause
             {#add_record()} be invoked during the replay.
             Use {RecordManager#replay()} instead.

@@ -38,6 +38,7 @@ class CartoUserConfig(TypedDict, total=False):
             "views": [],
             "history": false,
             "overwrite_chmap_file": false,
+            "always_save_blueprint_file": false,
             "selected_as_pre_selected": false,
           }
         }
@@ -55,6 +56,9 @@ class CartoUserConfig(TypedDict, total=False):
 
     overwrite_chmap_file: bool
     """overwrite channelmap file by default. Default False"""
+
+    always_save_blueprint_file: bool
+    """always save the blueprint file even if the channelmap still invalid."""
 
     selected_as_pre_selected: bool
     """
@@ -95,6 +99,7 @@ class CartoApp(BokehApplication):
         self.load_user_config()
         app_config = self.get_editor_userconfig()
         self._overwrite_channelmap_file = app_config.get('overwrite_chmap_file', False)
+        self._always_save_blueprint_file = app_config.get('always_save_blueprint_file', False)
 
     @property
     def title(self) -> str:
@@ -414,12 +419,10 @@ class CartoApp(BokehApplication):
         """
         Json Theme: https://docs.bokeh.org/en/latest/docs/reference/themes.html#theme
 
-        Note: curdoc() work after index()
-
         :param theme:
         :return:
         """
-        document = curdoc()
+        document = curdoc()  # curdoc() work after index()
         if isinstance(theme, str):
             self.logger.debug('set theme %s', theme)
             if theme.endswith('.json'):
@@ -571,6 +574,11 @@ class CartoApp(BokehApplication):
     # ========= #
 
     def on_new(self, e: int | str | MenuItemClick):
+        """
+        callback function on new a probe instance.
+
+        :param e: probe code, name. It could be an event but for internal using.
+        """
         if isinstance(e, MenuItemClick):
             if (item := e.item) is None:
                 self.logger.debug('on_new()')
@@ -597,6 +605,9 @@ class CartoApp(BokehApplication):
         self.on_probe_update()
 
     def on_load(self):
+        """
+        callback function on loading a channelmap file.
+        """
         if len(name := self.input_imro.value) == 0:
             self.logger.debug('on_load()')
             return
@@ -604,6 +615,11 @@ class CartoApp(BokehApplication):
         self.load_file(name)
 
     def load_file(self, name: str | Path):
+        """
+        load a channelmap file.
+
+        :param name: channelmap filename or filepath.
+        """
         self.logger.debug('on_load(%s)', name)
 
         file = name
@@ -614,9 +630,9 @@ class CartoApp(BokehApplication):
                 chmap = self.load_chmap(name)
             else:
                 chmap = self.load_chmap(file)
-        except FileNotFoundError as x:
+        except FileNotFoundError:
             self.log_message(f'File not found : {file}')
-            self.logger.warning('channelmap file not found : %s', file, exc_info=x)
+            self.logger.warning('channelmap file not found : %s', file)
             # files/directories may be changed, reload list.
             self.reload_input_file_list()
             return
@@ -693,6 +709,19 @@ class CartoApp(BokehApplication):
         self.output_imro.completions = name_list
 
     def on_save(self):
+        """
+        callback function on saving a channelmap file.
+
+        This saving also save accompanying files with the channelmap file, like
+        blueprint file and view configuration file.
+
+        .. note::
+
+            Only valid channelmap can be saved, as well as its accompanying files.
+
+            The user config "always_save_blueprint_file" allow the blueprint file can be saved
+            even if the channelmap is invalid.
+        """
         name = self.output_imro.value_input
         if len(name) == 0:
             self.logger.debug('on_save()')
@@ -706,10 +735,11 @@ class CartoApp(BokehApplication):
 
         elif not self.probe.is_valid(chmap):
             self.log_message('incomplete channelmap')
-            path = self.get_blueprint_file(name)
-            if (code := self.probe.channelmap_code(chmap)) is not None:
-                path = path.with_name(path.name.replace('.blueprint', f'.{code}.blueprint'))
-            self.save_blueprint(path)
+            if self._always_save_blueprint_file:
+                path = self.get_blueprint_file(name)
+                if (code := self.probe.channelmap_code(chmap)) is not None:
+                    path = path.with_name(path.name.replace('.blueprint', f'.{code}.blueprint'))
+                self.save_blueprint(path)
 
         else:
             path = self.save_chmap(name, chmap)
@@ -734,6 +764,13 @@ class CartoApp(BokehApplication):
         self.output_imro.value_input = save_name
 
     def on_state_change(self, state: int):
+        """
+        callback function on any state button is pressed.
+
+        This callback changes the state of captured electrodes.
+
+        :param state: state code
+        """
         desp = self.probe.state_description(state)
 
         if desp is not None:
@@ -743,12 +780,20 @@ class CartoApp(BokehApplication):
 
         try:
             self.probe_view.set_state_for_captured(state)
-        except BaseException:
+        except BaseException as e:
             self.log_message(f'set state {desp} fail')
+            self.logger.warning('set state %s fail', desp, exc_info=e)
         else:
             self.on_probe_update()
 
     def on_category_change(self, category: int):
+        """
+        callback function on any category button is pressed.
+
+        This callback changes the category of captured electrodes.
+
+        :param category: category code
+        """
         desp = self.probe.category_description(category)
 
         if desp is not None:
@@ -776,6 +821,9 @@ class CartoApp(BokehApplication):
             self.on_probe_update()
 
     def on_probe_update(self):
+        """
+        callback function to notify the ``DynamicView`` that the probe has updated.
+        """
         self.probe_view.update_electrode()
 
         mark = TimeMarker()
@@ -784,17 +832,29 @@ class CartoApp(BokehApplication):
                 view_class = type(view).__name__
 
                 mark.reset()
-                view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
-                t = mark()
-
-                self.logger.debug('on_probe_update(%s) used %.2f sec', view_class, t)
+                try:
+                    view.on_probe_update(self.probe, self.probe_view.channelmap, self.probe_view.electrodes)
+                except BaseException as e:
+                    t = mark()
+                    self.logger.warning('on_probe_update(%s) used %.2f sec. failed with error', view_class, t, exc_info=e)
+                else:
+                    t = mark()
+                    self.logger.debug('on_probe_update(%s) used %.2f sec', view_class, t)
 
     def on_autoupdate(self, active: bool):
+        """
+        callback function on the state of the ``auto_btn`` changed.
+
+        :param active: Does the auto trigger enable?
+        """
         self.logger.debug('on_autoupdate(active=%s)', active)
         if active:
             self.on_refresh()
 
     def on_refresh(self):
+        """
+        callback function to refresh the electrode selection.
+        """
         try:
             self.probe_view.refresh_selection()
         except BaseException:

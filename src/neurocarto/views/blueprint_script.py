@@ -67,8 +67,10 @@ class ProbePlotElectrodeProtocol(Protocol):
         """
         plot electrode categories along the probe.
 
-        Note: {BlueprintScriptView} does not use this method for any UI actions,
-        but used by {BlueprintFunctions#plot_channelmap()} and {BlueprintFunctions#plot_blueprint()}.
+        .. note::
+
+            {BlueprintScriptView} does not use this method for any UI actions,
+            but used by {BlueprintFunctions#plot_channelmap()} and {BlueprintFunctions#plot_blueprint()}.
 
         :param ax: matplotlib.Axes
         :param chmap:
@@ -82,7 +84,9 @@ class ProbePlotElectrodeProtocol(Protocol):
         """
         plot electrode data along the probe.
 
-        Note: {BlueprintScriptView} uses this method for any UI actions via {BlueprintFunctions#draw()},
+        .. note::
+
+            {BlueprintScriptView} uses this method for any UI actions via {BlueprintFunctions#draw()},
 
         :param ax: matplotlib.Axes
         :param chmap:

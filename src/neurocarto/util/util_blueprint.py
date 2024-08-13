@@ -7,12 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, overload, Generic, Final, Any, Literal
 
 import numpy as np
-from numpy.typing import NDArray
-
 from neurocarto.probe import ProbeDesp, M, E, get_probe_desp
 from neurocarto.util.edit.checking import use_probe, use_view
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
 from neurocarto.views.base import ControllerView, V
+from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -1042,7 +1041,7 @@ class BlueprintFunctions(Generic[M, E]):
 
           The data value is stored into the category field.
 
-        Note: If no specific requirement, consider use ``numpy.save`` first.
+        If no specific requirement, consider use ``numpy.save`` first.
 
         **Neuropixels**
 
@@ -1090,10 +1089,12 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Interpolate the NaN value in the data *a*.
 
-        Note: this method works different with {interpolate_nan()} on
+        .. warning::
 
-        * this method works on 1-d array, but the latter one works on 2-d or 3-d array.
-        * TBD
+            this method works different with {interpolate_nan()} on
+
+            * this method works on 1-d array, but the latter one works on 2-d or 3-d array.
+            * TBD
 
         :param a: data array.
         :param kernel: kernel size.
@@ -1145,7 +1146,8 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Get corresponding {ViewBase} instance if activated.
 
-        Note:
+        .. note::
+
             Avoiding import ``V`` at the global that might cause ``ImportError``,
             either using type name or using local import.
 
@@ -1446,8 +1448,10 @@ class BlueprintFunctions(Generic[M, E]):
         """
         Move slice to the label's position.
 
-        Note: Only works on the labels which its origin is referring on the bregma.
-        Otherwise, nothing will happen.
+        .. note::
+
+            Only works on the labels which its origin is referring on the bregma.
+            Otherwise, nothing will happen.
 
         :param label: label index, content or a {Label}.
         :see: {AtlasBrainView#focus_label()}

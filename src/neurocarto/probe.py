@@ -8,9 +8,8 @@ from types import ModuleType
 from typing import TypeVar, Generic, Any, ClassVar, TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
-
 from neurocarto.util.utils import import_name, doc_link, SPHINX_BUILD
+from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -290,7 +289,9 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         All possible electrode states.
 
-        Implement note: It finds all class variable that its name starts with 'STATE_*'.
+        .. note::
+
+            It finds all class variable that its name starts with 'STATE_*'.
 
         :return: dict of ``{state_name: state_value}``
         """
@@ -305,7 +306,9 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         All possible electrode categories.
 
-        Implement note: It finds all class variable that its name starts with 'CATE_*'.
+        .. note::
+
+            It finds all class variable that its name starts with 'CATE_*'.
 
         :return: dict of ``{category_name: category_value}``
         """
@@ -604,7 +607,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         Get distance matrix.
 
-        Implement Note:
+        .. note::
+
             If subclass does not provide the implement, then use the default
             method defined in {distance_matrix()}.
 

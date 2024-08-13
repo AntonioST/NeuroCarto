@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
-
 from neurocarto.probe_npx import NpxProbeDesp, utils
 from neurocarto.util.edit.checking import use_probe, use_view
 from neurocarto.util.util_blueprint import BlueprintFunctions
@@ -147,7 +146,9 @@ def exchange_shank(bp: BlueprintFunctions, shank: list[int], update=False):
     """
     Move blueprint between shanks.
 
-    *Note*: Each shank requires the same electrode number, and electrodes are ordered consistently.
+    .. note::
+
+        Each shank requires the same electrode number, and electrodes are ordered consistently.
 
     :param bp:
     :param shank: (list[int]): For N shank probe, it is an N-length list.

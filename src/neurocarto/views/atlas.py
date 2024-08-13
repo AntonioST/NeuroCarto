@@ -479,7 +479,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         """
         Move slice to the label's position.
 
-        Note: Only label which its origin refer on bregma works. Otherwise, nothing will happen.
+        .. note::
+
+            Only label which its origin refer on bregma works. Otherwise, nothing will happen.
 
         :param label: label index, content or a {Label}.
         """

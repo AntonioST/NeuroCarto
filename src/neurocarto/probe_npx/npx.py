@@ -338,9 +338,9 @@ class ChannelMap:
         """
         From probeinterface.Probe
 
-        **NOTE**
+        .. note::
 
-        The package ``probeinterface`` is optional dependency.
+            The package ``probeinterface`` is optional dependency.
 
         :param probe:
         :return:
@@ -362,9 +362,9 @@ class ChannelMap:
         """
         to probeinterface.Probe
 
-        **NOTE**
+        .. note::
 
-        The package ``probeinterface`` is optional dependency.
+            The package ``probeinterface`` is optional dependency.
 
         :return:
         """
@@ -401,9 +401,9 @@ class ChannelMap:
             1            1       1  144     True  282  2160
             ...        ...     ...  ...      ...  ...   ...
 
-        **NOTE**
+        .. note::
 
-        The package ``pandas`` is optional dependency.
+            The package ``pandas`` is optional dependency.
 
         :return: a pandas dataframe
         """
@@ -426,9 +426,9 @@ class ChannelMap:
             │ 1       ┆ 1     ┆ 1      ┆ 144  ┆ true    ┆ 282  ┆ 2160 │
             └─────────┴───────┴────────┴──────┴─────────┴──────┴──────┘
 
-        **NOTE**
+        .. note::
 
-        The package ``polars`` is optional dependency.
+            The package ``polars`` is optional dependency.
 
         :return: a polars dataframe
         """

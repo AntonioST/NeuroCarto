@@ -3,10 +3,9 @@ from collections.abc import Iterator
 from typing import Literal
 
 import numpy as np
-from numpy.typing import NDArray
-
 from neurocarto.probe_npx.npx import ProbeType, Electrode, ChannelMap, PROBE_TYPE_NP24, ChannelHasUsedError
 from neurocarto.util.utils import as_set, doc_link
+from numpy.typing import NDArray
 
 __all__ = [
     'clone', 'clear', 'set_electrodes',
@@ -300,7 +299,7 @@ def npx24_quarter_density(shank: int | tuple[int, int] | None = None,
       0▕▖▏▕ ▏▕ ▏▕ ▏  0▕▖▏▕ ▏▕▝▏▕ ▏  0▕▖▏▕▗▏▕▘▏▕▝▏
         ╹  ╹  ╹  ╹     ╹  ╹  ╹  ╹     ╹  ╹  ╹  ╹
 
-    Note: ``npx24_quarter_density(shank=0)`` remain 64 electrodes unset.
+    Note that ``npx24_quarter_density(shank=0)`` remain 64 electrodes unset.
 
     :param shank:
     :param row: beginning row from tip.
