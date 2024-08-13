@@ -181,7 +181,7 @@ def save_user_config(config: CartoConfig, user: dict[str, Any]) -> Path:
 
 def channelmap_root(config: CartoConfig) -> Path:
     """
-    channelmap root.
+    channelmap resource root.
 
     :param config:
     :return: directory path
@@ -192,12 +192,13 @@ def channelmap_root(config: CartoConfig) -> Path:
 
 
 @doc_link()
-def list_channelmap_files(config: CartoConfig, probe: ProbeDesp) -> list[Path]:
+def list_channelmap_files(config: CartoConfig, probe: ProbeDesp, recursive: bool = False) -> list[Path]:
     """
     List channelmap files.
 
     :param config:
-    :param probe:
+    :param probe: search for which channelmap files.
+    :param recursive: recursive search the files in folders.
     :return: list of files.
     :see: {channelmap_root()}
     """
@@ -207,7 +208,11 @@ def list_channelmap_files(config: CartoConfig, probe: ProbeDesp) -> list[Path]:
     ret: list[Path] = []
     suffixes = probe.channelmap_file_suffix
     for suffix in suffixes:
-        pattern = '*' + suffix
+        if recursive:
+            pattern = '**/*' + suffix
+        else:
+            pattern = '*' + suffix
+
         ret.extend(root.glob(pattern))
 
     return list(sorted(ret, key=Path.name.__get__))
@@ -221,13 +226,13 @@ def get_channelmap_file(config: CartoConfig, probe: ProbeDesp, filename: str) ->
     :param config:
     :param probe:
     :param filename:
-    :return: a channelmap file path
+    :return: a channelmap file path under resource root
     :see: {channelmap_root()}
     """
-    if '/' in filename:
-        p = Path(filename)
-    else:
-        p = channelmap_root(config) / filename
+    r = channelmap_root(config)
+    p = Path(filename)
+    if not p.is_relative_to(r):
+        p = r / p
 
     suffixes = probe.channelmap_file_suffix
     if p.suffix not in suffixes:

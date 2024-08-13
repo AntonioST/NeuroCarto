@@ -9,6 +9,7 @@ from bokeh.io import curdoc
 from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, TextAreaInput, UIElement
 from bokeh.themes import Theme
 from neurocarto.config import CartoConfig, parse_cli, setup_logger
+from neurocarto.files import channelmap_root
 from neurocarto.probe import get_probe_desp, ProbeDesp, M
 from neurocarto.util.bokeh_app import BokehApplication, run_server, run_later
 from neurocarto.util.bokeh_util import ButtonFactory, col_layout, as_callback, new_help_button
@@ -170,14 +171,15 @@ class CartoApp(BokehApplication):
         return app_config
 
     @doc_link()
-    def list_chmap_files(self) -> list[Path]:
+    def list_chmap_files(self, recursive: bool = True) -> list[Path]:
         """
         List channelmap files under chmap-dir (``-C``, ``--chmap-dir``).
 
+        :param recursive: recursive search the files in folders.
         :return: list of files
         :see: {files#list_channelmap_files()}
         """
-        return files.list_channelmap_files(self.config, self.probe)
+        return files.list_channelmap_files(self.config, self.probe, recursive)
 
     def get_chmap_file(self, name: str) -> Path:
         """
@@ -204,7 +206,7 @@ class CartoApp(BokehApplication):
             file = name
 
         ret = self.probe.load_from_file(file)
-        self.log_message(f'load channelmap : {file.name}')
+        self.log_message(f'load channelmap : {file}')
         return ret
 
     @doc_link()
@@ -218,7 +220,7 @@ class CartoApp(BokehApplication):
         """
         file = self.get_chmap_file(name)
         self.probe.save_to_file(chmap, file)
-        self.log_message(f'save channelmap : {file.name}')
+        self.log_message(f'save channelmap : {file}')
         return file
 
     @doc_link()
@@ -251,16 +253,16 @@ class CartoApp(BokehApplication):
 
         try:
             data = np.load(file)
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             self.log_message(f'File not found : {file}')
-            self.logger.warning('blueprint file not found : %s', file, exc_info=e)
+            self.logger.warning('blueprint file not found : %s', file)
             return False
         except BaseException as e:
             self.log_message(f'load blueprint fail : {file}')
             self.logger.warning('load blueprint file fail : %s', file, exc_info=e)
             return False
         else:
-            self.log_message(f'load blueprint : {file.name}')
+            self.log_message(f'load blueprint : {file}')
 
         self.probe.load_blueprint(data, electrodes)
         return True
@@ -280,7 +282,7 @@ class CartoApp(BokehApplication):
         data = self.probe.save_blueprint(electrodes)
 
         np.save(file, data)
-        self.log_message(f'save blueprint : {file.name}')
+        self.log_message(f'save blueprint : {file}')
 
         return file
 
@@ -314,10 +316,10 @@ class CartoApp(BokehApplication):
             with file.open('r') as f:
                 data = dict(json.load(f))
         except json.JSONDecodeError as e:
-            self.logger.warning('bad view config file %s', file.name, exc_info=e)
-            self.log_message(f'bad config : {file.name}')
+            self.logger.warning('bad view config file %s', file, exc_info=e)
+            self.log_message(f'bad config : {file}')
         else:
-            self.log_message(f'load config : {file.name}')
+            self.log_message(f'load config : {file}')
 
             if reset:
                 self.right_panel_views_config.update(data)
@@ -549,7 +551,7 @@ class CartoApp(BokehApplication):
             except BaseException as e:
                 self.logger.warning('set theme', exc_info=e)
 
-        self.reload_input_imro_list()
+        self.reload_input_file_list()
 
         self.probe_view.start()
 
@@ -615,9 +617,11 @@ class CartoApp(BokehApplication):
         except FileNotFoundError as x:
             self.log_message(f'File not found : {file}')
             self.logger.warning('channelmap file not found : %s', file, exc_info=x)
+            # files/directories may be changed, reload list.
+            self.reload_input_file_list()
             return
 
-        self.output_imro.value_input = self._load_file_save_name(file)
+        self._set_output_imro_name(self._load_file_save_name(file))
 
         self.probe_view.reset(chmap)
         self.load_blueprint(file)
@@ -638,10 +642,14 @@ class CartoApp(BokehApplication):
 
         self.on_probe_update()
 
-    def _load_file_save_name(self, file: Path) -> str:
+    def _load_file_save_name(self, file: Path) -> Path:
+        """
+        :param file: load file path
+        :return: suggested saving filepath
+        """
         name = file.stem.replace('.', '_')
         if self._overwrite_channelmap_file:
-            return name
+            return file.with_stem(name)
 
         ext = self.probe.channelmap_file_suffix[0]
 
@@ -649,17 +657,29 @@ class CartoApp(BokehApplication):
         while (ret := file.with_name(f'{name}_{i}{ext}')).exists():
             i += 1
 
-        return ret.stem
+        return ret
 
-    def reload_input_imro_list(self, preselect: str = None):
+    def reload_input_file_list(self, preselect: str = None):
+        """
+        reload the channelmap file list and update the UI components, including
+        ``input_imro``'s options list and selected filename, and
+        ``output_imro``'s completion list.
+
+        :param preselect: selected filename
+        """
         if preselect is None:
             preselect = self.input_imro.value
 
+        root = channelmap_root(self.config)
         file_list = self.list_chmap_files()
-        if len(self.probe.channelmap_file_suffix) == 1:
-            opt_list = [(str(f), f.stem) for f in file_list]
+        if all([len(it.relative_to(root).parents) == 1 for it in file_list]):
+            if len(self.probe.channelmap_file_suffix) == 1:
+                opt_list = [(str(f), f.stem) for f in file_list]
+            else:
+                opt_list = [(str(f), f.name) for f in file_list]
         else:
-            opt_list = [(str(f), f.name) for f in file_list]
+            opt_list = [(str(f), str(f.relative_to(root))) for f in file_list]
+        opt_list.sort(key=lambda it: it[0].lower())
 
         self.input_imro.options = [""] + opt_list
 
@@ -696,8 +716,22 @@ class CartoApp(BokehApplication):
             self.save_blueprint(path)
             self.save_view_config(path)
 
-            self.output_imro.value_input = path.stem
-            self.reload_input_imro_list(path.stem)
+            self._set_output_imro_name(path)
+            self.reload_input_file_list(path.stem)
+
+    def _set_output_imro_name(self, path: str | Path):
+        if isinstance(path, str):
+            save_name = path
+        else:
+            root = channelmap_root(self.config)
+            if not path.is_relative_to(root):
+                save_name = str(path)
+            elif len((p := path.relative_to(root)).parents) == 1:
+                save_name = path.name
+            else:
+                save_name = str(p)
+
+        self.output_imro.value_input = save_name
 
     def on_state_change(self, state: int):
         desp = self.probe.state_description(state)
