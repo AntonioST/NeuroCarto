@@ -33,7 +33,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-dynamic = ["dependencies"]
+dynamic = ["dependencies", "optional-dependencies"]
 
 [project.urls]
 Homepage = "https://github.com/AntonioST/NeuroCarto"
@@ -54,7 +54,7 @@ include-package-data = true
 dependencies = { file = ["requirements.txt"] }
 
 [tool.setuptools.dynamic.optional-dependencies]
-opt = { file = ["requirements-opt.txt"] }
+full = { file = ["requirements-opt.txt"] }
 doc = { file = ["requirements-doc.txt"] }
 
 [build-system]
