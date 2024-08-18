@@ -224,6 +224,7 @@ class CartoApp(BokehApplication):
         :return: saved path.
         """
         file = self.get_chmap_file(name)
+        file.parent.mkdir(parents=True, exist_ok=True)
         self.probe.save_to_file(chmap, file)
         self.log_message(f'save channelmap : {file}')
         return file
@@ -284,8 +285,9 @@ class CartoApp(BokehApplication):
             return None
 
         file = self.get_blueprint_file(chmap)
-        data = self.probe.save_blueprint(electrodes)
+        file.parent.mkdir(parents=True, exist_ok=True)
 
+        data = self.probe.save_blueprint(electrodes)
         np.save(file, data)
         self.log_message(f'save blueprint : {file}')
 
@@ -349,6 +351,8 @@ class CartoApp(BokehApplication):
 
         import json
         file = self.get_view_config_file(chmap)
+        file.parent.mkdir(parents=True, exist_ok=True)
+
         with file.open('w') as f:
             json.dump(self.right_panel_views_config, f, indent=2)
             self.log_message(f'save config : {file.name}')
