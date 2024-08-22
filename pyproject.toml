@@ -5,7 +5,7 @@
 
 [project]
 name = 'neurocarto'
-version = '0.0.2'
+version = '0.0.3'
 authors = [
     { name = "Ta-Shun Su", email = "antoniost29@gmail.com" },
 ]
