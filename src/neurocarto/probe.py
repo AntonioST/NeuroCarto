@@ -8,8 +8,9 @@ from types import ModuleType
 from typing import TypeVar, Generic, Any, ClassVar, TYPE_CHECKING
 
 import numpy as np
-from neurocarto.util.utils import import_name, doc_link, SPHINX_BUILD
 from numpy.typing import NDArray
+
+from neurocarto.util.utils import import_name, doc_link, SPHINX_BUILD
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -599,22 +600,3 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         :return: blueprint
         """
         pass
-
-    @doc_link(
-        distance_matrix='neurocarto.util.edit.moving.distance_matrix'
-    )
-    def electrode_distance_matrix(self, chmap: int | M) -> NDArray[np.float64]:
-        """
-        Get distance matrix.
-
-        .. note::
-
-            If subclass does not provide the implement, then use the default
-            method defined in {distance_matrix()}.
-
-        :param chmap:
-        :return: Array[distance:um, E, E], where E is all electrodes
-            and the order as same as {#all_electrodes()}
-        """
-        from neurocarto.util.edit.moving import distance_matrix
-        return distance_matrix(self.all_electrodes(self.new_channelmap(chmap)))

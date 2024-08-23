@@ -3,123 +3,13 @@ import textwrap
 import numpy as np
 from numpy.typing import NDArray
 
-from neurocarto.probe import ElectrodeDesp
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import doc_link
 
 __all__ = [
-    'contact_matrix', 'step_matrix', 'distance_matrix',
     'move', 'move_i',
     'fill', 'extend', 'reduce'
 ]
-
-
-def contact_matrix(electrodes: list[ElectrodeDesp] | NDArray[np.complex128],
-                   step: float | tuple[float, float] = 1) -> NDArray[np.bool_]:
-    """
-    norm-1 contact matrix.
-
-    :param electrodes: electrode list or step/distance matrix Array[complex, N, N]
-    :param step: step or distance
-    :return: Array[bool, N, N].
-    """
-    match step:
-        case int() | float():
-            step = (step, step)
-        case (int() | float(), int() | float()):
-            pass
-        case _:
-            raise TypeError()
-
-    if isinstance(electrodes, list):
-        dd = step_matrix(electrodes)
-    elif isinstance(electrodes, np.ndarray):
-        n, m = electrodes.shape
-        if n != m:
-            raise ValueError()
-
-        dd = electrodes
-    else:
-        raise TypeError()
-
-    dx = np.real(dd)
-    dy = np.imag(dd)
-
-    dx = (0 <= dx[0]) & (dx[0] <= step[0])
-    dy = (0 <= dy[1]) & (dy[1] <= step[1])
-    return dx & dy
-
-
-def step_matrix(electrodes: list[ElectrodeDesp] | NDArray[np.complex128], dx: float = 0, dy: float = 0) -> NDArray[np.complex128]:
-    """
-    norm-1 stepping matrix.
-
-    :param electrodes:
-    :param dx: step distance on x-axis
-    :param dy: step distance on y-axis
-    :return: Array[int_complex, N, N], NaN means unreachable (cross shank)
-    """
-    if isinstance(electrodes, list):
-        return _step_matrix_electrodes(electrodes, dx, dy)
-    elif isinstance(electrodes, np.ndarray):
-        return _step_matrix_matrix(electrodes, dx, dy)
-    else:
-        raise TypeError()
-
-
-def _step_matrix_electrodes(electrodes: list[ElectrodeDesp], dx: float = 0, dy: float = 0) -> NDArray[np.complex128]:
-    s = np.array([it.s for it in electrodes], dtype=int)
-    x = np.array([it.x for it in electrodes], dtype=int)
-    y = np.array([it.y for it in electrodes], dtype=int)
-
-    if dx <= 0:
-        dx = float(np.min(np.diff(np.unique(x))))
-    if dy <= 0:
-        dy = float(np.min(np.diff(np.unique(y))))
-
-    x //= dx
-    y //= dy
-    ss = np.subtract.outer(s, s)
-    xx = np.abs(np.subtract.outer(x, x))
-    yy = np.abs(np.subtract.outer(y, y))
-    xx[ss != 0] = -1
-    yy[ss != 0] = -1
-    return xx + yy * 1j
-
-
-def _step_matrix_matrix(electrodes: NDArray[np.complex128], dx: float = 0, dy: float = 0) -> NDArray[np.complex128]:
-    xx = np.real(electrodes)
-    yy = np.imag(electrodes)
-
-    if dx <= 0:
-        dx = np.unique(xx)
-        dx = dx[dx > 0]
-        dx = np.min(dx)
-    if dy <= 0:
-        dy = np.unique(yy)
-        dy = dx[dy > 0]
-        dy = np.min(dy)
-
-    return xx / dx + yy / dy * 1j
-
-
-def distance_matrix(electrodes: list[ElectrodeDesp]) -> NDArray[np.complex128]:
-    """
-    norm-2 distance matrix.
-
-    :param electrodes: N-length list
-    :return: Array[complex, N, N], NaN means unreachable (cross shank)
-    """
-    s = np.array([it.s for it in electrodes], dtype=int)
-    x = np.array([it.x for it in electrodes], dtype=float)
-    y = np.array([it.y for it in electrodes], dtype=float)
-    ss = np.subtract.outer(s, s)
-    xx = np.subtract.outer(x, x)
-    yy = np.subtract.outer(y, y)
-    xx[ss != 0] = np.nan
-    yy[ss != 0] = np.nan
-    # return np.sqrt(xx ** 2 + yy ** 2)
-    return xx + yy * 1j
 
 
 @doc_link(DOC=textwrap.dedent(BlueprintFunctions.move.__doc__))
