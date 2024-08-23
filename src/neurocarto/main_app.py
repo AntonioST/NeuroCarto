@@ -8,6 +8,7 @@ from bokeh.events import MenuItemClick
 from bokeh.io import curdoc
 from bokeh.models import Div, Select, AutocompleteInput, Toggle, Dropdown, tools, TextAreaInput, UIElement
 from bokeh.themes import Theme
+
 from neurocarto.config import CartoConfig, parse_cli, setup_logger
 from neurocarto.files import channelmap_root
 from neurocarto.probe import get_probe_desp, ProbeDesp, M
@@ -17,7 +18,6 @@ from neurocarto.util.debug import TimeMarker
 from neurocarto.util.utils import doc_link
 from neurocarto.views import *
 from neurocarto.views.record import RecordManager
-
 from . import files
 
 __all__ = ['CartoApp', 'main', 'CartoUserConfig']
@@ -109,6 +109,39 @@ class CartoApp(BokehApplication):
     # ==================== #
     # load/save imro files #
     # ==================== #
+
+    @doc_link()
+    def current_resource_root(self) -> Path:
+        """
+        get current resource root.
+
+        :return: path
+        :see: {files#channelmap_root}
+        """
+        return files.channelmap_root(self.config).resolve()
+
+    @doc_link()
+    def change_resource_root(self, root: str | Path):
+        """
+        change resource root.
+
+        :param root: path
+        :see: {files#channelmap_root}
+        """
+        root = Path(root).resolve()
+        if not root.is_dir():
+            raise NotADirectoryError(root)
+
+        self.config.chmap_root = root
+        try:
+            self.log_message(f'change root to {root}')
+        except AttributeError:
+            self.logger.info('change root to %s', root)
+
+        try:
+            self.reload_input_file_list()
+        except AttributeError:
+            pass
 
     @doc_link()
     def load_user_config(self, *, reset=False) -> dict[str, Any]:
