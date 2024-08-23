@@ -1,3 +1,11 @@
+"""
+Recording actions, store and replay.
+
+.. warning::
+
+        It is an experimental feature.
+
+"""
 from __future__ import annotations
 
 import logging
@@ -8,13 +16,13 @@ from typing import NamedTuple, TYPE_CHECKING
 
 import numpy as np
 from bokeh.models import DataTable, ColumnDataSource, TableColumn, TextInput, Div, CDSView, CustomJS, Toggle, Button, AutocompleteInput
+from numpy.typing import NDArray
+
 from neurocarto.config import CartoConfig, parse_cli
 from neurocarto.files import user_cache_file
 from neurocarto.util.bokeh_app import run_later
 from neurocarto.util.bokeh_util import ButtonFactory, as_callback, is_recursive_called
 from neurocarto.util.utils import doc_link
-from numpy.typing import NDArray
-
 from .base import RecordStep, RecordView, R, ViewBase, ControllerView, InvisibleView
 
 if TYPE_CHECKING:
@@ -25,8 +33,13 @@ __all__ = ['RecordManager', 'HistoryView']
 
 class NamedHistory(NamedTuple):
     name: str
+    """history name."""
+
     frozen: bool
+    """Is this history frozen that unable to be modified."""
+
     steps: list[RecordStep]
+    """action steps."""
 
     @property
     def size(self) -> int:
@@ -63,6 +76,10 @@ class RecordManager:
     """
     Record history manger.
 
+    .. warning::
+
+        It is an experimental feature.
+
     **History file**
 
     use 'history.json' under cache folder (#user_cache_file()).
@@ -96,8 +113,8 @@ class RecordManager:
         self._config = config
 
         self.views: list[RecordView] = []
-        self._history: dict[str, NamedHistory] = {}
-        self.name = ''
+        self._history: dict[str, NamedHistory] = {}  # {history_name: NamedHistory}
+        self.name = ''  # current history name
         self.disable = False
         self._is_replaying = False
         self._view: HistoryView | None = None
@@ -155,7 +172,13 @@ class RecordManager:
     # view register #
     # ============= #
 
+    @doc_link()
     def register(self, view: RecordView):
+        """
+        Register a {RecordView} to be managed.
+
+        :param view:
+        """
         if view in self.views:
             return
 
@@ -176,6 +199,8 @@ class RecordManager:
         else:
             self.logger.debug('unregister %s', type(view).__name__)
             del self.views[i]
+
+            # restore add_record() method
             setattr(view, 'add_record', RecordView.add_record)
 
     # ============= #
@@ -198,7 +223,7 @@ class RecordManager:
         :raise KeyError: history *name* not exist.
         """
         if self._is_replaying:
-            raise RuntimeError()
+            raise RuntimeError('Replay during replay')
 
         #
         if name is None:
@@ -265,7 +290,7 @@ class RecordManager:
     @doc_link()
     def load_history(self, file: str | Path = None, *, reset=False):
         """
-        load history from *file*.
+        load histories from *file*.
 
         :param file: history json file.
         :param reset: reset history. Otherwise, update it.
@@ -302,7 +327,7 @@ class RecordManager:
     @doc_link()
     def save_history(self, file: str | Path = None):
         """
-        save history into *file*.
+        save histories into *file*.
 
         :param file: history json file.
         :raise FileExistsError: when the *file* is a directory.
@@ -333,6 +358,14 @@ class RecordManager:
 
 
 class HistoryView(ViewBase, ControllerView, InvisibleView):
+    """
+    History viewer, supporting viewing, filtering and replaying.
+
+    .. warning::
+
+        It is an experimental feature.
+    """
+
     history_step_data: ColumnDataSource
     history_step_view: CDSView
 
@@ -541,7 +574,7 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
             return
 
         if len(name) == 0:
-            self.log_message(f'change default history')
+            self.log_message('change default history')
         else:
             self.log_message(f'change history {name}')
 
@@ -618,6 +651,7 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
     def start(self):
         self.manager = self.get_app().record_manager
         if self.manager is None:
+            self.visible = False
             self.log_message('app history feature is disabled')
         else:
             self.manager._view = self

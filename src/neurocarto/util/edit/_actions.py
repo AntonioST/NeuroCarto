@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
+
 from neurocarto.probe_npx import NpxProbeDesp, utils
 from neurocarto.util.edit.checking import use_probe, use_view
 from neurocarto.util.util_blueprint import BlueprintFunctions
@@ -127,7 +128,7 @@ def move_blueprint(bp: BlueprintFunctions, y: int, shank: list[int] = None, upda
     :param bp:
     :param y: (int) um
     :param shank: (list[int]=None) only particular shanks.
-    :param update: (bool) update channelmap to follow the blueprint change.
+    :param update: (bool-like=False) update channelmap to follow the blueprint change.
     """
     if shank is None:
         mask = None
@@ -153,7 +154,7 @@ def exchange_shank(bp: BlueprintFunctions, shank: list[int], update=False):
     :param bp:
     :param shank: (list[int]): For N shank probe, it is an N-length list.
         For example, ``[3, 2, 1, 0]`` gives a reverse-shank-ordered blueprint.
-    :param update: (bool) update channelmap to follow the blueprint change.
+    :param update: (bool-like=False) update channelmap to follow the blueprint change.
     """
     ns = np.max(bp.s) + 1
     if len(shank) != np.max(ns):

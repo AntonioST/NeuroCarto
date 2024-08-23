@@ -11,6 +11,9 @@ class PlotChannelMap(PltImageView):
     def __init__(self, config: CartoConfig):
         super().__init__(config, logger='neurocarto.view.plot_channelmap')
 
+    def start(self):
+        self.set_status('Please load a channelmap file.')
+
     # receive channel map updating event.
     def on_probe_update(self, probe: ProbeDesp[M, E], chmap: M | None, electrodes: list[E] | None):
         from neurocarto.probe_npx import ChannelMap

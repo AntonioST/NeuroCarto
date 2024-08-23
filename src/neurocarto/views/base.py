@@ -9,11 +9,12 @@ from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast, final,
 import numpy as np
 from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch, Div, tools
 from bokeh.plotting import figure as Figure
+from numpy.typing import NDArray
+
 from neurocarto.config import CartoConfig
 from neurocarto.util.bokeh_app import run_timeout, remove_timeout
 from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
-from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -179,7 +180,7 @@ class ViewBase(metaclass=abc.ABCMeta):
         Set status message, which is shown right beside the help button in the title row.
 
         :param text: message
-        :param decay: after give seconds, clear the message.
+        :param decay: after give seconds, clear the message. If ``None``, show forever until replaced.
         """
         if text is None:
             self.status_div.text = ''
@@ -486,6 +487,15 @@ R = TypeVar('R')
 
 # class RecordStep[R](NamedTuple): # python >= 3.11
 class RecordStep(NamedTuple):
+    """
+    Recorded action for saving.
+
+    .. warning::
+
+        It is an experimental feature.
+
+    """
+
     source: str
     """(class) name of the source RecordView"""
 
@@ -523,7 +533,11 @@ class RecordStep(NamedTuple):
 
 class RecordView(Generic[R], metaclass=abc.ABCMeta):
     """
-    This view can record each manipulating steps and also can replay them,
+    This view can record each manipulating steps and also can replay them.
+
+    .. warning::
+
+        It is an experimental feature.
 
     :param R: RecordedAction. It should be json-serializable. We usually use a TypedDict.
     """
