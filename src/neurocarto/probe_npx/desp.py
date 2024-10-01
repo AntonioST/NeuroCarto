@@ -89,9 +89,12 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             case '.meta':
                 return ChannelMap.from_meta(file)
             case _:
-                raise IOError()
+                raise IOError(f"unsupported file format : {file.suffix}")
 
     def save_to_file(self, chmap: ChannelMap, file: Path):
+        if file.suffix != '.imro':
+            raise IOError(f"unsupported file format : {file.suffix}")
+
         chmap.save_imro(file)
 
     def channelmap_code(self, chmap: Any | None) -> int | None:
@@ -104,6 +107,8 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             probe_type = self.supported_type.get(probe_type, probe_type)
         elif isinstance(probe_type, ChannelMap):
             probe_type = probe_type.probe_type
+        elif not isinstance(probe_type, ProbeType):
+            raise TypeError(f'not a ProbeType: {probe_type}')
         return ChannelMap(probe_type)
 
     def copy_channelmap(self, chmap: ChannelMap) -> ChannelMap:

@@ -1,1 +1,1 @@
-; *.ipynb filter=jupyter_clear_execute
+# *.ipynb filter=jupyter_clear_execute

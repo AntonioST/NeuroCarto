@@ -325,7 +325,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         Probe specific controls.
 
         :param config: application configurations.
-        :return: list of probe-specific view.
+        :return: list of type of the probe-specific views.
         """
         return []
 
@@ -337,7 +337,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         The first suffix in returned list is considered the primary format.
 
-        :return: file extension, like ".imro".
+        :return: list of file extensions, like [".imro"] for the Neuropixel probe.
         """
         pass
 
@@ -361,6 +361,8 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
 
         :param chmap: channelmap instance
         :param file: channelmap filepath
+        :raise IOError: If file suffix is not supported.
+        :raise IOError: If target directory is not existed.
         :raise RuntimeError: errors when serializing the channelmap.
         """
         pass
@@ -372,7 +374,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         Identify a given channelmap, and return the corresponding code.
 
         :param chmap: Any instance. It could be a channelmap instance.
-        :return: a code from {#supported_type}. None if *chmap* is unknown or is not supported.
+        :return: a code from {#supported_type}. ``None`` if *chmap* is unknown or is not supported.
         """
         pass
 
@@ -404,7 +406,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
         """
         A description for displaying the status of a channelmap instance.
 
-        :param chmap: a channelmap instance, or None when no probe (an initial description)
+        :param chmap: a channelmap instance, or ``None`` when no probe (an initial description)
         :return: description.
         """
         pass
