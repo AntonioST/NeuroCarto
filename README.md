@@ -22,7 +22,7 @@ Features
 Relevant Papers
 ---------------
 
-writing.
+Accepted.
 
 Documents
 ---------
