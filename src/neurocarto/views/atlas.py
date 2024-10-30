@@ -5,15 +5,16 @@ from typing import get_args, TypedDict, Final, NamedTuple, TYPE_CHECKING
 import numpy as np
 from bokeh.events import DoubleTap
 from bokeh.models import ColumnDataSource, GlyphRenderer, Select, Slider, UIElement, MultiChoice, Div, CheckboxGroup, tools, Range
+from numpy.typing import NDArray
+
 from neurocarto.config import CartoConfig
 from neurocarto.util import probe_coor
 from neurocarto.util.atlas_brain import get_atlas_brain, REFERENCE
 from neurocarto.util.atlas_slice import SlicePlane, SLICE, SliceView
 from neurocarto.util.atlas_struct import Structures
-from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
+from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, new_help_button, recursive_call_barrier
 from neurocarto.util.util_numpy import closest_point_index
 from neurocarto.views.base import Figure, StateView, BoundView, BoundaryState
-from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from brainglobe_atlasapi import BrainGlobeAtlas
@@ -273,16 +274,12 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             col_mask,
         ]
 
+    @recursive_call_barrier
     def _on_slice_selected(self, s: str):
-        if is_recursive_called():
-            return
-
         self.update_brain_view(s)
 
+    @recursive_call_barrier
     def _on_slice_changed(self, s: int):
-        if is_recursive_called():
-            return
-
         p = self.get_plane_index(s)
         self.update_brain_slice(p)
 
@@ -291,10 +288,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             if (ui := self.checkbox_groups.get(n, None)) is not None:
                 ui.visible = i in active
 
+    @recursive_call_barrier
     def _on_rotate_changed(self):
-        if is_recursive_called():
-            return
-
         if (p := self._brain_slice) is not None:
             r = p.slice.resolution
             x = int(self.rotate_hor_slider.value / r)
@@ -627,10 +622,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # SliceView updating #
     # ================== #
 
+    @recursive_call_barrier
     def update_brain_view(self, view: SLICE | SliceView | str):
-        if is_recursive_called():
-            return
-
         old_state = self.get_boundary_state()
 
         if isinstance(view, str):
@@ -655,11 +648,9 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # SlicePlane updating #
     # =================== #
 
+    @recursive_call_barrier
     def update_brain_slice(self, plane: int | SlicePlane, *,
                            update_image=True):
-        if is_recursive_called():
-            return
-
         view = self.brain_view
 
         if isinstance(plane, int):

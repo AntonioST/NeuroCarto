@@ -8,11 +8,12 @@ from typing import TypedDict, Final
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement
+from numpy.typing import NDArray
+
 from neurocarto.config import CartoConfig
 from neurocarto.util.bokeh_app import run_later
-from neurocarto.util.bokeh_util import SliderFactory, is_recursive_called, PathAutocompleteInput, new_help_button
+from neurocarto.util.bokeh_util import SliderFactory, PathAutocompleteInput, new_help_button, recursive_call_barrier
 from neurocarto.views.base import Figure, BoundView, StateView, BoundaryState
-from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -292,16 +293,12 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
 
         return [self.alpha_slider]
 
+    @recursive_call_barrier
     def _on_index_changed(self, s: int):
-        if is_recursive_called():
-            return
-
         self.update_image(s)
 
+    @recursive_call_barrier
     def _on_alpha_changed(self, a: int):
-        if is_recursive_called():
-            return
-
         if (image := self._image) is None:
             return
 
@@ -328,9 +325,8 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         super().on_boundary_transform(state)
         self.update_image(self._index)
 
+    @recursive_call_barrier
     def update_image(self, image_data: int | NDArray[np.uint] | None):
-        if is_recursive_called():
-            return
 
         if (image := self.image) is None:
             return
@@ -399,10 +395,8 @@ class FileImageView(ImageView, StateView[list[ImageViewState]]):
                        **kwargs) -> list[UIElement]:
         return super()._setup_content(support_rotate=support_rotate, **kwargs)
 
+    @recursive_call_barrier
     def on_image_selected(self, filename: Path | None):
-        if is_recursive_called():
-            return
-
         if (image := self.image) is not None:
             if (state := self.save_current_state()) is not None:
                 self.image_config[state['filename']] = state

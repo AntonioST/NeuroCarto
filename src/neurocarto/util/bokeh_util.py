@@ -13,7 +13,7 @@ __all__ = [
     'PathAutocompleteInput',
     'as_callback',
     'col_layout',
-    'is_recursive_called',
+    'recursive_call_barrier',
     'new_help_button'
 ]
 
@@ -105,27 +105,41 @@ def col_layout(model: list[UIElement], n: int) -> list[UIElement]:
     return ret
 
 
-def is_recursive_called(limit=100) -> bool:
+_recursive_call_barrier_counter = 0
+
+
+def recursive_call_barrier(f):
     """
-
-    Limitation:
-
-    * check recursive on override methods in same file.
+    A method decorator for adding a barrier before calling a function to prevent from recursively calling functions,
+    such as updating functions.
 
     XXX: does it work?
     https://docs.bokeh.org/en/latest/docs/reference/models/callbacks.html#bokeh.models.Callback.set_from_json
 
-    :param limit:
+    :param f:
     :return:
     """
+    global _recursive_call_barrier_counter
+    recursive_call_barrier_counter = _recursive_call_barrier_counter
+    _recursive_call_barrier_counter += 1
+
+    @functools.wraps(f)
+    def _recursive_call_barrier(*args, **kwargs):
+        local_barrier_counter = recursive_call_barrier_counter
+        if not _is_recursive_called(local_barrier_counter):
+            return f(*args, **kwargs)
+        return None
+
+    return _recursive_call_barrier
+
+
+def _is_recursive_called(counter: int, limit=100) -> bool:
     stack = inspect.stack()
-    caller = stack[1]
 
     for i, frame in enumerate(stack[2:]):
-        if i < limit and frame.filename == caller.filename and frame.function == caller.function:
+        if i < limit and frame.function == '_recursive_call_barrier' and frame.frame.f_locals.get('local_barrier_counter', -1) == counter:
             return True
     return False
-
 
 class PathAutocompleteInput:
     """

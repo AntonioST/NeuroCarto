@@ -11,7 +11,7 @@ from numpy.typing import NDArray
 from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp, ElectrodeDesp
 from neurocarto.util.bokeh_app import run_later
-from neurocarto.util.bokeh_util import is_recursive_called, PathAutocompleteInput
+from neurocarto.util.bokeh_util import PathAutocompleteInput, recursive_call_barrier
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.views.base import Figure, ViewBase, DynamicView, InvisibleView
 
@@ -258,8 +258,9 @@ class FileDataView(DataView, metaclass=abc.ABCMeta):
         return ret
 
     # noinspection PyUnusedLocal
+    @recursive_call_barrier
     def on_data_selected(self, filename: Path | None):
-        if is_recursive_called() or filename is None:
+        if filename is None:
             return
 
         try:

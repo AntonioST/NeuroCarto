@@ -21,7 +21,7 @@ from numpy.typing import NDArray
 from neurocarto.config import CartoConfig, parse_cli
 from neurocarto.files import user_cache_file
 from neurocarto.util.bokeh_app import run_later
-from neurocarto.util.bokeh_util import ButtonFactory, as_callback, is_recursive_called
+from neurocarto.util.bokeh_util import ButtonFactory, as_callback
 from neurocarto.util.utils import doc_link
 from .base import RecordStep, RecordView, R, ViewBase, ControllerView, InvisibleView
 
@@ -418,10 +418,8 @@ class HistoryView(ViewBase, ControllerView, InvisibleView):
             action=[record.description]
         ))
 
+    @recursive_call_barrier
     def update_history_table(self):
-        if is_recursive_called():
-            return
-
         if (manager := self.manager) is None:
             self.history_step_data.data = dict(source=[], category=[], action=[])
             return

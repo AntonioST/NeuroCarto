@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 
 from neurocarto.config import CartoConfig
 from neurocarto.util.bokeh_app import run_timeout, remove_timeout
-from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, is_recursive_called, new_help_button
+from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, new_help_button, recursive_call_barrier
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
 
 if sys.version_info >= (3, 11):
@@ -723,13 +723,13 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
 
         return [reset_ims, self.boundary_scale_slider]
 
+    @recursive_call_barrier
     def _on_boundary_rotate(self, s: int):
-        if not is_recursive_called():
-            self.update_boundary_transform(rt=s)
+        self.update_boundary_transform(rt=s)
 
+    @recursive_call_barrier
     def _on_boundary_scale(self, s: float):
-        if not is_recursive_called():
-            self.update_boundary_transform(s=math.pow(10, s))
+        self.update_boundary_transform(s=math.pow(10, s))
 
     def _on_reset_boundary_rotate(self):
         try:
@@ -743,10 +743,8 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         except AttributeError:
             self.update_boundary_transform(s=1)
 
+    @recursive_call_barrier
     def _on_boundary_change(self, value: dict[str, list[float]]):
-        if is_recursive_called():
-            return
-
         iw = self.width
         ih = self.height
         if (iw <= 0) or (ih <= 0):
@@ -811,6 +809,7 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         dy = float(p[1] - q[1])
         self.update_boundary_transform(p=(dx, dy))
 
+    @recursive_call_barrier
     def update_boundary_transform(self, *,
                                   p: tuple[float, float] = None,
                                   s: float | tuple[float, float] = None,
@@ -822,9 +821,6 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         :param s: scaling (sx, sy)
         :param rt: rotating degree
         """
-        if is_recursive_called():
-            return
-
         old = self.get_boundary_state()
 
         if p is not None:
@@ -860,15 +856,13 @@ class BoundView(ViewBase, InvisibleView, metaclass=abc.ABCMeta):
         state = self.get_boundary_state()
         self.on_boundary_transform(state)
 
+    @recursive_call_barrier
     def on_boundary_transform(self, state: BoundaryState):
         """
         Image transforming updating callback.
 
         :param state: updated boundary parameters.
         """
-        if is_recursive_called():
-            return
-
         try:
             sx = state['sx']
             sy = state['sy']
