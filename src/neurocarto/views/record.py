@@ -21,7 +21,7 @@ from numpy.typing import NDArray
 from neurocarto.config import CartoConfig, parse_cli
 from neurocarto.files import user_cache_file
 from neurocarto.util.bokeh_app import run_later
-from neurocarto.util.bokeh_util import ButtonFactory, as_callback
+from neurocarto.util.bokeh_util import ButtonFactory, as_callback, recursive_call_barrier
 from neurocarto.util.utils import doc_link
 from .base import RecordStep, RecordView, R, ViewBase, ControllerView, InvisibleView
 
