@@ -22,7 +22,9 @@ Features
 Relevant Papers
 ---------------
 
-Accepted.
+Su, TS., Kloosterman, F. NeuroCarto: A Toolkit for Building Custom Read-out Channel Maps for
+High Electrode-count Neural Probes. *Neuroinform* **23**, 1–16 (2025).
+https://doi.org/10.1007/s12021-024-09705-2
 
 Documents
 ---------
