@@ -136,7 +136,14 @@ def import_name(desp: str, module_path: str, root: str = None, *, reload=False):
             module = importlib.reload(module)
     finally:
         if root is not None:
-            sys.path.pop(0)
+            _root = sys.path.pop(0)
+            if root != _root:  # slow path
+                try:
+                    sys.path.remove(root)
+                except ValueError:
+                    pass
+
+                sys.path.insert(0, _root)
 
     if name == '*':
         return module
@@ -188,7 +195,7 @@ def doc_link(**kwargs: str):
     * ``{#meth()}`` : ``:meth:~``
     * ``{func()}`` : ``:func:~``
     * ``{VAR}`` : if VAR is a str, use its str content.
-    * ``{...}`` : do not replace
+    * ``{...}`` : (other) do not replace
 
     Limitation:
 

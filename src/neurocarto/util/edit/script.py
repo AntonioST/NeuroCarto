@@ -39,12 +39,19 @@ Document here.
 
 def format_html_doc(doc: str) -> str:
     ret = html.escape(doc.strip())
+    # formatting **word** as bold
     ret = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', ret)
+    # formatting *word* as italic
     ret = re.sub(r'\*(.+?)\*', r'<em>\1</em>', ret)
+    # remove `:param bp:`
     ret = re.sub(r':param\s+bp:.*?\n?', '\n', ret)
+    # formatting `:param p:` as bold
     ret = re.sub(r'(?<=\n):param\s+(\w+):', r'<b>\1</b>:', ret)
+    # formatting newline and indent
     ret = re.sub(r'\n +', '</p><p style="text-indent:2em;">', ret)
+    # formatting newline
     ret = re.sub(r'\n\n', '</p><br/><p>', ret)
+    # formatting newlines
     ret = '<p>' + ret.replace('\n', '</p><p>') + '</p>'
     return ret
 
@@ -236,8 +243,11 @@ class BlueprintScriptInfo(NamedTuple):
         we cheat on the name resolution that take the undefined variable as a str by its name.
         For example, the following *script_input* will be considered::
 
-            (input) a,1,"b,3"
-            (output) ("a", 1, "b,3")
+            (input) a,1,"b,3",d=4
+            (output) ("a", 1, "b,3", d=4)
+            (evaluation) __script_func__(bp, "a", 1, "b,3", d=4)
+
+        where `__script_func__` and `bp` are preset in the evaluation context. (do not use them).
 
         There are some limitations:
 
@@ -246,7 +256,7 @@ class BlueprintScriptInfo(NamedTuple):
         * for above case, use "" to quote them.
 
         :param bp:
-        :param script_input:
+        :param script_input: script arguments from UI.
         :return: blueprint script function's return
         """
 
@@ -269,6 +279,12 @@ class BlueprintScriptInfo(NamedTuple):
 
 
 def script_signature(script: BlueprintScriptInfo) -> str:
+    """
+    Formatting the *script* signature.
+
+    :param script:
+    :return:
+    """
     s = inspect.signature(script.script)
 
     name = script.script.__name__

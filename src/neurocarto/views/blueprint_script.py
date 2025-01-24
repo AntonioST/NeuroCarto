@@ -5,6 +5,9 @@ from typing import TypedDict, TYPE_CHECKING, Generator, ClassVar, Any, Protocol,
 
 import numpy as np
 from bokeh.models import Select, TextInput, Div, Button
+from numpy.typing import NDArray
+from typing_extensions import Required
+
 from neurocarto.config import CartoConfig
 from neurocarto.probe import ProbeDesp, ElectrodeDesp, M, E
 from neurocarto.util.bokeh_app import run_later, run_timeout
@@ -15,8 +18,6 @@ from neurocarto.util.utils import doc_link
 from neurocarto.views import RecordStep
 from neurocarto.views.base import EditorView, GlobalStateView, ControllerView, RecordView
 from neurocarto.views.image_plt import PltImageView
-from numpy.typing import NDArray
-from typing_extensions import Required
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -78,6 +79,7 @@ class ProbePlotElectrodeProtocol(Protocol):
         :param color: categories color {category: color}, where color is used by matplotlib.
         :param kwargs:
         """
+        pass
 
     @doc_link()
     def view_ext_blueprint_plot_electrode(self, ax: Axes, chmap: Any, data: NDArray[np.float64], **kwargs):
@@ -162,7 +164,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
             width=400,
             styles={'font-family': 'monospace'}
         )
-        # Mouse exit event also invoke updating handle, which this event doesn't we want
+        # Mouse exit event also invokes updating handle. We do not want this.
         # self.script_input.on_change('value', as_callback(self._on_run_script))
 
         #
@@ -171,7 +173,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
             styles={'font-family': 'monospace'}
         )
 
-        #
+        # Only pressing button allows to run a script
         self.script_run = btn('Run', self._on_run_script)
 
         from bokeh.layouts import row
@@ -189,7 +191,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
     def _on_script_select(self, old: str, name: str):
         old_input = self.script_input.value_input
 
-        # save script input, if it is not empty.
+        # save script inputs, if it is not empty.
         if len(old) > 0 and len(old_input) > 0:
             self._script_input_cache[old] = old_input
 
@@ -359,7 +361,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
         :param name: script name.
         :return:
         :raise TypeError: not callable.
-        :raise ImportError:
+        :raise ImportError: unable to load the script.
         :raise ValueError: incorrect script module path
         """
         if isinstance(name, str):
@@ -440,19 +442,23 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
         try:
             bp = self._run_script(script, probe, self.cache_chmap, script_input, interrupt_at=interrupt_at)
         except BaseException as e:
-            self.logger.warning('run_script(%s) fail', script.name, exc_info=e)
-            self.log_message(f'run script {script.name} fail')
-            self.set_status(None)
+            self._run_script_error(script.name, e)
             return
 
         if bp is not None:
             self._run_script_done(bp, script.name)
 
     def _run_script_done(self, bp: BlueprintFunctions, script: str):
+        """When *script* is finished normally."""
         if bp.blueprint_changed and (blueprint := self.cache_blueprint) is not None:
             bp.apply_blueprint(blueprint)
             self.logger.debug('run_script(%s) update blueprint', script)
             run_later(self.update_probe)
+
+    def _run_script_error(self, script: str, e: BaseException):
+        self.logger.warning('run_script(%s) fail', script, exc_info=e)
+        self.log_message(f'run script {script} fail')
+        self.set_status(None)
 
     def _run_script(self, script: BlueprintScriptInfo,
                     probe: ProbeDesp[M, E],
@@ -461,43 +467,50 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
                     interrupt_at: int = None) -> BlueprintFunctions | None:
         from neurocarto.util.edit.checking import RequestChannelmapTypeError, check_probe
 
+        # initialize BlueprintFunctions
         bp = self.new_blueprint_function(probe, chmap)
         if (blueprint := self.cache_blueprint) is not None:
             bp.set_blueprint(blueprint)
 
+        # check requested probe and channelmap for @use_probe
         request: RequestChannelmapType | None
         if (request := script.script_use_probe()) is not None:
             if chmap is None and request.create:
                 if (code := request.code) is None:
                     raise RuntimeError('RequestChannelmapType missing probe code')
 
+                # rerun _run_script with new-created channelmap.
                 self.logger.debug('run_script(%s) create probe %s[%d]', script.name, request.probe_name, code)
                 chmap = bp.new_channelmap(code)
                 return self._run_script(script, probe, chmap, script_input)
 
+            # check and raise error when mismatched
             if request.check:
                 check_probe(bp, request)
 
+        # run script
         try:
             self.logger.debug('run_script(%s)[%s]', script.name, script_input)
             ret = script.eval(bp, script_input)
         except RequestChannelmapTypeError as e:
             request = e.request
             if chmap is None and request.match_probe(probe) and request.code is not None:
+                # goto to end, check requested probe and channelmap for check_probe()
                 pass
             else:
                 raise
         else:
-            if inspect.isgenerator(ret):
+            # script ran successfully.
+            if inspect.isgenerator(ret):  # but it is not finished, due to it is a generator
                 self.logger.debug('run_script(%s) return generator', script.name)
                 self._run_script_generator(bp, script.name, ret, interrupt_at=interrupt_at)
                 return None
-            else:
+            else:  # it is finished.
                 self.logger.debug('run_script(%s) done', script.name)
                 self.set_status(f'{script.name} finished', decay=3)
                 return bp
 
-        # from RequestChannelmapTypeError
+        # from RequestChannelmapTypeError. rerun _run_script with new-created channelmap.
         self.logger.debug('run_script(%s) request %s[%d]', script.name, request.probe_name, request.code)
         chmap = bp.new_channelmap(request.code)
 
@@ -509,6 +522,14 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
                               gen: Generator[float | None, None, None],
                               counter: int = 0, *,
                               interrupt_at: int = None):
+        """
+
+        :param bp:
+        :param script: script name
+        :param gen: script generator
+        :param counter: update cycle counter
+        :param interrupt_at: interrupt at which update cycle. Given by history.
+        """
         is_interrupted = False
         if self._running_script.get(script, None) is KeyboardInterrupt:
             is_interrupted = True
@@ -532,15 +553,25 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
             return self._run_script_generator_interrupt(script)
 
         except StopIteration:
-            pass
+            return self._run_script_generator_finish(bp, script)
 
-        self._run_script_generator_finish(bp, script)
+        except Exception as e:
+            return self._run_script_generator_error(script, e)
 
     def _run_script_generator_next(self, bp: BlueprintFunctions,
                                    script: str,
                                    gen: Generator[float | None, None, None],
                                    counter: int = 0, *,
                                    interrupt_at: int = None):
+        """
+
+        :param bp:
+        :param script: script name
+        :param gen: script generator
+        :param counter: update cycle counter
+        :param interrupt_at: interrupt at which update cycle. Given by history.
+        :return:
+        """
         self._running_script[script] = gen
         self._set_script_run_button_status(script)
 
@@ -553,6 +584,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
             run_timeout(int(ret * 1000), self._run_script_generator, bp, script, gen, counter + 1, interrupt_at=interrupt_at)
 
     def _run_script_generator_interrupt(self, script: str):
+        """When the generator *script* is stopped by an interruption."""
         try:
             del self._running_script[script]
         except KeyError:
@@ -563,6 +595,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
         self._set_script_run_button_status(script)
 
     def _run_script_generator_finish(self, bp: BlueprintFunctions, script: str):
+        """When the generator *script* is finished normally."""
         try:
             del self._running_script[script]
         except KeyError:
@@ -573,6 +606,16 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
         self._set_script_run_button_status(script)
 
         self._run_script_done(bp, script)
+
+    def _run_script_generator_error(self, script: str, e: BaseException):
+        """When the generator *script* is finished with an error."""
+        try:
+            del self._running_script[script]
+        except KeyError:
+            pass
+
+        self._set_script_run_button_status(script)
+        self._run_script_error(script, e)
 
     # ============= #
     # record replay #

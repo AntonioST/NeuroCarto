@@ -7,11 +7,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, overload, Generic, Final, Any, Literal
 
 import numpy as np
+from numpy.typing import NDArray
+
 from neurocarto.probe import ProbeDesp, M, E, get_probe_desp
 from neurocarto.util.edit.checking import use_probe, use_view
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
 from neurocarto.views.base import ControllerView, V
-from numpy.typing import NDArray
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -1115,13 +1116,25 @@ class BlueprintFunctions(Generic[M, E]):
     def check_probe(self, probe: str | type[ProbeDesp] | None = None,
                     chmap_code: int = None, *, error=True):
         """
-        Check current used probe is type of *probe*.
+        Check whether the current used probe is type of *probe*.
 
-        If it is managed by {BlueprintScriptView}, {RequestChannelmapTypeError} could be captured,
-        and the request channelmap ({#new_channelmap()}) will be created when needed.
+        If a blueprint function is called by {BlueprintScriptView}, {RequestChannelmapTypeError} could be captured,
+        and the requested channelmap ({#new_channelmap()}) will be created when needed.
 
-        In another way, decorator {use_probe()} can be used to annotate the probe request on a script,
-        then {BlueprintScriptView} can handle the probe creating and checking before running the script.
+        .. code-block:: python
+
+            def my_function(bp: BlueprintFunctions):
+                bp.check_probe('npx', 24)
+                ...
+
+        In another way to check used probe, a decorator {use_probe()} can be used to annotate the requested probe on a script,
+        then {BlueprintScriptView} can handle the probe checking and creating before running the script.
+
+        .. code-block:: python
+
+            @use_probe('npx', 24) # checking and creating probe if necessary
+            def my_function(bp: BlueprintFunctions):
+                ...
 
         :param probe: request probe. It could be family name (via {get_probe_desp()}), {ProbeDesp} type or class name.
             It ``None``, checking a probe has created, and its type doesn't matter.
@@ -1611,7 +1624,8 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link(PltImageView='neurocarto.views.image_plt.PltImageView')
     def plot_channelmap(self, channelmap: M = None,
                         color: Any = 'black', *,
-                        ax: Axes = None, **kwargs):
+                        ax: Axes = None,
+                        **kwargs):
         """
         call {ProbeDesp} primary plotting method for plot a channelmap
         with a matplotlib axes.
@@ -1637,7 +1651,8 @@ class BlueprintFunctions(Generic[M, E]):
     @doc_link(PltImageView='neurocarto.views.image_plt.PltImageView')
     def plot_blueprint(self, blueprint: BLUEPRINT = None,
                        colors: dict[int, Any] = None, *,
-                       ax: Axes = None, **kwargs):
+                       ax: Axes = None,
+                       **kwargs):
         """
         call {ProbeDesp} primary plotting method for plotting a blueprint
         with a matplotlib axes.

@@ -46,6 +46,11 @@ class NamedHistory(NamedTuple):
         return len(self.steps)
 
     def append(self, step: RecordStep | NamedHistory) -> bool:
+        """
+
+        :param step:
+        :return: Is appending successfully? (it is not frozen).
+        """
         if not self.frozen:
             if isinstance(step, NamedHistory):
                 self.steps.extend(step.steps)
@@ -58,6 +63,11 @@ class NamedHistory(NamedTuple):
         return [self.steps[it] for it in index]
 
     def delete(self, index: list[int]) -> bool:
+        """
+
+        :param index:
+        :return: Is deleting successfully? (it is not frozen).
+        """
         if not self.frozen:
             for i in sorted(index, reverse=True):
                 del self.steps[i]
@@ -65,6 +75,10 @@ class NamedHistory(NamedTuple):
         return False
 
     def clear(self) -> bool:
+        """
+
+        :return: Is clearing successfully? (it is not frozen).
+        """
         if not self.frozen:
             self.steps.clear()
             return True
