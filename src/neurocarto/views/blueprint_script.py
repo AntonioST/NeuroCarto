@@ -429,7 +429,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
             script = self.get_script(script)
         except BaseException as e:
             self.logger.warning('run_script(%s) import fail', script_name, exc_info=e)
-            self.log_message(f'run script {script_name} import fail')
+            self.log_message(f'script "{script_name}" import fail')
             self.set_status(None)
             return
 
@@ -441,6 +441,10 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
 
         try:
             bp = self._run_script(script, probe, self.cache_chmap, script_input, interrupt_at=interrupt_at)
+        except KeyboardInterrupt as e:
+            self.logger.debug('run_script(%s) interrupted', script.name, exc_info=e)
+            self.set_status(f'run script {script.name} interrupted', decay=10)
+            return
         except BaseException as e:
             self._run_script_error(script.name, e)
             return
@@ -457,7 +461,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
 
     def _run_script_error(self, script: str, e: BaseException):
         self.logger.warning('run_script(%s) fail', script, exc_info=e)
-        self.log_message(f'run script {script} fail')
+        self.log_message(f'script "{script}" fail. {e}')
         self.set_status(None)
 
     def _run_script(self, script: BlueprintScriptInfo,
@@ -592,6 +596,7 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
 
         self.logger.debug('run_script(%s) interrupted', script)
         self.set_status(f'{script} interrupted', decay=10)
+        self.log_message(f'script "{script}" interrupted')
         self._set_script_run_button_status(script)
 
     def _run_script_generator_finish(self, bp: BlueprintFunctions, script: str):
