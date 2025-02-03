@@ -186,14 +186,17 @@ class BlueprintFunctions(Generic[M, E]):
         :columns: 2
 
         * {#atlas_get_region_name()}
+        * {#atlas_get_slice()}
         * {#atlas_set_slice()}
+        * {#atlas_get_label()}
         * {#atlas_add_label()}
-        * {#atlas_add_label()}
+        * {#atlas_focus_label()}
         * {#atlas_del_label()}
         * {#atlas_clear_labels()}
         * {#atlas_set_transform()}
         * {#atlas_set_anchor()}
         * {#atlas_new_probe()}
+        * {#atlas_current_probe()}
         * {#atlas_set_anchor_on_probe()}
         * {#atlas_coor_electrode()}
         * {#atlas_mask_region()}
