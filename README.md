@@ -9,6 +9,8 @@ NeuroCarto is a neural probe channel map editor for the Neuropixels probe family
 It allows user to create a blueprint for arranging electrodes in a desired density
 and generate a custom channel map.
 
+![Electrode_Selection](doc/source/_static/ani-electrode-selection.gif)
+
 Features
 --------
 
@@ -18,6 +20,8 @@ Features
 - Show Atlas mouse brain as a background image.
 - Customize electrode selection and probe kind.
 - Show channel efficiency and electrode density.
+
+![Blueprint](doc/source/_static/ani-blueprint.gif)
 
 Relevant Papers
 ---------------
