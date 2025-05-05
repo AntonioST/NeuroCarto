@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any, NamedTuple, Final, Literal, overload, cast, TYPE_CHECKING
 
 import numpy as np
-from neurocarto.util.utils import all_int, as_set, align_arr, doc_link
 from numpy.typing import NDArray
 
+from neurocarto.util.utils import all_int, as_set, align_arr, doc_link
 from .meta import NpxMeta
 
 if sys.version_info >= (3, 11):
@@ -1181,9 +1181,7 @@ def e2c(probe_type: ProbeType, electrode: Es | tuple[int | A, A] | tuple[int | A
 
 
 def e2c(probe_type: ProbeType, electrode):
-    c, b = e2cb(probe_type, electrode)
-    n = probe_type.n_channels
-    return c + b * n
+    return e2cb(probe_type, electrode)[0]
 
 
 @overload
