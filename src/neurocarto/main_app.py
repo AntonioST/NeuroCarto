@@ -169,9 +169,9 @@ class CartoApp(BokehApplication):
             self.logger.debug('load user config : %s', file)
 
         if reset:
-            self.user_views_config.update(data)
-        else:
             self.user_views_config = data
+        else:
+            self.user_views_config.update(data)
 
         return self.user_views_config
 
@@ -362,9 +362,9 @@ class CartoApp(BokehApplication):
             self.log_message(f'load config : {file}')
 
             if reset:
-                self.right_panel_views_config.update(data)
-            else:
                 self.right_panel_views_config = data
+            else:
+                self.right_panel_views_config.update(data)
 
         return self.right_panel_views_config
 
