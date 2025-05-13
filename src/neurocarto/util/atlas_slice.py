@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import abc
+import enum
 import math
 import sys
-from typing import Literal, TypeVar, Final, overload, NamedTuple, get_args, TYPE_CHECKING
+from typing import Literal, TypeVar, Final, overload, NamedTuple, final, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -18,9 +18,9 @@ else:
 if TYPE_CHECKING:
     from neurocarto.util.atlas_brain import BrainGlobeAtlas
 
-__all__ = ['SLICE', 'SliceView', 'SlicePlane']
+__all__ = ['PROJECTION', 'Projection', 'SliceView', 'SlicePlane']
 
-SLICE = Literal['coronal', 'sagittal', 'transverse']
+PROJECTION = Literal['coronal', 'sagittal', 'transverse']
 T = TypeVar('T')
 
 XY = tuple[int, int]
@@ -28,14 +28,24 @@ PXY = tuple[int, int, int]  # (plane, x, y)
 COOR = tuple[int, int, int] | tuple[float, float, float]  # (ap, dv, ml)
 
 
-class SliceView(metaclass=abc.ABCMeta):
+class Projection(enum.Enum):
+    """"""
+
+    # (page, x, y)
+    coronal = (0, 2, 1)
+    sagittal = (2, 0, 1)
+    transverse = (1, 2, 0)
+
+
+@final
+class SliceView:
     """Atlas brain slice view. Here provide three kinds of view ('coronal', 'sagittal', 'transverse').
     """
 
-    name: Final[SLICE]
-    """view"""
+    projection: Final[Projection]
+    """projection"""
 
-    resolution: Final[int]
+    resolution: Final[list[int]]
     """um/pixel"""
 
     reference: Final[NDArray[np.uint]]
@@ -44,17 +54,7 @@ class SliceView(metaclass=abc.ABCMeta):
     grid_x: Final[NDArray[np.int_]]
     grid_y: Final[NDArray[np.int_]]
 
-    def __new__(cls, brain: BrainGlobeAtlas, name: SLICE, reference: NDArray[np.uint] = None):
-        if name == 'coronal':
-            return object.__new__(CoronalView)
-        elif name == 'sagittal':
-            return object.__new__(SagittalView)
-        elif name == 'transverse':
-            return object.__new__(TransverseView)
-        else:
-            raise ValueError()
-
-    def __init__(self, brain: BrainGlobeAtlas, name: SLICE, reference: NDArray[np.uint] = None):
+    def __init__(self, brain: BrainGlobeAtlas, projection: PROJECTION | Projection, reference: NDArray[np.uint] = None):
         """
 
         :param name: view
@@ -70,19 +70,26 @@ class SliceView(metaclass=abc.ABCMeta):
         self.brain = brain
         """Atlas brain"""
 
-        self.name = name
+        if isinstance(projection, str):
+            projection = Projection[projection]
+
+        self.projection = projection
         """slice plane projection"""
 
         self.reference = reference
         """Image Array[uint, AP, DV, ML]"""
 
-        self.resolution = int(brain.resolution[get_args(SLICE).index(name)])  # FIXME change to (x,y,z)
+        self.resolution = [
+            brain.resolution[projection.value[0]],
+            brain.resolution[projection.value[1]],
+            brain.resolution[projection.value[2]],
+        ]
         """um/pixel"""
 
         self.grid_y, self.grid_x = np.mgrid[0:self.height, 0:self.width]
 
     def __str__(self):
-        return f'SliceView[{self.name}]'
+        return f'SliceView[{self.projection.name}]'
 
     __repr__ = __str__
 
@@ -102,41 +109,42 @@ class SliceView(metaclass=abc.ABCMeta):
         return self.reference.shape[2]
 
     @property
-    @abc.abstractmethod
     def n_plane(self) -> int:
         """Number of plane (pixel) in this view"""
-        pass
+        return self.reference.shape[self.projection.value[0]]
 
     @property
-    @abc.abstractmethod
     def width(self) -> int:
         """width (pixel) in this view"""
-        pass
+        return self.reference.shape[self.projection.value[1]]
 
     @property
-    @abc.abstractmethod
     def height(self) -> int:
         """height (pixel) in this view"""
-        pass
+        return self.reference.shape[self.projection.value[2]]
+
+    @property
+    def plane_um(self) -> float:
+        """total plane length (um)"""
+        return self.n_plane * self.resolution[0]
 
     @property
     def width_um(self) -> float:
         """width (um) in this view"""
-        return self.width * self.resolution
+        return self.width * self.resolution[1]
 
     @property
     def height_um(self) -> float:
         """height (um) in this view"""
-        return self.height * self.resolution
+        return self.height * self.resolution[2]
 
     @property
-    @abc.abstractmethod
     def project_index(self) -> tuple[int, int, int]:
         """index order of (ap, dv, ml).
 
         :return: (p, x, y)
         """
-        pass
+        return self.projection.value
 
     def plane(self, o: int | tuple[int, int, int] | NDArray[np.int_], image: NDArray[np.uint] = None) -> NDArray[np.uint]:
         """Get brain image on plane *o*.
@@ -163,21 +171,21 @@ class SliceView(metaclass=abc.ABCMeta):
             image = self.reference
 
         o = np.clip(o, 0, self.n_plane - 1)
-        return image[self.coor_on(o, (self.grid_x, self.grid_y))]
+        return image[self.pull_back(o, (self.grid_x, self.grid_y))]
 
     @overload
-    def coor_on(self, plane: int, o: XY | tuple[float, float], *, um=False) -> COOR:
+    def pull_back(self, plane: int, o: XY | tuple[float, float], *, um=False) -> COOR:
         pass
 
     @overload
-    def coor_on(self, plane: int | NDArray[np.int_], o: tuple[NDArray, NDArray], *, um=False) -> tuple[NDArray[np.int_], NDArray[np.int_], NDArray[np.int_]]:
+    def pull_back(self, plane: int | NDArray[np.int_], o: tuple[NDArray, NDArray], *, um=False) -> tuple[NDArray[np.int_], NDArray[np.int_], NDArray[np.int_]]:
         pass
 
     @overload
-    def coor_on(self, plane: int | NDArray[np.int_], o: NDArray[np.int_], *, um=False) -> NDArray[np.int_]:
+    def pull_back(self, plane: int | NDArray[np.int_], o: NDArray[np.int_], *, um=False) -> NDArray[np.int_]:
         pass
 
-    def coor_on(self, plane, o, *, um=False):
+    def pull_back(self, plane, o, *, um=False):
         """map slice point (x, y) at plane *plane* back to volume point (ap, dv, ml).
 
         :param plane: plane number of array
@@ -197,16 +205,16 @@ class SliceView(metaclass=abc.ABCMeta):
             case (x, y) if um and all_int(plane) and all_float(x, y):
                 ret = [0, 0, 0]
                 ret[pidx] = plane
-                ret[xidx] = int(x / self.resolution)
-                ret[yidx] = int(y / self.resolution)
+                ret[xidx] = int(x / self.resolution[1])
+                ret[yidx] = int(y / self.resolution[2])
                 return tuple(ret)
 
             case (x, y):
                 plane, x, y = align_arr(plane, x, y)
                 if um:
                     plane = plane.astype(int)
-                    x = (x / self.resolution).astype(int)
-                    y = (y / self.resolution).astype(int)
+                    x = (x / self.resolution[1]).astype(int)
+                    y = (y / self.resolution[2]).astype(int)
 
                 ret = [0, 0, 0]
                 ret[pidx] = plane
@@ -217,8 +225,8 @@ class SliceView(metaclass=abc.ABCMeta):
             case _ if isinstance(o, np.ndarray):
                 ret = np.zeros((len(o), 3), dtype=int)
                 ret[:, pidx] = plane
-                ret[:, xidx] = o[:, 0] if not um else (o[:, 0] / self.resolution).astype(int)
-                ret[:, yidx] = o[:, 1] if not um else (o[:, 1] / self.resolution).astype(int)
+                ret[:, xidx] = o[:, 0] if not um else (o[:, 0] / self.resolution[1]).astype(int)
+                ret[:, yidx] = o[:, 1] if not um else (o[:, 1] / self.resolution[2]).astype(int)
                 return ret
             case _:
                 raise TypeError()
@@ -244,14 +252,14 @@ class SliceView(metaclass=abc.ABCMeta):
                 return int(t[p]), int(t[x]), int(t[y])
             case (ap, dv, ml) if um and all_float(ap, dv, ml):
                 res = self.resolution
-                return int(t[p] / res), int(t[x] / res), int(t[y] / res)
+                return int(t[p] / res[0]), int(t[x] / res[1]), int(t[y] / res[2])
             case _ if isinstance(t, np.ndarray):
                 if um:
                     t = (t / self.resolution).astype(int)
                 match t.ndim:
-                    case 1:
+                    case 1:  # Array[int, 3]
                         return t[((p, x, y),)]
-                    case 2:
+                    case 2:  # Array[int, N, 3]
                         return t[:, (p, x, y)]
                     case _:
                         raise ValueError(f'wrong dimension : {t.ndim}')
@@ -275,7 +283,11 @@ class SliceView(metaclass=abc.ABCMeta):
         :param a: radian rotation of (ap, dv, ml)-axis.
         :return: tuple of (dw, dh)
         """
-        raise RuntimeError()
+        rx = a[self.projection.value[1]]
+        ry = a[self.projection.value[2]]
+        dw = int(-self.width * math.tan(ry) / 2)
+        dh = int(self.height * math.tan(rx) / 2)
+        return dw, dh
 
     def offset_angle(self, dw: int, dh: int) -> tuple[float, float, float]:
         """plane index offset according to angle difference *a*.
@@ -284,7 +296,14 @@ class SliceView(metaclass=abc.ABCMeta):
         :param dh:
         :return: radian rotation of (ap, dv, ml)-axis.
         """
-        raise RuntimeError()
+        ry = math.atan(-dw * 2 / self.width)
+        rx = math.atan(dh * 2 / self.height)
+
+        ret = [0, 0, 0]
+        ret[self.projection.value[1]] = rx
+        ret[self.projection.value[2]] = ry
+
+        return tuple(ret)
 
     def plane_at(self, c: int | COOR | NDArray[np.int_] | SlicePlane, um=False) -> SlicePlane:
         """
@@ -299,18 +318,18 @@ class SliceView(metaclass=abc.ABCMeta):
                 pass
             case c if all_int(c):
                 if um:
-                    c = int(c / self.resolution)
+                    c = int(c / self.resolution[0])
                 plane = int(c)
                 ax = int(self.width // 2)
                 ay = int(self.height // 2)
             case (ap, dv, ml):
                 c = np.array(c)
                 if um:
-                    c = np.round(c / self.resolution).astype(int)
+                    c = np.round(c / self.resolution[0]).astype(int)
                 plane, ax, ay = self.project(tuple(c))
             case _ if isinstance(c, np.ndarray):
                 if um:
-                    c = np.round(c / self.resolution).astype(int)
+                    c = np.round(c / self.resolution[0]).astype(int)
                 plane, ax, ay = self.project(tuple(c))
             case _:
                 raise TypeError()
@@ -318,94 +337,6 @@ class SliceView(metaclass=abc.ABCMeta):
         if plane < 0:
             raise ValueError('negative plane index')
         return SlicePlane(plane, ax, ay, dw, dh, self)
-
-
-class CoronalView(SliceView):
-
-    @property
-    def n_plane(self) -> int:
-        return self.n_ap
-
-    @property
-    def width(self) -> int:
-        return self.n_ml
-
-    @property
-    def height(self) -> int:
-        return self.n_dv
-
-    @property
-    def project_index(self) -> tuple[int, int, int]:
-        return 0, 2, 1  # p=AP, x=ML, y=DV
-
-    def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
-        rx, ry, rz = a
-        dw = int(-self.width * math.tan(ry) / 2)
-        dh = int(self.height * math.tan(rz) / 2)
-        return dw, dh
-
-    def offset_angle(self, dw: int, dh: int) -> tuple[float, float, float]:
-        ry = math.atan(-dw * 2 / self.width)
-        rz = math.atan(dh * 2 / self.height)
-        return 0, ry, rz
-
-
-class SagittalView(SliceView):
-    @property
-    def n_plane(self) -> int:
-        return self.n_ml
-
-    @property
-    def width(self) -> int:
-        return self.n_ap
-
-    @property
-    def height(self) -> int:
-        return self.n_dv
-
-    @property
-    def project_index(self) -> tuple[int, int, int]:
-        return 2, 0, 1  # p=ML, x=AP, y=DV
-
-    def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
-        rx, ry, rz = a
-        dw = int(-self.width * math.tan(ry) / 2)
-        dh = int(self.height * math.tan(rx) / 2)
-        return dw, dh
-
-    def offset_angle(self, dw: int, dh: int) -> tuple[float, float, float]:
-        ry = math.atan(-dw * 2 / self.width)
-        rx = math.atan(dh * 2 / self.height)
-        return rx, ry, 0
-
-
-class TransverseView(SliceView):
-    @property
-    def n_plane(self) -> int:
-        return self.n_dv
-
-    @property
-    def width(self) -> int:
-        return self.n_ml
-
-    @property
-    def height(self) -> int:
-        return self.n_ap
-
-    @property
-    def project_index(self) -> tuple[int, int, int]:
-        return 1, 2, 0  # p=DV, x=ML, y=AP
-
-    def angle_offset(self, a: tuple[float, float, float]) -> tuple[int, int]:
-        rx, ry, rz = a
-        dw = int(-self.width * math.tan(rx) / 2)
-        dh = int(self.height * math.tan(rz) / 2)
-        return dw, dh
-
-    def offset_angle(self, dw: int, dh: int) -> tuple[float, float, float]:
-        rx = math.atan(-dw * 2 / self.width)
-        rz = math.atan(dh * 2 / self.height)
-        return rx, 0, rz
 
 
 class SlicePlane(NamedTuple):
@@ -419,11 +350,11 @@ class SlicePlane(NamedTuple):
     slice: SliceView
 
     @property
-    def slice_name(self) -> SLICE:
-        return self.slice.name
+    def projection(self) -> Projection:
+        return self.slice.projection
 
     @property
-    def resolution(self) -> int:
+    def resolution(self) -> list[int]:
         return self.slice.resolution
 
     @property
@@ -464,14 +395,14 @@ class SlicePlane(NamedTuple):
             case (x, y) if all_float(x, y):
                 if not um:
                     res = self.resolution
-                    x *= res
-                    y *= res
+                    x *= res[1]
+                    y *= res[2]
             case _:
                 x, y = align_arr(x, y)
                 if not um:
                     res = self.resolution
-                    x = x * res
-                    y = y * res
+                    x = x * res[1]
+                    y = y * res[2]
 
         cx = self.width / 2
         cy = self.height / 2
@@ -486,29 +417,29 @@ class SlicePlane(NamedTuple):
             return int(dp)
 
     @overload
-    def coor_on(self, o: XY | tuple[float, float] = None, *, um=False) -> COOR:
+    def pull_back(self, o: XY | tuple[float, float] = None, *, um=False) -> COOR:
         pass
 
     @overload
-    def coor_on(self, o: tuple[NDArray, NDArray], *, um=False) -> tuple[NDArray[np.int_], NDArray[np.int_], NDArray[np.int_]]:
+    def pull_back(self, o: tuple[NDArray, NDArray], *, um=False) -> tuple[NDArray[np.int_], NDArray[np.int_], NDArray[np.int_]]:
         pass
 
     @overload
-    def coor_on(self, o: NDArray, *, um=False) -> NDArray[np.int_]:
+    def pull_back(self, o: NDArray, *, um=False) -> NDArray[np.int_]:
         pass
 
-    def coor_on(self, o=None, *, um=False):
+    def pull_back(self, o=None, *, um=False):
         """
 
         :param o: tuple (x,y) or Array[int|float, [N,], (x, y)] position
         :return:  index (ap, dv, ml) or Array[int, N, (ap, dv, ml)]
         """
         if o is None:
-            return self.slice.coor_on(self.plane_idx_at(self.ax, self.ay), (self.ax, self.ay), um=um)
+            return self.slice.pull_back(self.plane_idx_at(self.ax, self.ay), (self.ax, self.ay), um=um)
         elif isinstance(o, tuple):
-            return self.slice.coor_on(self.plane_idx_at(o[0], o[1], um=um), o, um=um)
+            return self.slice.pull_back(self.plane_idx_at(o[0], o[1], um=um), o, um=um)
         else:
-            return self.slice.coor_on(self.plane_idx_at(o[:, 0], o[:, 1], um=um), o, um=um)
+            return self.slice.pull_back(self.plane_idx_at(o[:, 0], o[:, 1], um=um), o, um=um)
 
     def offset_angle(self) -> tuple[float, float, float]:
         return self.slice.offset_angle(self.dw, self.dh)

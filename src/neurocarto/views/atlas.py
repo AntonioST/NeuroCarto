@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 from neurocarto.config import CartoConfig
 from neurocarto.util import probe_coor
 from neurocarto.util.atlas_brain import get_atlas_brain, REFERENCE
-from neurocarto.util.atlas_slice import SlicePlane, SLICE, SliceView
+from neurocarto.util.atlas_slice import SlicePlane, PROJECTION, Projection, SliceView
 from neurocarto.util.atlas_struct import Structures
 from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, new_help_button, recursive_call_barrier
 from neurocarto.util.util_numpy import closest_point_index
@@ -38,7 +38,7 @@ class Label(NamedTuple):
 
 class AtlasBrainViewState(TypedDict, total=False):
     atlas_brain: str
-    brain_slice: SLICE | None
+    brain_slice: PROJECTION | None
     slice_plane: int
     slice_rot_w: int
     slice_rot_h: int
@@ -227,7 +227,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         new_slider = SliderFactory(width=slider_width, align='end')
 
         # slicing
-        slice_view_options = list(get_args(SLICE))
+        slice_view_options = list(get_args(PROJECTION))
         self.slice_select = Select(
             value=slice_view_options[0],
             options=slice_view_options,
@@ -292,8 +292,8 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     def _on_rotate_changed(self):
         if (p := self._brain_slice) is not None:
             r = p.slice.resolution
-            x = int(self.rotate_hor_slider.value / r)
-            y = int(self.rotate_ver_slider.value / r)
+            x = int(self.rotate_hor_slider.value / r[1])
+            y = int(self.rotate_ver_slider.value / r[2])
             q = p.with_offset(x, y)
             self.update_brain_slice(q)
 
@@ -341,7 +341,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
         return AtlasBrainViewState(
             atlas_brain=self.brain.atlas_name,
-            brain_slice=self._brain_view.name,
+            brain_slice=self._brain_view.projection.name,
             slice_plane=(p := self.brain_slice).plane,
             slice_rot_w=p.dw,
             slice_rot_h=p.dh,
@@ -623,7 +623,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
     # ================== #
 
     @recursive_call_barrier
-    def update_brain_view(self, view: SLICE | SliceView | str):
+    def update_brain_view(self, view: PROJECTION | SliceView | str):
         old_state = self.get_boundary_state()
 
         if isinstance(view, str):
@@ -634,10 +634,10 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
                 view = SliceView(self.brain, 'coronal')
 
         self._brain_view = view
-        self.logger.debug('slice_view(%s)', view.name)
+        self.logger.debug('slice_view(%s)', view.projection.name)
 
         if (p := self._brain_slice) is not None:
-            p = view.plane_at(p.coor_on())
+            p = view.plane_at(p.pull_back())
         else:
             p = view.plane_at(view.n_plane // 2)
 
@@ -662,7 +662,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         self._brain_slice = plane
 
         try:
-            self.slice_select.value = view.name
+            self.slice_select.value = view.projection.name
         except AttributeError:
             pass
 
@@ -672,11 +672,11 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             pass
 
         try:
-            self.rotate_hor_slider.step = view.resolution
-            self.rotate_ver_slider.step = view.resolution
+            self.rotate_hor_slider.step = view.resolution[1]
+            self.rotate_ver_slider.step = view.resolution[2]
             if plane is not None:
-                self.rotate_hor_slider.value = plane.dw * view.resolution
-                self.rotate_ver_slider.value = plane.dh * view.resolution
+                self.rotate_hor_slider.value = plane.dw * view.resolution[1]
+                self.rotate_ver_slider.value = plane.dh * view.resolution[2]
         except AttributeError:
             pass
 
@@ -688,39 +688,39 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
 
     def get_plane_offset(self, plane: int) -> float:
         view = self.brain_view
-        match (self._origin, view.name):
-            case ((origin, _, _), 'coronal'):
-                return origin - plane * view.resolution
-            case ((_, _, origin), 'sagittal'):
-                return plane * view.resolution - origin
+        match (self._origin, view.projection):
+            case ((origin, _, _), Projection.coronal):
+                return origin - plane * view.resolution[0]
+            case ((_, _, origin), Projection.sagittal):
+                return plane * view.resolution[0] - origin
             case _:
-                return plane * view.resolution
+                return plane * view.resolution[0]
 
     def get_plane_index(self, plane: float) -> int:
         view = self.brain_view
-        match (self._origin, view.name):
-            case ((origin, _, _), 'coronal'):
-                return int((origin - plane) / view.resolution)
-            case ((_, _, origin), 'sagittal'):
-                return int((plane + origin) / view.resolution)
+        match (self._origin, view.projection):
+            case ((origin, _, _), Projection.coronal):
+                return int((origin - plane) / view.resolution[0])
+            case ((_, _, origin), Projection.sagittal):
+                return int((plane + origin) / view.resolution[0])
             case _:
-                return int(plane / view.resolution)
+                return int(plane / view.resolution[0])
 
     def _update_plane_slider(self, view: SliceView, plane: SlicePlane | None):
-        self.plane_slider.step = view.resolution
+        self.plane_slider.step = view.resolution[0]
 
-        match (self._origin, view.name):
-            case ((origin, _, _), 'coronal'):
-                d = view.n_plane * view.resolution
+        match (self._origin, view.projection):
+            case ((origin, _, _), Projection.coronal):
+                d = view.plane_um
                 self.plane_slider.start = origin - d
                 self.plane_slider.end = origin - 0
-            case ((_, _, origin), 'sagittal'):
-                d = view.n_plane * view.resolution
+            case ((_, _, origin), Projection.sagittal):
+                d = view.plane_um
                 self.plane_slider.start = 0 - origin
                 self.plane_slider.end = d - origin
             case _:
                 self.plane_slider.start = 0
-                self.plane_slider.end = view.n_plane * view.resolution
+                self.plane_slider.end = view.n_plane * view.resolution[0]
 
         if plane is not None:
             self.plane_slider.value = self.get_plane_offset(plane.plane)
@@ -753,7 +753,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         if len(self._regions) == 0 or (plane := self._brain_slice) is None:
             self.data_region.data = dict(image=[], dw=[], dh=[], x=[], y=[])
         else:
-            view = SliceView(self.brain, plane.slice.name, self.brain.annotation)
+            view = SliceView(self.brain, plane.slice.projection, self.brain.annotation)
             plane = view.plane_at(plane)
             self.data_region.data = self.transform_image_data(self.process_image_data(np.flipud(plane.image)))
 
