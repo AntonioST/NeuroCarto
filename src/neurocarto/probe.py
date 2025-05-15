@@ -552,7 +552,7 @@ class ProbeDesp(Generic[M, E], metaclass=abc.ABCMeta):
     @doc_link()
     def invalid_electrodes(self, chmap: M, e: E | Iterable[E], electrodes: Iterable[E]) -> list[E]:
         """
-        Collect the invalid electrodes that an electrode from *s* will break the {#probe_rule()}
+        Collect the invalid electrodes that an electrode from *electrodes* will break the {#probe_rule()}
         with the electrode *e* (or any electrode from *e*).
 
         Note that *e* may also be contained in the result if *e* in *electrodes*.
