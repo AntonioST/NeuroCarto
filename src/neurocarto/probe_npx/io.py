@@ -136,6 +136,9 @@ class ImroIO(object):
         self.probe_type: ProbeType = probe_type
         self.reference: int = 0
 
+        from .npx import ImroEC
+        self.to = ImroEC(probe_type)
+
     def parse_header(self, *args: int):
         pass
 
@@ -172,21 +175,19 @@ class ImroIO_NP21(ImroIO):
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L80
-        from .npx import e2cr, e2c21
-
         ch, bank, ref, ed = args
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L21
         # mbank is multibank field, we take only lowest connected bank
         bank = (bank & -bank) - 1
-        assert e2c21(ed) == (ch, bank), f'{ed=},{ch=},{bank=},{e2c21(ed)=}'
+        assert self.to.e2c(ed) == (ch, bank), f'{ed=},{ch=},{bank=},e2c={self.to.e2c(ed)}'
         self.reference = ref
-        return Electrode(0, *e2cr(PROBE_TYPE_NP21, ed))
+        return Electrode(0, *self.to.e2cr(ed))
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L68
-        from .npx import cr2e, e2c21
-        electrode = cr2e(PROBE_TYPE_NP21, e)
-        channel, bank = e2c21(electrode)
+        from .npx import cr2e
+        electrode = cr2e(self.probe_type, e)
+        channel, bank = self.to.e2c(electrode)
         bank = 1 << bank
         return ch, bank, chmap.reference, electrode
 
@@ -195,18 +196,16 @@ class ImroIO_NP24(ImroIO):
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L50
-        from .npx import e2cr, e2c24
-
         ch, s, bank, ref, ed = args
-        assert e2c24(s, ed) == (ch, bank)
+        assert self.to.e2c(ed, s) == (ch, bank), f'{ed=},{s=},{ch=},{bank=},e2c={self.to.e2c(ed, s)}'
         self.reference = ref
-        return Electrode(s, *e2cr(PROBE_TYPE_NP24, ed))
+        return Electrode(s, *self.to.e2cr(ed))
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L37
-        from .npx import cr2e, e2c24
-        electrode = cr2e(PROBE_TYPE_NP24, e)
-        channel, bank = e2c24(e.shank, electrode)
+        from .npx import cr2e
+        electrode = cr2e(self.probe_type, e)
+        channel, bank = self.to.e2c(electrode, e.shank)
         return ch, e.shank, bank, chmap.reference, electrode
 
 
@@ -249,54 +248,49 @@ class ImroIO_NP2020(ImroIO):
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.cppL#35
-        from .npx import e2cr, e2c24
-
         ch, s, bank, ref, ed = args
-        assert e2c24(s, ed) == (ch, bank)
+        assert self.to.e2c(ed, s) == (ch, bank), f'{ed=},{s=},{ch=},{bank=},e2c={self.to.e2c(ed, s)}'
         self.reference = ref
-        return Electrode(0, *e2cr(PROBE_TYPE_NP24, ed))  # FIXME
+        return Electrode(s, *self.to.e2cr(ed))
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.cpp#L22
-        from .npx import cr2e, e2c24
-        electrode = cr2e(PROBE_TYPE_NP24, e)  # FIXME
-        channel, bank = e2c24(e.shank, electrode)
+        from .npx import cr2e
+        electrode = cr2e(self.probe_type, e)
+        channel, bank = self.to.e2c(electrode, e.shank)
         return ch, e.shank, bank, chmap.reference, electrode
 
 
 class ImroIO_NP3010(ImroIO):
+
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L32
-        from .npx import e2cr, e2c21
-
         ch, bank, ref, ed = args
-        assert e2c21(ed) == (ch, bank)
+        assert self.to.e2c(ed) == (ch, bank), f'{ed=},{ch=},{bank=},e2c={self.to.e2c(ed)}'
         self.reference = ref
-        return Electrode(0, *e2cr(PROBE_TYPE_NP21, ed))  # FIXME
+        return Electrode(0, *self.to.e2cr(ed))
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L20
-        from .npx import cr2e, e2c21
-        electrode = cr2e(PROBE_TYPE_NP21, e)
-        channel, bank = e2c21(electrode)
-        return ch, bank, chmap.reference, electrode  # FIXME
+        from .npx import cr2e
+        electrode = cr2e(self.probe_type, e)
+        channel, bank = self.to.e2c(electrode)
+        return ch, bank, chmap.reference, electrode
 
 
 class ImroIO_NP3020(ImroIO):
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L50
-        from .npx import e2cr, e2c24
-
         ch, s, bank, ref, ed = args
-        assert e2c24(s, ed) == (ch, bank)
+        assert self.to.e2c(ed, s) == (ch, bank), f'{ed=},{s=},{ch=},{bank=},e2c={self.to.e2c(ed, s)}'
         self.reference = ref
-        return Electrode(0, *e2cr(PROBE_TYPE_NP24, ed))  # FIXME
+        return Electrode(s, *self.to.e2cr(ed))
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L37
-        from .npx import cr2e, e2c24
-        electrode = cr2e(PROBE_TYPE_NP24, e)  # FIXME
-        channel, bank = e2c24(e.shank, electrode)
+        from .npx import cr2e
+        electrode = cr2e(self.probe_type, e)
+        channel, bank = self.to.e2c(e.shank, electrode)
         return ch, e.shank, bank, chmap.reference, electrode
 
 # ======================= #

@@ -119,11 +119,11 @@ PROBE_TYPE_NP1300 = ProbeType(1300, 1, 2, 960, 384, 32, 48, 20, 0, 5)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2003.h#L12
 PROBE_TYPE_NP2003 = ProbeType(2003, 1, 2, 1280, 384, 48, 32, 15, 0, 3)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2013.h#L12
-PROBE_TYPE_NP2013 = ProbeType(2013, 4, 2, 1280, 384, 48, 32, 15, 0, 7)
+PROBE_TYPE_NP2013 = ProbeType(2013, 4, 2, 1280, 384, 48, 32, 15, 250, 7)
 
 # NP2020 2.0 quad base (Ph 2C)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.h#L43
-PROBE_TYPE_NP2020 = ProbeType(2020, 4, 2, 1280, 384 * 4, 48, 32, 15, 250, 3)
+PROBE_TYPE_NP2020 = ProbeType(2020, 4, 2, 1280, 1536, 48, 32, 15, 250, 3)
 
 # PROBE_TYPE_NP24 based
 
@@ -1151,24 +1151,9 @@ def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType,
         ])
 
 
-ELECTRODE_MAP_21 = (np.array([1, 7, 5, 3], dtype=int),
-                    np.array([0, 4, 8, 12], dtype=int))
-ELECTRODE_MAP_24 = np.array([
-    [0, 2, 4, 6, 5, 7, 1, 3],  # shank-0
-    [1, 3, 5, 7, 4, 6, 0, 2],  # shank-1
-    [4, 6, 0, 2, 1, 3, 5, 7],  # shank-2
-    [5, 7, 1, 3, 0, 2, 4, 6],  # shank-3
-], dtype=int)
-ELECTRODE_MAP_1110 = np.array([
-    [0, 3, 1, 2],
-    [1, 2, 0, 3]
-], dtype=int)
-ELECTRODE_MAP_3020 = np.array([  # 4 shanks X 32 blocks, 99 = forbidden
-    [0, 16, 1, 17, 2, 18, 3, 99, 4, 99, 5, 99, 6, 99, 7, 99, 8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15, 99],  # shank-0
-    [16, 0, 17, 1, 18, 2, 99, 3, 99, 4, 99, 5, 99, 6, 99, 7, 99, 8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15],  # shank-1
-    [8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15, 99, 0, 16, 1, 17, 2, 18, 3, 99, 4, 99, 5, 99, 6, 99, 7, 99],  # shank-2
-    [99, 8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15, 16, 0, 17, 1, 18, 2, 99, 3, 99, 4, 99, 5, 99, 6, 99, 7],  # shank-3
-], dtype=int)
+ELECTRODE_MAP_21 = None
+ELECTRODE_MAP_24 = None
+
 
 @overload
 def e2p(probe_type: ProbeType, e: E) -> tuple[float, float]:
@@ -1254,9 +1239,7 @@ def e2cr(probe_type: ProbeType, e):
         case _:
             raise TypeError(repr(e))
 
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L199
-    r, c = divmod(e, probe_type.n_col_shank)
-    return c, r
+    return ImroEC(probe_type).e2cr(e)
 
 
 @overload
@@ -1280,7 +1263,7 @@ def cr2e(probe_type: ProbeType, p):
         case int(e):
             return e
         case (int(c), int(r)):
-            pass
+            s = None
         case (int(s), int(c), int(r)):
             pass
         case e if all_int(e):
@@ -1288,16 +1271,20 @@ def cr2e(probe_type: ProbeType, p):
         case (c, r) if all_int(c, r):
             c = int(c)
             r = int(r)
+            s = 0
         case (s, c, r) if all_int(s, c, r):
             c = int(c)
             r = int(r)
-        case Electrode(column=c, row=r):
+            s = int(s)
+        case Electrode(shank=s, column=c, row=r):
             pass
         case (c, r):
             c, r = align_arr(c, r)
+            s = None
         case [Electrode(), *_]:
             c = np.array([it.column for it in p])
             r = np.array([it.row for it in p])
+            s = np.array([it.shank for it in p])
         case _ if isinstance(p, np.ndarray):
             match p.shape:
                 case (_, ):
@@ -1305,6 +1292,7 @@ def cr2e(probe_type: ProbeType, p):
                 case (_, 2):
                     c = p[:, 0]
                     r = p[:, 1]
+                    s = None
                 case _:
                     raise ValueError()
         case [*_]:
@@ -1312,8 +1300,7 @@ def cr2e(probe_type: ProbeType, p):
         case _:
             raise TypeError(repr(p))
 
-    n = probe_type.n_col_shank
-    return r * n + c
+    return ImroEC(probe_type).cr2e(c, r, s)
 
 
 @overload
@@ -1343,13 +1330,13 @@ def e2cb(probe_type: ProbeType, electrode: Es | tuple[int | A, A] | tuple[int | 
 def e2cb(probe_type: ProbeType, electrode):
     match electrode:
         case int(electrode):
-            shank = 0
+            shank = None
         case (int(shank), int(electrode)):
             pass
         case (int(shank), int(column), int(row)):
             electrode = cr2e(probe_type, (column, row))
         case electrode if all_int(electrode):
-            shank = 0
+            shank = None
             electrode = int(electrode)
         case (shank, electrode) if all_int(shank, electrode):
             shank = int(shank)
@@ -1374,64 +1361,7 @@ def e2cb(probe_type: ProbeType, electrode):
         case _:
             raise TypeError()
 
-    match probe_type.code:
-        case 21 | 2003:
-            return e2c21(electrode)
-        case 24 | 2013:
-            return e2c24(shank, electrode)
-        case _:
-            return e2c0(electrode)
-
-
-@overload
-def e2c0(electrode: int) -> tuple[int, int]:
-    pass
-
-
-@overload
-def e2c0(electrode: NDArray[np.int_]) -> tuple[NDArray[np.int_], NDArray[np.int_]]:
-    pass
-
-
-def e2c0(electrode):
-    bank, channel = divmod(electrode, 384)
-    return channel, bank
-
-
-@overload
-def e2c21(electrode: int) -> tuple[int, int]:
-    pass
-
-
-@overload
-def e2c21(electrode: NDArray[np.int_]) -> tuple[NDArray[np.int_], NDArray[np.int_]]:
-    pass
-
-
-def e2c21(electrode):
-    bf, ba = ELECTRODE_MAP_21
-    bank, electrode = divmod(electrode, 384)
-    block, index = divmod(electrode, 32)
-    row, col = divmod(index, 2)
-    channel = 2 * ((row * bf[bank] + col * ba[bank]) % 16) + 32 * block + col
-    return channel, bank
-
-
-@overload
-def e2c24(shank: int, electrode: int) -> tuple[int, int]:
-    pass
-
-
-@overload
-def e2c24(shank: NDArray[np.int_], electrode: NDArray[np.int_]) -> tuple[NDArray[np.int_], NDArray[np.int_]]:
-    pass
-
-
-def e2c24(shank, electrode):
-    bank, electrode = divmod(electrode, 384)
-    block, index = divmod(electrode, 48)
-    block = ELECTRODE_MAP_24[shank, block]
-    return 48 * block + index, bank
+    return ImroEC(probe_type).e2c(electrode, shank)
 
 
 @overload
@@ -1460,193 +1390,278 @@ def c2e(probe_type: ProbeType, channel, bank=None, shank=None):
         case _:
             raise TypeError()
 
-    match probe_type.code:
-        case 21 | 2003:
-            return c2e21(bank, channel)
-        case 24 | 2013:
-            match (shank, channel):
-                case (None, channel) if all_int(channel):
-                    shank = 0
-                case (None, channel):
-                    shank = np.zeros_like(channel)
-                case (shank, channel) if all_int(shank, channel):
-                    shank = int(shank)
-                    channel = int(channel)
-                case (shank, channel):
-                    shank, bank, channel = align_arr(shank, bank, channel)
-                case _:
-                    raise TypeError()
-
-            return c2e24(shank, bank, channel)
-        case 1110:
-            return c2e1110(bank, channel)
-        case 3010:
-            return c2e3010(bank, channel)
-        case 3020:
-            return c2e3020(shank, bank, channel)
-        case _:
-            return c2e0(bank, channel)
-
-
-@overload
-def c2e0(bank: int, channel: int) -> int:
-    pass
-
-
-@overload
-def c2e0(bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
-    pass
-
-
-def c2e0(bank, channel):
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L12
-    return bank * 384 + channel % 384
-
-
-@overload
-def c2e21(bank: int, channel: int) -> int:
-    pass
-
-
-@overload
-def c2e21(bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
-    pass
-
-
-def c2e21(bank, channel):
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L34
-    bf, ba = ELECTRODE_MAP_21
-
-    if all_int(bank, channel):
+    if all_int(bank, channel) and shank is None:
         bank = int(bank)
         channel = int(channel)
-    else:
-        bank, channel = align_arr(bank, channel)
-
-    block, index = divmod(channel, 32)
-    row, col = divmod(index, 2)
-    rows = np.arange(0, 16)
-
-    if isinstance(bank, int):
-        mat = (rows * bf[bank] + col * ba[bank]) % 16
-        row = np.nonzero(mat == row)[0][0]
-    else:
-        mat = (np.multiply.outer(rows, bf[bank]) + col * ba[bank]) % 16  # (16, E)
-        row, i = np.nonzero(mat == row)
-        row = row[np.argsort(i)]
-
-    return bank * 384 + block * 32 + row * 2 + col
-
-
-@overload
-def c2e24(shank: int, bank: int, channel: int) -> int:
-    pass
-
-
-@overload
-def c2e24(shank: NDArray[np.int_], bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
-    pass
-
-
-def c2e24(shank, bank, channel):
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L26
-
-    if all_int(shank, bank, channel):
+    elif all_int(bank, channel, shank):
+        bank = int(bank)
+        channel = int(channel)
         shank = int(shank)
-        bank = int(bank)
-        channel = int(channel)
-    else:
-        shank, bank, channel = align_arr(shank, bank, channel)
-
-    block, index = divmod(channel, 48)
-
-    if isinstance(shank, int):
-        block = np.nonzero(ELECTRODE_MAP_24[shank] == block)[0][0]
-    else:
-        block, i = np.nonzero(ELECTRODE_MAP_24[shank].T == block)
-        block = block[np.argsort(i)]
-
-    return 384 * bank + 48 * block + index
-
-
-@overload
-def c2e1110(bank: int, channel: int) -> int:
-    pass
-
-
-@overload
-def c2e1110(bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
-    pass
-
-
-def c2e1110(bank, channel):
-    if all_int(bank, channel):
-        bank = int(bank)
-        channel = int(channel)
-    else:
+    elif shank is None:
         bank, channel = align_arr(bank, channel)
-
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L298
-    ch = channel % 384
-    group = 2 * (ch // 32) + (ch % 2)
-
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L318
-    group_row = group / 4
-    in_group_row = ((channel % 64) % 32) // 4
-    if isinstance(channel, int):
-        bank_row = 8 * group_row + (in_group_row if channel % 2 == 0 else 7 - in_group_row)
     else:
-        bank_row = 8 * group_row + np.where(channel % 2 == 0, in_group_row, 7 - in_group_row)
+        bank, channel, shank = align_arr(bank, channel, shank)
 
-    row = 48 * bank + bank_row
-
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L306
-    group_col = ELECTRODE_MAP_1110[bank % 2, group % 4]
-    crossed = (bank // 4) % 2
-    in_group_col = (((channel % 64) % 32) // 2) % 2
-    in_group_col = in_group_col ^ crossed
-    if isinstance(channel, int):
-        col = 2 * group_col + (in_group_col if channel % 2 == 0 else 1 - in_group_col)
-    else:
-        col = 2 * group_col + np.where(channel % 2 == 0, in_group_col, 1 - in_group_col)
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L349
-    return 8 * row + col
+    return ImroEC(probe_type).c2e(channel, bank, shank)
 
 
-@overload
-def c2e3010(bank: int, channel: int) -> int:
-    pass
+class ImroEC:
+    def __new__(cls, probe_type: ProbeType):
+        match probe_type.code:
+            case 0:
+                ret = ImroEC_NP1
+            case 21 | 2003:
+                ret = ImroEC_NP21
+            case 24 | 2013:
+                ret = ImroEC_NP24
+            case 1110:
+                ret = ImroEC_NP1110
+            case 2020:
+                ret = ImroEC_NP2020
+            case 3010:
+                ret = ImroEC_NP3010
+            case 3020:
+                ret = ImroEC_NP3020
+            case _:
+                ret = ImroEC_NP1
+
+        return object.__new__(ret)
+
+    def __init__(self, probe_type: ProbeType):
+        self.probe_type: ProbeType = probe_type
+
+    @overload
+    def e2cr(self, e: int) -> tuple[int, int]:
+        pass
+
+    @overload
+    def e2cr(self, e: NDArray[np.int_]) -> tuple[NDArray[np.int_], NDArray[np.int_]]:
+        pass
+
+    def e2cr(self, e):
+        """
+
+        :param e: electrode
+        :return: tuple of (col, row)
+        """
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L199
+        r, c = divmod(e, self.probe_type.n_col_shank)
+        return c, r
+
+    @overload
+    def cr2e(self, c: int, r: int, s: int = None) -> int:
+        pass
+
+    @overload
+    def cr2e(self, c: NDArray[np.int_], r: NDArray[np.int_], s: NDArray[np.int_] = None) -> NDArray[np.int_]:
+        pass
+
+    def cr2e(self, c, r, s=None):
+        """
+
+        :param c: column
+        :param r: row
+        :param s: shank
+        :return: electrode
+        """
+        return r * self.probe_type.n_col_shank + c
+
+    @overload
+    def e2c(self, e: int, s: int = None) -> tuple[int, int]:
+        pass
+
+    @overload
+    def e2c(self, e: NDArray[np.int_], s: NDArray[np.int_] = None) -> tuple[NDArray[np.int_], NDArray[np.int_]]:
+        pass
+
+    def e2c(self, e, s=None):
+        """
+
+        :param e: electrode
+        :param s: shank
+        :return: tuple of (channel, bank)
+        """
+        raise NotImplementedError()
+
+    @overload
+    def c2e(self, c: int, b: int, s: int = None) -> int:
+        pass
+
+    @overload
+    def c2e(self, c: NDArray[np.int_], b: NDArray[np.int_], s: NDArray[np.int_] = None) -> NDArray[np.int_]:
+        pass
+
+    def c2e(self, c, b, s=None):
+        """
+
+        :param c: channel
+        :param b: bank
+        :param s: shank
+        :return: electrode
+        """
+        raise NotImplementedError()
 
 
-@overload
-def c2e3010(bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
-    pass
+class ImroEC_NP1(ImroEC):
+    def c2e(self, c, b, s=None):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L12
+        return b * 384 + c % 384
+
+    def e2c(self, e, s=None):
+        bank, channel = divmod(e, 384)
+        return channel, bank
 
 
-def c2e3010(bank, channel):
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L12
-    return bank * 912 + channel
+class ImroEC_NP21(ImroEC):
+    BF = np.array([1, 7, 5, 3], dtype=int)
+    BA = np.array([0, 4, 8, 12], dtype=int)
+
+    def c2e(self, c, b, s=None):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L34
+        block, index = divmod(c, 32)
+        row, col = divmod(index, 2)
+        rows = np.arange(0, 16)
+
+        if isinstance(b, int):
+            mat = (rows * self.BF[b] + col * self.BA[b]) % 16
+            row = np.nonzero(mat == row)[0][0]
+        else:
+            mat = (np.multiply.outer(rows, self.BF[b]) + col * self.BA[b]) % 16  # (16, E)
+            row, i = np.nonzero(mat == row)
+            row = row[np.argsort(i)]
+
+        return b * 384 + block * 32 + row * 2 + col
+
+    def e2c(self, e, s=None):
+        bank, e = divmod(e, 384)
+        block, index = divmod(e, 32)
+        row, col = divmod(index, 2)
+        channel = 2 * ((row * self.BF[bank] + col * self.BA[bank]) % 16) + 32 * block + col
+        return channel, bank
 
 
-@overload
-def c2e3020(shank: int, bank: int, channel: int) -> int:
-    pass
+class ImroEC_NP24(ImroEC):
+    ELECTRODE_MAP_24 = np.array([
+        [0, 2, 4, 6, 5, 7, 1, 3],  # shank-0
+        [1, 3, 5, 7, 4, 6, 0, 2],  # shank-1
+        [4, 6, 0, 2, 1, 3, 5, 7],  # shank-2
+        [5, 7, 1, 3, 0, 2, 4, 6],  # shank-3
+    ], dtype=int)
+
+    def c2e(self, c, b, s=None):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L26
+        if s is None:
+            if isinstance(e, int):
+                s = 0
+            else:
+                s = np.zeros_like(e)
+
+        block, index = divmod(c, 48)
+
+        if isinstance(s, int):
+            block = np.nonzero(self.ELECTRODE_MAP_24[s] == block)[0][0]
+        else:
+            block, i = np.nonzero(self.ELECTRODE_MAP_24[s].T == block)
+            block = block[np.argsort(i)]
+
+        return 384 * b + 48 * block + index
+
+    def e2c(self, e, s=None):
+        if s is None:
+            if isinstance(e, int):
+                s = 0
+            else:
+                s = np.zeros_like(e)
+
+        bank, e = divmod(e, 384)
+        block, index = divmod(e, 48)
+        block = self.ELECTRODE_MAP_24[s, block]
+        return 48 * block + index, bank
 
 
-@overload
-def c2e3020(shank: NDArray[np.int_], bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
-    pass
+class ImroEC_NP1110(ImroEC):
+    ELECTRODE_MAP_1110 = np.array([
+        [0, 3, 1, 2],
+        [1, 2, 0, 3]
+    ], dtype=int)
+
+    @classmethod
+    def _group(cls, c):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L298
+        c = c % 384
+        return 2 * (c // 32) + (c % 2)
+
+    @classmethod
+    def _row(cls, c, b, g):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L318
+        group_row = g / 4
+        in_group_row = ((c % 64) % 32) // 4
+        if isinstance(c, int):
+            bank_row = 8 * group_row + (in_group_row if c % 2 == 0 else 7 - in_group_row)
+        else:
+            bank_row = 8 * group_row + np.where(c % 2 == 0, in_group_row, 7 - in_group_row)
+
+        return 48 * b + bank_row
+
+    @classmethod
+    def _col(cls, c, b, g):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L306
+        group_col = cls.ELECTRODE_MAP_1110[b % 2, g % 4]
+        crossed = (b // 4) % 2
+        in_group_col = (((c % 64) % 32) // 2) % 2
+        in_group_col = in_group_col ^ crossed
+        if isinstance(c, int):
+            col = 2 * group_col + (in_group_col if c % 2 == 0 else 1 - in_group_col)
+        else:
+            col = 2 * group_col + np.where(c % 2 == 0, in_group_col, 1 - in_group_col)
+
+        return col
+
+    def c2e(self, c, b, s=None):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L349
+        g = self._group(c)
+        r = self._row(c, b, g)
+        i = self._col(c, b, g)
+        return 8 * r + i
 
 
-def c2e3020(shank, bank, channel):
-    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L26
-    if all_int(shank, bank, channel):
-        shank = int(shank)
-        bank = int(bank)
-        channel = int(channel)
-    else:
-        shank, bank, channel = align_arr(shank, bank, channel)
+class ImroEC_NP2020(ImroEC):
+    def e2c(self, e, s=None):
+        if s is None:
+            if isinstance(e, int):
+                s = 0
+            else:
+                s = np.zeros_like(e)
 
-    block, index = divmod(channel, 48)
+        bank, _ = divmod(e, 384)
+        return s * 384 + e, bank
 
-    return 912 * bank + 48 * ELECTRODE_MAP_3020[shank, block] + index
+    def c2e(self, c, b, s=None):
+        return c % 384
+
+
+class ImroEC_NP3010(ImroEC):
+    def c2e(self, c, b, s=None):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L12
+        return b * 912 + c
+
+
+class ImroEC_NP3020(ImroEC):
+    ELECTRODE_MAP_3020 = np.array([  # 4 shanks X 32 blocks, 99 = forbidden
+        [0, 16, 1, 17, 2, 18, 3, 99, 4, 99, 5, 99, 6, 99, 7, 99, 8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15, 99],  # shank-0
+        [16, 0, 17, 1, 18, 2, 99, 3, 99, 4, 99, 5, 99, 6, 99, 7, 99, 8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15],  # shank-1
+        [8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15, 99, 0, 16, 1, 17, 2, 18, 3, 99, 4, 99, 5, 99, 6, 99, 7, 99],  # shank-2
+        [99, 8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15, 16, 0, 17, 1, 18, 2, 99, 3, 99, 4, 99, 5, 99, 6, 99, 7],  # shank-3
+    ], dtype=int)
+
+    def c2e(self, c, b, s=None):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L26
+        if s is None:
+            if isinstance(e, int):
+                s = 0
+            else:
+                s = np.zeros_like(e)
+
+        block, index = divmod(c, 48)
+
+        return 912 * b + 48 * self.ELECTRODE_MAP_3020[s, block] + index
