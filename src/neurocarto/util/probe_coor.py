@@ -58,6 +58,7 @@ class ProbeCoordinate(NamedTuple):
             x=self.bregma[0] - self.x,
             y=self.bregma[1] + self.y,
             z=self.bregma[2] + self.z,
+            rx=-self.rx, ry=-self.ry, rz=-self.rz,
             bregma=None
         )
 
