@@ -53,7 +53,6 @@ class ProbeType(NamedTuple):
     n_col_shank: int  # number of columns per shank (_ncolhwr)
     n_electrode_shank: int  # number of electrode per shank.
     n_channels: int  # number of total channels.
-    n_electrode_block: int  # number of electrode per block.
     c_space: float  # electrodes column space (_xpitch), um
     r_space: float  # electrodes row space (_zpitch), um
     s_space: int  # shank space (_shankpitch), um
@@ -68,16 +67,6 @@ class ProbeType(NamedTuple):
         """number of total banks"""
         return int(math.ceil(self.n_electrode_shank / self.n_channels))
 
-    @property
-    def n_block(self) -> int:
-        """number of total blocks"""
-        return self.n_electrode_shank // self.n_electrode_block
-
-    @property
-    def n_block_bank(self) -> int:
-        """number of blocks in one bank"""
-        return self.n_channels // self.n_electrode_block
-
     @classmethod
     def __class_getitem__(cls, item: int | str) -> ProbeType:
         return PROBE_TYPE[item]
@@ -86,55 +75,55 @@ class ProbeType(NamedTuple):
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.cpp#L115
 
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0.h#L12
-PROBE_TYPE_NP1 = ProbeType(0, 1, 2, 960, 384, 32, 32, 20, 0, 5)
+PROBE_TYPE_NP1 = ProbeType(0, 1, 2, 960, 384, 32, 20, 0, 5)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21.h#L12
-PROBE_TYPE_NP21 = ProbeType(21, 1, 2, 1280, 384, 48, 32, 15, 0, 6)
+PROBE_TYPE_NP21 = ProbeType(21, 1, 2, 1280, 384, 32, 15, 0, 6)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24.h#L12
-PROBE_TYPE_NP24 = ProbeType(24, 4, 2, 1280, 384, 48, 32, 15, 250, 18)
+PROBE_TYPE_NP24 = ProbeType(24, 4, 2, 1280, 384, 32, 15, 250, 18)
 
 # PROBE_TYPE_NP1 based
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1020.h#L12
-PROBE_TYPE_NP1020 = ProbeType(1020, 1, 2, 2496, 384, 32, 87, 20, 0, 9)
-PROBE_TYPE_NP1022 = ProbeType(1020, 1, 2, 2496, 384, 32, 103, 20, 0, 9)
+PROBE_TYPE_NP1020 = ProbeType(1020, 1, 2, 2496, 384, 87, 20, 0, 9)
+PROBE_TYPE_NP1022 = ProbeType(1020, 1, 2, 2496, 384, 103, 20, 0, 9)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1030.h#L12
-PROBE_TYPE_NP1030 = ProbeType(1030, 1, 2, 4416, 384, 32, 87, 20, 0, 14)
-PROBE_TYPE_NP1032 = ProbeType(1030, 1, 2, 4416, 384, 32, 103, 20, 0, 14)
+PROBE_TYPE_NP1030 = ProbeType(1030, 1, 2, 4416, 384, 87, 20, 0, 14)
+PROBE_TYPE_NP1032 = ProbeType(1030, 1, 2, 4416, 384, 103, 20, 0, 14)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1100.h#L12
-PROBE_TYPE_NP1100 = ProbeType(1100, 1, 8, 384, 384, 32, 6, 6, 0, 2)
+PROBE_TYPE_NP1100 = ProbeType(1100, 1, 8, 384, 384, 6, 6, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.h#L61
-PROBE_TYPE_NP1110 = ProbeType(1110, 1, 8, 6144, 384, 32, 6, 6, 0, 2)
+PROBE_TYPE_NP1110 = ProbeType(1110, 1, 8, 6144, 384, 6, 6, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1120.h#L12
-PROBE_TYPE_NP1120 = ProbeType(1120, 1, 2, 384, 384, 32, 4.5, 4.5, 0, 2)
+PROBE_TYPE_NP1120 = ProbeType(1120, 1, 2, 384, 384, 4.5, 4.5, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1121.h#L12
-PROBE_TYPE_NP1121 = ProbeType(1121, 1, 1, 384, 384, 32, 3, 3, 0, 2)
+PROBE_TYPE_NP1121 = ProbeType(1121, 1, 1, 384, 384, 3, 3, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1122.h#L12
-PROBE_TYPE_NP1122 = ProbeType(1122, 1, 16, 384, 384, 32, 3, 3, 0, 2)
+PROBE_TYPE_NP1122 = ProbeType(1122, 1, 16, 384, 384, 3, 3, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1123.h#L12
-PROBE_TYPE_NP1123 = ProbeType(1123, 1, 12, 384, 384, 32, 4.5, 4.5, 0, 2)
+PROBE_TYPE_NP1123 = ProbeType(1123, 1, 12, 384, 384, 4.5, 4.5, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1200.h#L12
-PROBE_TYPE_NP1200 = ProbeType(1200, 1, 2, 128, 128, 32, 32, 31, 0, 2)
+PROBE_TYPE_NP1200 = ProbeType(1200, 1, 2, 128, 128, 32, 31, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1300.h#L12
-PROBE_TYPE_NP1300 = ProbeType(1300, 1, 2, 960, 384, 32, 48, 20, 0, 5)
+PROBE_TYPE_NP1300 = ProbeType(1300, 1, 2, 960, 384, 48, 20, 0, 5)
 
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2003.h#L12
-PROBE_TYPE_NP2003 = ProbeType(2003, 1, 2, 1280, 384, 48, 32, 15, 0, 3)
+PROBE_TYPE_NP2003 = ProbeType(2003, 1, 2, 1280, 384, 32, 15, 0, 3)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2013.h#L12
-PROBE_TYPE_NP2013 = ProbeType(2013, 4, 2, 1280, 384, 48, 32, 15, 250, 7)
+PROBE_TYPE_NP2013 = ProbeType(2013, 4, 2, 1280, 384, 32, 15, 250, 7)
 
 # NP2020 2.0 quad base (Ph 2C)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.h#L43
-PROBE_TYPE_NP2020 = ProbeType(2020, 4, 2, 1280, 1536, 48, 32, 15, 250, 3)
+PROBE_TYPE_NP2020 = ProbeType(2020, 4, 2, 1280, 1536, 32, 15, 250, 3)
 
 # PROBE_TYPE_NP24 based
 
 # NXT multishank
-PROBE_TYPE_NP3000 = ProbeType(1200, 1, 2, 128, 128, 48, 15, 15, 0, 2)
+PROBE_TYPE_NP3000 = ProbeType(1200, 1, 2, 128, 128, 15, 15, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.h#L47
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010.h#L12
-PROBE_TYPE_NP3010 = ProbeType(3010, 1, 2, 1280, 912, 48, 32, 15, 0, 3)
+PROBE_TYPE_NP3010 = ProbeType(3010, 1, 2, 1280, 912, 32, 15, 0, 3)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.h#L47
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020.h#L12
-PROBE_TYPE_NP3020 = ProbeType(3020, 1, 2, 1280, 912, 48, 32, 15, 250, 7)
+PROBE_TYPE_NP3020 = ProbeType(3020, 4, 2, 1280, 912, 32, 15, 250, 7)
 
 
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.cpp#L1112
@@ -1151,8 +1140,6 @@ def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType,
         ])
 
 
-ELECTRODE_MAP_21 = None
-ELECTRODE_MAP_24 = None
 
 
 @overload
@@ -1551,7 +1538,7 @@ class ImroEC_NP24(ImroEC):
     def c2e(self, c, b, s=None):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L26
         if s is None:
-            if isinstance(e, int):
+            if isinstance(c, int):
                 s = 0
             else:
                 s = np.zeros_like(e)
@@ -1637,7 +1624,7 @@ class ImroEC_NP2020(ImroEC):
         return s * 384 + e, bank
 
     def c2e(self, c, b, s=None):
-        return c % 384
+        return c % 384 + b * 384
 
 
 class ImroEC_NP3010(ImroEC):
@@ -1657,10 +1644,10 @@ class ImroEC_NP3020(ImroEC):
     def c2e(self, c, b, s=None):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L26
         if s is None:
-            if isinstance(e, int):
+            if isinstance(c, int):
                 s = 0
             else:
-                s = np.zeros_like(e)
+                s = np.zeros_like(c)
 
         block, index = divmod(c, 48)
 

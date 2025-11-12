@@ -258,7 +258,7 @@ class ImroIO_NP2020(ImroIO):
         from .npx import cr2e
         electrode = cr2e(self.probe_type, e)
         channel, bank = self.to.e2c(electrode, e.shank)
-        return ch, e.shank, bank, chmap.reference, electrode
+        return ch, e.shank, bank, chmap.reference, electrode % 384
 
 
 class ImroIO_NP3010(ImroIO):

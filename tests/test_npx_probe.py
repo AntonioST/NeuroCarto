@@ -454,6 +454,85 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
                 e2.append(m.c2e(c, b, s))
             assert_array_equal(e0, np.array(e2))
 
+    @unittest.skip(reason='e2c not implement')
+    def test_np1110(self):
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP1110, ImroEC
+        t = PROBE_TYPE_NP1110
+        m = ImroEC(t)
+        self.assertEqual(1, t.n_shank)
+
+        e0 = np.arange(t.n_electrode_shank)
+        c, b = m.e2c(e0)
+        e1 = m.c2e(c, b)
+        assert_array_equal(e0, e1)
+
+        e2 = []
+        for e in e0:
+            c, b = m.e2c(int(e))
+            e2.append(m.c2e(c, b))
+        assert_array_equal(e0, np.array(e2))
+
+    def test_np2020(self):
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP2020, ImroEC
+        t = PROBE_TYPE_NP2020
+        m = ImroEC(t)
+        self.assertEqual(4, t.n_shank)
+
+        e0 = np.arange(t.n_electrode_shank)
+
+        for s in range(t.n_shank):
+            s = np.full_like(e0, s)
+            c, b = m.e2c(e0, s)
+            e1 = m.c2e(c, b, s)
+            assert_array_equal(e0, e1)
+
+        for s in range(t.n_shank):
+            e2 = []
+            for e in e0:
+                c, b = m.e2c(e, s)
+                e2.append(m.c2e(c, b, s))
+            assert_array_equal(e0, np.array(e2))
+
+    @unittest.skip(reason='e2c not implement')
+    def test_np3010(self):
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP3010, ImroEC
+        t = PROBE_TYPE_NP3010
+        m = ImroEC(t)
+        self.assertEqual(1, t.n_shank)
+
+        e0 = np.arange(t.n_electrode_shank)
+        c, b = m.e2c(e0)
+        e1 = m.c2e(c, b)
+        assert_array_equal(e0, e1)
+
+        e2 = []
+        for e in e0:
+            c, b = m.e2c(int(e))
+            e2.append(m.c2e(c, b))
+        assert_array_equal(e0, np.array(e2))
+
+    @unittest.skip(reason='e2c not implement')
+    def test_np3020(self):
+        from neurocarto.probe_npx.npx import PROBE_TYPE_NP3020, ImroEC
+        t = PROBE_TYPE_NP3020
+        m = ImroEC(t)
+        self.assertEqual(4, t.n_shank)
+
+        e0 = np.arange(t.n_electrode_shank)
+
+        for s in range(t.n_shank):
+            s = np.full_like(e0, s)
+            c, b = m.e2c(e0, s)
+            e1 = m.c2e(c, b, s)
+            assert_array_equal(e0, e1)
+
+        for s in range(t.n_shank):
+            e2 = []
+            for e in e0:
+                c, b = m.e2c(e, s)
+                e2.append(m.c2e(c, b, s))
+            assert_array_equal(e0, np.array(e2))
+
     def test_np1_electrode_coordinate(self):
         from neurocarto.probe_npx.desp import NpxProbeDesp
         from neurocarto.probe_npx.npx import PROBE_TYPE_NP1, ChannelMap
@@ -502,7 +581,7 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
     def test_iter_electrodes(self):
         from neurocarto.probe_npx.utils import iter_electrodes
 
-        probe = ProbeType(-1, 2, 2, 8, 16, 4, 1, 1, 1, 0)
+        probe = ProbeType(-1, 2, 2, 8, 16, 1, 1, 1, 0)
 
         self.assertListEqual(list(iter_electrodes(probe)), [
             (0, 0, 0),

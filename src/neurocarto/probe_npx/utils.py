@@ -3,9 +3,10 @@ from collections.abc import Iterator
 from typing import Literal
 
 import numpy as np
+from numpy.typing import NDArray
+
 from neurocarto.probe_npx.npx import ProbeType, Electrode, ChannelMap, PROBE_TYPE_NP24, ChannelHasUsedError
 from neurocarto.util.utils import as_set, doc_link
-from numpy.typing import NDArray
 
 __all__ = [
     'clone', 'clear', 'set_electrodes',
@@ -36,63 +37,20 @@ ITER = int | slice | range | list[int] | NDArray[np.int_]
 def iter_electrodes(probe_type: ProbeType,
                     shank: ITER = None,
                     column: ITER = None,
-                    row: ITER = None,
-                    block: ITER = None,
-                    bank: ITER = None) -> Iterator[tuple[int, int, int]]:
+                    row: ITER = None) -> Iterator[tuple[int, int, int]]:
     s = as_set(shank, probe_type.n_shank)
     c = as_set(column, probe_type.n_col_shank)
 
-    match (bank, block):
-        case (None, None):
-            for ss in s:
-                for rr in as_set(row, probe_type.n_row_shank):
-                    for cc in c:
-                        yield ss, cc, rr
-
-        case (None, _):
-            rk = probe_type.n_electrode_block // probe_type.n_col_shank
-            r = as_set(row, rk)
-            k = as_set(block, probe_type.n_block)
-
-            for ss in s:
-                for kk in k:
-                    for rr in r:
-                        for cc in c:
-                            yield ss, cc, rr + kk * rk
-
-        case (_, None):
-            rb = probe_type.n_channels // probe_type.n_col_shank
-            r = as_set(row, rb)
-            b = as_set(bank, probe_type.n_bank)
-
-            for ss in s:
-                for bb in b:
-                    for rr in r:
-                        for cc in c:
-                            yield ss, cc, rr + bb * rb
-
-        case (_, _):
-            rb = probe_type.n_channels // probe_type.n_col_shank
-            rk = probe_type.n_electrode_block // probe_type.n_col_shank
-
-            r = as_set(row, rk)
-            k = as_set(block, probe_type.n_block_bank)
-            b = as_set(bank, probe_type.n_bank)
-
-            for ss in s:
-                for bb in b:
-                    for kk in k:
-                        for rr in r:
-                            for cc in c:
-                                yield ss, cc, rr + bb * rb + kk * rk
+    for ss in s:
+        for rr in as_set(row, probe_type.n_row_shank):
+            for cc in c:
+                yield ss, cc, rr
 
 
 def set_electrodes(chmap: ChannelMap,
                    shank: ITER = None,
                    column: ITER = None,
-                   row: ITER = None,
-                   block: ITER = None,
-                   bank: ITER = None, *,
+                   row: ITER = None, *,
                    overwrite=False) -> list[Electrode]:
     """
     add electrodes.
@@ -110,7 +68,7 @@ def set_electrodes(chmap: ChannelMap,
     :return: added electrodes.
     """
     ret = []
-    for s, c, r in iter_electrodes(chmap.probe_type, shank, column, row, block, bank):
+    for s, c, r in iter_electrodes(chmap.probe_type, shank, column, row):
         try:
             e = chmap.add_electrode((s, c, r))
         except ChannelHasUsedError as x:
