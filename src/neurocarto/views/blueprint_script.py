@@ -483,6 +483,9 @@ class BlueprintScriptView(PltImageView, EditorView, ControllerView,
                 if (code := request.code) is None:
                     raise RuntimeError('RequestChannelmapType missing probe code')
 
+                if isinstance(code, tuple):
+                    code = code[0]
+
                 # rerun _run_script with new-created channelmap.
                 self.logger.debug('run_script(%s) create probe %s[%d]', script.name, request.probe_name, code)
                 chmap = bp.new_channelmap(code)

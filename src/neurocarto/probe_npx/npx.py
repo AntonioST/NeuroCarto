@@ -133,10 +133,29 @@ class _PROBE_TYPE(defaultdict[int | str, ProbeType]):
         super().__init__()
         self.update({
             0: PROBE_TYPE_NP1,
+            1000: PROBE_TYPE_NP1,
+            1020: PROBE_TYPE_NP1020,
+            1022: PROBE_TYPE_NP1022,
+            1030: PROBE_TYPE_NP1030,
+            1032: PROBE_TYPE_NP1032,
+            1100: PROBE_TYPE_NP1100,
+            1110: PROBE_TYPE_NP1110,
+            1120: PROBE_TYPE_NP1120,
+            1121: PROBE_TYPE_NP1121,
+            1122: PROBE_TYPE_NP1122,
+            1123: PROBE_TYPE_NP1123,
+            1200: PROBE_TYPE_NP1200,
+            1300: PROBE_TYPE_NP1300,
             21: PROBE_TYPE_NP21,
-            '21': PROBE_TYPE_NP21,
+            2000: PROBE_TYPE_NP21,
+            2003: PROBE_TYPE_NP2003,
             24: PROBE_TYPE_NP24,
-            '24': PROBE_TYPE_NP24,
+            2010: PROBE_TYPE_NP24,
+            2013: PROBE_TYPE_NP2013,
+            2020: PROBE_TYPE_NP2020,
+            3000: PROBE_TYPE_NP3000,
+            3010: PROBE_TYPE_NP3010,
+            3020: PROBE_TYPE_NP3020,
         })
 
     def __missing__(self, key):
@@ -284,7 +303,7 @@ class Electrode:
 
 class ReferenceInfo(NamedTuple):
     code: int
-    type: Literal['ext', 'tip', 'bank', 'ground']
+    type: Literal['ext', 'tip', 'bank', 'ground', 'unknown']
     shank: int  # 0 if reference_type is 'ext'
     channel: int  # 0 if reference_type is not 'bank'
 
@@ -321,6 +340,9 @@ class ReferenceInfo(NamedTuple):
                 return ReferenceInfo(reference, 'ground', reference - 1, 0)
             if reference - 2 < probe_type.n_shank:
                 return ReferenceInfo(reference, 'tip', reference - 2, 0)
+
+            # XXX probe 2013 has 7 references, but SpikeGLX only said what 6 is.
+            return ReferenceInfo(reference, 'unknown', reference - 2 - probe_type.n_shank, 0)
 
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21.cpp#L16
         elif probe_type.code == 21:
