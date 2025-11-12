@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import sys
+from collections import defaultdict
 from collections.abc import Iterable, Iterator, Sized, Sequence
 from pathlib import Path
 from typing import Any, NamedTuple, Final, Literal, overload, cast, TYPE_CHECKING
@@ -44,20 +45,23 @@ class ProbeType(NamedTuple):
     References:
 
     * `open-ephys-plugins <https://github.com/open-ephys-plugins/neuropixels-pxi/blob/master/Source/Probes/Geometry.cpp#L27>`_
-    * `SpikeGLX <https://github.com/jenniferColonell/SGLXMetaToCoords/blob/140452d43a55ea7c7904f09e03858bfe0d499df3/SGLXMetaToCoords.py#L79>`_
+    * `SpikeGLX <https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.h#L105>`_
 
     """
     code: int
     n_shank: int  # number of shank
-    n_col_shank: int  # number of columns per shank
-    n_row_shank: int  # number of rows per shank
-    n_electrode_shank: int  # number of electrode per shank. It is equals to `n_col_shank * n_row_shank`.
+    n_col_shank: int  # number of columns per shank (_ncolhwr)
+    n_electrode_shank: int  # number of electrode per shank.
     n_channels: int  # number of total channels.
     n_electrode_block: int  # number of electrode per block.
-    c_space: int  # electrodes column space, um
-    r_space: int  # electrodes row space, um
-    s_space: int  # shank space, um
-    reference: tuple[int, ...]
+    c_space: float  # electrodes column space (_xpitch), um
+    r_space: float  # electrodes row space (_zpitch), um
+    s_space: int  # shank space (_shankpitch), um
+    n_reference: int  # number of references
+
+    @property
+    def n_row_shank(self) -> int:
+        return self.n_electrode_shank // self.n_col_shank
 
     @property
     def n_bank(self) -> int:
@@ -79,56 +83,141 @@ class ProbeType(NamedTuple):
         return PROBE_TYPE[item]
 
 
-PROBE_TYPE_NP1 = ProbeType(0, 1, 2, 480, 960, 384, 32, 32, 20, 0, (192, 576, 960))
-# PROBE_TYPE_NHP1 = ProbeProfile(1, 2, 64, 128, 128, 32)
-# PROBE_TYPE_NHP2_10 = ProbeProfile(1, 2, 480, 960, 384, 32)
-# PROBE_TYPE_NHP2_25 = ProbeProfile(1, 2, 1248, 2496, 384, 32)
-# PROBE_TYPE_NHP2_45 = ProbeProfile(1, 2, 2208, 4416, 384, 32)
-PROBE_TYPE_NP21 = ProbeType(21, 1, 2, 640, 1280, 384, 48, 32, 15, 0, (127, 507, 887, 1251))
-PROBE_TYPE_NP24 = ProbeType(24, 4, 2, 640, 1280, 384, 48, 32, 15, 250, (127, 511, 895, 1279))
-# PROBE_TYPE_UHD = ProbeProfile(1, 8, 48, 384, 384, 48)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.cpp#L115
+
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0.h#L12
+PROBE_TYPE_NP1 = ProbeType(0, 1, 2, 960, 384, 32, 32, 20, 0, 5)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21.h#L12
+PROBE_TYPE_NP21 = ProbeType(21, 1, 2, 1280, 384, 48, 32, 15, 0, 6)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24.h#L12
+PROBE_TYPE_NP24 = ProbeType(24, 4, 2, 1280, 384, 48, 32, 15, 250, 18)
+
+# PROBE_TYPE_NP1 based
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1020.h#L12
+PROBE_TYPE_NP1020 = ProbeType(1020, 1, 2, 2496, 384, 32, 87, 20, 0, 9)
+PROBE_TYPE_NP1022 = ProbeType(1020, 1, 2, 2496, 384, 32, 103, 20, 0, 9)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1030.h#L12
+PROBE_TYPE_NP1030 = ProbeType(1030, 1, 2, 4416, 384, 32, 87, 20, 0, 14)
+PROBE_TYPE_NP1032 = ProbeType(1030, 1, 2, 4416, 384, 32, 103, 20, 0, 14)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1100.h#L12
+PROBE_TYPE_NP1100 = ProbeType(1100, 1, 8, 384, 384, 32, 6, 6, 0, 2)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.h#L61
+PROBE_TYPE_NP1110 = ProbeType(1110, 1, 8, 6144, 384, 32, 6, 6, 0, 2)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1120.h#L12
+PROBE_TYPE_NP1120 = ProbeType(1120, 1, 2, 384, 384, 32, 4.5, 4.5, 0, 2)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1121.h#L12
+PROBE_TYPE_NP1121 = ProbeType(1121, 1, 1, 384, 384, 32, 3, 3, 0, 2)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1122.h#L12
+PROBE_TYPE_NP1122 = ProbeType(1122, 1, 16, 384, 384, 32, 3, 3, 0, 2)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1123.h#L12
+PROBE_TYPE_NP1123 = ProbeType(1123, 1, 12, 384, 384, 32, 4.5, 4.5, 0, 2)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1200.h#L12
+PROBE_TYPE_NP1200 = ProbeType(1200, 1, 2, 128, 128, 32, 32, 31, 0, 2)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1300.h#L12
+PROBE_TYPE_NP1300 = ProbeType(1300, 1, 2, 960, 384, 32, 48, 20, 0, 5)
+
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2003.h#L12
+PROBE_TYPE_NP2003 = ProbeType(2003, 1, 2, 1280, 384, 48, 32, 15, 0, 3)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2013.h#L12
+PROBE_TYPE_NP2013 = ProbeType(2013, 4, 2, 1280, 384, 48, 32, 15, 0, 7)
+
+# NP2020 2.0 quad base (Ph 2C)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.h#L43
+PROBE_TYPE_NP2020 = ProbeType(2020, 4, 2, 1280, 384 * 4, 48, 32, 15, 250, 3)
+
+# PROBE_TYPE_NP24 based
+
+# NXT multishank
+PROBE_TYPE_NP3000 = ProbeType(1200, 1, 2, 128, 128, 48, 15, 15, 0, 2)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.h#L47
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010.h#L12
+PROBE_TYPE_NP3010 = ProbeType(3010, 1, 2, 1280, 912, 48, 32, 15, 0, 3)
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.h#L47
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020.h#L12
+PROBE_TYPE_NP3020 = ProbeType(3020, 1, 2, 1280, 912, 48, 32, 15, 250, 7)
 
 
-PROBE_TYPE = {
-    # probe_type: (n_shank, n_col_shank, n_row_shank)
-    0: PROBE_TYPE_NP1,
-    # 'NP1': PROBE_TYPE_NP1,
-    # 'PRB_1_4_0480_1': PROBE_TYPE_NP1,
-    # 'PRB_1_4_0480_1_C': PROBE_TYPE_NP1,
-    # 'PRB_1_2_0480_2': PROBE_TYPE_NP1,
-    # 'NHP1': PROBE_TYPE_NHP1,
-    # 'NP1200': PROBE_TYPE_NHP1,
-    # 'NP1210': PROBE_TYPE_NHP1,
-    # 'NHP10': PROBE_TYPE_NHP2_10,
-    # 'NP1010': PROBE_TYPE_NHP2_10,
-    # 'NHP25': PROBE_TYPE_NHP2_25,
-    # 'NP1020': PROBE_TYPE_NHP2_25,
-    # 'NP1021': PROBE_TYPE_NHP2_25,
-    # 'NHP45': PROBE_TYPE_NHP2_45,
-    # 'NP1030': PROBE_TYPE_NHP2_45,
-    # 'NP1031': PROBE_TYPE_NHP2_45,
-    # 'UHD1': PROBE_TYPE_UHD,
-    # 'NP1100': PROBE_TYPE_UHD,
-    # 'UHD2': PROBE_TYPE_UHD,
-    # 'NP1110': PROBE_TYPE_UHD,
-    #
-    21: PROBE_TYPE_NP21,
-    '21': PROBE_TYPE_NP21,
-    'NP2_1': PROBE_TYPE_NP21,
-    'PRB2_1_2_0640_0': PROBE_TYPE_NP21,
-    'PRB2_1_4_0480_1': PROBE_TYPE_NP21,
-    'NP2000': PROBE_TYPE_NP21,
-    'NP2003': PROBE_TYPE_NP21,
-    'NP2004': PROBE_TYPE_NP21,
-    #
-    24: PROBE_TYPE_NP24,
-    '24': PROBE_TYPE_NP24,
-    'NP2_4': PROBE_TYPE_NP24,
-    'PRB2_4_2_0640_0': PROBE_TYPE_NP24,
-    'NP2010': PROBE_TYPE_NP24,
-    'NP2013': PROBE_TYPE_NP24,
-    'NP2014': PROBE_TYPE_NP24,
-}
+# https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.cpp#L1112
+# bool IMROTbl::pnToType( int &type, const QString &pn )
+class _PROBE_TYPE(defaultdict[int | str, ProbeType]):
+    def __init__(self):
+        super().__init__()
+        self.update({
+            0: PROBE_TYPE_NP1,
+            21: PROBE_TYPE_NP21,
+            '21': PROBE_TYPE_NP21,
+            24: PROBE_TYPE_NP24,
+            '24': PROBE_TYPE_NP24,
+        })
+
+    def __missing__(self, key):
+        origin_key = key
+
+        if isinstance(key, int):
+            key = f'NP{key}'
+
+        # old probe code
+        if key.startswith('PRB_1_4') or key.startswith('PRB_1_2'):
+            # PRB_1_4_0480_1 (Silicon cap)
+            # PRB_1_4_0480_1_C (Metal cap)
+            # PRB_1_2_0480_2
+            return PROBE_TYPE_NP1
+        if key.startswith('PRB2_1'):
+            # PRB2_1_2_0640_0 (NP 2.0 SS scrambled el 1280)
+            return PROBE_TYPE_NP21
+        if key.startswith('PRB2_4'):
+            # PRB2_4_2_0640_0 (NP 2.0 MS el 1280)
+            return PROBE_TYPE_NP24
+
+        # new probe code
+        match key:
+            case 'NP1000' | 'NP1001' | 'NP1010' | 'NP1011' | 'NP1012' | 'NP1013' | 'NP1014' | 'NP1015' | 'NP1016' | 'NP1017':
+                return PROBE_TYPE_NP1
+            case 'NP1020' | 'NP1021':  # NHP phase 2
+                return PROBE_TYPE_NP1020
+            case 'NP1022':  # NHP phase 2
+                return PROBE_TYPE_NP1022
+            case 'NP1030' | 'NP1031':  # NHP phase 2
+                return PROBE_TYPE_NP1030
+            case 'NP1032' | 'NP1033':  # NHP phase 2
+                return PROBE_TYPE_NP1032
+            case 'NP1100':  # UHD phase 1
+                return PROBE_TYPE_NP1100
+            case 'NP1110':  # UHD phase 2
+                return PROBE_TYPE_NP1110
+            case 'NP1120':  # UHD phase 3
+                return PROBE_TYPE_NP1120
+            case 'NP1121':  # UHD phase 3
+                return PROBE_TYPE_NP1121
+            case 'NP1122':  # UHD phase 3
+                return PROBE_TYPE_NP1122
+            case 'NP1123':  # UHD phase 3
+                return PROBE_TYPE_NP1123
+            case 'NP1200' | 'NP1210' | 'NP1221':  # NHP 128
+                return PROBE_TYPE_NP1200
+            case 'NP1300':  # Opto
+                return PROBE_TYPE_NP1300
+            case 'NP2000':  # NP 2.0 SS scrambled el 1280
+                return PROBE_TYPE_NP21
+            case 'NP2003' | 'NP2004' | 'NP2005' | 'NP2006':  # Neuropixels 2.0 single shank probe
+                return PROBE_TYPE_NP2003
+            case 'NP2010':  # NP 2.0 MS el 1280
+                return PROBE_TYPE_NP24
+            case 'NP2013' | 'NP2014':  # Neuropixels 2.0 multishank probe
+                return PROBE_TYPE_NP2013
+            case 'NP2020' | 'NP2021':  # Neuropixels 2.0 quad base
+                return PROBE_TYPE_NP2020
+            case 'NP3000':  # Passive NXT probe
+                return PROBE_TYPE_NP1200
+            case 'NP3010' | 'NP3011':  # NXT single shank
+                return PROBE_TYPE_NP3010
+            case 'NP3020' | 'NP3021' | 'NP3022':  # NXT multishank
+                return PROBE_TYPE_NP3020
+
+        raise KeyError(origin_key)
+
+
+PROBE_TYPE = _PROBE_TYPE()
 
 
 class Electrode:
@@ -145,7 +234,11 @@ class Electrode:
     lf_band_gain: int
     ap_hp_filter: bool
 
-    __slots__ = 'shank', 'column', 'row', 'in_used', 'ap_band_gain', 'lf_band_gain', 'ap_hp_filter'
+    # for NP1110
+    bank_a: int
+    bank_b: int
+
+    __slots__ = 'shank', 'column', 'row', 'in_used', 'ap_band_gain', 'lf_band_gain', 'ap_hp_filter', 'bank_a', 'bank_b'
     __match_args__ = ('shank', 'column', 'row')
 
     def __init__(self, shank: int, column: int, row: int, in_used: bool | int = True):
@@ -173,6 +266,12 @@ class Electrode:
         except AttributeError:
             pass
 
+        try:
+            self.bank_a = other.bank_a
+            self.bank_b = other.bank_b
+        except AttributeError:
+            pass
+
     def __str__(self) -> str:
         return f'Electrode[{self.shank},{self.column},{self.row}]'
 
@@ -196,16 +295,14 @@ class Electrode:
 
 class ReferenceInfo(NamedTuple):
     code: int
-    type: Literal['ext', 'tip', 'on-shank']
+    type: Literal['ext', 'tip', 'bank', 'ground']
     shank: int  # 0 if reference_type is 'ext'
-    channel: int  # 0 if reference_type is 'ext' or 'tip'
+    channel: int  # 0 if reference_type is not 'bank'
 
     @classmethod
     def max_reference_value(cls, probe_type: ProbeType) -> int:
         """get max possible value for probe type."""
-        n_shank = probe_type.n_shank
-        refs = probe_type.reference
-        return 1 + n_shank + n_shank * len(refs)
+        return probe_type.n_reference
 
     @classmethod
     def of(cls, probe_type: ProbeType, reference: int) -> Self:
@@ -216,19 +313,58 @@ class ReferenceInfo(NamedTuple):
         :param reference:
         :return:
         """
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.h#L191
+        # int IMROTbl_T0base::refTypeAndFields( int &shank, int &bank, int ch )
+
+        if not (0 <= reference < probe_type.n_reference):
+            raise ValueError(f'reference id out of boundary for probe type {probe_type.code}: {reference}')
+
         if reference == 0:
             return ReferenceInfo(0, 'ext', 0, 0)
 
-        n_shank = probe_type.n_shank
-        ref_shank = probe_type.reference
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2003.cpp#L12
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2013.cpp#L12
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.cpp#L279
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L247
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L369
+        if probe_type.code in (2003, 2013, 2020, 3010, 3020):
+            if reference == 1:
+                return ReferenceInfo(reference, 'ground', reference - 1, 0)
+            if reference - 2 < probe_type.n_shank:
+                return ReferenceInfo(reference, 'tip', reference - 2, 0)
 
-        if reference < n_shank + 1:
-            return ReferenceInfo(reference, 'tip', reference - 1, 0)
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21.cpp#L16
+        elif probe_type.code == 21:
+            n_shank = probe_type.n_shank
 
-        x = reference - n_shank - 1
-        s, i = divmod(x, len(ref_shank))
-        c = ref_shank[i]
-        return ReferenceInfo(reference, 'on-shank', s, c)
+            if reference - 1 < n_shank:
+                return ReferenceInfo(reference, 'tip', reference - 1, 0)
+
+            references = (127, 507, 887, 1251)
+            return ReferenceInfo(reference, 'bank', 0, references[reference - 2])
+
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24.cpp#L19
+        elif probe_type.code == 24:
+            n_shank = probe_type.n_shank
+
+            if reference - 1 < n_shank:
+                return ReferenceInfo(reference, 'tip', reference - 1, 0)
+
+            references = (127, 511, 895, 1279)
+            x = reference - n_shank - 1
+            s, i = divmod(x, len(references))
+            return ReferenceInfo(reference, 'bank', s, references[i])
+
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L239
+        else:
+            assert probe_type.n_shank == 1
+
+            if reference == 1:
+                return ReferenceInfo(reference, 'tip', reference - 1, 0)
+
+            return ReferenceInfo(reference, 'bank', reference - 2, -1)
+
+        raise ValueError()
 
 
 E = int | tuple[int, int] | tuple[int, int, int] | Electrode
@@ -519,7 +655,7 @@ class ChannelMap:
 
     @reference.setter
     def reference(self, value: int):
-        if not (0 <= value < ReferenceInfo.max_reference_value(self.probe_type)):
+        if not (0 <= value < self.probe_type.n_reference):
             raise ValueError(f'illegal reference value : {value}')
 
         self._reference = value
@@ -1023,7 +1159,16 @@ ELECTRODE_MAP_24 = np.array([
     [4, 6, 0, 2, 1, 3, 5, 7],  # shank-2
     [5, 7, 1, 3, 0, 2, 4, 6],  # shank-3
 ], dtype=int)
-
+ELECTRODE_MAP_1110 = np.array([
+    [0, 3, 1, 2],
+    [1, 2, 0, 3]
+], dtype=int)
+ELECTRODE_MAP_3020 = np.array([  # 4 shanks X 32 blocks, 99 = forbidden
+    [0, 16, 1, 17, 2, 18, 3, 99, 4, 99, 5, 99, 6, 99, 7, 99, 8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15, 99],  # shank-0
+    [16, 0, 17, 1, 18, 2, 99, 3, 99, 4, 99, 5, 99, 6, 99, 7, 99, 8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15],  # shank-1
+    [8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15, 99, 0, 16, 1, 17, 2, 18, 3, 99, 4, 99, 5, 99, 6, 99, 7, 99],  # shank-2
+    [99, 8, 99, 9, 99, 10, 99, 11, 99, 12, 99, 13, 99, 14, 99, 15, 16, 0, 17, 1, 18, 2, 99, 3, 99, 4, 99, 5, 99, 6, 99, 7],  # shank-3
+], dtype=int)
 
 @overload
 def e2p(probe_type: ProbeType, e: E) -> tuple[float, float]:
@@ -1109,6 +1254,7 @@ def e2cr(probe_type: ProbeType, e):
         case _:
             raise TypeError(repr(e))
 
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L199
     r, c = divmod(e, probe_type.n_col_shank)
     return c, r
 
@@ -1229,14 +1375,12 @@ def e2cb(probe_type: ProbeType, electrode):
             raise TypeError()
 
     match probe_type.code:
-        case 0:
-            return e2c0(electrode)
-        case 21:
+        case 21 | 2003:
             return e2c21(electrode)
-        case 24:
+        case 24 | 2013:
             return e2c24(shank, electrode)
         case _:
-            raise RuntimeError()
+            return e2c0(electrode)
 
 
 @overload
@@ -1317,11 +1461,9 @@ def c2e(probe_type: ProbeType, channel, bank=None, shank=None):
             raise TypeError()
 
     match probe_type.code:
-        case 0:
-            return c2e0(bank, channel)
-        case 21:
+        case 21 | 2003:
             return c2e21(bank, channel)
-        case 24:
+        case 24 | 2013:
             match (shank, channel):
                 case (None, channel) if all_int(channel):
                     shank = 0
@@ -1336,8 +1478,14 @@ def c2e(probe_type: ProbeType, channel, bank=None, shank=None):
                     raise TypeError()
 
             return c2e24(shank, bank, channel)
+        case 1110:
+            return c2e1110(bank, channel)
+        case 3010:
+            return c2e3010(bank, channel)
+        case 3020:
+            return c2e3020(shank, bank, channel)
         case _:
-            raise RuntimeError()
+            return c2e0(bank, channel)
 
 
 @overload
@@ -1351,7 +1499,8 @@ def c2e0(bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
 
 
 def c2e0(bank, channel):
-    return bank * 384 + channel
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L12
+    return bank * 384 + channel % 384
 
 
 @overload
@@ -1365,6 +1514,7 @@ def c2e21(bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]
 
 
 def c2e21(bank, channel):
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L34
     bf, ba = ELECTRODE_MAP_21
 
     if all_int(bank, channel):
@@ -1399,6 +1549,8 @@ def c2e24(shank: NDArray[np.int_], bank: NDArray[np.int_], channel: NDArray[np.i
 
 
 def c2e24(shank, bank, channel):
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L26
+
     if all_int(shank, bank, channel):
         shank = int(shank)
         bank = int(bank)
@@ -1415,3 +1567,86 @@ def c2e24(shank, bank, channel):
         block = block[np.argsort(i)]
 
     return 384 * bank + 48 * block + index
+
+
+@overload
+def c2e1110(bank: int, channel: int) -> int:
+    pass
+
+
+@overload
+def c2e1110(bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
+    pass
+
+
+def c2e1110(bank, channel):
+    if all_int(bank, channel):
+        bank = int(bank)
+        channel = int(channel)
+    else:
+        bank, channel = align_arr(bank, channel)
+
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L298
+    ch = channel % 384
+    group = 2 * (ch // 32) + (ch % 2)
+
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L318
+    group_row = group / 4
+    in_group_row = ((channel % 64) % 32) // 4
+    if isinstance(channel, int):
+        bank_row = 8 * group_row + (in_group_row if channel % 2 == 0 else 7 - in_group_row)
+    else:
+        bank_row = 8 * group_row + np.where(channel % 2 == 0, in_group_row, 7 - in_group_row)
+
+    row = 48 * bank + bank_row
+
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L306
+    group_col = ELECTRODE_MAP_1110[bank % 2, group % 4]
+    crossed = (bank // 4) % 2
+    in_group_col = (((channel % 64) % 32) // 2) % 2
+    in_group_col = in_group_col ^ crossed
+    if isinstance(channel, int):
+        col = 2 * group_col + (in_group_col if channel % 2 == 0 else 1 - in_group_col)
+    else:
+        col = 2 * group_col + np.where(channel % 2 == 0, in_group_col, 1 - in_group_col)
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L349
+    return 8 * row + col
+
+
+@overload
+def c2e3010(bank: int, channel: int) -> int:
+    pass
+
+
+@overload
+def c2e3010(bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
+    pass
+
+
+def c2e3010(bank, channel):
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L12
+    return bank * 912 + channel
+
+
+@overload
+def c2e3020(shank: int, bank: int, channel: int) -> int:
+    pass
+
+
+@overload
+def c2e3020(shank: NDArray[np.int_], bank: NDArray[np.int_], channel: NDArray[np.int_]) -> NDArray[np.int_]:
+    pass
+
+
+def c2e3020(shank, bank, channel):
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L26
+    if all_int(shank, bank, channel):
+        shank = int(shank)
+        bank = int(bank)
+        channel = int(channel)
+    else:
+        shank, bank, channel = align_arr(shank, bank, channel)
+
+    block, index = divmod(channel, 48)
+
+    return 912 * bank + 48 * ELECTRODE_MAP_3020[shank, block] + index

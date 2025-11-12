@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any, TYPE_CHECKING, Literal
 
 import numpy as np
-from neurocarto.util.utils import doc_link
 from numpy.typing import NDArray
 
+from neurocarto.util.utils import doc_link
 from .meta import NpxMeta
 from .npx import *
 
@@ -41,52 +41,37 @@ def parse_imro(source: str) -> ChannelMap:
     {DOC}
     :see: {ChannelMap#parse()}
     """
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L133
+    # bool IMROTbl_T0base::fromString( QString *msg, const QString &s )
+    # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L34
+    # bool IMRODesc_T0base::fromString( QString *msg, const QString &s )
     source = source.strip()
     if not source.startswith('(') or not source.endswith(')'):
         raise RuntimeError('not imro format')
 
-    from .npx import e2cr, e2c21, e2c24
-
     type_code = -1
-    ref = 0
+    io: ImroIO = None
     electrodes = []
 
     i = 0  # left '('
     j = source.index(')')  # right ')'
     k = 0  # count of '(...)'
 
+
     while 0 <= i < j:
         part = source[i + 1:j]
 
         if k == 0:  # first ()
-            type_code, n = tuple(map(int, part.split(',')))
+            type_code, *args = tuple(map(int, part.split(',')))
             try:
-                ProbeType[type_code]
+                io = ImroIO(ProbeType[type_code])
             except KeyError as e:
                 raise RuntimeError(f"unsupported probe type : {type_code}") from e
 
+            io.parse_header(*args)
             k += 1
-
-        elif type_code == 0:  # NP1
-            ch, bank, ref, a, l, f = tuple(map(int, part.split(' ')))
-            e = Electrode(0, *e2cr(PROBE_TYPE_NP1, ch))
-            e.ap_band_gain = a
-            e.lf_band_gain = l
-            e.ap_hp_filter = f != 0
-            electrodes.append(e)
-
-        elif type_code == 21:  # NP 2.0, single multiplexed shank
-            ch, bank, ref, ed = tuple(map(int, part.split(' ')))
-            assert e2c21(ed) == (ch, bank)
-            electrodes.append(Electrode(0, *e2cr(PROBE_TYPE_NP21, ed)))
-
-        elif type_code == 24:  # NP 2.0, 4-shank
-            ch, s, bank, ref, ed = tuple(map(int, part.split(' ')))
-            assert e2c24(s, ed) == (ch, bank)
-            electrodes.append(Electrode(s, *e2cr(PROBE_TYPE_NP24, ed)))
-
         else:
-            raise RuntimeError(f'unsupported imro type : {type_code}')
+            electrodes.append(io.parse_electrode(*tuple(map(int, part.split(' ')))))
 
         i = j + 1
         if i < len(source):
@@ -98,7 +83,7 @@ def parse_imro(source: str) -> ChannelMap:
             j = -1
 
     ret = ChannelMap(type_code, electrodes)
-    ret.reference = ref
+    ret.reference = io.reference
     return ret
 
 
@@ -111,35 +96,208 @@ def string_imro(chmap: ChannelMap) -> str:
     if len(chmap) != chmap.n_channels:
         raise RuntimeError()
 
+    io = ImroIO(chmap.probe_type)
+
     # header
-    ret = [f'({chmap.probe_type.code},{chmap.n_channels})']
+    header = ','.join(map(str, io.string_header(chmap)))
+    ret = [f'({header})']
 
     # channels
-    match chmap.probe_type.code:
-        case 0:
-            for ch, e in enumerate(chmap.channels):
-                ret.append(f'({ch} 0 {chmap.reference} {e.ap_band_gain} {e.lf_band_gain} {1 if e.ap_hp_filter else 0})')
-
-        case 21:
-            from .npx import cr2e, e2c21
-            ref = chmap.reference
-            for e in chmap.electrodes:
-                electrode = cr2e(PROBE_TYPE_NP21, e)
-                channel, bank = e2c21(electrode)
-                ret.append(f'({channel} {bank} {ref} {electrode})')
-
-        case 24:
-            from .npx import cr2e, e2c24
-            ref = chmap.reference
-            for e in chmap.electrodes:
-                electrode = cr2e(PROBE_TYPE_NP24, e)
-                channel, bank = e2c24(e.shank, electrode)
-                ret.append(f'({channel} {e.shank} {bank} {ref} {electrode})')
-        case _:
-            raise RuntimeError(f'unknown imro type : {chmap.probe_type}')
+    for c, e in enumerate(chmap.electrodes):
+        contents = ' '.join(map(str, io.string_electrode(chmap, c, e)))
+        ret.append(f'({contents})')
 
     return ''.join(ret)
 
+
+class ImroIO(object):
+    def __new__(cls, probe_type: ProbeType):
+        match probe_type.code:
+            case 0:
+                ret = ImroIO_NP1
+            case 21 | 2003:
+                ret = ImroIO_NP21
+            case 24 | 2013:
+                ret = ImroIO_NP24
+            case 1110:
+                ret = ImroIO_NP1110
+            case 2020:
+                ret = ImroIO_NP2020
+            case 3010:
+                ret = ImroIO_NP3010
+            case 3020:
+                ret = ImroIO_NP3020
+            case _:
+                ret = ImroIO_NP1
+
+        return object.__new__(ret)
+
+    def __init__(self, probe_type: ProbeType):
+        self.probe_type: ProbeType = probe_type
+        self.reference: int = 0
+
+    def parse_header(self, *args: int):
+        pass
+
+    def parse_electrode(self, *args: int) -> Electrode:
+        raise NotImplementedError()
+
+    def string_header(self, chmap: ChannelMap) -> tuple[int, ...]:
+        return chmap.probe_type.code, chmap.n_channels
+
+    def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
+        raise NotImplementedError()
+
+
+class ImroIO_NP1(ImroIO):
+
+    def parse_electrode(self, *args: int) -> Electrode:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L34
+        from .npx import e2cr
+
+        ch, bank, ref, a, l, f = args
+        e = Electrode(0, *e2cr(PROBE_TYPE_NP1, ch))
+        e.ap_band_gain = a
+        e.lf_band_gain = l
+        e.ap_hp_filter = f != 0
+        self.reference = ref
+        return e
+
+    def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L20
+        return ch, 0, chmap.reference, e.ap_band_gain, e.lf_band_gain, 1 if e.ap_hp_filter else 0
+
+
+class ImroIO_NP21(ImroIO):
+
+    def parse_electrode(self, *args: int) -> Electrode:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L80
+        from .npx import e2cr, e2c21
+
+        ch, bank, ref, ed = args
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L21
+        # mbank is multibank field, we take only lowest connected bank
+        bank = (bank & -bank) - 1
+        assert e2c21(ed) == (ch, bank), f'{ed=},{ch=},{bank=},{e2c21(ed)=}'
+        self.reference = ref
+        return Electrode(0, *e2cr(PROBE_TYPE_NP21, ed))
+
+    def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L68
+        from .npx import cr2e, e2c21
+        electrode = cr2e(PROBE_TYPE_NP21, e)
+        channel, bank = e2c21(electrode)
+        bank = 1 << bank
+        return ch, bank, chmap.reference, electrode
+
+
+class ImroIO_NP24(ImroIO):
+
+    def parse_electrode(self, *args: int) -> Electrode:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L50
+        from .npx import e2cr, e2c24
+
+        ch, s, bank, ref, ed = args
+        assert e2c24(s, ed) == (ch, bank)
+        self.reference = ref
+        return Electrode(s, *e2cr(PROBE_TYPE_NP24, ed))
+
+    def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L37
+        from .npx import cr2e, e2c24
+        electrode = cr2e(PROBE_TYPE_NP24, e)
+        channel, bank = e2c24(e.shank, electrode)
+        return ch, e.shank, bank, chmap.reference, electrode
+
+
+class ImroIO_NP1110(ImroIO):
+    col_mode: int = 2
+    ap: int = 500
+    lf: int = 250
+    af: int = 1
+
+    def parse_header(self, *args: int):
+        col_mode, ref_id, ap, lf, af = args
+        self.col_mode = col_mode
+        self.reference = ref_id
+        self.ap = ap
+        self.lf = lf
+        self.af = af
+
+    def parse_electrode(self, *args: int) -> Electrode:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L42
+        group, bank_a, bank_b = args
+        e = Electrode(0, 0, 0)  # FIXME
+        e.bank_a = bank_a
+        e.bank_b = bank_b
+        e.ap_band_gain = self.ap
+        e.lf_band_gain = self.lf
+        e.ap_hp_filter = self.af != 0
+        return e
+
+    def string_header(self, chmap: ChannelMap) -> tuple[int, ...]:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L19
+        e = chmap.channels[0]
+        return chmap.probe_type.code, self.col_mode, chmap.reference, e.ap_band_gain, e.lf_band_gain, 1 if e.ap_hp_filter else 0
+
+    def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L32
+        return ch, e.bank_a, e.bank_b
+
+
+class ImroIO_NP2020(ImroIO):
+
+    def parse_electrode(self, *args: int) -> Electrode:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.cppL#35
+        from .npx import e2cr, e2c24
+
+        ch, s, bank, ref, ed = args
+        assert e2c24(s, ed) == (ch, bank)
+        self.reference = ref
+        return Electrode(0, *e2cr(PROBE_TYPE_NP24, ed))  # FIXME
+
+    def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.cpp#L22
+        from .npx import cr2e, e2c24
+        electrode = cr2e(PROBE_TYPE_NP24, e)  # FIXME
+        channel, bank = e2c24(e.shank, electrode)
+        return ch, e.shank, bank, chmap.reference, electrode
+
+
+class ImroIO_NP3010(ImroIO):
+    def parse_electrode(self, *args: int) -> Electrode:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L32
+        from .npx import e2cr, e2c21
+
+        ch, bank, ref, ed = args
+        assert e2c21(ed) == (ch, bank)
+        self.reference = ref
+        return Electrode(0, *e2cr(PROBE_TYPE_NP21, ed))  # FIXME
+
+    def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L20
+        from .npx import cr2e, e2c21
+        electrode = cr2e(PROBE_TYPE_NP21, e)
+        channel, bank = e2c21(electrode)
+        return ch, bank, chmap.reference, electrode  # FIXME
+
+
+class ImroIO_NP3020(ImroIO):
+    def parse_electrode(self, *args: int) -> Electrode:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L50
+        from .npx import e2cr, e2c24
+
+        ch, s, bank, ref, ed = args
+        assert e2c24(s, ed) == (ch, bank)
+        self.reference = ref
+        return Electrode(0, *e2cr(PROBE_TYPE_NP24, ed))  # FIXME
+
+    def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L37
+        from .npx import cr2e, e2c24
+        electrode = cr2e(PROBE_TYPE_NP24, e)  # FIXME
+        channel, bank = e2c24(e.shank, electrode)
+        return ch, e.shank, bank, chmap.reference, electrode
 
 # ======================= #
 # SpikeGLX imro/meta file #
