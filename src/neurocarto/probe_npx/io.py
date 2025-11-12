@@ -94,7 +94,7 @@ def string_imro(chmap: ChannelMap) -> str:
     :see: {ChannelMap#to_imro()}
     """
     if len(chmap) != chmap.n_channels:
-        raise RuntimeError()
+        raise RuntimeError(f'channel number in chmap is not {chmap.n_channels}, but {len(chmap)}')
 
     io = ImroIO(chmap.probe_type)
 
@@ -223,10 +223,27 @@ class ImroIO_NP1110(ImroIO):
         self.lf = lf
         self.af = af
 
+    def _bank(self, ch: int, bank_a: int, bank_b: int):
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L201
+        match self.col_mode, self.to._col(ch, bank_a):
+            case (2, _):  # ALL mode bankA and bankB are the same.
+                return bank_a
+            case (1, 0 | 2 | 5 | 7):  # OUTER mode upper cols are even and lower cols are odd.
+                return bank_a
+            case (0, 1 | 3 | 4 | 6):  # INNER mode upper cols are odd  and lower cols are even.
+                return bank_a
+            case (0 | 1 | 2, _):
+                return bank_b
+            case _:
+                raise ValueError('illegal mode')
+
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L42
         group, bank_a, bank_b = args
-        e = Electrode(0, 0, 0)  # FIXME
+        bank = self._bank(group, bank_a, bank_b)
+        col = self.to._col(group, bank)
+        row = self.to._row(group, bank)
+        e = Electrode(0, col, row)
         e.bank_a = bank_a
         e.bank_b = bank_b
         e.ap_band_gain = self.ap

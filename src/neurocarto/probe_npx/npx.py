@@ -1541,7 +1541,7 @@ class ImroEC_NP24(ImroEC):
             if isinstance(c, int):
                 s = 0
             else:
-                s = np.zeros_like(e)
+                s = np.zeros_like(c)
 
         block, index = divmod(c, 48)
 
@@ -1579,9 +1579,12 @@ class ImroEC_NP1110(ImroEC):
         return 2 * (c // 32) + (c % 2)
 
     @classmethod
-    def _row(cls, c, b, g):
+    def _row(cls, c, b, g=None):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L318
-        group_row = g / 4
+        if g is None:
+            g = cls._group(c)
+
+        group_row = g // 4
         in_group_row = ((c % 64) % 32) // 4
         if isinstance(c, int):
             bank_row = 8 * group_row + (in_group_row if c % 2 == 0 else 7 - in_group_row)
@@ -1591,8 +1594,11 @@ class ImroEC_NP1110(ImroEC):
         return 48 * b + bank_row
 
     @classmethod
-    def _col(cls, c, b, g):
+    def _col(cls, c, b, g=None):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L306
+        if g is None:
+            g = cls._group(c)
+
         group_col = cls.ELECTRODE_MAP_1110[b % 2, g % 4]
         crossed = (b // 4) % 2
         in_group_col = (((c % 64) % 32) // 2) % 2
@@ -1610,6 +1616,56 @@ class ImroEC_NP1110(ImroEC):
         r = self._row(c, b, g)
         i = self._col(c, b, g)
         return 8 * r + i
+
+    _C2E_CACHE = None
+
+    @classmethod
+    def _c2e_array(cls) -> NDArray[np.int_]:
+        if (e := cls._C2E_CACHE) is not None:
+            return e
+
+        t = PROBE_TYPE_NP1110
+        e = []
+        bank = t.n_electrode_shank // t.n_channels
+        assert bank == 16
+
+        b = np.zeros((t.n_channels,), dtype=np.int_)
+        c = np.arange(t.n_channels)
+        g = cls._group(c)
+        for _ in range(bank):
+            r = cls._row(c, b, g)
+            i = cls._col(c, b, g)
+            e.append(8 * r + i)
+            b += 1
+
+        e = cls._C2E_CACHE = np.concatenate(e)
+        return e
+
+    def e2cr(self, e):
+        if isinstance(e, int):
+            i = np.nonzero(self._c2e_array() == e)[0][0]
+        else:
+            ii = np.nonzero(self._c2e_array() == e[:, np.newaxis])
+            i = np.full_like(e, -1)
+            i[ii[0]] = ii[1]
+            if np.any(i < 0):
+                raise ValueError('electrode out of bound')
+
+        r, c = divmod(i, 8)
+        return c, r
+
+    def e2c(self, e, s=None):
+        if isinstance(e, int):
+            i = np.nonzero(self._c2e_array() == e)[0][0]
+        else:
+            ii = np.nonzero(self._c2e_array() == e[:, np.newaxis])
+            i = np.full_like(e, -1)
+            i[ii[0]] = ii[1]
+            if np.any(i < 0):
+                raise ValueError('electrode out of bound')
+
+        b, c = divmod(i, 384)
+        return c, b
 
 
 class ImroEC_NP2020(ImroEC):
@@ -1632,6 +1688,10 @@ class ImroEC_NP3010(ImroEC):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L12
         return b * 912 + c
 
+    def e2c(self, e, s=None):
+        b, c = divmod(e, 912)
+        return c, b
+
 
 class ImroEC_NP3020(ImroEC):
     ELECTRODE_MAP_3020 = np.array([  # 4 shanks X 32 blocks, 99 = forbidden
@@ -1651,4 +1711,26 @@ class ImroEC_NP3020(ImroEC):
 
         block, index = divmod(c, 48)
 
-        return 912 * b + 48 * self.ELECTRODE_MAP_3020[s, block] + index
+        block = self.ELECTRODE_MAP_3020[s, block]
+        if np.any(block == 99):
+            raise ValueError('illegal channel')
+
+        return 912 * b + 48 * block + index
+
+    def e2c(self, e, s=None):
+        if s is None:
+            if isinstance(e, int):
+                s = 0
+            else:
+                s = np.zeros_like(e)
+
+        bank, e = divmod(e, 912)
+        block, index = divmod(e, 48)
+
+        if isinstance(s, int):
+            block = np.nonzero(self.ELECTRODE_MAP_3020[s] == block)[0][0]
+        else:
+            block, i = np.nonzero(self.ELECTRODE_MAP_3020[s].T == block)
+            block = block[np.argsort(i)]
+
+        return block * 48 + index, bank

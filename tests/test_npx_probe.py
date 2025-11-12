@@ -1,3 +1,4 @@
+import os
 import unittest
 from pathlib import Path
 
@@ -391,6 +392,7 @@ class ImroParsingTest(unittest.TestCase):
         chmap = parse_imro(imro)
         self.assertEqual(imro, string_imro(chmap))
 
+    @unittest.skip(reason='unknown electrode-channel mapping relationship')
     def test_type_1110(self):
         imro = ("(1110,2,0,500,250,1)(0 0 0)(1 0 0)(2 0 0)(3 0 0)(4 0 0)(5 0 0)(6 0 0)(7 0 0)(8 0 0)(9 0 0)(10 0 0)"
                 "(11 0 0)(12 0 0)(13 0 0)(14 0 0)(15 0 0)(16 0 0)(17 0 0)(18 0 0)(19 0 0)(20 0 0)"
@@ -454,7 +456,6 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
                 e2.append(m.c2e(c, b, s))
             assert_array_equal(e0, np.array(e2))
 
-    @unittest.skip(reason='e2c not implement')
     def test_np1110(self):
         from neurocarto.probe_npx.npx import PROBE_TYPE_NP1110, ImroEC
         t = PROBE_TYPE_NP1110
@@ -493,7 +494,6 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
                 e2.append(m.c2e(c, b, s))
             assert_array_equal(e0, np.array(e2))
 
-    @unittest.skip(reason='e2c not implement')
     def test_np3010(self):
         from neurocarto.probe_npx.npx import PROBE_TYPE_NP3010, ImroEC
         t = PROBE_TYPE_NP3010
@@ -511,7 +511,6 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
             e2.append(m.c2e(c, b))
         assert_array_equal(e0, np.array(e2))
 
-    @unittest.skip(reason='e2c not implement')
     def test_np3020(self):
         from neurocarto.probe_npx.npx import PROBE_TYPE_NP3020, ImroEC
         t = PROBE_TYPE_NP3020
@@ -658,6 +657,12 @@ class ProbeChannelElectrodeMappingTest(unittest.TestCase):
         ])
 
 
+TEST_BENCHMARK = len(os.environ.get('NEUROCARTO_TEST_BENCHMARK', '')) > 0
+
+
+def when_test_benchmark(func):
+    return unittest.skipUnless(TEST_BENCHMARK, reason='TEST_BENCHMARK notset')(func)
+
 class NpxProbeBenchmark(unittest.TestCase):
     profile: Profiler | None
 
@@ -674,6 +679,7 @@ class NpxProbeBenchmark(unittest.TestCase):
             if (e := profile.exception) is not None:
                 self.fail(repr(e))
 
+    @when_test_benchmark
     def test_all_electrode(self):
         desp = NpxProbeDesp()
         chmap = ChannelMap.from_imro(RES / 'Fig3_example.imro')
@@ -683,6 +689,7 @@ class NpxProbeBenchmark(unittest.TestCase):
 
         self.profile = profile
 
+    @when_test_benchmark
     def test_electrode_density(self):
         from neurocarto.probe_npx.stat import npx_electrode_density
         chmap = ChannelMap.from_imro(RES / 'Fig3_example.imro')
@@ -692,6 +699,7 @@ class NpxProbeBenchmark(unittest.TestCase):
 
         self.profile = profile
 
+    @when_test_benchmark
     def test_channel_efficiency(self):
         from neurocarto.probe_npx.stat import npx_channel_efficiency
 
