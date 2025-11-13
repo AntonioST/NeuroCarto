@@ -337,12 +337,12 @@ class ReferenceInfo(NamedTuple):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L369
         if probe_type.code in (2003, 2013, 2020, 3010, 3020):
             if reference == 1:
-                return ReferenceInfo(reference, 'ground', reference - 1, 0)
+                return ReferenceInfo(reference, 'ground', 0, 0)
             if reference - 2 < probe_type.n_shank:
                 return ReferenceInfo(reference, 'tip', reference - 2, 0)
 
             # XXX probe 2013 has 7 references, but SpikeGLX only said what 6 is.
-            return ReferenceInfo(reference, 'unknown', reference - 2 - probe_type.n_shank, 0)
+            return ReferenceInfo(reference, 'unknown', 0, 0)
 
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21.cpp#L16
         elif probe_type.code == 21:
@@ -375,7 +375,6 @@ class ReferenceInfo(NamedTuple):
 
             return ReferenceInfo(reference, 'bank', reference - 2, -1)
 
-        raise ValueError()
 
 
 E = int | tuple[int, int] | tuple[int, int, int] | Electrode
@@ -1595,16 +1594,16 @@ class ImroEC_NP1110(ImroEC):
     ], dtype=int)
 
     @classmethod
-    def _group(cls, c):
+    def group(cls, c):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L298
         c = c % 384
         return 2 * (c // 32) + (c % 2)
 
     @classmethod
-    def _row(cls, c, b, g=None):
+    def row(cls, c, b, g=None):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L318
         if g is None:
-            g = cls._group(c)
+            g = cls.group(c)
 
         group_row = g // 4
         in_group_row = ((c % 64) % 32) // 4
@@ -1616,10 +1615,10 @@ class ImroEC_NP1110(ImroEC):
         return 48 * b + bank_row
 
     @classmethod
-    def _col(cls, c, b, g=None):
+    def col(cls, c, b, g=None):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L306
         if g is None:
-            g = cls._group(c)
+            g = cls.group(c)
 
         group_col = cls.ELECTRODE_MAP_1110[b % 2, g % 4]
         crossed = (b // 4) % 2
@@ -1634,29 +1633,29 @@ class ImroEC_NP1110(ImroEC):
 
     def c2e(self, c, b, s=None):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L349
-        g = self._group(c)
-        r = self._row(c, b, g)
-        i = self._col(c, b, g)
+        g = self.group(c)
+        r = self.row(c, b, g)
+        i = self.col(c, b, g)
         return 8 * r + i
 
     _C2E_CACHE = None
 
     @classmethod
-    def _c2e_array(cls) -> NDArray[np.int_]:
+    def c2e_electrode_array(cls) -> NDArray[np.int_]:
         if (e := cls._C2E_CACHE) is not None:
             return e
 
         t = PROBE_TYPE_NP1110
         e = []
-        bank = t.n_electrode_shank // t.n_channels
-        assert bank == 16
+        assert t.n_electrode_shank // t.n_channels == 16
+        bank = 16  # t.n_electrode_shank // t.n_channels
 
         b = np.zeros((t.n_channels,), dtype=np.int_)
         c = np.arange(t.n_channels)
-        g = cls._group(c)
+        g = cls.group(c)
         for _ in range(bank):
-            r = cls._row(c, b, g)
-            i = cls._col(c, b, g)
+            r = cls.row(c, b, g)
+            i = cls.col(c, b, g)
             e.append(8 * r + i)
             b += 1
 
@@ -1665,9 +1664,9 @@ class ImroEC_NP1110(ImroEC):
 
     def e2cr(self, e):
         if isinstance(e, int):
-            i = np.nonzero(self._c2e_array() == e)[0][0]
+            i = np.nonzero(self.c2e_electrode_array() == e)[0][0]
         else:
-            ii = np.nonzero(self._c2e_array() == e[:, np.newaxis])
+            ii = np.nonzero(self.c2e_electrode_array() == e[:, np.newaxis])
             i = np.full_like(e, -1)
             i[ii[0]] = ii[1]
             if np.any(i < 0):
@@ -1678,9 +1677,9 @@ class ImroEC_NP1110(ImroEC):
 
     def e2c(self, e, s=None):
         if isinstance(e, int):
-            i = np.nonzero(self._c2e_array() == e)[0][0]
+            i = np.nonzero(self.c2e_electrode_array() == e)[0][0]
         else:
-            ii = np.nonzero(self._c2e_array() == e[:, np.newaxis])
+            ii = np.nonzero(self.c2e_electrode_array() == e[:, np.newaxis])
             i = np.full_like(e, -1)
             i[ii[0]] = ii[1]
             if np.any(i < 0):

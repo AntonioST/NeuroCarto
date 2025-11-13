@@ -32,6 +32,7 @@ def npx_electrode_density(chmap: ChannelMap) -> NDArray[np.float64]:
     :param chmap:
     :return: density curve array. Array[float, S, (v, y), Y].
     """
+    # TODO does this function work for other probe types?
     from neurocarto.probe_npx.plot import cast_electrode_curve
 
     probe_type = chmap.probe_type
@@ -131,17 +132,17 @@ class ElectrodeProbability(NamedTuple):
     @property
     def channel_efficiency(self) -> float:
         """max channel efficiency"""
-        return np.max(self.channel_efficiency_)
+        return float(np.max(self.channel_efficiency_))
 
     @property
     def channel_efficiency_mean(self) -> float:
         """mean channel efficiency"""
-        return np.mean(self.channel_efficiency_)
+        return float(np.mean(self.channel_efficiency_))
 
     @property
     def channel_efficiency_var(self) -> float:
         """channel efficiency variance"""
-        return np.var(self.channel_efficiency_)
+        return float(np.var(self.channel_efficiency_))
 
     def __add__(self, other: ElectrodeProbability) -> Self:
         return ElectrodeProbability(
@@ -152,7 +153,7 @@ class ElectrodeProbability(NamedTuple):
         )
 
     @classmethod
-    def _reduce_add(cls, result: list[ElectrodeProbability]) -> Self:
+    def concat(cls, result: list[ElectrodeProbability]) -> Self:
         return ElectrodeProbability(
             sum([it.sample_times for it in result]),
             np.sum([it.summation for it in result], axis=0),
@@ -229,4 +230,4 @@ def _npx_electrode_probability_n(probe: NpxProbeDesp, chmap: ChannelMap, bluepri
         pool.close()
         pool.join()
 
-    return ElectrodeProbability._reduce_add([it.get() for it in jobs])
+    return ElectrodeProbability.concat([it.get() for it in jobs])

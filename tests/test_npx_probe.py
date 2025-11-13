@@ -60,6 +60,7 @@ class ImroParsingTest(unittest.TestCase):
                 "(371 0 0 500 250 1)(372 0 0 500 250 1)(373 0 0 500 250 1)(374 0 0 500 250 1)(375 0 0 500 250 1)(376 0 0 500 250 1)(377 0 0 500 250 1)(378 0 0 500 250 1)(379 0 0 500 250 1)(380 0 0 500 250 1)"
                 "(381 0 0 500 250 1)(382 0 0 500 250 1)(383 0 0 500 250 1)")
         chmap = parse_imro(imro)
+        self.assertIsInstance(chmap, ChannelMap)
         self.assertEqual(imro, string_imro(chmap))
 
     def test_type_21(self):
@@ -103,6 +104,7 @@ class ImroParsingTest(unittest.TestCase):
                 "(371 1 0 371)(372 1 0 372)(373 1 0 373)(374 1 0 374)(375 1 0 375)(376 1 0 376)(377 1 0 377)(378 1 0 378)(379 1 0 379)(380 1 0 380)"
                 "(381 1 0 381)(382 1 0 382)(383 1 0 383)")
         chmap = parse_imro(imro)
+        self.assertIsInstance(chmap, ChannelMap)
         self.assertEqual(imro, string_imro(chmap))
 
     def test_type_2003(self):
@@ -146,6 +148,7 @@ class ImroParsingTest(unittest.TestCase):
                 "(371 1 0 371)(372 1 0 372)(373 1 0 373)(374 1 0 374)(375 1 0 375)(376 1 0 376)(377 1 0 377)(378 1 0 378)(379 1 0 379)(380 1 0 380)"
                 "(381 1 0 381)(382 1 0 382)(383 1 0 383)")
         chmap = parse_imro(imro)
+        self.assertIsInstance(chmap, ChannelMap)
         self.assertEqual(imro, string_imro(chmap))
 
     def test_type_24(self):
@@ -189,6 +192,7 @@ class ImroParsingTest(unittest.TestCase):
                 "(371 0 0 1 275)(372 0 0 1 276)(373 0 0 1 277)(374 0 0 1 278)(375 0 0 1 279)(376 0 0 1 280)(377 0 0 1 281)(378 0 0 1 282)(379 0 0 1 283)(380 0 0 1 284)"
                 "(381 0 0 1 285)(382 0 0 1 286)(383 0 0 1 287)")
         chmap = parse_imro(imro)
+        self.assertIsInstance(chmap, ChannelMap)
         self.assertEqual(imro, string_imro(chmap))
 
     def test_type_2013(self):
@@ -232,6 +236,7 @@ class ImroParsingTest(unittest.TestCase):
                 "(371 0 0 1 275)(372 0 0 1 276)(373 0 0 1 277)(374 0 0 1 278)(375 0 0 1 279)(376 0 0 1 280)(377 0 0 1 281)(378 0 0 1 282)(379 0 0 1 283)(380 0 0 1 284)"
                 "(381 0 0 1 285)(382 0 0 1 286)(383 0 0 1 287)")
         chmap = parse_imro(imro)
+        self.assertIsInstance(chmap, ChannelMap)
         self.assertEqual(imro, string_imro(chmap))
 
     def test_type_2020(self):
@@ -390,6 +395,7 @@ class ImroParsingTest(unittest.TestCase):
                 "(1521 3 0 0 369)(1522 3 0 0 370)(1523 3 0 0 371)(1524 3 0 0 372)(1525 3 0 0 373)(1526 3 0 0 374)(1527 3 0 0 375)(1528 3 0 0 376)(1529 3 0 0 377)(1530 3 0 0 378)"
                 "(1531 3 0 0 379)(1532 3 0 0 380)(1533 3 0 0 381)(1534 3 0 0 382)(1535 3 0 0 383)")
         chmap = parse_imro(imro)
+        self.assertIsInstance(chmap, ChannelMap)
         self.assertEqual(imro, string_imro(chmap))
 
     @unittest.skip(reason='unknown electrode-channel mapping relationship')
@@ -398,6 +404,7 @@ class ImroParsingTest(unittest.TestCase):
                 "(11 0 0)(12 0 0)(13 0 0)(14 0 0)(15 0 0)(16 0 0)(17 0 0)(18 0 0)(19 0 0)(20 0 0)"
                 "(21 0 0)(22 0 0)(23 0 0)")
         chmap = parse_imro(imro)
+        self.assertIsInstance(chmap, ChannelMap)
         self.assertEqual(imro, string_imro(chmap))
 
 # noinspection PyMethodMayBeStatic

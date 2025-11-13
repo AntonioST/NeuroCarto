@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
     from probeinterface import Probe
+    from .npx import ImroEC_NP1110
 
 __all__ = [
     'parse_imro',
@@ -210,13 +211,28 @@ class ImroIO_NP24(ImroIO):
 
 
 class ImroIO_NP1110(ImroIO):
-    col_mode: int = 2
+    INNER = 0
+    OUTER = 1
+    ALL = 2
+
+    col_mode: Literal[0, 1, 2] = 2
+    """
+    0 : INNER mode upper cols are odd  and lower cols are even.
+    1 : OUTER mode upper cols are even and lower cols are odd.
+    2 : ALL mode bankA and bankB are the same.
+    """
+
     ap: int = 500
     lf: int = 250
     af: int = 1
+    to: ImroEC_NP1110
 
     def parse_header(self, *args: int):
         col_mode, ref_id, ap, lf, af = args
+
+        if col_mode not in (0, 1, 2):
+            raise ValueError(f'illegal col mode value : {col_mode}')
+
         self.col_mode = col_mode
         self.reference = ref_id
         self.ap = ap
@@ -225,24 +241,46 @@ class ImroIO_NP1110(ImroIO):
 
     def _bank(self, ch: int, bank_a: int, bank_b: int):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L201
-        match self.col_mode, self.to._col(ch, bank_a):
-            case (2, _):  # ALL mode bankA and bankB are the same.
+        match self.col_mode:
+            case self.ALL:
+                if bank_a != bank_b:
+                    raise ValueError('In All col mode must have same bankA and bankB value')
+
                 return bank_a
-            case (1, 0 | 2 | 5 | 7):  # OUTER mode upper cols are even and lower cols are odd.
-                return bank_a
-            case (0, 1 | 3 | 4 | 6):  # INNER mode upper cols are odd  and lower cols are even.
-                return bank_a
-            case (0 | 1 | 2, _):
-                return bank_b
+            case self.OUTER:
+                if not self._is_bank_crossed(bank_a, bank_b):
+                    raise ValueError('In OUTER mode, only either bankA or bankB is col-crossed exactly')
+
+                if self.to.col(ch, bank_a) in (0, 2, 5, 7):
+                    return bank_a
+                else:
+                    return bank_b
+
+            case self.INNER:
+                if not self._is_bank_crossed(bank_a, bank_b):
+                    raise ValueError('In INNER mode, only either bankA or bankB is col-crossed exactly')
+
+                if self.to.col(ch, bank_a) in (1, 3, 4, 6):
+                    return bank_a
+                else:
+                    return bank_b
+
             case _:
                 raise ValueError('illegal mode')
+
+    @classmethod
+    def _is_bank_crossed(cls, bank_a: int, bank_b: int) -> bool:
+        # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L170
+        a = (bank_a / 4) % 2
+        b = (bank_b / 4) % 2
+        return a != b
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L42
         group, bank_a, bank_b = args
         bank = self._bank(group, bank_a, bank_b)
-        col = self.to._col(group, bank)
-        row = self.to._row(group, bank)
+        col = self.to.col(group, bank)
+        row = self.to.row(group, bank)
         e = Electrode(0, col, row)
         e.bank_a = bank_a
         e.bank_b = bank_b
