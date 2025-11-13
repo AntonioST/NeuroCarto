@@ -79,7 +79,7 @@ PROBE_TYPE_NP1 = ProbeType(0, 1, 2, 960, 384, 32, 20, 0, 5)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21.h#L12
 PROBE_TYPE_NP21 = ProbeType(21, 1, 2, 1280, 384, 32, 15, 0, 6)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24.h#L12
-PROBE_TYPE_NP24 = ProbeType(24, 4, 2, 1280, 384, 32, 15, 250, 18)
+PROBE_TYPE_NP24 = ProbeType(24, 4, 2, 1280, 384, 32, 15, 250, 21)
 
 # PROBE_TYPE_NP1 based
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1020.h#L12
@@ -108,7 +108,7 @@ PROBE_TYPE_NP1300 = ProbeType(1300, 1, 2, 960, 384, 48, 20, 0, 5)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2003.h#L12
 PROBE_TYPE_NP2003 = ProbeType(2003, 1, 2, 1280, 384, 32, 15, 0, 3)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2013.h#L12
-PROBE_TYPE_NP2013 = ProbeType(2013, 4, 2, 1280, 384, 32, 15, 250, 7)
+PROBE_TYPE_NP2013 = ProbeType(2013, 4, 2, 1280, 384, 32, 15, 250, 6)
 
 # NP2020 2.0 quad base (Ph 2C)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.h#L43
@@ -323,6 +323,7 @@ class ReferenceInfo(NamedTuple):
         """
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.h#L191
         # int IMROTbl_T0base::refTypeAndFields( int &shank, int &bank, int ch )
+        # XXX SpikeGLX number of references for some probe types do not match to the description
 
         if not (0 <= reference < probe_type.n_reference):
             raise ValueError(f'reference id out of boundary for probe type {probe_type.code}: {reference}')
@@ -341,8 +342,7 @@ class ReferenceInfo(NamedTuple):
             if reference - 2 < probe_type.n_shank:
                 return ReferenceInfo(reference, 'tip', reference - 2, 0)
 
-            # XXX probe 2013 has 7 references, but SpikeGLX only said what 6 is.
-            return ReferenceInfo(reference, 'unknown', 0, 0)
+            raise RuntimeError('')
 
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21.cpp#L16
         elif probe_type.code == 21:
