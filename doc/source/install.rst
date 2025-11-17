@@ -54,6 +54,10 @@ Build from source
 
         pip install dist/neurocarto-0.0.0-py3-none-any.whl
 
+   Or installing in the develop mode, ::
+
+        pip install -e .
+
    change version ``0.0.0`` to latest when needed.
 
 Build Document

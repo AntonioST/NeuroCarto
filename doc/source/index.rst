@@ -98,13 +98,19 @@ Neuropixels probe family
 
 file format: ``*.imro``.
 
-===== =============== =============== ======================= =================
-rw\\p Neuropixels 1.0 Neuropixels 2.0 4-shank Neuropixels 2.0 Neuropixels Ultra
-===== =============== =============== ======================= =================
-read       yes             yes               yes                    no
-write      yes             yes               yes                    no
-===== =============== =============== ======================= =================
-
+=================================== ==== =====
+probe (code)\\state                 read write
+=================================== ==== =====
+Neuropixels 1.0 (0/1000)            yes  yes
+Neuropixels 2.0 (21/2000)           yes  yes
+Neuropixels 2.0 (2003)              yes  yes
+4-shank Neuropixels 2.0 (24/2010)   yes  yes
+4-shank Neuropixels 2.0 (24/2013)   yes  yes
+NHP                                 no   no
+UHD                                 no   no
+Opto                                no   no
+NXT                                 no   no
+=================================== ==== =====
 
 
 API Reference
