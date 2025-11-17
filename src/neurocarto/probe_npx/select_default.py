@@ -11,6 +11,9 @@ __all__ = ['electrode_select']
 
 
 def electrode_select(desp: NpxProbeDesp, chmap: ChannelMap, blueprint: list[NpxElectrodeDesp], **kwargs) -> ChannelMap:
+    if chmap.probe_type.n_col_shank != 2:
+        raise RuntimeError('unsupported probe type')
+
     ret = desp.new_channelmap(chmap)
 
     cand: dict[K, NpxElectrodeDesp] = {it.electrode: it for it in desp.all_electrodes(ret)}

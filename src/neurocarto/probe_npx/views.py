@@ -84,7 +84,7 @@ class NpxReferenceControl(ViewBase, DynamicView, RecordView[int]):
         self.logger.debug('update reference select(%d)', probe.code)
         self._references = {
             self.repr_reference_info(ref := ReferenceInfo.of(probe, code)): ref
-            for code in range(ReferenceInfo.max_reference_value(probe))
+            for code in range(probe.n_reference)
         }
 
         self.reference_select.options = list(self._references)
@@ -93,11 +93,13 @@ class NpxReferenceControl(ViewBase, DynamicView, RecordView[int]):
     def repr_reference_info(cls, ref: ReferenceInfo) -> str:
         match ref.type:
             case 'ext':
-                return 'Ext'
+                return 'External'
+            case 'ground':
+                return f'Ground'
             case 'tip':
-                return f'Tip:{ref.shank}'
-            case 'on-shank':
-                return f'Int:({ref.shank}, {ref.code})'
+                return f'Shank tip:{ref.shank}'
+            case 'bank':
+                return f'Shank {ref.shank} channel {ref.channel}'
             case _:
                 return 'unknown'
 

@@ -12,8 +12,10 @@ if TYPE_CHECKING:
     from neurocarto.util.probe_coor import ProbeCoordinate
     from neurocarto.views.atlas import Label
 
+GENERAL_NP24_code = (24, 2010, 2013)
 
-@use_probe(NpxProbeDesp, 24)
+
+@use_probe(NpxProbeDesp, GENERAL_NP24_code)
 def npx24_single_shank(bp: BlueprintFunctions, shank: int = 0, row: int = 0):
     """
     Make a block channelmap for 4-shank Neuropixels probe.
@@ -25,7 +27,7 @@ def npx24_single_shank(bp: BlueprintFunctions, shank: int = 0, row: int = 0):
     bp.set_channelmap(utils.npx24_single_shank(shank, row, um=True))
 
 
-@use_probe(NpxProbeDesp, 24)
+@use_probe(NpxProbeDesp, GENERAL_NP24_code)
 def npx24_stripe(bp: BlueprintFunctions, row: int = 0):
     """
     Make a block channelmap for 4-shank Neuropixels probe.
@@ -36,7 +38,7 @@ def npx24_stripe(bp: BlueprintFunctions, row: int = 0):
     bp.set_channelmap(utils.npx24_stripe(row, um=True))
 
 
-@use_probe(NpxProbeDesp, 24)
+@use_probe(NpxProbeDesp, GENERAL_NP24_code)
 def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] | Literal['selected'] = 0, row: int = 0):
     """
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *half* density.
@@ -70,7 +72,7 @@ def npx24_half_density(bp: BlueprintFunctions, shank: int | list[int] | Literal[
             raise ValueError()
 
 
-@use_probe(NpxProbeDesp, 24)
+@use_probe(NpxProbeDesp, GENERAL_NP24_code)
 def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | Literal['selected'] | None = None, row: int = 0):
     """
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *quarter* density.
@@ -109,7 +111,7 @@ def npx24_quarter_density(bp: BlueprintFunctions, shank: int | list[int] | Liter
             raise ValueError()
 
 
-@use_probe(NpxProbeDesp, 24)
+@use_probe(NpxProbeDesp, GENERAL_NP24_code)
 def npx24_one_eighth_density(bp: BlueprintFunctions, row: int = 0):
     """
     Make a channelmap for 4-shank Neuropixels probe that uniformly distributes channels in *one-eighth* density.

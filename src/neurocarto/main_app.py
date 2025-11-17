@@ -67,6 +67,28 @@ class CartoUserConfig(TypedDict, total=False):
     """
 
 
+@doc_link()
+class Channelmap(TypedDict, total=False):
+    """
+    Current working state.
+
+    .. code-block:: json
+
+        {
+          "Channelmap" : {
+            "family" : "npx",
+            "code" : "NP24",
+            "channelmap_file" : "...",
+            "blueprint_file" : "..."
+          }
+        }
+    """
+
+    family: str
+    code: int | str
+    channelmap_file: str
+    blueprint_file: str
+
 class CartoApp(BokehApplication):
     """Application of neural probe channelmap editor.
 
@@ -169,9 +191,9 @@ class CartoApp(BokehApplication):
             self.logger.debug('load user config : %s', file)
 
         if reset:
-            self.user_views_config.update(data)
-        else:
             self.user_views_config = data
+        else:
+            self.user_views_config.update(data)
 
         return self.user_views_config
 
@@ -338,16 +360,20 @@ class CartoApp(BokehApplication):
         return files.get_view_config_file(self.config, self.probe, chmap)
 
     @doc_link()
-    def load_view_config(self, chmap: str | Path, *, reset=False) -> dict[str, Any]:
+    def load_view_config(self, chmap: str | Path, *, reset=False, error=False) -> dict[str, Any]:
         """
         Load view components' configurations.
 
         :param chmap: filename. See {#get_view_config_file()} for more details.
         :param reset: reset right_view_config or update.
+        :param error: raise FileNotFoundError if *chmap* does not exist, instead of warning.
         :return: configuration dict {type_name: Any}.
         """
         file = self.get_view_config_file(chmap)
         if not file.exists():
+            if error:
+                raise FileNotFoundError(file)
+
             self.log_message(f'File not found : {file}')
             return self.right_panel_views_config
 
@@ -362,9 +388,9 @@ class CartoApp(BokehApplication):
             self.log_message(f'load config : {file}')
 
             if reset:
-                self.right_panel_views_config.update(data)
-            else:
                 self.right_panel_views_config = data
+            else:
+                self.right_panel_views_config.update(data)
 
         return self.right_panel_views_config
 
@@ -381,6 +407,19 @@ class CartoApp(BokehApplication):
                 if isinstance(view, StateView) and (state := view.save_state()) is not None:
                     self.logger.debug('on_save() config %s', type(view).__name__)
                     self.right_panel_views_config[type(view).__name__] = state
+
+        state: Channelmap = {'family': self.config.probe_family}
+        if (_chmap := self.probe_view.channelmap) is not None:
+            if (code := self.probe.channelmap_code(_chmap)) is not None:
+                state['code'] = code
+
+        if len(_chmap := self.output_imro.value_input):
+            channelmap_file = self.get_chmap_file(_chmap)
+            state['channelmap_file'] = str(channelmap_file.absolute().resolve())
+            blueprint_file = self.get_blueprint_file(_chmap)
+            state['blueprint_file'] = str(blueprint_file.absolute().resolve())
+
+        self.right_panel_views_config['Channelmap'] = state
 
         import json
         file = self.get_view_config_file(chmap)
@@ -600,6 +639,7 @@ class CartoApp(BokehApplication):
             view.start()
 
         if (open_file := self.config.open_file) is not None:
+            self.logger.debug('open_file(%s)', open_file)
             run_later(self.load_file, open_file)
 
     def cleanup(self, context: SessionContext):
@@ -655,18 +695,28 @@ class CartoApp(BokehApplication):
         """
         load a channelmap file.
 
-        :param name: channelmap filename or filepath.
+        :param name: channelmap filename or filepath. Could be a view config json file (``*.config.json``).
         """
         self.logger.debug('on_load(%s)', name)
 
         file = name
 
-        try:
-            if isinstance(name, str):
-                file = self.get_chmap_file(name)
-                chmap = self.load_chmap(name)
+        if isinstance(name, str):
+            file = self.get_chmap_file(name)
+            self._load_channelmap_file(file)
+        elif isinstance(file, Path):
+            if file.name.endswith('.config.json'):
+                self._load_view_config_file(file)
             else:
-                chmap = self.load_chmap(file)
+                self._load_channelmap_file(file)
+        else:
+            raise TypeError()
+
+    def _load_channelmap_file(self, file: Path):
+        self.logger.debug('_load_channelmap_file(%s)', file)
+
+        try:
+            chmap = self.load_chmap(file)
         except FileNotFoundError:
             self.log_message(f'File not found : {file}')
             self.logger.warning('channelmap file not found : %s', file)
@@ -674,26 +724,80 @@ class CartoApp(BokehApplication):
             self.reload_input_file_list()
             return
 
-        self._set_output_imro_name(self._load_file_save_name(file))
+        save_name = self._set_output_imro_name(self._load_file_save_name(file))
+        self.logger.debug('_set_output_imro_name(%s)', save_name)
 
         self.probe_view.reset(chmap)
         self.load_blueprint(file)
 
         config = self.load_view_config(file, reset=True)
-        for view in self.right_panel_views:
-            if isinstance(view, StateView):
-                try:
-                    _config = config[type(view).__name__]
-                except KeyError:
-                    pass
-                else:
-                    self.logger.debug('on_load() config %s', type(view).__name__)
-                    try:
-                        view.restore_state(_config)
-                    except RuntimeError as e:
-                        self.log_message(type(view).__name__ + '::' + repr(e))
+        self._retrieve_all_states(config)
 
         self.on_probe_update()
+
+    def _load_view_config_file(self, file: Path):
+        self.logger.debug('_load_view_config_file(%s)', file)
+
+        try:
+            config = self.load_view_config(file, reset=True, error=True)
+        except FileNotFoundError:
+            self.log_message(f'File not found : {file}')
+            self.logger.warning('view config file not found : %s', file)
+            # files/directories may be changed, reload list.
+            self.reload_input_file_list()
+            return
+
+        try:
+            state: Channelmap = config['Channelmap']
+            if state is None:
+                raise KeyError
+
+            if state['family'] != self.config.probe_family:
+                self.logger.debug('_load_view_config_file() fail: probe family mismatch')
+                self.log_message('fail to load channelmap file. probe family mismatch.')
+                return
+
+        except KeyError:
+            self.logger.debug('_load_view_config_file() fail: no Channelmap')
+            self.log_message(f'file to load channelmap file from view config.')
+            return
+
+        chmap = None
+        try:
+            channelmap_file = Path(state['channelmap_file'])
+            self.logger.debug('_load_view_config_file() load channelmap_file : %s', channelmap_file)
+            chmap = self.load_chmap(channelmap_file)
+            save_name = self._set_output_imro_name(channelmap_file.name)
+            self.logger.debug('_set_output_imro_name(%s)', save_name)
+        except KeyError:
+            self.logger.debug('_load_view_config_file() skip channelmap_file')
+        except IOError as e:
+            self.log_message('fail to open channelmap file')
+            self.logger.debug('_load_view_config_file() fail open channelmap_file', exc_info=e)
+            try:
+                code = state['code']
+                self.logger.debug('_load_view_config_file() new channelmap with code %d', code)
+                self.probe_view.reset(code)
+                chmap = self.probe_view.channelmap
+            except KeyError:
+                return
+
+        if chmap is not None:
+            self.probe_view.reset(chmap)
+
+        blueprint_ok = False
+        try:
+            blueprint_file = state['blueprint_file']
+            self.logger.debug('_load_view_config_file() load blueprint_file : %s', blueprint_file)
+            blueprint_ok = self.load_blueprint(Path(blueprint_file))
+        except KeyError:
+            self.logger.debug('_load_view_config_file() skip blueprint_file')
+
+        self._retrieve_all_states(config)
+
+        if chmap is not None and blueprint_ok:
+            self.on_probe_update()
+                
 
     def _load_file_save_name(self, file: Path) -> Path:
         """
@@ -711,6 +815,22 @@ class CartoApp(BokehApplication):
             i += 1
 
         return ret
+
+    def _retrieve_all_states(self, config: dict):
+        self.logger.debug('_retrieve_all_states()')
+
+        for view in self.right_panel_views:
+            if isinstance(view, StateView):
+                try:
+                    _config = config[type(view).__name__]
+                except KeyError:
+                    pass
+                else:
+                    self.logger.debug('on_load() config %s', type(view).__name__)
+                    try:
+                        view.restore_state(_config)
+                    except RuntimeError as e:
+                        self.log_message(type(view).__name__ + '::' + repr(e))
 
     def reload_input_file_list(self, preselect: str = None):
         """
@@ -767,26 +887,26 @@ class CartoApp(BokehApplication):
 
         self.logger.debug('on_save(%s)', name)
         chmap = self.probe_view.channelmap
+        chmap_path = None
+
         if chmap is None:
             self.log_message('no channelmap')
+            return
 
-        elif not self.probe.is_valid(chmap):
-            self.log_message('incomplete channelmap')
-            if self._always_save_blueprint_file:
-                path = self.get_blueprint_file(name)
-                if (code := self.probe.channelmap_code(chmap)) is not None:
-                    path = path.with_name(path.name.replace('.blueprint', f'.{code}.blueprint'))
-                self.save_blueprint(path)
+        elif self.probe.is_valid(chmap):
+            chmap_path = self.save_chmap(name, chmap)
 
         else:
-            path = self.save_chmap(name, chmap)
-            self.save_blueprint(path)
-            self.save_view_config(path)
+            self.log_message('incomplete channelmap')
 
-            self._set_output_imro_name(path)
-            self.reload_input_file_list(path.stem)
+        self.save_blueprint(self.get_blueprint_file(name))
+        self.save_view_config(self.get_view_config_file(name))
 
-    def _set_output_imro_name(self, path: str | Path):
+        if chmap_path is not None:
+            self._set_output_imro_name(chmap_path)
+            self.reload_input_file_list(chmap_path.stem)
+
+    def _set_output_imro_name(self, path: str | Path) -> str:
         if isinstance(path, str):
             save_name = path
         else:
@@ -798,7 +918,9 @@ class CartoApp(BokehApplication):
             else:
                 save_name = str(p)
 
+        self.output_imro.value = save_name
         self.output_imro.value_input = save_name
+        return save_name
 
     def on_state_change(self, state: int):
         """

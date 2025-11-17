@@ -6,11 +6,11 @@ from typing import Literal
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
+from numpy.typing import NDArray
+
 from neurocarto.probe import ElectrodeDesp
 from neurocarto.util.util_numpy import closest_point_index, interpolate_nan
 from neurocarto.util.utils import doc_link
-from numpy.typing import NDArray
-
 from .desp import NpxProbeDesp
 from .npx import ChannelMap, ProbeType, channel_coordinate, electrode_coordinate
 
@@ -645,14 +645,14 @@ def cast_electrode_curve(probe: PROBE_TYPE,
 
     match kernel:
         case None:
-            kernel = probe.r_space * 5
+            kernel = int(probe.r_space * 5)
             kernel = np.ones((kernel,)) / kernel
         case int(kernel):
             kernel = np.ones((kernel,)) / kernel
         case 'norm':
             from scipy.stats import norm
             s = probe.r_space
-            kernel = norm.pdf(np.linspace(-3 * s, 3 * s, 6 * s + 1), 0, s)
+            kernel = norm.pdf(np.linspace(-3 * s, 3 * s, int(6 * s + 1)), 0, s)
         case _ if isinstance(kernel, np.ndarray):
             pass
         case _:

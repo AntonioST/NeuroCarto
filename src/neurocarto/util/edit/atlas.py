@@ -269,7 +269,7 @@ def atlas_current_probe(bp: BlueprintFunctions,
 
     # set slice rotation
     rot = list(np.rad2deg(brain.offset_angle()))
-    match brain.slice_name:
+    match brain.projection:
         case 'coronal':
             rot[0] = -transform['rt']
         case 'sagittal':
@@ -298,7 +298,7 @@ def atlas_set_anchor_on_probe(bp: BlueprintFunctions,
     view.update_brain_slice(brain_slice, update_image=False)
 
     # set slice rotation
-    match brain_slice.slice_name:
+    match brain_slice.projection:
         case 'coronal':
             rot = -coor.rx
         case 'sagittal':

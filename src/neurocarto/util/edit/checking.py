@@ -39,7 +39,7 @@ class RequestChannelmapType(NamedTuple):
     probe: str | type[ProbeDesp] | None
     """request probe name or type."""
 
-    code: int | None
+    code: int | tuple[int, ...] | None
     """request channelmap code."""
 
     create: bool = True
@@ -93,11 +93,17 @@ class RequestChannelmapType(NamedTuple):
 
         if (code := probe.channelmap_code(chmap)) is None:
             return False
-        return self.code == code
+
+        if isinstance(self.code, int):
+            return self.code == code
+        elif isinstance(self.code, tuple):
+            return code in self.code
+        else:
+            raise RuntimeError('unreachable')
 
 
 @doc_link()
-def use_probe(probe: str | type[ProbeDesp] = ProbeDesp, code: int = None, *,
+def use_probe(probe: str | type[ProbeDesp] = ProbeDesp, code: int | tuple[int, ...] = None, *,
               create: bool = None, check=True):
     """
     Decorate a blueprint script ({BlueprintScript}) to indicate this function
@@ -130,7 +136,7 @@ def use_probe(probe: str | type[ProbeDesp] = ProbeDesp, code: int = None, *,
     if create is None:
         create = code is not None
 
-    if create and code is None:
+    if create and (code is None or (isinstance(code, tuple) and len(code) == 0)):
         raise ValueError('create mode need non-None code')
 
     def _decorator(func):

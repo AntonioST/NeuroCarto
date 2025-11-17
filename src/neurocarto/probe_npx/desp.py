@@ -53,8 +53,26 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     def supported_type(self) -> dict[str, int]:
         return {
             '4-Shank Neuropixels probe 2.0': 24,
+            '4-Shank Neuropixels probe 2.0 (2010)': 2010,
+            '4-Shank Neuropixels probe 2.0 (2013)': 2013,
             'Neuropixels probe 2.0': 21,
+            'Neuropixels probe 2.0 (2003)': 2003,
             'Neuropixels probe': 0,
+            # TODO Below are not tested yet
+            # 'NHP phase 2 (1020)': 1020,
+            # 'NHP phase 2 (1030)': 1030,
+            # 'UHD phase 1 (1100)': 1100,
+            # 'UHD phase 2 (1110)': 1110,
+            # 'UHD phase 3 Layout 1 (1121)': 1121,
+            # 'UHD phase 3 Layout 2 (1120)': 1120,
+            # 'UHD phase 3 Layout 3 (1120)': 1122,
+            # 'UHD phase 3 Layout 4 (1120)': 1123,
+            # 'NHP 128 channel (1200)': 1200,
+            # 'Opto (1200)': 1300,
+            # 'Neuropixels probe quad base (2020)': 2020,
+            # 'Passive NXT probe (3000)': 1200,
+            # 'NXT single shank (3010)': 3010,
+            # 'NXT multishank shank (3010)': 3020,
         }
 
     @property
