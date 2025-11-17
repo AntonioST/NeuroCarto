@@ -11,7 +11,8 @@
 
 ### Changed
 
-- `CartoApp.load_use_config` and `load_view_config` add keyword parameter `reset`. 
+- `CartoApp.load_use_config` and `load_view_config` add keyword parameter `reset`.
+- probe io and electrode-channel-mapping functions.
 - view config file save working process.
 - Rename term usage from `slice` to `projection` in atlas-related modules.
 - Change term usage in probe references.
@@ -22,6 +23,8 @@
 - Document improve.
 
 ### Removed
+
+- some attributes and properties in `npx.ProbeType`
 
 
 ## 0.1
