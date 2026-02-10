@@ -376,7 +376,6 @@ class ReferenceInfo(NamedTuple):
             return ReferenceInfo(reference, 'bank', reference - 2, -1)
 
 
-
 E = int | tuple[int, int] | tuple[int, int, int] | Electrode
 """single electrode types"""
 
@@ -1170,8 +1169,6 @@ def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType,
         ])
 
 
-
-
 @overload
 def e2p(probe_type: ProbeType, e: E) -> tuple[float, float]:
     pass
@@ -1706,8 +1703,8 @@ class ImroEC_NP2020(ImroEC):
             else:
                 s = np.zeros_like(e)
 
-        bank, _ = divmod(e, 384)
-        return s * 384 + e, bank
+        bank, c = divmod(e, 384)
+        return s * 384 + c, bank
 
     def c2e(self, c, b, s=None):
         return c % 384 + b * 384

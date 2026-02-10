@@ -58,7 +58,6 @@ def parse_imro(source: str) -> ChannelMap:
     j = source.index(')')  # right ')'
     k = 0  # count of '(...)'
 
-
     while 0 <= i < j:
         part = source[i + 1:j]
 
@@ -310,10 +309,10 @@ class ImroIO_NP1110(ImroIO):
 
 
 class ImroIO_NP2020(ImroIO):
-
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.cppL#35
         ch, s, bank, ref, ed = args
+        ed = 384 * bank + ed
         assert self.to.e2c(ed, s) == (ch, bank), f'{ed=},{s=},{ch=},{bank=},e2c={self.to.e2c(ed, s)}'
         self.reference = ref
         return Electrode(s, *self.to.e2cr(ed))
@@ -357,6 +356,7 @@ class ImroIO_NP3020(ImroIO):
         electrode = cr2e(self.probe_type, e)
         channel, bank = self.to.e2c(e.shank, electrode)
         return ch, e.shank, bank, chmap.reference, electrode
+
 
 # ======================= #
 # SpikeGLX imro/meta file #
@@ -492,6 +492,7 @@ def to_numpy(chmap: ChannelMap, unit: Literal['cr', 'xy', 'sxy'] = 'cr') -> NDAr
             raise ValueError(f'unsupported unit: {unit}')
 
     return np.array([mapper(e) for e in chmap.electrodes])
+
 
 # ======================= #
 # pandas/polars dataframe #

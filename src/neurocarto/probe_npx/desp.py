@@ -58,6 +58,7 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             'Neuropixels probe 2.0': 21,
             'Neuropixels probe 2.0 (2003)': 2003,
             'Neuropixels probe': 0,
+            'Neuropixels probe quad base (2020)': 2020,
             # TODO Below are not tested yet
             # 'NHP phase 2 (1020)': 1020,
             # 'NHP phase 2 (1030)': 1030,
@@ -69,7 +70,6 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             # 'UHD phase 3 Layout 4 (1120)': 1123,
             # 'NHP 128 channel (1200)': 1200,
             # 'Opto (1200)': 1300,
-            # 'Neuropixels probe quad base (2020)': 2020,
             # 'Passive NXT probe (3000)': 1200,
             # 'NXT single shank (3010)': 3010,
             # 'NXT multishank shank (3010)': 3020,
@@ -294,11 +294,20 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
     @doc_link()
     def view_ext_statistics_info(self, bp: BlueprintFunctions) -> dict[str, str]:
         """
+        Calculate statistics information with given blueprint.
 
         :param bp:
-        :return:
+        :return: statistics result dict.
         :see: {ProbeElectrodeEfficiencyProtocol}
         """
+        from .npx import PROBE_TYPE_NP2020
+        channelmap: ChannelMap = bp.channelmap
+        if channelmap.probe_type == PROBE_TYPE_NP2020:
+            return self._view_ext_statistics_info_quad(bp)
+        else:
+            return self._view_ext_statistics_info_single(bp)
+
+    def _view_ext_statistics_info_single(self, bp: BlueprintFunctions):
         from .stat import npx_request_electrode, npx_channel_efficiency
 
         channelmap: ChannelMap = bp.channelmap
@@ -317,6 +326,38 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
             'used channels': f'{used_channel}, total={channelmap.probe_type.n_channels}, ({ucs})',
             'request electrodes': f'{electrodes}',
             'channel efficiency': f'{100 * efficiency:.2f}%',
+        }
+
+    def _view_ext_statistics_info_quad(self, bp: BlueprintFunctions):
+        from .stat import npx_request_electrode, npx_channel_efficiency
+
+        channelmap: ChannelMap = bp.channelmap
+        uc = len(channelmap)
+        ucs = [
+            len([it for it in channelmap.electrodes if it.shank == s])
+            for s in range(channelmap.probe_type.n_shank)
+        ]
+
+        uct = ', '.join(map(lambda it: f'<b>s{it[0]}</b>: {it[1]}', enumerate(ucs)))
+
+        bps = [bp.blueprint(), bp.blueprint(), bp.blueprint(), bp.blueprint()]
+        bps[0][bp.s != 0] = self.CATE_UNSET
+        bps[1][bp.s != 1] = self.CATE_UNSET
+        bps[2][bp.s != 2] = self.CATE_UNSET
+        bps[3][bp.s != 3] = self.CATE_UNSET
+
+        es = [npx_request_electrode(bp, it) for it in bps]
+        me = sum(es) / 4
+        est = ', '.join(map(lambda it: f'<b>s{it[0]}</b>: {it[1]}', enumerate(es)))
+
+        eff = [100 * npx_channel_efficiency(bp, channelmap, it)[1] for it in bps]
+        meff = sum(eff) / 4
+        efft = ', '.join(map(lambda it: f'<b>s{it[0]}</b>: {it[1]:.1f}%', enumerate(eff)))
+
+        return {
+            'used channels': f'{uct}, <b>total</b>: {uc}/{channelmap.probe_type.n_channels}',
+            'request electrodes': f'{est}, <b>mean</b>:{me:.2f}',
+            'channel efficiency': f'{efft}, <b>mean</b>:{meff:.2f}%',
         }
 
     @doc_link()
