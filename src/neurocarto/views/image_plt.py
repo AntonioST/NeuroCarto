@@ -251,13 +251,13 @@ class Boundary(NamedTuple):
 
 class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metaclass=abc.ABCMeta):
     """
-    Use matplotlib to generate an image.
+    Use matplotlib to generate an image as a background image.
 
     Example:
 
     .. code-block ::
 
-        class PlotChannelMap(PltImageHandler):
+        class PlotChannelMap(PltImageView):
             def on_probe_update(self, probe, chmap, e):
                 if chmap is not None:
                     self.plot_channelmap(chmap)
@@ -300,9 +300,9 @@ class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metac
         Set image. Due to the figure origin point usually not the origin point in axes,
         you need to provide *boundary* to tell program how to align the image with the probe.
 
-        :param image: image array. May from {get_current_plt_image()}
+        :param image: image array. May from {get_current_plt_image()}. Use ``None`` to clear image.
         :param boundary: image boundary. May from {get_current_plt_boundary()}
-        :param offset: x or (x, y) offset. When you don't want the image 100% aligned to the probe origin.
+        :param offset: x or (x, y) offset with unit um. When you don't want the image overlapped with other graphics.
         """
         if image is None:
             self.set_status('clean image ...')
@@ -379,24 +379,24 @@ class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metac
     @doc_link()
     def plot_figure(self, **kwargs) -> ContextManager[Axes]:
         """
-        A context manager of matplotlib axes.
+        A context manager of handle a matplotlib axes to capture the graphics.
 
         .. code-block:: python
 
             with self.plot_figure() as ax:
                 ax.plot(...)
 
-        Once context closed, call {#set_image()} with parameters *image*, *boundary* and *offset* filled.
+        Once context closed, {#set_image()} is called with parameters *image*, *boundary* and *offset* automatically.
 
-        If a ``KeyboardInterrupt`` is raised, capture and clear the image.
+        If a ``KeyboardInterrupt`` is raised, capture it and clear the current image.
 
-        It an error except ``KeyboardInterrupt`` is raised. reraise it and do nothing.
+        If an error except a ``KeyboardInterrupt`` is raised, reraise it and do nothing on the current image.
 
-        :param transparent: fig.savefig(transparent)
-        :param rc: default is read from image_plt.matplotlibrc.
+        :param transparent: pass to ``fig.savefig(transparent)``.
+        :param rc: matplotlib rc filename (``str`` or ``Path``). default is read from the file ``image_plt.matplotlibrc``.
         :param offset: see *offset* in {#set_image()}
-        :param kwargs: plt.subplots(kwargs)
-        :return: a context manger carries {Axes}
+        :param kwargs: pass to ``plt.subplots(kwargs)``
+        :return: a context manger that carries an {Axes}
         """
         self.set_status('computing...')
 
@@ -419,6 +419,8 @@ class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metac
 
         offset = kwargs.pop('offset', 0)
 
+        # TODO Does boundary still work if I use multuple rows or cols layout?
+
         ax: Axes
         with plt.rc_context(fname=rc_file):
             fg, ax = plt.subplots(**kwargs)
@@ -431,7 +433,7 @@ class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metac
             except BaseException as e:
                 self.set_status('computing failed')
                 self.logger.warning('plot fail', exc_info=e)
-                return
+                raise e
             else:
                 self.set_status('computing done')
                 boundary = get_current_plt_boundary(ax)
@@ -444,10 +446,10 @@ class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metac
 
 def get_current_plt_image(fg=None, **kwargs) -> NDArray[np.uint]:
     """
-    Save matplotlib figure into numpy array.
+    Save a matplotlib figure into a numpy array.
 
-    :param fg: matplotlib Figure.
-    :param kwargs: ``fg.savefig(kwargs)``, except parameters *format* and *dpi*.
+    :param fg: matplotlib Figure. Use ``plt.gcf()`` when ``None``.
+    :param kwargs: pass to ``fg.savefig(kwargs)``, except parameters *format* and *dpi*.
     :return: a numpy array.
     """
     if fg is None:
@@ -468,7 +470,7 @@ def get_current_plt_boundary(ax: Axes = None) -> Boundary:
     """
     Get Axes boundary.
 
-    :param ax: matplotlib Axes
+    :param ax: matplotlib Axes. Use ``plt.gca()`` when ``None``.
     :return: a boundary
     """
     if ax is None:
