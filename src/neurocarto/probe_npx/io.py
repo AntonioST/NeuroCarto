@@ -181,7 +181,15 @@ class ImroIO_NP21(ImroIO):
         ch, bank, ref, ed = args
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L21
         # mbank is multibank field, we take only lowest connected bank
-        bank = (bank & -bank) - 1
+        match (bank & -bank):
+            case 1:
+                bank = 0
+            case 2:
+                bank = 1
+            case 4:
+                bank = 2
+            case _:
+                bank = 3
         assert self.to.e2c(ed) == (ch, bank), f'{ed=},{ch=},{bank=},e2c={self.to.e2c(ed)}'
         self.reference = ref
         return Electrode(0, *self.to.e2cr(ed))
