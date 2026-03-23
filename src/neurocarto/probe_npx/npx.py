@@ -825,6 +825,15 @@ class ChannelMap:
                 raise ChannelHasUsedError(t)
         else:
             self._electrodes[c] = e = Electrode(shank, column, row, in_used)
+            if self.probe_type == PROBE_TYPE_NP1:
+                if isinstance(electrode, Electrode):
+                    e.ap_band_gain = getattr(electrode, 'ap_band_gain', 500)
+                    e.lf_band_gain = getattr(electrode, 'lf_band_gain', 250)
+                    e.ap_hp_filter = getattr(electrode, 'ap_hp_filter', True)
+                else:
+                    e.ap_band_gain = 500
+                    e.lf_band_gain = 250
+                    e.ap_hp_filter = True
             return e
 
     @doc_link()

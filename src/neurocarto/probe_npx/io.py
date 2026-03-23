@@ -157,10 +157,9 @@ class ImroIO_NP1(ImroIO):
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L34
-        from .npx import e2cr
-
         ch, bank, ref, a, l, f = args
-        e = Electrode(0, *e2cr(PROBE_TYPE_NP1, ch))
+        e = self.to.c2e(ch, bank)
+        e = Electrode(0, *self.to.e2cr(e))
         e.ap_band_gain = a
         e.lf_band_gain = l
         e.ap_hp_filter = f != 0
@@ -169,7 +168,10 @@ class ImroIO_NP1(ImroIO):
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L20
-        return ch, 0, chmap.reference, e.ap_band_gain, e.lf_band_gain, 1 if e.ap_hp_filter else 0
+        from .npx import cr2e
+        c, bank = self.to.e2c(cr2e(self.probe_type, e))
+        assert c == ch
+        return ch, bank, chmap.reference, e.ap_band_gain, e.lf_band_gain, 1 if e.ap_hp_filter else 0
 
 
 class ImroIO_NP21(ImroIO):
