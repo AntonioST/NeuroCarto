@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1
+
+2026/03/23
+
+### Fixed
+
+- Fix NP1 read/write imro file.
+- Fix NP21 read imro file.
+- Document improve.
+
 ## 0.2
 
 2025/11/17
