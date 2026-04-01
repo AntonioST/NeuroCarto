@@ -1,5 +1,5 @@
-numpy==1.26.4
-scipy==1.13.1
-matplotlib==3.8.4
-typing_extensions==4.11.0
-bokeh==3.4.1
+numpy==2.4.3
+scipy==1.17.1
+matplotlib==3.10.8
+typing_extensions==4.15.0
+bokeh==3.8.2
