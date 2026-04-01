@@ -1,6 +1,6 @@
-probeinterface
-brainglobe-atlasapi
-Pillow
-tifffile
-pandas
-polars
+probeinterface==0.2.21
+brainglobe-atlasapi==2.0.7
+Pillow==10.3.0
+tifffile==2024.5.22
+pandas==2.2.2
+polars==0.20.31
