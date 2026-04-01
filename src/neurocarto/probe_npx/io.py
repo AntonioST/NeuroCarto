@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 import textwrap
 from pathlib import Path
-from typing import Any, TYPE_CHECKING, Literal
+from typing import Any, TYPE_CHECKING, Literal, TextIO
 
 import numpy as np
 from numpy.typing import NDArray
@@ -57,7 +57,6 @@ def parse_imro(source: str) -> ChannelMap:
     i = 0  # left '('
     j = source.index(')')  # right ')'
     k = 0  # count of '(...)'
-
 
     while 0 <= i < j:
         part = source[i + 1:j]
@@ -358,19 +357,21 @@ class ImroIO_NP3020(ImroIO):
         channel, bank = self.to.e2c(e.shank, electrode)
         return ch, e.shank, bank, chmap.reference, electrode
 
+
 # ======================= #
 # SpikeGLX imro/meta file #
 # ======================= #
 
 @doc_link(DOC=textwrap.dedent(ChannelMap.from_meta.__doc__))
-def load_meta(path: str | Path) -> ChannelMap:
+def load_meta(path: str | Path | TextIO) -> ChannelMap:
     """
     {DOC}
     :see: {ChannelMap#from_meta()}
     """
-    path = Path(path)
-    if path.suffix != '.meta':
-        raise IOError()
+    if isinstance(path, (str, Path)):
+        path = Path(path)
+        if path.suffix != '.meta':
+            raise IOError()
 
     data = _load_meta(path)
 
@@ -395,13 +396,16 @@ def load_imro(path: str | Path) -> ChannelMap:
     return ChannelMap.parse(path.read_text().split('\n')[0])
 
 
-def _load_meta(path: Path) -> dict[str, Any]:
-    ret = {}
-    with path.open() as f:
-        for line in f:
+def _load_meta(path: Path | TextIO) -> dict[str, Any]:
+    if isinstance(path, Path):
+        with path.open() as f:
+            return _load_meta(f)
+    else:
+        ret = {}
+        for line in path:
             k, _, v = line.rstrip().partition('=')
             ret[k] = v
-    return ret
+        return ret
 
 
 @doc_link(DOC=textwrap.dedent(ChannelMap.save_imro.__doc__))
@@ -435,17 +439,24 @@ def from_probe(probe: Probe) -> ChannelMap:
         raise RuntimeError('not a Neuropixels probe')
 
     probe_type_raw = probe.annotations['probe_type']
+    try:
+        probe_type_raw = int(probe_type_raw)
+    except ValueError:
+        pass
+
     probe_type = ProbeType[probe_type_raw]
     s = probe.shank_ids.astype(int)
     cr = probe.contact_positions.astype(int)
     cr[:, 0] %= probe_type.s_space
     cr[:, 0] //= probe_type.c_space
     cr[:, 1] //= probe_type.r_space
+    reference = int(np.unique(probe.contact_annotations['references'])[0])
 
     meta = NpxMeta(serial_number=probe.serial_number)
     meta.update(probe.annotations)
 
     ret = ChannelMap(probe_type)
+    ret.reference = reference
     ret.meta = meta
 
     for ss, (cc, rr) in zip(s, cr):
@@ -459,6 +470,8 @@ def to_probe(chmap: ChannelMap) -> Probe:
     {DOC}
     :see: {ChannelMap#to_probe()}
     """
+    # TODO _read_imro_string no longer existed in future release
+    # https://github.com/SpikeInterface/probeinterface/issues/351
     from probeinterface.io import _read_imro_string
     return _read_imro_string(string_imro(chmap))
 
@@ -479,12 +492,13 @@ def to_numpy(chmap: ChannelMap, unit: Literal['cr', 'xy', 'sxy'] = 'cr') -> NDAr
             def mapper(e: Electrode):
                 return e.shank, e.column, e.row
         case 'xy':
-            from .npx import e2p
 
             def mapper(e: Electrode):
                 x, y = e2p(chmap.probe_type, e)
                 return int(x), int(y)
         case 'sxy':
+            from .npx import e2p
+
             def mapper(e: Electrode):
                 x, y = e2p(chmap.probe_type, e)
                 return e.shank, int(x), int(y)
@@ -492,6 +506,7 @@ def to_numpy(chmap: ChannelMap, unit: Literal['cr', 'xy', 'sxy'] = 'cr') -> NDAr
             raise ValueError(f'unsupported unit: {unit}')
 
     return np.array([mapper(e) for e in chmap.electrodes])
+
 
 # ======================= #
 # pandas/polars dataframe #
