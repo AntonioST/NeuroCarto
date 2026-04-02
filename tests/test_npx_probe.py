@@ -33,6 +33,9 @@ class ProbeTypeTest(unittest.TestCase):
             import json
             with PROBE_TABLE_FILE.open() as f:
                 cls.PROBE_TABLE = json.load(f)
+        else:
+            print(cls.PROBE_TABLE_MESSAGE + '\n' +
+                  'git submodule update --init tests/ProbeTable')
 
     @classmethod
     def parse_imro_format_def(cls, name: str, line: str):

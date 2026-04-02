@@ -113,7 +113,7 @@ class ProbeDespTest(Generic[M, E]):
 
         c = self.probe.new_channelmap(self.chmap)
         for ee in e:
-            zelf.assertNotEquals(self.chmap, c)
+            zelf.assertNotEqual(self.chmap, c)
             self.probe.add_electrode(c, ee)
 
         zelf.assertEqual(self.chmap, c)

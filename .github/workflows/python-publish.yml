@@ -20,8 +20,41 @@ permissions:
   contents: read
 
 jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[full]
+
+      - name: Init submodule
+        run: |
+          git submodule update --init tests/ProbeTable
+
+      - name: Run tests
+        run: |
+          python -m unittest tests/test_imro_io.py tests/test_npx_probe.py tests/test_probe_oper.py tests/test_util_blueprint.py
+
   release-build:
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    needs:
+      - tests
 
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +80,7 @@ jobs:
 
   pypi-publish:
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
 
     needs:
       - release-build
