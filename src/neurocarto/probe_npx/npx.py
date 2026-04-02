@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import sys
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Sized, Sequence
@@ -62,10 +61,12 @@ class ProbeType(NamedTuple):
     def n_row_shank(self) -> int:
         return self.n_electrode_shank // self.n_col_shank
 
-    @property
-    def n_bank(self) -> int:
-        """number of total banks"""
-        return int(math.ceil(self.n_electrode_shank / self.n_channels))
+    # @property
+    # def n_bank(self) -> int:
+    #     """number of total banks"""
+    #     # XXX self.n_electrode_shank / self.n_channels_bank instead
+    #     #   in most case, n_channels_bank equals to n_channels, but not for NP2020
+    #     return int(math.ceil(self.n_electrode_shank / self.n_channels))
 
     @classmethod
     def __class_getitem__(cls, item: int | str) -> ProbeType:
@@ -95,7 +96,7 @@ PROBE_TYPE_NP1110 = ProbeType(1110, 1, 8, 6144, 384, 6, 6, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1120.h#L12
 PROBE_TYPE_NP1120 = ProbeType(1120, 1, 2, 384, 384, 4.5, 4.5, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1121.h#L12
-PROBE_TYPE_NP1121 = ProbeType(1121, 1, 1, 384, 384, 3, 3, 0, 2)
+PROBE_TYPE_NP1121 = ProbeType(1121, 1, 1, 384, 384, 0, 3, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1122.h#L12
 PROBE_TYPE_NP1122 = ProbeType(1122, 1, 16, 384, 384, 3, 3, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1123.h#L12
@@ -117,13 +118,13 @@ PROBE_TYPE_NP2020 = ProbeType(2020, 4, 2, 1280, 1536, 32, 15, 250, 3)
 # PROBE_TYPE_NP24 based
 
 # NXT multishank
-PROBE_TYPE_NP3000 = ProbeType(1200, 1, 2, 128, 128, 15, 15, 0, 2)
+PROBE_TYPE_NP3000 = ProbeType(1200, 1, 1, 128, 128, 0, 15, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.h#L47
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010.h#L12
-PROBE_TYPE_NP3010 = ProbeType(3010, 1, 2, 1280, 912, 32, 15, 0, 3)
+PROBE_TYPE_NP3010 = ProbeType(3010, 1, 2, 1280, 1536, 32, 15, 0, 3)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.h#L47
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020.h#L12
-PROBE_TYPE_NP3020 = ProbeType(3020, 4, 2, 1280, 912, 32, 15, 250, 7)
+PROBE_TYPE_NP3020 = ProbeType(3020, 4, 2, 1280, 1536, 32, 15, 250, 7)
 
 
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.cpp#L1112
@@ -216,7 +217,7 @@ class _PROBE_TYPE(defaultdict[int | str, ProbeType]):
             case 'NP2020' | 'NP2021':  # Neuropixels 2.0 quad base
                 return PROBE_TYPE_NP2020
             case 'NP3000':  # Passive NXT probe
-                return PROBE_TYPE_NP1200
+                return PROBE_TYPE_NP3000
             case 'NP3010' | 'NP3011':  # NXT single shank
                 return PROBE_TYPE_NP3010
             case 'NP3020' | 'NP3021' | 'NP3022':  # NXT multishank
@@ -341,7 +342,7 @@ class ReferenceInfo(NamedTuple):
             if reference == 1:
                 return ReferenceInfo(reference, 'ground', 0, 0, 0)
             if reference - 2 < probe_type.n_shank:
-                return ReferenceInfo(reference, 'tip', 0, reference - 2, 0)
+                return ReferenceInfo(reference, 'tip', reference - 2, 0, 0)
 
             raise RuntimeError('')
 
