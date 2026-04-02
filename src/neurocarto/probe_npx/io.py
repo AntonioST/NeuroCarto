@@ -154,13 +154,31 @@ class ImroIO(object):
 
 class ImroIO_NP1(ImroIO):
 
+    @classmethod
+    def check_ap_gain_value(cls, ap: int, error: bool = False) -> int:
+        if ap in (50, 125, 250, 500, 1000, 1500, 2000, 3000):
+            return ap
+        elif error:
+            raise ValueError(f'unallowed ap_gain value : {ap}')
+        else:
+            return 250  # default
+
+    @classmethod
+    def check_lf_gain_value(cls, lf: int, error: bool = False) -> int:
+        if lf in (50, 125, 250, 500, 1000, 1500, 2000, 3000):
+            return lf
+        elif error:
+            raise ValueError(f'unallowed lf_gain value : {lf}')
+        else:
+            return 250  # default
+
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L34
         ch, bank, ref, a, l, f = args
         e = self.to.c2e(ch, bank)
         e = Electrode(0, *self.to.e2cr(e))
-        e.ap_band_gain = a
-        e.lf_band_gain = l
+        e.ap_band_gain = self.check_ap_gain_value(a, error=False)
+        e.lf_band_gain = self.check_lf_gain_value(l, error=False)
         e.ap_hp_filter = f != 0
         self.reference = ref
         return e
@@ -170,7 +188,9 @@ class ImroIO_NP1(ImroIO):
         from .npx import cr2e
         c, bank = self.to.e2c(cr2e(self.probe_type, e))
         assert c == ch
-        return ch, bank, chmap.reference, e.ap_band_gain, e.lf_band_gain, 1 if e.ap_hp_filter else 0
+        a = self.check_ap_gain_value(e.ap_band_gain, error=True)
+        l = self.check_lf_gain_value(e.lf_band_gain, error=True)
+        return ch, bank, chmap.reference, a, l, 1 if e.ap_hp_filter else 0
 
 
 class ImroIO_NP21(ImroIO):
@@ -244,8 +264,8 @@ class ImroIO_NP1110(ImroIO):
 
         self.col_mode = col_mode
         self.reference = ref_id
-        self.ap = ap
-        self.lf = lf
+        self.ap = ImroIO_NP1.check_ap_gain_value(ap, error=False)
+        self.lf = ImroIO_NP1.check_lf_gain_value(lf, error=False)
         self.af = af
 
     def _bank(self, ch: int, bank_a: int, bank_b: int):
@@ -301,7 +321,9 @@ class ImroIO_NP1110(ImroIO):
     def string_header(self, chmap: ChannelMap) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L19
         e = chmap.channels[0]
-        return chmap.probe_type.code, self.col_mode, chmap.reference, e.ap_band_gain, e.lf_band_gain, 1 if e.ap_hp_filter else 0
+        a = ImroIO_NP1.check_ap_gain_value(e.ap_band_gain, error=True)
+        l = ImroIO_NP1.check_lf_gain_value(e.lf_band_gain, error=True)
+        return chmap.probe_type.code, self.col_mode, chmap.reference, a, l, 1 if e.ap_hp_filter else 0
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L32

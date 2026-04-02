@@ -239,8 +239,9 @@ class Electrode:
     in_used: bool
 
     # for NP1
-    ap_band_gain: int  # TODO ap value is restricted
-    lf_band_gain: int  # TODO lf value is restricted
+    # TODO ap and lf value is restricted, can we validate when assign instead of io?
+    ap_band_gain: int
+    lf_band_gain: int
     ap_hp_filter: bool
 
     # for NP1110
