@@ -238,8 +238,8 @@ class Electrode:
     in_used: bool
 
     # for NP1
-    ap_band_gain: int
-    lf_band_gain: int
+    ap_band_gain: int  # TODO ap value is restricted
+    lf_band_gain: int  # TODO lf value is restricted
     ap_hp_filter: bool
 
     # for NP1110
@@ -305,6 +305,7 @@ class ReferenceInfo(NamedTuple):
     code: int
     type: Literal['ext', 'tip', 'bank', 'ground', 'unknown']
     shank: int  # 0 if reference_type is 'ext'
+    bank: int
     channel: int  # 0 if reference_type is not 'bank'
 
     @classmethod
@@ -329,7 +330,7 @@ class ReferenceInfo(NamedTuple):
             raise ValueError(f'reference id out of boundary for probe type {probe_type.code}: {reference}')
 
         if reference == 0:
-            return ReferenceInfo(0, 'ext', 0, 0)
+            return ReferenceInfo(0, 'ext', 0, 0, 0)
 
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2003.cpp#L12
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2013.cpp#L12
@@ -338,9 +339,9 @@ class ReferenceInfo(NamedTuple):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L369
         if probe_type.code in (2003, 2013, 2020, 3010, 3020):
             if reference == 1:
-                return ReferenceInfo(reference, 'ground', 0, 0)
+                return ReferenceInfo(reference, 'ground', 0, 0, 0)
             if reference - 2 < probe_type.n_shank:
-                return ReferenceInfo(reference, 'tip', reference - 2, 0)
+                return ReferenceInfo(reference, 'tip', 0, reference - 2, 0)
 
             raise RuntimeError('')
 
@@ -349,32 +350,31 @@ class ReferenceInfo(NamedTuple):
             n_shank = probe_type.n_shank
 
             if reference - 1 < n_shank:
-                return ReferenceInfo(reference, 'tip', reference - 1, 0)
+                return ReferenceInfo(reference, 'tip', reference - 1, 0, 0)
 
             references = (127, 507, 887, 1251)
-            return ReferenceInfo(reference, 'bank', 0, references[reference - 2])
+            return ReferenceInfo(reference, 'bank', 0, reference - 2, references[reference - 2])
 
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24.cpp#L19
         elif probe_type.code == 24:
             n_shank = probe_type.n_shank
 
             if reference - 1 < n_shank:
-                return ReferenceInfo(reference, 'tip', reference - 1, 0)
+                return ReferenceInfo(reference, 'tip', reference - 1, 0, 0)
 
             references = (127, 511, 895, 1279)
             x = reference - n_shank - 1
             s, i = divmod(x, len(references))
-            return ReferenceInfo(reference, 'bank', s, references[i])
+            return ReferenceInfo(reference, 'bank', s, i, references[i])
 
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L239
         else:
             assert probe_type.n_shank == 1
 
             if reference == 1:
-                return ReferenceInfo(reference, 'tip', reference - 1, 0)
+                return ReferenceInfo(reference, 'tip', 0, reference - 1, 0)
 
-            return ReferenceInfo(reference, 'bank', reference - 2, -1)
-
+            return ReferenceInfo(reference, 'bank', 0, reference - 2, -1)
 
 
 E = int | tuple[int, int] | tuple[int, int, int] | Electrode
@@ -1168,8 +1168,6 @@ def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType,
             ])
             for ss in s
         ])
-
-
 
 
 @overload

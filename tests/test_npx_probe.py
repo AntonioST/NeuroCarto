@@ -1,3 +1,4 @@
+import math
 import os
 import unittest
 from pathlib import Path
@@ -17,6 +18,150 @@ elif (res := Path('../res')).exists():
 else:
     raise RuntimeError()
 
+PROBE_TABLE_FILE = RES / '../tests/ProbeTable/Tables/probe_features.json'
+SKIP_TEST_PROBE_TABLE = True  # True for skipping
+if PROBE_TABLE_FILE.exists():
+    SKIP_TEST_PROBE_TABLE = False
+
+
+class ProbeTypeTest(unittest.TestCase):
+    PROBE_TABLE_MESSAGE = 'Submodule ProbeTable is not initialized.'
+    PROBE_TABLE = {}
+
+    @classmethod
+    def setUpClass(cls):
+        if not SKIP_TEST_PROBE_TABLE:
+            import json
+            with PROBE_TABLE_FILE.open() as f:
+                cls.PROBE_TABLE = json.load(f)
+
+    @classmethod
+    def parse_imro_format_def(cls, name: str, line: str):
+        ret = {}
+        ret['name'] = name.replace('imro_', '').replace('_val_def', '').replace('np', 'NP')
+        for part in line.split(' '):
+            key, _, value = part.partition(':')
+            match key:
+                case 'type':
+                    if value.startswith('{'):
+                        assert value.endswith('}')
+                        ret['type'] = tuple(map(int, value[1:-1].split(',')))
+                    else:
+                        ret['type'] = (int(value),)
+                case 'channel' | 'bank' | 'ap_hipas_flt':
+                    assert value.startswith('[') and value.endswith(']')
+                    ca, _, cb = value[1:-1].partition(',')
+                    ret[key] = (ca, cb)
+                case 'ref_id' | 'col_mode' | 'bank_mask':
+                    assert value.startswith('(') and value.endswith(')')
+                    is_first_value_int = key in ('ref_id', 'col_mode')
+                    refs = []
+                    for ref in value[1:-1].split(')('):
+                        refv = ref.split(',')
+                        assert len(refv) == 2
+                        refs.append((int(refv[0]) if is_first_value_int else refv[0], *refv[1:]))
+                    ret[key] = refs
+                case 'num_channels' | 'electrode' | 'ap_gain' | 'lf_gain':
+                    ret[key] = value
+        return ret
+
+    @unittest.skipIf(SKIP_TEST_PROBE_TABLE, PROBE_TABLE_MESSAGE)
+    def test_all_neuropixels_probes(self):
+        for name in self.PROBE_TABLE['neuropixels_probes']:
+            with self.subTest(name):
+                try:
+                    probe_type = ProbeType[name]
+                except KeyError:
+                    self.assertFalse(f'miss {name}')
+
+                self.assert_probe_type_match_table(probe_type, name)
+
+    def assert_probe_type_match_table(self, p: ProbeType, name: str):
+        t = self.PROBE_TABLE['neuropixels_probes'][name]
+        self.assertEqual(int(t['num_shanks']), p.n_shank, f'{name} n_shank mismatch')
+        self.assertEqual(int(t['num_readout_channels']), p.n_channels, f'{name} n_channels mismatch')
+        self.assertEqual(int(t['total_electrodes']), p.n_electrode_shank * p.n_shank, f'{name} total n_electrode mismatch')
+        self.assertEqual(int(math.ceil(float(t['banks_per_shank']))), p.n_bank, f'{name} n_bank mismatch')  # TODO compare by float?
+        self.assertEqual(int(t['cols_per_shank']), p.n_col_shank, f'{name} n_col_shank mismatch')
+        self.assertEqual(int(t['rows_per_shank']), p.n_row_shank, f'{name} n_row_shank mismatch')
+        self.assertEqual(int(t['electrodes_per_shank']), p.n_electrode_shank, f'{name} n_electrode_shank mismatch')
+        self.assertEqual(float(t['electrode_pitch_horz_um']), p.c_space, f'{name} c_space mismatch')
+        self.assertEqual(float(t['electrode_pitch_vert_um']), p.r_space, f'{name} r_space mismatch')
+        self.assertEqual(float(t['shank_pitch_um']), p.s_space, f'{name} s_space mismatch')
+
+    @unittest.skipIf(SKIP_TEST_PROBE_TABLE, PROBE_TABLE_MESSAGE)
+    def test_all_imro_formats(self):
+        for key, define in self.PROBE_TABLE['z_imro_formats'].items():
+            if key.endswith('_val_def'):
+                imro_format = self.parse_imro_format_def(key, define)
+                name = imro_format['name']
+                for included_type in imro_format['type']:
+                    with self.subTest(f'NP{included_type}/{name}'):
+                        try:
+                            probe_type = ProbeType[included_type]
+                        except KeyError:
+                            self.assertFalse(f'miss NP{included_type}')
+
+                        self.assert_probe_type_match_format(probe_type, f'NP{included_type}', imro_format)
+
+    def assert_probe_type_match_format(self, p: ProbeType, name: str, imro_format: dict):
+        if (value := imro_format.get('ref_id', None)) is not None:
+            self.assert_probe_type_references(p, name, value)
+
+        # TODO col_mode?
+        # TODO bank_mask?
+
+    def assert_probe_type_references(self, p: ProbeType, name: str, ref_list: list[tuple]):
+        from neurocarto.probe_npx import ReferenceInfo
+
+        self.assertEqual(len(ref_list), p.n_reference, f'{name} n_reference mismatch')
+
+        for ref in range(p.n_reference):
+            info = ReferenceInfo.of(p, ref)
+            code, *ref_types = ref_list[ref]
+            self.assertEqual(ref, code, f'{name} ref{ref}.code mismatch')
+            self.assertEqual(ref, info.code, f'{name} ref{ref}.code mismatch')
+            for ref_type in ref_types:
+                if ref_type == 'ext':
+                    self.assertEqual('ext', info.type)
+                    self.assertEqual(0, info.shank)
+                    self.assertEqual(0, info.bank)
+                    self.assertEqual(0, info.channel)
+                elif ref_type == 'gnd':
+                    self.assertEqual('ground', info.type)
+                    self.assertEqual(0, info.shank)
+                    self.assertEqual(0, info.bank)
+                    self.assertEqual(0, info.channel)
+                elif ref_type == 'tip':
+                    self.assertEqual('tip', info.type)
+                    self.assertEqual(0, info.shank)
+                    self.assertEqual(0, info.bank)
+                    self.assertEqual(0, info.channel)
+                elif ref_type.startswith('tip'):
+                    tip = int(ref_type[3:])
+                    self.assertEqual('tip', info.type)
+                    self.assertEqual(tip, info.shank)
+                    self.assertEqual(0, info.bank)
+                    self.assertEqual(0, info.channel)
+                elif ref_type == 'bnk':
+                    self.assertEqual('bank', info.type)
+                    self.assertEqual(0, info.bank)
+                elif ref_type.startswith('bnk'):
+                    bank = int(ref_type[3:])
+                    self.assertEqual('bank', info.type)
+                    self.assertEqual(bank, info.bank)
+                elif ref_type == 'shk':
+                    self.assertEqual('bank', info.type)
+                    self.assertEqual(0, info.bank)
+                elif ref_type.startswith('shk'):
+                    shank = int(ref_type[3:])
+                    self.assertEqual('bank', info.type)
+                    self.assertEqual(shank, info.shank)
+                else:
+                    self.fail(f'unknown ref_id format : {ref_type}')
+
+        with self.assertRaises(ValueError):
+            ReferenceInfo.of(p, p.n_reference)
 
 class ImroParsingTest(unittest.TestCase):
     def test_type_0(self):
@@ -152,48 +297,48 @@ class ImroParsingTest(unittest.TestCase):
         self.assertEqual(imro, string_imro(chmap))
 
     def test_type_21_another(self):
-            imro = ("(21,384)(0 4 0 768)(1 4 0 785)(2 4 0 794)(3 4 0 779)(4 4 0 788)(5 4 0 773)(6 4 0 782)(7 4 0 799)(8 4 0 776)(9 4 0 793)(10 4 0 770)"
-                    "(11 4 0 787)(12 4 0 796)(13 4 0 781)(14 4 0 790)(15 4 0 775)(16 4 0 784)(17 4 0 769)(18 4 0 778)(19 4 0 795)(20 4 0 772)"
-                    "(21 4 0 789)(22 4 0 798)(23 4 0 783)(24 4 0 792)(25 4 0 777)(26 4 0 786)(27 4 0 771)(28 4 0 780)(29 4 0 797)(30 4 0 774)"
-                    "(31 4 0 791)(32 4 0 800)(33 4 0 817)(34 4 0 826)(35 4 0 811)(36 4 0 820)(37 4 0 805)(38 4 0 814)(39 4 0 831)(40 4 0 808)"
-                    "(41 4 0 825)(42 4 0 802)(43 4 0 819)(44 4 0 828)(45 4 0 813)(46 4 0 822)(47 4 0 807)(48 4 0 816)(49 4 0 801)(50 4 0 810)"
-                    "(51 4 0 827)(52 4 0 804)(53 4 0 821)(54 4 0 830)(55 4 0 815)(56 4 0 824)(57 4 0 809)(58 4 0 818)(59 4 0 803)(60 4 0 812)"
-                    "(61 4 0 829)(62 4 0 806)(63 4 0 823)(64 4 0 832)(65 4 0 849)(66 4 0 858)(67 4 0 843)(68 4 0 852)(69 4 0 837)(70 4 0 846)"
-                    "(71 4 0 863)(72 4 0 840)(73 4 0 857)(74 4 0 834)(75 4 0 851)(76 4 0 860)(77 4 0 845)(78 4 0 854)(79 4 0 839)(80 4 0 848)"
-                    "(81 4 0 833)(82 4 0 842)(83 4 0 859)(84 4 0 836)(85 4 0 853)(86 4 0 862)(87 4 0 847)(88 4 0 856)(89 4 0 841)(90 4 0 850)"
-                    "(91 4 0 835)(92 4 0 844)(93 4 0 861)(94 4 0 838)(95 4 0 855)(96 4 0 864)(97 4 0 881)(98 4 0 890)(99 4 0 875)(100 4 0 884)"
-                    "(101 4 0 869)(102 4 0 878)(103 4 0 895)(104 4 0 872)(105 4 0 889)(106 4 0 866)(107 4 0 883)(108 4 0 892)(109 4 0 877)(110 4 0 886)"
-                    "(111 4 0 871)(112 4 0 880)(113 4 0 865)(114 4 0 874)(115 4 0 891)(116 4 0 868)(117 4 0 885)(118 4 0 894)(119 4 0 879)(120 4 0 888)"
-                    "(121 4 0 873)(122 4 0 882)(123 4 0 867)(124 4 0 876)(125 4 0 893)(126 4 0 870)(127 4 0 887)(128 4 0 896)(129 4 0 913)(130 4 0 922)"
-                    "(131 4 0 907)(132 4 0 916)(133 4 0 901)(134 4 0 910)(135 4 0 927)(136 4 0 904)(137 4 0 921)(138 4 0 898)(139 4 0 915)(140 4 0 924)"
-                    "(141 4 0 909)(142 4 0 918)(143 4 0 903)(144 4 0 912)(145 4 0 897)(146 4 0 906)(147 4 0 923)(148 4 0 900)(149 4 0 917)(150 4 0 926)"
-                    "(151 4 0 911)(152 4 0 920)(153 4 0 905)(154 4 0 914)(155 4 0 899)(156 4 0 908)(157 4 0 925)(158 4 0 902)(159 4 0 919)(160 4 0 928)"
-                    "(161 4 0 945)(162 4 0 954)(163 4 0 939)(164 4 0 948)(165 4 0 933)(166 4 0 942)(167 4 0 959)(168 4 0 936)(169 4 0 953)(170 4 0 930)"
-                    "(171 4 0 947)(172 4 0 956)(173 4 0 941)(174 4 0 950)(175 4 0 935)(176 4 0 944)(177 4 0 929)(178 4 0 938)(179 4 0 955)(180 4 0 932)"
-                    "(181 4 0 949)(182 4 0 958)(183 4 0 943)(184 4 0 952)(185 4 0 937)(186 4 0 946)(187 4 0 931)(188 4 0 940)(189 4 0 957)(190 4 0 934)"
-                    "(191 4 0 951)(192 4 0 960)(193 4 0 977)(194 4 0 986)(195 4 0 971)(196 4 0 980)(197 4 0 965)(198 4 0 974)(199 4 0 991)(200 4 0 968)"
-                    "(201 4 0 985)(202 4 0 962)(203 4 0 979)(204 4 0 988)(205 4 0 973)(206 4 0 982)(207 4 0 967)(208 4 0 976)(209 4 0 961)(210 4 0 970)"
-                    "(211 4 0 987)(212 4 0 964)(213 4 0 981)(214 4 0 990)(215 4 0 975)(216 4 0 984)(217 4 0 969)(218 4 0 978)(219 4 0 963)(220 4 0 972)"
-                    "(221 4 0 989)(222 4 0 966)(223 4 0 983)(224 2 0 608)(225 2 0 617)(226 2 0 622)(227 2 0 631)(228 2 0 636)(229 2 0 613)(230 2 0 618)"
-                    "(231 2 0 627)(232 2 0 632)(233 2 0 609)(234 2 0 614)(235 2 0 623)(236 2 0 628)(237 2 0 637)(238 2 0 610)(239 2 0 619)(240 2 0 624)"
-                    "(241 2 0 633)(242 2 0 638)(243 2 0 615)(244 2 0 620)(245 2 0 629)(246 2 0 634)(247 2 0 611)(248 2 0 616)(249 2 0 625)(250 2 0 630)"
-                    "(251 2 0 639)(252 2 0 612)(253 2 0 621)(254 2 0 626)(255 2 0 635)(256 2 0 640)(257 2 0 649)(258 2 0 654)(259 2 0 663)(260 2 0 668)"
-                    "(261 2 0 645)(262 2 0 650)(263 2 0 659)(264 2 0 664)(265 2 0 641)(266 2 0 646)(267 2 0 655)(268 2 0 660)(269 2 0 669)(270 2 0 642)"
-                    "(271 2 0 651)(272 2 0 656)(273 2 0 665)(274 2 0 670)(275 2 0 647)(276 2 0 652)(277 2 0 661)(278 2 0 666)(279 2 0 643)(280 2 0 648)"
-                    "(281 2 0 657)(282 2 0 662)(283 2 0 671)(284 2 0 644)(285 2 0 653)(286 2 0 658)(287 2 0 667)(288 2 0 672)(289 2 0 681)(290 2 0 686)"
-                    "(291 2 0 695)(292 2 0 700)(293 2 0 677)(294 2 0 682)(295 2 0 691)(296 2 0 696)(297 2 0 673)(298 2 0 678)(299 2 0 687)(300 2 0 692)"
-                    "(301 2 0 701)(302 2 0 674)(303 2 0 683)(304 2 0 688)(305 2 0 697)(306 2 0 702)(307 2 0 679)(308 2 0 684)(309 2 0 693)(310 2 0 698)"
-                    "(311 2 0 675)(312 2 0 680)(313 2 0 689)(314 2 0 694)(315 2 0 703)(316 2 0 676)(317 2 0 685)(318 2 0 690)(319 2 0 699)(320 2 0 704)"
-                    "(321 2 0 713)(322 2 0 718)(323 2 0 727)(324 2 0 732)(325 2 0 709)(326 2 0 714)(327 2 0 723)(328 2 0 728)(329 2 0 705)(330 2 0 710)"
-                    "(331 2 0 719)(332 2 0 724)(333 2 0 733)(334 2 0 706)(335 2 0 715)(336 2 0 720)(337 2 0 729)(338 2 0 734)(339 2 0 711)(340 2 0 716)"
-                    "(341 2 0 725)(342 2 0 730)(343 2 0 707)(344 2 0 712)(345 2 0 721)(346 2 0 726)(347 2 0 735)(348 2 0 708)(349 2 0 717)(350 2 0 722)"
-                    "(351 2 0 731)(352 2 0 736)(353 2 0 745)(354 2 0 750)(355 2 0 759)(356 2 0 764)(357 2 0 741)(358 2 0 746)(359 2 0 755)(360 2 0 760)"
-                    "(361 2 0 737)(362 2 0 742)(363 2 0 751)(364 2 0 756)(365 2 0 765)(366 2 0 738)(367 2 0 747)(368 2 0 752)(369 2 0 761)(370 2 0 766)"
-                    "(371 2 0 743)(372 2 0 748)(373 2 0 757)(374 2 0 762)(375 2 0 739)(376 2 0 744)(377 2 0 753)(378 2 0 758)(379 2 0 767)(380 2 0 740)"
-                    "(381 2 0 749)(382 2 0 754)(383 2 0 763)")
-            chmap = parse_imro(imro)
-            self.assertIsInstance(chmap, ChannelMap)
-            self.assertEqual(imro, string_imro(chmap))
+        imro = ("(21,384)(0 4 0 768)(1 4 0 785)(2 4 0 794)(3 4 0 779)(4 4 0 788)(5 4 0 773)(6 4 0 782)(7 4 0 799)(8 4 0 776)(9 4 0 793)(10 4 0 770)"
+                "(11 4 0 787)(12 4 0 796)(13 4 0 781)(14 4 0 790)(15 4 0 775)(16 4 0 784)(17 4 0 769)(18 4 0 778)(19 4 0 795)(20 4 0 772)"
+                "(21 4 0 789)(22 4 0 798)(23 4 0 783)(24 4 0 792)(25 4 0 777)(26 4 0 786)(27 4 0 771)(28 4 0 780)(29 4 0 797)(30 4 0 774)"
+                "(31 4 0 791)(32 4 0 800)(33 4 0 817)(34 4 0 826)(35 4 0 811)(36 4 0 820)(37 4 0 805)(38 4 0 814)(39 4 0 831)(40 4 0 808)"
+                "(41 4 0 825)(42 4 0 802)(43 4 0 819)(44 4 0 828)(45 4 0 813)(46 4 0 822)(47 4 0 807)(48 4 0 816)(49 4 0 801)(50 4 0 810)"
+                "(51 4 0 827)(52 4 0 804)(53 4 0 821)(54 4 0 830)(55 4 0 815)(56 4 0 824)(57 4 0 809)(58 4 0 818)(59 4 0 803)(60 4 0 812)"
+                "(61 4 0 829)(62 4 0 806)(63 4 0 823)(64 4 0 832)(65 4 0 849)(66 4 0 858)(67 4 0 843)(68 4 0 852)(69 4 0 837)(70 4 0 846)"
+                "(71 4 0 863)(72 4 0 840)(73 4 0 857)(74 4 0 834)(75 4 0 851)(76 4 0 860)(77 4 0 845)(78 4 0 854)(79 4 0 839)(80 4 0 848)"
+                "(81 4 0 833)(82 4 0 842)(83 4 0 859)(84 4 0 836)(85 4 0 853)(86 4 0 862)(87 4 0 847)(88 4 0 856)(89 4 0 841)(90 4 0 850)"
+                "(91 4 0 835)(92 4 0 844)(93 4 0 861)(94 4 0 838)(95 4 0 855)(96 4 0 864)(97 4 0 881)(98 4 0 890)(99 4 0 875)(100 4 0 884)"
+                "(101 4 0 869)(102 4 0 878)(103 4 0 895)(104 4 0 872)(105 4 0 889)(106 4 0 866)(107 4 0 883)(108 4 0 892)(109 4 0 877)(110 4 0 886)"
+                "(111 4 0 871)(112 4 0 880)(113 4 0 865)(114 4 0 874)(115 4 0 891)(116 4 0 868)(117 4 0 885)(118 4 0 894)(119 4 0 879)(120 4 0 888)"
+                "(121 4 0 873)(122 4 0 882)(123 4 0 867)(124 4 0 876)(125 4 0 893)(126 4 0 870)(127 4 0 887)(128 4 0 896)(129 4 0 913)(130 4 0 922)"
+                "(131 4 0 907)(132 4 0 916)(133 4 0 901)(134 4 0 910)(135 4 0 927)(136 4 0 904)(137 4 0 921)(138 4 0 898)(139 4 0 915)(140 4 0 924)"
+                "(141 4 0 909)(142 4 0 918)(143 4 0 903)(144 4 0 912)(145 4 0 897)(146 4 0 906)(147 4 0 923)(148 4 0 900)(149 4 0 917)(150 4 0 926)"
+                "(151 4 0 911)(152 4 0 920)(153 4 0 905)(154 4 0 914)(155 4 0 899)(156 4 0 908)(157 4 0 925)(158 4 0 902)(159 4 0 919)(160 4 0 928)"
+                "(161 4 0 945)(162 4 0 954)(163 4 0 939)(164 4 0 948)(165 4 0 933)(166 4 0 942)(167 4 0 959)(168 4 0 936)(169 4 0 953)(170 4 0 930)"
+                "(171 4 0 947)(172 4 0 956)(173 4 0 941)(174 4 0 950)(175 4 0 935)(176 4 0 944)(177 4 0 929)(178 4 0 938)(179 4 0 955)(180 4 0 932)"
+                "(181 4 0 949)(182 4 0 958)(183 4 0 943)(184 4 0 952)(185 4 0 937)(186 4 0 946)(187 4 0 931)(188 4 0 940)(189 4 0 957)(190 4 0 934)"
+                "(191 4 0 951)(192 4 0 960)(193 4 0 977)(194 4 0 986)(195 4 0 971)(196 4 0 980)(197 4 0 965)(198 4 0 974)(199 4 0 991)(200 4 0 968)"
+                "(201 4 0 985)(202 4 0 962)(203 4 0 979)(204 4 0 988)(205 4 0 973)(206 4 0 982)(207 4 0 967)(208 4 0 976)(209 4 0 961)(210 4 0 970)"
+                "(211 4 0 987)(212 4 0 964)(213 4 0 981)(214 4 0 990)(215 4 0 975)(216 4 0 984)(217 4 0 969)(218 4 0 978)(219 4 0 963)(220 4 0 972)"
+                "(221 4 0 989)(222 4 0 966)(223 4 0 983)(224 2 0 608)(225 2 0 617)(226 2 0 622)(227 2 0 631)(228 2 0 636)(229 2 0 613)(230 2 0 618)"
+                "(231 2 0 627)(232 2 0 632)(233 2 0 609)(234 2 0 614)(235 2 0 623)(236 2 0 628)(237 2 0 637)(238 2 0 610)(239 2 0 619)(240 2 0 624)"
+                "(241 2 0 633)(242 2 0 638)(243 2 0 615)(244 2 0 620)(245 2 0 629)(246 2 0 634)(247 2 0 611)(248 2 0 616)(249 2 0 625)(250 2 0 630)"
+                "(251 2 0 639)(252 2 0 612)(253 2 0 621)(254 2 0 626)(255 2 0 635)(256 2 0 640)(257 2 0 649)(258 2 0 654)(259 2 0 663)(260 2 0 668)"
+                "(261 2 0 645)(262 2 0 650)(263 2 0 659)(264 2 0 664)(265 2 0 641)(266 2 0 646)(267 2 0 655)(268 2 0 660)(269 2 0 669)(270 2 0 642)"
+                "(271 2 0 651)(272 2 0 656)(273 2 0 665)(274 2 0 670)(275 2 0 647)(276 2 0 652)(277 2 0 661)(278 2 0 666)(279 2 0 643)(280 2 0 648)"
+                "(281 2 0 657)(282 2 0 662)(283 2 0 671)(284 2 0 644)(285 2 0 653)(286 2 0 658)(287 2 0 667)(288 2 0 672)(289 2 0 681)(290 2 0 686)"
+                "(291 2 0 695)(292 2 0 700)(293 2 0 677)(294 2 0 682)(295 2 0 691)(296 2 0 696)(297 2 0 673)(298 2 0 678)(299 2 0 687)(300 2 0 692)"
+                "(301 2 0 701)(302 2 0 674)(303 2 0 683)(304 2 0 688)(305 2 0 697)(306 2 0 702)(307 2 0 679)(308 2 0 684)(309 2 0 693)(310 2 0 698)"
+                "(311 2 0 675)(312 2 0 680)(313 2 0 689)(314 2 0 694)(315 2 0 703)(316 2 0 676)(317 2 0 685)(318 2 0 690)(319 2 0 699)(320 2 0 704)"
+                "(321 2 0 713)(322 2 0 718)(323 2 0 727)(324 2 0 732)(325 2 0 709)(326 2 0 714)(327 2 0 723)(328 2 0 728)(329 2 0 705)(330 2 0 710)"
+                "(331 2 0 719)(332 2 0 724)(333 2 0 733)(334 2 0 706)(335 2 0 715)(336 2 0 720)(337 2 0 729)(338 2 0 734)(339 2 0 711)(340 2 0 716)"
+                "(341 2 0 725)(342 2 0 730)(343 2 0 707)(344 2 0 712)(345 2 0 721)(346 2 0 726)(347 2 0 735)(348 2 0 708)(349 2 0 717)(350 2 0 722)"
+                "(351 2 0 731)(352 2 0 736)(353 2 0 745)(354 2 0 750)(355 2 0 759)(356 2 0 764)(357 2 0 741)(358 2 0 746)(359 2 0 755)(360 2 0 760)"
+                "(361 2 0 737)(362 2 0 742)(363 2 0 751)(364 2 0 756)(365 2 0 765)(366 2 0 738)(367 2 0 747)(368 2 0 752)(369 2 0 761)(370 2 0 766)"
+                "(371 2 0 743)(372 2 0 748)(373 2 0 757)(374 2 0 762)(375 2 0 739)(376 2 0 744)(377 2 0 753)(378 2 0 758)(379 2 0 767)(380 2 0 740)"
+                "(381 2 0 749)(382 2 0 754)(383 2 0 763)")
+        chmap = parse_imro(imro)
+        self.assertIsInstance(chmap, ChannelMap)
+        self.assertEqual(imro, string_imro(chmap))
 
     def test_type_2003(self):
         imro = ("(2003,384)(0 1 0 0)(1 1 0 1)(2 1 0 2)(3 1 0 3)(4 1 0 4)(5 1 0 5)(6 1 0 6)(7 1 0 7)(8 1 0 8)(9 1 0 9)(10 1 0 10)"
@@ -495,6 +640,7 @@ class ImroParsingTest(unittest.TestCase):
         self.assertIsInstance(chmap, ChannelMap)
         self.assertEqual(imro, string_imro(chmap))
 
+
 # noinspection PyMethodMayBeStatic
 class ProbeChannelElectrodeMappingTest(unittest.TestCase):
     def test_np1(self):
@@ -757,6 +903,7 @@ TEST_BENCHMARK = len(os.environ.get('NEUROCARTO_TEST_BENCHMARK', '')) > 0
 
 def when_test_benchmark(func):
     return unittest.skipUnless(TEST_BENCHMARK, reason='TEST_BENCHMARK notset')(func)
+
 
 class NpxProbeBenchmark(unittest.TestCase):
     profile: Profiler | None
