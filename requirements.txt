@@ -1,5 +1,8 @@
 numpy
+# 3.10 numpy-2.2.6
+# 3.11~ numpy-2.4.4
 scipy
 matplotlib
 typing_extensions
+# 3.10~ bokeh-3.9.0
 bokeh
