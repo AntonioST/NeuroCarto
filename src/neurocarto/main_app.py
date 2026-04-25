@@ -582,12 +582,16 @@ class CartoApp(BokehApplication):
 
     def _index_right_panel(self) -> list[UIElement]:
         from neurocarto.views.utils import install_view
+        from neurocarto.views.record import HistoryView
 
         self.logger.debug('index right')
         self.right_panel_views = []
 
         for view_type in self.install_right_panel_views(self.config):
             if (view := init_view(self.config, self.probe, view_type)) is not None:
+                if isinstance(view, HistoryView) and self.record_manager is None:
+                    self.logger.warning("using HistoryView without enable history feature")
+
                 self.right_panel_views.append(install_view(self, view))
                 if self.record_manager is not None and isinstance(view, RecordView):
                     self.record_manager.register(view)
@@ -901,6 +905,10 @@ class CartoApp(BokehApplication):
 
         self.save_blueprint(self.get_blueprint_file(name))
         self.save_view_config(self.get_view_config_file(name))
+
+        if self.record_manager is not None:
+            self.record_manager.save_history()
+
 
         if chmap_path is not None:
             self._set_output_imro_name(chmap_path)
