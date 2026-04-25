@@ -163,7 +163,7 @@ class ProbeTypeTest(unittest.TestCase):
                     self.assertEqual(bank, info.bank, f'{name} ref{ref}.bank mismatch')
                 elif ref_type == 'shk':
                     self.assertEqual('bank', info.type, f'{name} ref{ref}.type mismatch')
-                    self.assertEqual(0, info.bank, f'{name} ref{ref}.bank mismatch')
+                    self.assertEqual(0, info.shank, f'{name} ref{ref}.shank mismatch')
                 elif ref_type.startswith('shk'):
                     shank = int(ref_type[3:])
                     self.assertEqual('bank', info.type, f'{name} ref{ref}.type mismatch')
