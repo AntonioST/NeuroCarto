@@ -47,7 +47,7 @@ class ProbeType(NamedTuple):
     * `SpikeGLX <https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.h#L105>`_
 
     """
-    code: int
+    code: int  # TODO add information of compatible code?
     n_shank: int  # number of shank
     n_col_shank: int  # number of columns per shank (_ncolhwr)
     n_electrode_shank: int  # number of electrode per shank.
@@ -154,6 +154,7 @@ class _PROBE_TYPE(defaultdict[int | str, ProbeType]):
             2010: PROBE_TYPE_NP24,
             2013: PROBE_TYPE_NP2013,
             2020: PROBE_TYPE_NP2020,
+            2021: PROBE_TYPE_NP2020,
             3000: PROBE_TYPE_NP3000,
             3010: PROBE_TYPE_NP3010,
             3020: PROBE_TYPE_NP3020,
@@ -411,20 +412,25 @@ class ChannelMap:
         :param probe_type: probe type code, ProbeType or a ChannelMap for coping.
         :param electrodes: pre-add electrodes
         """
+        probe_code: int | None = None
         if isinstance(probe_type, ChannelMap):
             chmap = cast(ChannelMap, probe_type)
             probe_type = chmap.probe_type
+            probe_code = chmap._probe_code
             if electrodes is None:
                 electrodes = chmap._electrodes
             if meta is None:
                 meta = chmap.meta
 
         if isinstance(probe_type, (int, str)):
+            if isinstance(probe_type, int):
+                probe_code = probe_type
             probe_type = PROBE_TYPE[probe_type]
         elif not isinstance(probe_type, ProbeType):
             raise TypeError(f'{type(probe_type)=}')
 
         self.probe_type: Final[ProbeType] = probe_type
+        self._probe_code: int | None = probe_code  # TODO allow UI inter-change between compatible code
         self._electrodes: Final[list[Electrode | None]] = [None] * probe_type.n_channels
         self._reference = 0
         self.meta: NpxMeta | None = meta
@@ -628,6 +634,10 @@ class ChannelMap:
                 return False
 
         return self.get_electrode(item) is not None
+
+    @property
+    def probe_code(self) -> int:
+        return self._probe_code if self._probe_code is not None else self.probe_type.code
 
     @property
     def n_shank(self) -> int:
@@ -1706,8 +1716,8 @@ class ImroEC_NP2020(ImroEC):
             else:
                 s = np.zeros_like(e)
 
-        bank, _ = divmod(e, 384)
-        return s * 384 + e, bank
+        bank, c = divmod(e, 384)
+        return s * 384 + c, bank
 
     def c2e(self, c, b, s=None):
         return c % 384 + b * 384

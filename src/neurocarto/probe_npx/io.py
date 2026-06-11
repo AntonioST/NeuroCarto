@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
     from probeinterface import Probe
-    from .npx import ImroEC_NP1110
+    from . import npx
 
 __all__ = [
     'parse_imro',
@@ -146,13 +146,14 @@ class ImroIO(object):
         raise NotImplementedError()
 
     def string_header(self, chmap: ChannelMap) -> tuple[int, ...]:
-        return chmap.probe_type.code, chmap.n_channels
+        return chmap.probe_code, chmap.n_channels
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         raise NotImplementedError()
 
 
 class ImroIO_NP1(ImroIO):
+    to: npx.ImroEC_NP1
 
     @classmethod
     def check_ap_gain_value(cls, ap: int, error: bool = False) -> int:
@@ -194,6 +195,7 @@ class ImroIO_NP1(ImroIO):
 
 
 class ImroIO_NP21(ImroIO):
+    to: npx.ImroEC_NP21
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L80
@@ -223,6 +225,7 @@ class ImroIO_NP21(ImroIO):
 
 
 class ImroIO_NP24(ImroIO):
+    to: npx.ImroEC_NP24
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L50
@@ -254,7 +257,7 @@ class ImroIO_NP1110(ImroIO):
     ap: int = 500
     lf: int = 250
     af: int = 1
-    to: ImroEC_NP1110
+    to: npx.ImroEC_NP1110
 
     def parse_header(self, *args: int):
         col_mode, ref_id, ap, lf, af = args
@@ -331,11 +334,13 @@ class ImroIO_NP1110(ImroIO):
 
 
 class ImroIO_NP2020(ImroIO):
+    to: npx.ImroEC_NP2020
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.cppL#35
         ch, s, bank, ref, ed = args
-        assert self.to.e2c(ed, s) == (ch, bank), f'{ed=},{s=},{ch=},{bank=},e2c={self.to.e2c(ed, s)}'
+        ch_ex = s * 384 + ch
+        assert self.to.e2c(ed, s) == (ch_ex, bank), f'{ed=},{s=},{ch=},{bank=},e2c={self.to.e2c(ed, s)}'
         self.reference = ref
         return Electrode(s, *self.to.e2cr(ed))
 
@@ -348,6 +353,7 @@ class ImroIO_NP2020(ImroIO):
 
 
 class ImroIO_NP3010(ImroIO):
+    to: npx.ImroEC_NP3010
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L32
@@ -365,6 +371,8 @@ class ImroIO_NP3010(ImroIO):
 
 
 class ImroIO_NP3020(ImroIO):
+    to: npx.ImroEC_NP3020
+
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L50
         ch, s, bank, ref, ed = args
