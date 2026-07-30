@@ -136,8 +136,9 @@ class NpxProbeDesp(ProbeDesp[ChannelMap, NpxElectrodeDesp]):
         if chmap is None:
             return '<b>Probe</b> 0/0'
         else:
+            code = chmap.probe_code
             t = chmap.probe_type
-            return f'<b>Probe[{t.code}]</b> {len(chmap)}/{t.n_channels}'
+            return f'<b>Probe[{code}]</b> {len(chmap)}/{t.n_channels}'
 
     def all_electrodes(self, chmap: int | ProbeType | ChannelMap) -> list[NpxElectrodeDesp]:
         if isinstance(chmap, int):
