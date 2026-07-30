@@ -40,7 +40,7 @@ Install and Run
 
 ### prepare environment.
 
-Require `Python 3.10`.
+Require `Python 3.11`.
 
 ### Install
 
@@ -56,7 +56,7 @@ neurocarto
 
 ### Optional dependency
 
-* `bg-atlasapi` Atlas Brain background image supporting.
+* `brainglobe-atlasapi` Atlas Brain background image supporting.
 * `Pillow`, `tifffile` other background image format supporting.
 * `probeinterface` probe/channelmap format import/export
 * `pandas`, `polars` channelmap data export.
