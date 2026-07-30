@@ -461,7 +461,7 @@ class CartoApp(BokehApplication):
         # middle figure
         self.logger.debug('index figure')
         self.probe_fig = Figure(
-            width=600, height=800,
+            width=900, height=800,
             x_axis_label='(um)', y_axis_label='(um)',
             tools='', toolbar_location='above'
         )
@@ -546,7 +546,7 @@ class CartoApp(BokehApplication):
             label='New',
             menu=list(self.probe.supported_type),
             min_width=widths[2], align='end', width_policy='min',
-            stylesheets=["div.bk-menu { width: 300%; }"]
+            stylesheets=["div.bk-menu, div.bk-Menu { width: 300%; }"]
         )
         empty_btn.on_click(self.on_new)
 
