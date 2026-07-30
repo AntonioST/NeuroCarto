@@ -3,8 +3,7 @@ from __future__ import annotations
 import abc
 import logging
 import math
-import sys
-from typing import TypeVar, Generic, TypedDict, Any, TYPE_CHECKING, cast, final, NamedTuple
+from typing import TypeVar, Generic, TypedDict, Any, NamedTuple, Self, cast, final, TYPE_CHECKING
 
 import numpy as np
 from bokeh.models import UIElement, ColumnDataSource, GlyphRenderer, Slider, Switch, Div, tools
@@ -15,11 +14,6 @@ from neurocarto.config import CartoConfig
 from neurocarto.util.bokeh_app import run_timeout, remove_timeout
 from neurocarto.util.bokeh_util import ButtonFactory, SliderFactory, as_callback, new_help_button, recursive_call_barrier
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from neurocarto.main_app import CartoApp
@@ -57,7 +51,8 @@ class ViewBase(metaclass=abc.ABCMeta):
         elif isinstance(logger, logging.Logger):
             self.logger = logger
         else:
-            self.logger = logging.getLogger('neurocarto.view.' + type(self).__name__)
+            logger_name = type(self).__module__ + '.' + type(self).__name__
+            self.logger = logging.getLogger(logger_name)
 
         self.logger.debug('init()')
 

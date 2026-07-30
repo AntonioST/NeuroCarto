@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import functools
-import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, overload, Generic, Final, Any, Literal
+from typing import Generic, Final, Any, Literal, Self, overload, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -13,11 +12,6 @@ from neurocarto.probe import ProbeDesp, M, E, get_probe_desp
 from neurocarto.util.edit.checking import use_probe, use_view
 from neurocarto.util.utils import doc_link, SPHINX_BUILD
 from neurocarto.views.base import ControllerView, V
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

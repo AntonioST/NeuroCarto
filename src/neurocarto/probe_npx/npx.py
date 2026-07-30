@@ -1,22 +1,15 @@
 from __future__ import annotations
 
-import math
-import sys
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Sized, Sequence
 from pathlib import Path
-from typing import Any, NamedTuple, Final, Literal, overload, cast, TYPE_CHECKING
+from typing import Any, NamedTuple, Final, Literal, Self, overload, cast, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 from neurocarto.util.utils import all_int, as_set, align_arr, doc_link
 from .meta import NpxMeta
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -48,7 +41,7 @@ class ProbeType(NamedTuple):
     * `SpikeGLX <https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.h#L105>`_
 
     """
-    code: int
+    code: int  # TODO add information of compatible code?
     n_shank: int  # number of shank
     n_col_shank: int  # number of columns per shank (_ncolhwr)
     n_electrode_shank: int  # number of electrode per shank.
@@ -62,10 +55,12 @@ class ProbeType(NamedTuple):
     def n_row_shank(self) -> int:
         return self.n_electrode_shank // self.n_col_shank
 
-    @property
-    def n_bank(self) -> int:
-        """number of total banks"""
-        return int(math.ceil(self.n_electrode_shank / self.n_channels))
+    # @property
+    # def n_bank(self) -> int:
+    #     """number of total banks"""
+    #     # XXX self.n_electrode_shank / self.n_channels_bank instead
+    #     #   in most case, n_channels_bank equals to n_channels, but not for NP2020
+    #     return int(math.ceil(self.n_electrode_shank / self.n_channels))
 
     @classmethod
     def __class_getitem__(cls, item: int | str) -> ProbeType:
@@ -95,7 +90,7 @@ PROBE_TYPE_NP1110 = ProbeType(1110, 1, 8, 6144, 384, 6, 6, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1120.h#L12
 PROBE_TYPE_NP1120 = ProbeType(1120, 1, 2, 384, 384, 4.5, 4.5, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1121.h#L12
-PROBE_TYPE_NP1121 = ProbeType(1121, 1, 1, 384, 384, 3, 3, 0, 2)
+PROBE_TYPE_NP1121 = ProbeType(1121, 1, 1, 384, 384, 0, 3, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1122.h#L12
 PROBE_TYPE_NP1122 = ProbeType(1122, 1, 16, 384, 384, 3, 3, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1123.h#L12
@@ -117,13 +112,13 @@ PROBE_TYPE_NP2020 = ProbeType(2020, 4, 2, 1280, 1536, 32, 15, 250, 3)
 # PROBE_TYPE_NP24 based
 
 # NXT multishank
-PROBE_TYPE_NP3000 = ProbeType(1200, 1, 2, 128, 128, 15, 15, 0, 2)
+PROBE_TYPE_NP3000 = ProbeType(1200, 1, 1, 128, 128, 0, 15, 0, 2)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.h#L47
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010.h#L12
-PROBE_TYPE_NP3010 = ProbeType(3010, 1, 2, 1280, 912, 32, 15, 0, 3)
+PROBE_TYPE_NP3010 = ProbeType(3010, 1, 2, 1280, 1536, 32, 15, 0, 3)
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.h#L47
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020.h#L12
-PROBE_TYPE_NP3020 = ProbeType(3020, 4, 2, 1280, 912, 32, 15, 250, 7)
+PROBE_TYPE_NP3020 = ProbeType(3020, 4, 2, 1280, 1536, 32, 15, 250, 7)
 
 
 # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl.cpp#L1112
@@ -153,6 +148,7 @@ class _PROBE_TYPE(defaultdict[int | str, ProbeType]):
             2010: PROBE_TYPE_NP24,
             2013: PROBE_TYPE_NP2013,
             2020: PROBE_TYPE_NP2020,
+            2021: PROBE_TYPE_NP2020,
             3000: PROBE_TYPE_NP3000,
             3010: PROBE_TYPE_NP3010,
             3020: PROBE_TYPE_NP3020,
@@ -216,7 +212,7 @@ class _PROBE_TYPE(defaultdict[int | str, ProbeType]):
             case 'NP2020' | 'NP2021':  # Neuropixels 2.0 quad base
                 return PROBE_TYPE_NP2020
             case 'NP3000':  # Passive NXT probe
-                return PROBE_TYPE_NP1200
+                return PROBE_TYPE_NP3000
             case 'NP3010' | 'NP3011':  # NXT single shank
                 return PROBE_TYPE_NP3010
             case 'NP3020' | 'NP3021' | 'NP3022':  # NXT multishank
@@ -238,6 +234,7 @@ class Electrode:
     in_used: bool
 
     # for NP1
+    # TODO ap and lf value is restricted, can we validate when assign instead of io?
     ap_band_gain: int
     lf_band_gain: int
     ap_hp_filter: bool
@@ -305,6 +302,7 @@ class ReferenceInfo(NamedTuple):
     code: int
     type: Literal['ext', 'tip', 'bank', 'ground', 'unknown']
     shank: int  # 0 if reference_type is 'ext'
+    bank: int
     channel: int  # 0 if reference_type is not 'bank'
 
     @classmethod
@@ -329,7 +327,7 @@ class ReferenceInfo(NamedTuple):
             raise ValueError(f'reference id out of boundary for probe type {probe_type.code}: {reference}')
 
         if reference == 0:
-            return ReferenceInfo(0, 'ext', 0, 0)
+            return ReferenceInfo(0, 'ext', 0, 0, 0)
 
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2003.cpp#L12
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2013.cpp#L12
@@ -338,9 +336,9 @@ class ReferenceInfo(NamedTuple):
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L369
         if probe_type.code in (2003, 2013, 2020, 3010, 3020):
             if reference == 1:
-                return ReferenceInfo(reference, 'ground', 0, 0)
+                return ReferenceInfo(reference, 'ground', 0, 0, 0)
             if reference - 2 < probe_type.n_shank:
-                return ReferenceInfo(reference, 'tip', reference - 2, 0)
+                return ReferenceInfo(reference, 'tip', reference - 2, 0, 0)
 
             raise RuntimeError('')
 
@@ -349,32 +347,31 @@ class ReferenceInfo(NamedTuple):
             n_shank = probe_type.n_shank
 
             if reference - 1 < n_shank:
-                return ReferenceInfo(reference, 'tip', reference - 1, 0)
+                return ReferenceInfo(reference, 'tip', reference - 1, 0, 0)
 
             references = (127, 507, 887, 1251)
-            return ReferenceInfo(reference, 'bank', 0, references[reference - 2])
+            return ReferenceInfo(reference, 'bank', 0, reference - 2, references[reference - 2])
 
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24.cpp#L19
         elif probe_type.code == 24:
             n_shank = probe_type.n_shank
 
             if reference - 1 < n_shank:
-                return ReferenceInfo(reference, 'tip', reference - 1, 0)
+                return ReferenceInfo(reference, 'tip', reference - 1, 0, 0)
 
             references = (127, 511, 895, 1279)
             x = reference - n_shank - 1
             s, i = divmod(x, len(references))
-            return ReferenceInfo(reference, 'bank', s, references[i])
+            return ReferenceInfo(reference, 'bank', s, i, references[i])
 
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L239
         else:
             assert probe_type.n_shank == 1
 
             if reference == 1:
-                return ReferenceInfo(reference, 'tip', reference - 1, 0)
+                return ReferenceInfo(reference, 'tip', 0, reference - 1, 0)
 
-            return ReferenceInfo(reference, 'bank', reference - 2, -1)
-
+            return ReferenceInfo(reference, 'bank', 0, reference - 2, -1)
 
 
 E = int | tuple[int, int] | tuple[int, int, int] | Electrode
@@ -409,20 +406,24 @@ class ChannelMap:
         :param probe_type: probe type code, ProbeType or a ChannelMap for coping.
         :param electrodes: pre-add electrodes
         """
+        probe_code: int | str | None = None
         if isinstance(probe_type, ChannelMap):
             chmap = cast(ChannelMap, probe_type)
             probe_type = chmap.probe_type
+            probe_code = chmap._probe_code
             if electrodes is None:
                 electrodes = chmap._electrodes
             if meta is None:
                 meta = chmap.meta
 
         if isinstance(probe_type, (int, str)):
+            probe_code = probe_type
             probe_type = PROBE_TYPE[probe_type]
         elif not isinstance(probe_type, ProbeType):
             raise TypeError(f'{type(probe_type)=}')
 
         self.probe_type: Final[ProbeType] = probe_type
+        self._probe_code: int | str | None = probe_code  # TODO allow UI inter-change between compatible code
         self._electrodes: Final[list[Electrode | None]] = [None] * probe_type.n_channels
         self._reference = 0
         self.meta: NpxMeta | None = meta
@@ -626,6 +627,10 @@ class ChannelMap:
                 return False
 
         return self.get_electrode(item) is not None
+
+    @property
+    def probe_code(self) -> int | str:
+        return self._probe_code if self._probe_code is not None else self.probe_type.code
 
     @property
     def n_shank(self) -> int:
@@ -1170,8 +1175,6 @@ def electrode_coordinate(probe_type: int | str | ChannelMap | ProbeType,
         ])
 
 
-
-
 @overload
 def e2p(probe_type: ProbeType, e: E) -> tuple[float, float]:
     pass
@@ -1706,8 +1709,8 @@ class ImroEC_NP2020(ImroEC):
             else:
                 s = np.zeros_like(e)
 
-        bank, _ = divmod(e, 384)
-        return s * 384 + e, bank
+        bank, c = divmod(e, 384)
+        return s * 384 + c, bank
 
     def c2e(self, c, b, s=None):
         return c % 384 + b * 384

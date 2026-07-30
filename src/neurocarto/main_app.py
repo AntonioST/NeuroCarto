@@ -40,6 +40,7 @@ class CartoUserConfig(TypedDict, total=False):
             "overwrite_chmap_file": false,
             "always_save_blueprint_file": false,
             "selected_as_pre_selected": false,
+            "figure_size": [900, 800],
           }
         }
 
@@ -66,6 +67,9 @@ class CartoUserConfig(TypedDict, total=False):
     Default False.
     """
 
+    figure_size: list[int]
+    """figure size. list of two integers. Default: [900, 800] (width, height)"""
+
 
 @doc_link()
 class Channelmap(TypedDict, total=False):
@@ -88,6 +92,7 @@ class Channelmap(TypedDict, total=False):
     code: int | str
     channelmap_file: str
     blueprint_file: str
+
 
 class CartoApp(BokehApplication):
     """Application of neural probe channelmap editor.
@@ -460,11 +465,21 @@ class CartoApp(BokehApplication):
 
         # middle figure
         self.logger.debug('index figure')
+        figure_size = self.get_editor_userconfig().get('figure_size', [900, 800])
+        try:
+            figure_width, figure_height = figure_size
+            figure_width = int(figure_width)
+            figure_height = int(figure_height)
+        except ValueError as e:
+            figure_width, figure_height = 900, 800
+            self.logger.warning('unknown figure_size: %s', str(figure_size), exc_info=e)
+
         self.probe_fig = Figure(
-            width=600, height=800,
+            width=figure_width, height=figure_height,
             x_axis_label='(um)', y_axis_label='(um)',
             tools='', toolbar_location='above'
         )
+
         # figure toolbar
         self.probe_fig.tools.clear()
         self.probe_fig.add_tools(
@@ -546,7 +561,7 @@ class CartoApp(BokehApplication):
             label='New',
             menu=list(self.probe.supported_type),
             min_width=widths[2], align='end', width_policy='min',
-            stylesheets=["div.bk-menu { width: 300%; }"]
+            stylesheets=["div.bk-menu, div.bk-Menu { width: 300%; }"]
         )
         empty_btn.on_click(self.on_new)
 
@@ -797,7 +812,6 @@ class CartoApp(BokehApplication):
 
         if chmap is not None and blueprint_ok:
             self.on_probe_update()
-                
 
     def _load_file_save_name(self, file: Path) -> Path:
         """

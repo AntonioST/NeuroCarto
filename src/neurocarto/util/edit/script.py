@@ -5,18 +5,12 @@ import functools
 import html
 import inspect
 import re
-import sys
 import textwrap
 from pathlib import Path
-from typing import Protocol, TYPE_CHECKING, cast, NamedTuple, Any
+from typing import Protocol, NamedTuple, Any, Self, cast, TYPE_CHECKING
 
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import import_name, get_import_file, doc_link
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from neurocarto.util.edit.checking import RequestChannelmapType, RequestView
