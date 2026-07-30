@@ -109,7 +109,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
         except KeyError:
             self.logger.warning(f'bregma of {self.brain.atlas_name} not found')
 
-        self._structure = Structures.of(self.brain)
+        self._structure = Structures(self.brain)
         self._labels: list[Label] = []
 
         self.data_brain = ColumnDataSource(data=dict(image=[], x=[], y=[], dw=[], dh=[]))
@@ -758,4 +758,7 @@ class AtlasBrainView(BoundView, StateView[AtlasBrainViewState]):
             self.data_region.data = self.transform_image_data(self.process_image_data(np.flipud(plane.image)))
 
     def process_image_data(self, image: NDArray[np.uint]) -> NDArray[np.uint]:
-        return self._structure.image_annotation(image, self._regions, 0)
+        ret = self._structure.image_annotation(image, self._regions, 0)
+        if np.all(ret == 0):  # no regions shown in this slice.
+            ret[0] = 1  # keep default (=0) as the lowest value.
+        return ret

@@ -55,11 +55,14 @@ class SliceView:
         :param reference: reference brain volume with shape (AP, DL, ML)
         :param resolution: um/pixel
         """
+
+        from neurocarto.util.atlas_brain import get_atlas_brain_reference
+        _reference = get_atlas_brain_reference(brain)
         if reference is not None:
-            if reference.shape != brain.reference.shape:
-                raise RuntimeError()
+            if reference.shape != _reference.shape:
+                raise RuntimeError("The given reference's shape does not match to atlas brain's shape.")
         else:
-            reference = brain.reference
+            reference = _reference
 
         self.brain = brain
         """Atlas brain"""
@@ -73,10 +76,11 @@ class SliceView:
         self.reference = reference
         """Image Array[uint, AP, DV, ML]"""
 
+        resolution = brain.resolution
         self.resolution = [
-            brain.resolution[projection.value[0]],
-            brain.resolution[projection.value[1]],
-            brain.resolution[projection.value[2]],
+            resolution[projection.value[0]],
+            resolution[projection.value[1]],
+            resolution[projection.value[2]],
         ]
         """um/pixel"""
 

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import NamedTuple, Iterator, TYPE_CHECKING
+from typing import NamedTuple, Iterator, Self, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
-    from brainglobe_atlasapi import BrainGlobeAtlas
+    from brainglobe_atlasapi import BrainGlobeAtlas, StructuresDict, Structure as _Structure
 
 __all__ = ['Structures', 'Structure']
 
@@ -21,24 +21,21 @@ class Structure(NamedTuple):
     color: tuple[int, int, int]
     id_path: tuple[STRUCTURE, ...]
 
+    @classmethod
+    def of(cls, struct: _Structure) -> Self:
+        return Structure(struct['acronym'], struct['id'], struct['name'], tuple(struct['rgb_triplet']), tuple(struct['structure_id_path']))
+
 
 class Structures:
-    def __init__(self, atlas: BrainGlobeAtlas, structure: list[Structure]):
-        self.atlas = atlas
+    def __init__(self, brain: BrainGlobeAtlas | StructuresDict):
+        from brainglobe_atlasapi import BrainGlobeAtlas
+        if isinstance(brain, BrainGlobeAtlas):
+            brain = brain.structures
+
         self._structure: dict[ACRONYM, Structure] = {
-            it.acronym: it
-            for it in structure
+            ac: Structure.of(brain[it])
+            for ac, it in brain.acronym_to_id_map.items()
         }
-
-    @classmethod
-    def of(cls, atlas: BrainGlobeAtlas) -> Structures:
-        import json
-        with (atlas.root_dir / 'structures.json').open() as f:
-            d = json.load(f)
-
-        return Structures(atlas, [
-            Structure(it['acronym'], it['id'], it['name'], tuple(it['rgb_triplet']), tuple(it['structure_id_path'])) for it in d
-        ])
 
     def __getitem__(self, item: STRUCTURE | ACRONYM) -> Structure:
         if isinstance(item, str):
