@@ -414,7 +414,7 @@ class PltImageView(ImageView, DynamicView, GlobalStateView[PltImageState], metac
 
         offset = kwargs.pop('offset', 0)
 
-        # TODO Does boundary still work if I use multuple rows or cols layout?
+        # TODO Does boundary still work if I use multiple rows or cols layout?
 
         ax: Axes
         with plt.rc_context(fname=rc_file):

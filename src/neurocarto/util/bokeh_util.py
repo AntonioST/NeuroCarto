@@ -134,7 +134,7 @@ def recursive_call_barrier(f):
 
 
 def _is_recursive_called(counter: int, limit=100) -> bool:
-    stack = inspect.stack()
+    stack = inspect.stack(context=0)
 
     for i, frame in enumerate(stack[2:]):
         if i < limit and frame.function == '_recursive_call_barrier' and frame.frame.f_locals.get('local_barrier_counter', -1) == counter:

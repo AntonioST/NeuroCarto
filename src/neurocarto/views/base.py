@@ -51,7 +51,8 @@ class ViewBase(metaclass=abc.ABCMeta):
         elif isinstance(logger, logging.Logger):
             self.logger = logger
         else:
-            self.logger = logging.getLogger('neurocarto.view.' + type(self).__name__)
+            logger_name = type(self).__module__ + '.' + type(self).__name__
+            self.logger = logging.getLogger(logger_name)
 
         self.logger.debug('init()')
 

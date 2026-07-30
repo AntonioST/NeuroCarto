@@ -103,7 +103,7 @@ def import_view(config: CartoConfig, probe: ProbeDesp | None, module_path: str) 
 @doc_link()
 def install_view(app: CartoApp, view: V) -> V:
     """
-    Replace some methods in ViewBase. They are
+    Replace some methods in {ViewBase}. They are
 
     * {ViewBase} method {ViewBase#log_message()}
     * {ControllerView} all methods

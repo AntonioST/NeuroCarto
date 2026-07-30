@@ -120,7 +120,7 @@ class ImageHandler(metaclass=abc.ABCMeta):
         return NumpyImageHandler(image, filename)
 
 
-class ImageView(BoundView, metaclass=abc.ABCMeta):
+class ImageView(BoundView):
     """
     Base of image view.
     """
@@ -135,7 +135,7 @@ class ImageView(BoundView, metaclass=abc.ABCMeta):
         if image is not None:
             self.logger.debug('init(%s)', type(image).__name__)
 
-        self._image = image
+        self._image: ImageHandler | None = image
         self._index: int = 0
 
     @property
