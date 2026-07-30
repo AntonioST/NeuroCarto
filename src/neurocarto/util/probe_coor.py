@@ -1,17 +1,11 @@
 from __future__ import annotations
 
-import sys
-from typing import NamedTuple, overload
+from typing import NamedTuple, Self, overload
 
 import numpy as np
 from numpy.typing import NDArray
 
 from neurocarto.util.atlas_slice import SliceView, SlicePlane
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 __all__ = [
     'ProbeCoordinate',

@@ -1,21 +1,15 @@
 from __future__ import annotations
 
 import abc
-import sys
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from types import ModuleType
-from typing import TypeVar, Generic, Any, ClassVar, TYPE_CHECKING
+from typing import TypeVar, Generic, Any, ClassVar, Self, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 from neurocarto.util.utils import import_name, doc_link, SPHINX_BUILD
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from neurocarto.config import CartoConfig

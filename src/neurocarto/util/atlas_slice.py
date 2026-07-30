@@ -2,18 +2,12 @@ from __future__ import annotations
 
 import enum
 import math
-import sys
-from typing import Literal, TypeVar, Final, overload, NamedTuple, final, TYPE_CHECKING
+from typing import Literal, TypeVar, Final, NamedTuple, Self, final, overload, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 from neurocarto.util.utils import all_int, align_arr, all_float
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from neurocarto.util.atlas_brain import BrainGlobeAtlas

@@ -1,21 +1,15 @@
 from __future__ import annotations
 
-import sys
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Sized, Sequence
 from pathlib import Path
-from typing import Any, NamedTuple, Final, Literal, overload, cast, TYPE_CHECKING
+from typing import Any, NamedTuple, Final, Literal, Self, overload, cast, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 
 from neurocarto.util.utils import all_int, as_set, align_arr, doc_link
 from .meta import NpxMeta
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 if TYPE_CHECKING:
     import pandas as pd

@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import abc
 import logging
-import sys
 from pathlib import Path
-from typing import TypedDict, Final
+from typing import TypedDict, Final, Self
 
 import numpy as np
 from bokeh.models import ColumnDataSource, GlyphRenderer, Slider, UIElement
@@ -14,11 +13,6 @@ from neurocarto.config import CartoConfig
 from neurocarto.util.bokeh_app import run_later
 from neurocarto.util.bokeh_util import SliderFactory, PathAutocompleteInput, new_help_button, recursive_call_barrier
 from neurocarto.views.base import Figure, BoundView, StateView, BoundaryState
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 __all__ = ['ImageView', 'ImageViewState', 'ImageHandler', 'FileImageView']
 

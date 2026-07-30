@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import sys
-from typing import NamedTuple
+from typing import NamedTuple, Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -11,11 +10,6 @@ from neurocarto.probe_npx.npx import ChannelMap
 from neurocarto.probe_npx.select import ElectrodeSelector, load_select
 from neurocarto.util.util_blueprint import BlueprintFunctions
 from neurocarto.util.utils import doc_link
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
 
 __all__ = [
     'npx_electrode_density',
