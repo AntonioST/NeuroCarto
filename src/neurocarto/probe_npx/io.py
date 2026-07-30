@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 import textwrap
 from pathlib import Path
-from typing import Any, TYPE_CHECKING, Literal
+from typing import Any, TYPE_CHECKING, Literal, TextIO
 
 import numpy as np
 from numpy.typing import NDArray
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
     from probeinterface import Probe
-    from .npx import ImroEC_NP1110
+    from . import npx
 
 __all__ = [
     'parse_imro',
@@ -58,12 +58,18 @@ def parse_imro(source: str) -> ChannelMap:
     j = source.index(')')  # right ')'
     k = 0  # count of '(...)'
 
-
     while 0 <= i < j:
         part = source[i + 1:j]
 
         if k == 0:  # first ()
-            type_code, *args = tuple(map(int, part.split(',')))
+            parts = part.split(',')
+            type_code = parts[0]
+            args = tuple(map(int, parts[1:]))
+            try:
+                type_code = int(type_code)
+            except ValueError:
+                pass
+
             try:
                 io = ImroIO(ProbeType[type_code])
             except KeyError as e:
@@ -147,21 +153,40 @@ class ImroIO(object):
         raise NotImplementedError()
 
     def string_header(self, chmap: ChannelMap) -> tuple[int, ...]:
-        return chmap.probe_type.code, chmap.n_channels
+        return chmap.probe_code, chmap.n_channels
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         raise NotImplementedError()
 
 
 class ImroIO_NP1(ImroIO):
+    to: npx.ImroEC_NP1
+
+    @classmethod
+    def check_ap_gain_value(cls, ap: int, error: bool = False) -> int:
+        if ap in (50, 125, 250, 500, 1000, 1500, 2000, 3000):
+            return ap
+        elif error:
+            raise ValueError(f'unallowed ap_gain value : {ap}')
+        else:
+            return 250  # default
+
+    @classmethod
+    def check_lf_gain_value(cls, lf: int, error: bool = False) -> int:
+        if lf in (50, 125, 250, 500, 1000, 1500, 2000, 3000):
+            return lf
+        elif error:
+            raise ValueError(f'unallowed lf_gain value : {lf}')
+        else:
+            return 250  # default
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T0base.cpp#L34
         ch, bank, ref, a, l, f = args
         e = self.to.c2e(ch, bank)
         e = Electrode(0, *self.to.e2cr(e))
-        e.ap_band_gain = a
-        e.lf_band_gain = l
+        e.ap_band_gain = self.check_ap_gain_value(a, error=False)
+        e.lf_band_gain = self.check_lf_gain_value(l, error=False)
         e.ap_hp_filter = f != 0
         self.reference = ref
         return e
@@ -171,10 +196,13 @@ class ImroIO_NP1(ImroIO):
         from .npx import cr2e
         c, bank = self.to.e2c(cr2e(self.probe_type, e))
         assert c == ch
-        return ch, bank, chmap.reference, e.ap_band_gain, e.lf_band_gain, 1 if e.ap_hp_filter else 0
+        a = self.check_ap_gain_value(e.ap_band_gain, error=True)
+        l = self.check_lf_gain_value(e.lf_band_gain, error=True)
+        return ch, bank, chmap.reference, a, l, 1 if e.ap_hp_filter else 0
 
 
 class ImroIO_NP21(ImroIO):
+    to: npx.ImroEC_NP21
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T21base.cpp#L80
@@ -204,6 +232,7 @@ class ImroIO_NP21(ImroIO):
 
 
 class ImroIO_NP24(ImroIO):
+    to: npx.ImroEC_NP24
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T24base.cpp#L50
@@ -217,7 +246,7 @@ class ImroIO_NP24(ImroIO):
         from .npx import cr2e
         electrode = cr2e(self.probe_type, e)
         channel, bank = self.to.e2c(electrode, e.shank)
-        return ch, e.shank, bank, chmap.reference, electrode
+        return channel, e.shank, bank, chmap.reference, electrode
 
 
 class ImroIO_NP1110(ImroIO):
@@ -235,7 +264,7 @@ class ImroIO_NP1110(ImroIO):
     ap: int = 500
     lf: int = 250
     af: int = 1
-    to: ImroEC_NP1110
+    to: npx.ImroEC_NP1110
 
     def parse_header(self, *args: int):
         col_mode, ref_id, ap, lf, af = args
@@ -245,8 +274,8 @@ class ImroIO_NP1110(ImroIO):
 
         self.col_mode = col_mode
         self.reference = ref_id
-        self.ap = ap
-        self.lf = lf
+        self.ap = ImroIO_NP1.check_ap_gain_value(ap, error=False)
+        self.lf = ImroIO_NP1.check_lf_gain_value(lf, error=False)
         self.af = af
 
     def _bank(self, ch: int, bank_a: int, bank_b: int):
@@ -302,7 +331,9 @@ class ImroIO_NP1110(ImroIO):
     def string_header(self, chmap: ChannelMap) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L19
         e = chmap.channels[0]
-        return chmap.probe_type.code, self.col_mode, chmap.reference, e.ap_band_gain, e.lf_band_gain, 1 if e.ap_hp_filter else 0
+        a = ImroIO_NP1.check_ap_gain_value(e.ap_band_gain, error=True)
+        l = ImroIO_NP1.check_lf_gain_value(e.lf_band_gain, error=True)
+        return chmap.probe_type.code, self.col_mode, chmap.reference, a, l, 1 if e.ap_hp_filter else 0
 
     def string_electrode(self, chmap: ChannelMap, ch: int, e: Electrode) -> tuple[int, ...]:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T1110.cpp#L32
@@ -310,11 +341,13 @@ class ImroIO_NP1110(ImroIO):
 
 
 class ImroIO_NP2020(ImroIO):
+    to: npx.ImroEC_NP2020
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T2020.cppL#35
         ch, s, bank, ref, ed = args
-        assert self.to.e2c(ed, s) == (ch, bank), f'{ed=},{s=},{ch=},{bank=},e2c={self.to.e2c(ed, s)}'
+        ch_ex = s * 384 + ch
+        assert self.to.e2c(ed, s) == (ch_ex, bank), f'{ed=},{s=},{ch=},{bank=},e2c={self.to.e2c(ed, s)}'
         self.reference = ref
         return Electrode(s, *self.to.e2cr(ed))
 
@@ -327,6 +360,7 @@ class ImroIO_NP2020(ImroIO):
 
 
 class ImroIO_NP3010(ImroIO):
+    to: npx.ImroEC_NP3010
 
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3010base.cpp#L32
@@ -344,6 +378,8 @@ class ImroIO_NP3010(ImroIO):
 
 
 class ImroIO_NP3020(ImroIO):
+    to: npx.ImroEC_NP3020
+
     def parse_electrode(self, *args: int) -> Electrode:
         # https://github.com/billkarsh/SpikeGLX/blob/bc2c10e99e68dcc9ec6b9a9c75272a74c7e53034/Src-imro/IMROTbl_T3020base.cpp#L50
         ch, s, bank, ref, ed = args
@@ -358,19 +394,21 @@ class ImroIO_NP3020(ImroIO):
         channel, bank = self.to.e2c(e.shank, electrode)
         return ch, e.shank, bank, chmap.reference, electrode
 
+
 # ======================= #
 # SpikeGLX imro/meta file #
 # ======================= #
 
 @doc_link(DOC=textwrap.dedent(ChannelMap.from_meta.__doc__))
-def load_meta(path: str | Path) -> ChannelMap:
+def load_meta(path: str | Path | TextIO) -> ChannelMap:
     """
     {DOC}
     :see: {ChannelMap#from_meta()}
     """
-    path = Path(path)
-    if path.suffix != '.meta':
-        raise IOError()
+    if isinstance(path, (str, Path)):
+        path = Path(path)
+        if path.suffix != '.meta':
+            raise IOError()
 
     data = _load_meta(path)
 
@@ -395,13 +433,16 @@ def load_imro(path: str | Path) -> ChannelMap:
     return ChannelMap.parse(path.read_text().split('\n')[0])
 
 
-def _load_meta(path: Path) -> dict[str, Any]:
-    ret = {}
-    with path.open() as f:
-        for line in f:
+def _load_meta(path: Path | TextIO) -> dict[str, Any]:
+    if isinstance(path, Path):
+        with path.open() as f:
+            return _load_meta(f)
+    else:
+        ret = {}
+        for line in path:
             k, _, v = line.rstrip().partition('=')
             ret[k] = v
-    return ret
+        return ret
 
 
 @doc_link(DOC=textwrap.dedent(ChannelMap.save_imro.__doc__))
@@ -435,17 +476,24 @@ def from_probe(probe: Probe) -> ChannelMap:
         raise RuntimeError('not a Neuropixels probe')
 
     probe_type_raw = probe.annotations['probe_type']
+    try:
+        probe_type_raw = int(probe_type_raw)
+    except ValueError:
+        pass
+
     probe_type = ProbeType[probe_type_raw]
     s = probe.shank_ids.astype(int)
     cr = probe.contact_positions.astype(int)
     cr[:, 0] %= probe_type.s_space
     cr[:, 0] //= probe_type.c_space
     cr[:, 1] //= probe_type.r_space
+    reference = int(np.unique(probe.contact_annotations['references'])[0])
 
     meta = NpxMeta(serial_number=probe.serial_number)
     meta.update(probe.annotations)
 
     ret = ChannelMap(probe_type)
+    ret.reference = reference
     ret.meta = meta
 
     for ss, (cc, rr) in zip(s, cr):
@@ -459,6 +507,8 @@ def to_probe(chmap: ChannelMap) -> Probe:
     {DOC}
     :see: {ChannelMap#to_probe()}
     """
+    # TODO _read_imro_string no longer existed in future release
+    # https://github.com/SpikeInterface/probeinterface/issues/351
     from probeinterface.io import _read_imro_string
     return _read_imro_string(string_imro(chmap))
 
@@ -479,12 +529,13 @@ def to_numpy(chmap: ChannelMap, unit: Literal['cr', 'xy', 'sxy'] = 'cr') -> NDAr
             def mapper(e: Electrode):
                 return e.shank, e.column, e.row
         case 'xy':
-            from .npx import e2p
 
             def mapper(e: Electrode):
                 x, y = e2p(chmap.probe_type, e)
                 return int(x), int(y)
         case 'sxy':
+            from .npx import e2p
+
             def mapper(e: Electrode):
                 x, y = e2p(chmap.probe_type, e)
                 return e.shank, int(x), int(y)
@@ -492,6 +543,7 @@ def to_numpy(chmap: ChannelMap, unit: Literal['cr', 'xy', 'sxy'] = 'cr') -> NDAr
             raise ValueError(f'unsupported unit: {unit}')
 
     return np.array([mapper(e) for e in chmap.electrodes])
+
 
 # ======================= #
 # pandas/polars dataframe #
