@@ -14,6 +14,6 @@ Contributors
 Bug and Issue Reports
 ---------------------
 
-`github issue`_.
+Use the `GitHub issue tracker`_.
 
-.. _github issue: https://github.com/AntonioST/chamap_editor/issues
+.. _GitHub issue tracker: https://github.com/AntonioST/NeuroCarto/issues

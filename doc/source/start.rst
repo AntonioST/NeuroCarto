@@ -1,18 +1,18 @@
-Get Start
-=========
+Getting Started
+===============
 
-Run. ::
+Run NeuroCarto. ::
 
     neurocarto
 
-Then your default web-browser will popup (http://localhost:5006/) with the application.
+Then your default web browser will open the application at http://localhost:5006/.
 
 :warning:
-    we tested application in Google Chrome.
+    The application is tested in Google Chrome.
 
 
-Commandline options
--------------------
+Command-line Options
+--------------------
 
 ::
 
@@ -22,20 +22,20 @@ Commandline options
                       [FILE]
 
     positional arguments:
-      FILE                  open channelmap file.
+      FILE                  open a channelmap file.
 
     options:
       -h, --help            show this help message and exit
 
     Source:
       -C PATH, --chmap-dir PATH
-                            channel saving directory
+                            channelmap saving directory
 
     Probe:
       -P NAME, --probe NAME
-                            use probe family. default use "npx" (Neuropixels probe family).
+                            use a probe family. default is "npx" (Neuropixels probe family).
       --selector MODULE:NAME
-                            use which electrode selection method
+                            use the specified electrode selection method
 
     Atlas:
       --atlas NAME          atlas mouse brain name
@@ -43,7 +43,7 @@ Commandline options
 
     Bokeh Application:
       --config-file FILE    global config file.
-      --view MODULE:NAME    install extra views in right panel
+      --view MODULE:NAME    install extra views in the right panel
       --server-address URL
       --server-port PORT
       --no-open-browser     do not open browser when server starts
@@ -60,22 +60,22 @@ Left panel
 | |fig4a-left| | **ChannelMap File**                                                    |
 |              |                                                                        |
 |              | Input file                                                             |
-|              |     Channelmap files lists under ``-C PATH``.                          |
+|              |     Channelmap files listed under ``-C PATH``.                         |
 |              |                                                                        |
-|              | * New : Create a new channelmap from supporting probe types.           |
-|              | * Load : load channelmap file from the *Input file* .                  |
+|              | * New : Create a new channelmap from supported probe types.            |
+|              | * Load : Load a channelmap file from the *Input file* field.           |
 |              | * Save: Save current channelmap file.                                  |
 |              |                                                                        |
 |              | Save filename                                                          |
-|              |    The filename give to the saved channelmap file.                     |
+|              |    The filename for the saved channelmap file.                         |
 |              +------------------------------------------------------------------------+
 |              | **Electrode State**                                                    |
 |              |                                                                        |
-|              | Select/Unselect electrodes that captured by |bk-tool-icon-box-select|. |
+|              | Select/Unselect electrodes captured by |bk-tool-icon-box-select|.      |
 |              +------------------------------------------------------------------------+
 |              | **Electrode Category**                                                 |
 |              |                                                                        |
-|              | Set electrode category for electrodes captured                         |
+|              | Set the electrode category for electrodes captured                     |
 |              | by |bk-tool-icon-box-select|.                                          |
 |              +------------------------------------------------------------------------+
 |              | **Log**                                                                |
@@ -89,27 +89,27 @@ Top Panels
 |probe-desp| ``Probe[CODE] CURRENT/TOTAL``.
 
 CODE
-  current probe type.
+  Current probe code.
 TOTAL
-  total channel number.
+  Total number of channels.
 CURRENT
-  number of electrodes selected as channels.
+  Number of electrodes selected as channels.
 
 |figure-toolbar|
 
-Bokeh provides figure tools, there are:
+Bokeh provides these figure tools:
 
-* |bk-tool-icon-pan| (mouse drag): figure view moving.
+* |bk-tool-icon-pan| (mouse drag): move the figure view.
 * |bk-tool-icon-box-select| (mouse drag): select electrodes for
-  setting its state and category.
-* |bk-tool-icon-wheel-zoom| (mouse wheel): figure view zoom
-* |bk-tool-icon-wheel-pan| (mouse wheel): vertical moving viewport.
-* |bk-tool-icon-box-edit|: moving background image.
+  setting their state and category.
+* |bk-tool-icon-wheel-zoom| (mouse wheel): zoom the figure view.
+* |bk-tool-icon-wheel-pan| (mouse wheel): move the viewport vertically.
+* |bk-tool-icon-box-edit|: move the background image.
   (shifted-drag) move/scale image inside the dragged rectangle.
-* |bk-tool-icon-reset|: reset figure view
+* |bk-tool-icon-reset|: reset the figure view.
 * |bk-tool-icon-hover|: display electrode information when mouse
   moves on electrodes.
-* |bk-logo-small|: bokeh logo. Goto bokeh website on clicking.
+* |bk-logo-small|: Bokeh logo. Click it to go to the Bokeh website.
 
 Figure Panel
 ~~~~~~~~~~~~
@@ -124,19 +124,19 @@ Electrode colors indicate:
 * black : selectable electrodes
 * green: selected electrodes
 * red: un-selectable (disabled) electrodes
-* yellow: highlighted electrodes that related to the electrode captured by |bk-tool-icon-box-select|.
+* yellow: highlighted electrodes related to electrodes captured by |bk-tool-icon-box-select|.
 
 Background Image
 ````````````````
 
-Atlas mouse image. It requires extra package. Please check :ref:`atlas`.
+Atlas mouse image. This requires an extra package. See :ref:`atlas`.
 
 Right Panel
 ~~~~~~~~~~~
 
 |fig4a-right|
 
-All components have a common layout structures:
+All components share a common layout structure:
 
 ::
 
@@ -168,14 +168,14 @@ A simple channelmap
 
     |new-probe|
 
-2.  Move the probe (shown in electrodes) to the proper place.
+2.  Move the probe (shown as electrodes) to the proper place.
 3.  Use rectangle-tool in the figure toolbar to select electrodes.
 
     |rect-select-tool|
 
     Selected electrodes will be kept in black and highlighted in yellow, and other electrodes will be faded.
 
-    Other electrodes are also highlighted in yellow, which indicates they will be unable to be selected,
+    Other electrodes are also highlighted in yellow, which indicates that they cannot be selected,
     according to Neuropixels' hardware restriction.
 
     |rect-select-electrodes|
@@ -196,7 +196,7 @@ A simple channelmap
 
 7.  Press **Save**.
 
-    You will see the messages in **Log** said files are saved.
+    You will see messages in **Log** saying that the files were saved.
 
     |save-log|
 
@@ -217,27 +217,27 @@ Once you save a channelmap (use previous example), then you will get files under
 
 * ``First_map.imro``: channelmap file
 * ``First_map.blueprint.npy``: electrode blueprint matrix
-* ``First_map.config.json``: view configurations of each component, such as the coordinate of atlas mouse image.
+* ``First_map.config.json``: view configurations for each component, such as the coordinates of the atlas mouse image.
 
-Once `First_map.imro` load, the other files are also loaded to restore states.
+Once ``First_map.imro`` is loaded, the other files are also loaded to restore the saved state.
 
 A custom channelmap
 ~~~~~~~~~~~~~~~~~~~
 
 1.  Press **New** and choose a probe type to create/reset an empty channelmap.
-2.  (optional) Move and adjust the atlas image to proper view according to your experimental goal.
+2.  (optional) Move and adjust the atlas image to the proper view for your experimental goal.
 
     For example, I want to record signals from the Hippocampus.
 
     1.  Change **Slice view** to *coronal*. |atlas-slice|
     2.  Move **Slice Plane** to *290*.
-    3.  Adjust other setting if needed.
-    4.  use box-edit at the figure toolbar to move the atlas image
-        to the proper position that the probe passes through the Hippocampus.
+    3.  Adjust other settings if needed.
+    4.  Use box-edit in the figure toolbar to move the atlas image
+        to the proper position so that the probe passes through the Hippocampus.
 
         |box-edit-tool-hinted|
 
-3.  Move the probe (shown in electrodes) to the proper place.
+3.  Move the probe (shown as electrodes) to the proper place.
 
     |atlas-image-probe|
 
@@ -246,15 +246,15 @@ A custom channelmap
 
     |policy-full-density|
 
-    In this step, rather than directly selecting electrodes as readout channels, we set category on captured electrodes.
-    By this category setting, we can build a blueprint for all electrodes, and the application will generate a channelmap
-    follow the given blueprint.
+    In this step, rather than directly selecting electrodes as readout channels, we set categories on captured electrodes.
+    These category settings build a blueprint for all electrodes, and the application generates a channelmap
+    that follows the given blueprint.
 
     There are recommended steps for building a blueprint.
 
     1.  Set electrodes outside the brain with **Excluded** category, so forbidden electrodes are never selected.
 
-        select |electrodes-outside| set |excluded|
+        Select |electrodes-outside| and set |excluded|.
 
     2.  Set electrodes around the regions of interest (Hippocampus structure here) with **Set** or **Full Density** category.
 
@@ -263,11 +263,11 @@ A custom channelmap
     3.  Set the other electrodes with a category.
     4.  A valid channelmap will be updated automatically |auto|.
 
-5.  Check text becomes |probe-desp| at the top of the figure.
+5.  Check that the text becomes |probe-desp| at the top of the figure.
 
     |custom-chmap|
 
-    If not, it means the current blueprint isn't compatible with the Neuropixels hardware restriction. Please check `Tips on building custom channelmap`_
+    If not, the current blueprint is not compatible with the Neuropixels hardware restrictions. See `Tips on building custom channelmap`_.
 
 6.  Type the new filename for your channelmap in **Save filename** field.
 7.  Press **Save**.
@@ -288,4 +288,3 @@ Tips on building custom channelmap
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 TODO
-

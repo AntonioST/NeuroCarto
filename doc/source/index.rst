@@ -22,28 +22,28 @@ Welcome to NeuroCarto's documentation!
    :target: https://neurocarto.readthedocs.io/en/latest/?badge=latest
 
 NeuroCarto is a neural probe channel map editor for the Neuropixels probe family.
-It allows user to create a blueprint for arranging electrodes in a desired density
-and generate a custom channel map.
+It allows users to create a blueprint for arranging electrodes at a desired density
+and to generate a custom channel map.
 
 Features
 --------
 
 - [x] Read/Visualize/Modify/Write Neuropixels channelmap files (``*.imro``).
 
-  - [x] Read Neuropixels channelmap files from other supported file format in GUI.
+  - [x] Read Neuropixels channelmap files from other supported file formats in the GUI.
   - [x] (Experimental) set bad electrodes
 
 - [x] Read SpikeGLX meta file (``*.meta``).
 
   - [x] Read Neuropixels probe serial number
 
-- [x] Read/Visualize/Modify/Write Blueprint (a blueprint for generating a channelmap by a programming way).
+- [x] Read/Visualize/Modify/Write Blueprint (a blueprint for generating a channelmap programmatically).
 
   - [x] show conflict areas.
 
 - [x] Show Atlas mouse brain as a background image.
 
-  - [x] utilities functions for controlling the atlas image.
+  - [x] Utility functions for controlling the atlas image.
   - [x] probe coordinate functions
 
 - [x] Customize electrode selection and probe kind.
@@ -55,10 +55,10 @@ Features
 - [x] Show dynamic generated image (via ``matplotlib``) as a background image.
 - [x] Run custom scripts (``--view=script``).
 
-  - [x] give an example script to initial a blueprint based on an experimental data.
+  - [x] Provide an example script to initialize a blueprint from experimental data.
   - [ ] (Experimental) provided scripts
 
-- [x] (Experimental) Record/Save/Load/Replay channelmap manipulate steps (``--view=history``)
+- [x] (Experimental) Record/Save/Load/Replay channelmap manipulation steps (``--view=history``)
 
 
 
@@ -88,7 +88,7 @@ polars [1]_          write [2]_
 ==================== ============================
 
 .. [1] optional dependency package
-.. [2] convert channelmap as dataframe.
+.. [2] Convert a channelmap to a dataframe.
 
 Support probe kinds
 -------------------

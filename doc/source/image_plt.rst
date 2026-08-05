@@ -1,21 +1,21 @@
 Matplotlib Image View
 =====================
 
-**It is an advanced features.** Show dynamic generated image (via ``matplotlib``) as a background image.
+**This is an advanced feature.** Show dynamically generated images (via ``matplotlib``) as a background image.
 
-Commandline options
--------------------
+Command-line Options
+--------------------
 
-It doesn't have a standard command-line option.
+It does not have a standard command-line option.
 
-How to create a view?
+How to create a view
 ---------------------
 
-It has a testing options for demonstrating purpose::
+It has a testing option for demonstration purposes::
 
     --view=test:main_image_plt_plot_channelmap:PlotChannelMap
 
-Please check the file ``tests/main_image_plt_plot_channelmap.py``
+See ``tests/main_image_plt_plot_channelmap.py``.
 
 .. literalinclude:: _static/main_image_plt_plot_channelmap.py
    :language: python
@@ -26,4 +26,3 @@ Run the file directly and load a channelmap file. ::
     python tests/main_image_plt_plot_channelmap.py
 
 .. image:: _static/image-plt-example.png
-

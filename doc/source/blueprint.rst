@@ -1,7 +1,7 @@
 Blueprint View
 ==============
 
-Show blueprint beside the probe.
+Shows the blueprint beside the probe.
 
 .. image:: _static/blueprint.png
 
@@ -13,10 +13,8 @@ Electrode Category value colors:
 * transparent: low-density, unset
 * pink: excluded
 
-Commandline options
--------------------
+Command-line Options
+--------------------
 
 It is enabled by default.
-If no, use ``--view=blueprint`` in command-line.
-
-
+If it is not shown, use ``--view=blueprint`` on the command line.

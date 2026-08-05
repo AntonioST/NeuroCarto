@@ -24,7 +24,7 @@ copyright = '2024, Ta-Shun Su'
 author = 'Ta-Shun Su'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.0'
+release = '0.2.2'
 
 # -- General configuration ---------------------------------------------------
 

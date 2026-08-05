@@ -1,17 +1,15 @@
 Image File View
 ===============
 
-**It is an experimental feature.** Show image files in background.
+**This is an experimental feature.** Show image files in the background.
 
-Commandline options
--------------------
+Command-line Options
+--------------------
 
 *   Load a single image file.
 
-    use ``--view=IMAGE_PATH``.
+    Use ``--view=IMAGE_PATH``.
 
 *   Or
 
-    use ``--view=file``
-
-
+    Use ``--view=file``.

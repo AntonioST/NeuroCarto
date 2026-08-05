@@ -3,55 +3,55 @@
 Atlas Mouse Brain
 =================
 
-Require optional dependency `bg-atlasapi`_.
+Requires optional dependency `brainglobe-atlasapi`_.
 
-.. _bg-atlasapi: https://github.com/brainglobe/bg-atlasapi
+.. _brainglobe-atlasapi: https://github.com/brainglobe/brainglobe-atlasapi
 
 Install
 -------
 
 ::
 
-    pip install bg-atlasapi
+    pip install brainglobe-atlasapi
 
-Commandline options
--------------------
+Command-line Options
+--------------------
 
-use ``--atlas`` to specific which atlases.
-You can use ``bg_atlasapi.show_atlases()`` to show all available atlases.
-For the mouse brain atlases, you can give ``--atlas=25`` to specific use ``allen_mouse_25um`` atlas.
+Use ``--atlas`` to specify which atlas to use.
+You can use ``brainglobe_atlasapi.show_atlases()`` to show all available atlases.
+For mouse brain atlases, you can use ``--atlas=25`` to select the ``allen_mouse_25um`` atlas.
 
-For the **first** running, it needs to download the corresponding atlas for a while.
+On the **first** run, NeuroCarto needs time to download the corresponding atlas.
 
-By default, the atlas view will show once the correspond package is installed.
-If no, use ``--view=atlas`` in command-line.
+By default, the atlas view is shown once the corresponding package is installed.
+If it is not shown, use ``--view=atlas`` on the command line.
 
 Application View
 ----------------
 
-Once ``bg-atlasapi`` installed, you can find a brain slice shown in the middle figure.
+Once ``brainglobe-atlasapi`` is installed, a brain slice is shown in the middle figure.
 
 Controls
 ~~~~~~~~
 
 *   Moving
 
-    On Figure toolbar |figure-toolbar|, select |bk-tool-icon-box-edit|.
+    On the figure toolbar |figure-toolbar|, select |bk-tool-icon-box-edit|.
 
-    Use mouse cursor to drag the image.
-    You can see a boundary of image is following your movement.
+    Use the mouse cursor to drag the image.
+    A boundary around the image follows your movement.
     Once you release the mouse button, the atlas image will update to the new position.
 
 *   Other controls
 
     |atlas-controls|
 
-    *   Slice view: change between ``coronal``, ``sagittal`` and ``transverse``.
+    *   Slice view: change between ``coronal``, ``sagittal``, and ``transverse``.
     *   Slice plane: change the slice plane.
     *   Shear: change the horizontal or vertical plane difference.
-    *   Rotation: rotate the image. (we rotate the content of the image instead of the image due to the technique issue.)
+    *   Rotation: rotate the image. The content of the image is rotated instead of the image itself due to a technical limitation.
     *   Scaling: scale the image.
-    *   Masking: add color shadow on the corresponding regions.
+    *   Masking: add a colored shadow on the corresponding regions.
 
         |atlas-mask|
 
@@ -63,7 +63,7 @@ Controls
 Configurations
 --------------
 
-It is saved in the configuration besides a corresponding channelmap file. It is looked like::
+It is saved in the configuration file beside the corresponding channelmap file. It looks like this::
 
     {
       "AtlasBrainView": {
@@ -79,5 +79,3 @@ It is saved in the configuration besides a corresponding channelmap file. It is 
         "image_rt": 0.0
       }
     }
-
-

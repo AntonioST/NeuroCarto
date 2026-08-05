@@ -90,18 +90,18 @@ def new_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog='neurocarto')
 
     ap.add_argument(metavar='FILE', nargs='?', type=Path, default=None, dest='open_file',
-                    help='open channelmap file.')
+                    help='open a channelmap file.')
     #
     gp = ap.add_argument_group('Source')
     gp.add_argument('-C', '--chmap-dir', metavar='PATH', type=Path, default=Path('.'), dest='chmap_root',
-                    help='channel saving directory')
+                    help='channelmap saving directory')
 
     #
     gp = ap.add_argument_group('Probe')
     gp.add_argument('-P', '--probe', metavar='NAME', default='npx', dest='probe_family',
-                    help='use probe family. default use "npx" (Neuropixels probe family).')
+                    help='use a probe family. default is "npx" (Neuropixels probe family).')
     gp.add_argument('--selector', metavar='MODULE:NAME', default='default', dest='selector',
-                    help='use which electrode selection method')
+                    help='use the specified electrode selection method')
 
     #
     gp = ap.add_argument_group('Atlas')
@@ -115,7 +115,7 @@ def new_parser() -> argparse.ArgumentParser:
     gp.add_argument('--config-file', metavar='FILE', type=Path, default=None, dest='config_file',
                     help='user config file.')
     gp.add_argument('--view', metavar='MODULE:NAME', type=str, default=list(), action='append', dest='extra_view',
-                    help='install extra views in right panel')
+                    help='install extra views in the right panel')
     gp.add_argument('--server-address', metavar='URL', default=None, dest='server_address',
                     help='')
     gp.add_argument('--server-port', metavar='PORT', type=int, default=None, dest='server_port',

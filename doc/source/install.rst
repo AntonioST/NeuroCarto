@@ -4,7 +4,7 @@ Installation
 Require
 -------
 
-Require ``Python 3.10``, and (recommended) a Python virtual environment.
+NeuroCarto requires ``Python 3.11`` or newer. A Python virtual environment is recommended.
 
 Install
 -------
@@ -23,78 +23,80 @@ Run
 Optional dependency packages
 ----------------------------
 
-* ``bg-atlasapi`` Atlas Brain background image supporting.
-* ``Pillow``, ``tifffile`` other background image format supporting.
-* ``probeinterface`` probe/channelmap format import/export
-* ``pandas``, ``polars`` channelmap data export.
+* ``brainglobe-atlasapi`` for Atlas Brain background images.
+* ``Pillow`` and ``tifffile`` for other background image formats.
+* ``probeinterface`` for probe/channelmap import and export.
+* ``pandas`` and ``polars`` for channelmap data export.
 
 Build from source
 -----------------
 
-1. create python environment. Here use ``conda`` as example. ::
+1. Create a Python environment. This example uses ``conda``. ::
 
-    conda create -n neurocarto python~=3.10.0
+    conda create -n neurocarto python~=3.11.0
     conda activate neurocarto
 
-2. clone repository. ::
+2. Clone the repository. ::
 
     git clone https://github.com/AntonioST/NeuroCarto.git
-    cd neura_carto
+    cd NeuroCarto
 
-3. update pip. ::
+3. Update pip. ::
 
     python -m pip install --upgrade pip
     python -m pip install --upgrade build
 
-4. build. ::
+4. Build the package. ::
 
     python -m build
 
-5. install. ::
+5. Install the package. ::
 
         pip install dist/neurocarto-0.0.0-py3-none-any.whl
 
-   Or installing in the develop mode, ::
+   Or install it in development mode. ::
 
         pip install -e .
 
-   change version ``0.0.0`` to latest when needed.
+   Change version ``0.0.0`` to the latest version when needed.
 
 Build Document
 --------------
 
-Make sure the package has been installed or added in ``PYTHONPATH``.
+Make sure the package has been installed or added to ``PYTHONPATH``.
 
-1. install extra dependencies. ::
+1. Install extra dependencies. ::
 
     pip install -r requirements-doc.txt
 
-2. build. ::
+2. Build the documentation. ::
 
     cd doc
     make html
 
-3. open generated html at ``doc/build/html/index.html``.
+3. Open the generated HTML at ``doc/build/html/index.html``.
 
-build github wiki
+Build GitHub wiki
 ~~~~~~~~~~~~~~~~~
 
 For contributors only.
 
-1. (first time) initialize submodule and update it. ::
+1. On the first run, initialize and update the submodule. ::
 
     git submodule init doc/wiki
     git submodule update doc/wiki
 
-2. under ``doc`` directory. run make. ::
+2. Run make under the ``doc`` directory. ::
 
     make markdown
 
-3. check the output at ``doc/wiki``. Note that the ``rst`` output may be not suitable for ``md``.
-   Check the git difference and modify the contents are necessary.
+3. Check the output at ``doc/wiki``. Note that the ``rst`` output may not be suitable for ``md``.
+   Check the git diff and modify the contents as needed.
 
-testing library versions
+Testing Library Versions
 ------------------------
+
+on 2024/05.
 
 ::
 

@@ -1,18 +1,18 @@
 Blueprint Script View
 =====================
 
-**It is an experimental feature.** Run custom script.
+**This is an experimental feature.** Run custom scripts.
 
 
-Commandline options
--------------------
+Command-line Options
+--------------------
 
-use ``--view=script`` to enable.
+Use ``--view=script`` to enable it.
 
 Create an external script
 -------------------------
 
-Please check the file ``tests/bp_example.py``
+See ``tests/bp_example.py``.
 
 .. literalinclude:: _static/bp_example.py
    :language: python
@@ -21,7 +21,7 @@ Please check the file ``tests/bp_example.py``
 Configurations
 ~~~~~~~~~~~~~~
 
-It uses user config. To add above example::
+It uses the user config. To add the example above::
 
     {
       "BlueprintScriptView": {
@@ -35,7 +35,6 @@ It uses user config. To add above example::
 Run an external script
 ~~~~~~~~~~~~~~~~~~~~~~
 
-With above config, you have an action named ``my``, and it will run the function ``my_blueprint_script_function``.
+With the config above, you have an action named ``my`` that runs the function ``my_blueprint_script_function``.
 
 .. image:: _static/blueprint-script.png
-

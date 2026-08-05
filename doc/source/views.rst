@@ -1,16 +1,16 @@
 View Components
 ===============
 
-Custom view components can be enabled by commandline via ``--view`` or put it into user config.
+Custom view components can be enabled from the command line with ``--view`` or added to the user config.
 
 User configuration
 ------------------
 
-The application read file ``~/.config/neurocarto/neurocarto.config.json`` (linux), ``AppData\\neurocarto\\neurocarto.config.json`` (windows)
+The application reads ``~/.config/neurocarto/neurocarto.config.json`` (Linux), ``AppData\\neurocarto\\neurocarto.config.json`` (Windows),
 or ``~/.neurocarto/neurocarto.config.json``.
-If ``--debug`` enable, use ``.neurocarto.config.json`` at current working directory.
+If ``--debug`` is enabled, it uses ``.neurocarto.config.json`` in the current working directory.
 
-The config json file be looked like ::
+The config json file looks like this. ::
 
     {
       "CartoApp": {

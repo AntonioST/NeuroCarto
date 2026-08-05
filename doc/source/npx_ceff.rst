@@ -1,20 +1,19 @@
 Neuropixels Statistics View
 ===========================
 
-**It is Neuropixels probe specific feature.**
-Calculate some value for a channelmap and a blueprint.
+**This is a Neuropixels probe-specific feature.**
+Calculates values for a channelmap and a blueprint.
 
 .. image:: _static/npx-stat.png
 
 * **used channels**: contains
 
-  * current channel (selected electrode) number
-  * total channel number
-  * number of channels per shanks.
+  * current channel (selected electrode) count
+  * total channel count
+  * number of channels per shank.
 
-* **request electrodes**: The request electrode number for pre-selected, full-density, half-density,
+* **request electrodes**: The requested electrode count for pre-selected, full-density, half-density,
   and quarter-density areas.
 
-* **channel efficiency**: The efficiency of channel used. It also can be used to determine the
-  compatible a blueprint.
-
+* **channel efficiency**: The efficiency of channel usage. It can also be used to determine whether
+  a blueprint is compatible.
