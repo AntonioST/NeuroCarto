@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.2
+
+2026/08/05
+
+### Added
+
+- Add user config `figure_size` for the main probe figure.
+- Add IMRO IO and Neuropixels probe mapping tests.
+
+### Changed
+
+- Require Python 3.11 or newer.
+- Pin optional `probeinterface` dependency to `0.2.21`.
+- Preserve compatible Neuropixels probe codes when loading and displaying channel maps.
+- Improve documentation and notebook text for clarity.
+
+### Fixed
+
+- Fix Bokeh dropdown menu CSS for newer Bokeh versions.
+- Fix Neuropixels IMRO parsing and writing for gain validation, and NP24 channel output.
+- Fix Neuropixels probe type metadata and aliases.
+- Fix probe-interface import/export reference handling.
+- Fix atlas integration for `brainglobe-atlasapi` version 3 while retaining compatibility with older versions.
+- Improve atlas structure loading through BrainGlobe AtlasAPI and handle empty region overlays.
+
 ## 0.2.1
 
 2026/03/23

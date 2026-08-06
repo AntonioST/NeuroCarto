@@ -11,7 +11,7 @@
     scipy                          1.7.3                py310hac523dd_2
     typing_extensions              4.6.3                py310h06a4308_0
     # optional
-    bg-atlasapi                    1.0.2                         pypi_0     pypi
+    brainglobe-atlasapi            1.0.2                         pypi_0     pypi
     pillow                         9.4.0                py310h6a678d5_0
     pandas                         1.5.3                py310h1128e8f_0
     polars                         0.18.2                        pypi_0     pypi
@@ -34,7 +34,7 @@ from pathlib import Path
 PACKAGES = {
     'environment': ['pip', 'python'],
     'required': ['bokeh', 'matplotlib', 'numpy', 'scipy', 'typing_extensions'],
-    'optional': ['bg-atlasapi', 'pillow', 'pandas', 'polars', 'probeinterface', 'tifffile'],
+    'optional': ['brainglobe-atlasapi', 'pillow', 'pandas', 'polars', 'probeinterface', 'tifffile'],
     'document': ['jupyter', 'jupyter-contrib-nbextensions', 'nbsphinx', 'sphinx', 'sphinx-markdown-builder', 'sphinx-rtd-theme'],
 }
 

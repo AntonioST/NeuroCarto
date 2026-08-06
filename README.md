@@ -30,8 +30,8 @@ Su, TS., Kloosterman, F. NeuroCarto: A Toolkit for Building Custom Read-out Chan
 High Electrode-count Neural Probes. *Neuroinform* **23**, 1–16 (2025).
 https://doi.org/10.1007/s12021-024-09705-2
 
-Documents
----------
+Documentation
+-------------
 
 Please check [Documentation](https://neurocarto.readthedocs.io/en/latest/) for more details.
 
@@ -66,6 +66,5 @@ Full optional dependencies are list in [requirements-opt.txt](requirements-opt.t
 Build from source
 -----------------
 
-Please check [install](https://github.com/AntonioST/chmap_editor/wiki/install) page in wiki.
-
+Please check the [install](https://github.com/AntonioST/NeuroCarto/wiki/install) page in the wiki.
 

@@ -96,7 +96,7 @@ For contributors only.
 Testing Library Versions
 ------------------------
 
-on 2024/05.
+Historical reference from 2024/05.
 
 ::
 
@@ -110,7 +110,7 @@ on 2024/05.
     scipy                          1.7.3                py310hac523dd_2         
     typing_extensions              4.6.3                py310h06a4308_0         
     # optional
-    bg-atlasapi                    1.0.2                         pypi_0     pypi
+    brainglobe-atlasapi            1.0.2                         pypi_0     pypi
     pillow                         9.4.0                py310h6a678d5_0         
     pandas                         1.5.3                py310h1128e8f_0         
     polars                         0.18.2                        pypi_0     pypi

@@ -9,7 +9,7 @@ version = '0.2.2'
 authors = [
     { name = "Ta-Shun Su", email = "antoniost29@gmail.com" },
 ]
-description = "A web-interface channelmap editor for Neuropixels probe familiy"
+description = "A web-based channelmap editor for the Neuropixels probe family"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
@@ -22,6 +22,8 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
