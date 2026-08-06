@@ -23,12 +23,23 @@ _BRAINGLOBE_ATLASAPI_VERSION = None
 def brainglobe_atlasapi_version() -> int:
     global _BRAINGLOBE_ATLASAPI_VERSION
     if _BRAINGLOBE_ATLASAPI_VERSION is None:
+        import logging
+        logger = logging.getLogger('neurocarto.atlas')
+
         import brainglobe_atlasapi
         version = brainglobe_atlasapi.__version__
+        logger.debug('brainglobe_atlasapi.version=%s', version)
+
         m, *_ = version.split('.')
         _BRAINGLOBE_ATLASAPI_VERSION = int(m)
 
     return _BRAINGLOBE_ATLASAPI_VERSION
+
+
+def get_atlas_name_list() -> tuple[str, ...]:
+    from typing import get_args
+    from brainglobe_atlasapi import atlas_name
+    return get_args(atlas_name.AtlasName)
 
 
 def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
@@ -40,6 +51,9 @@ def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
 
     if cache_dir is not None:
         cache_dir = str(Path(cache_dir).absolute())
+
+    if source not in get_atlas_name_list():
+        raise RuntimeError(f'Not a valid atlas name: {source}')
 
     return BrainGlobeAtlas(
         source,
