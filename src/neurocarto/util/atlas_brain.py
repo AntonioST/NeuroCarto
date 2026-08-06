@@ -3,10 +3,32 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import numpy as np
+from numpy.typing import NDArray
+
 if TYPE_CHECKING:
     from brainglobe_atlasapi import BrainGlobeAtlas
 
-__all__ = ['get_atlas_brain', 'BrainGlobeAtlas', 'REFERENCE']
+__all__ = [
+    'brainglobe_atlasapi_version',
+    'get_atlas_brain',
+    'get_atlas_brain_reference',
+    'BrainGlobeAtlas',
+    'REFERENCE'
+]
+
+_BRAINGLOBE_ATLASAPI_VERSION = None
+
+
+def brainglobe_atlasapi_version() -> int:
+    global _BRAINGLOBE_ATLASAPI_VERSION
+    if _BRAINGLOBE_ATLASAPI_VERSION is None:
+        import brainglobe_atlasapi
+        version = brainglobe_atlasapi.__version__
+        m, *_ = version.split('.')
+        _BRAINGLOBE_ATLASAPI_VERSION = int(m)
+
+    return _BRAINGLOBE_ATLASAPI_VERSION
 
 
 def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
@@ -25,6 +47,13 @@ def get_atlas_brain(source: int | str = 25, cache_dir: str | Path = None, *,
         # interm_download_dir=str(BRAIN_DIR.absolute()),
         check_latest=check_latest,
     )
+
+
+def get_atlas_brain_reference(atlas: BrainGlobeAtlas) -> NDArray[np.uint]:
+    if brainglobe_atlasapi_version() >= 3:
+        return atlas.template
+    else:
+        return atlas.reference
 
 
 REFERENCE = {

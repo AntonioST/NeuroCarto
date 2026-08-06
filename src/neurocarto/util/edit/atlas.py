@@ -67,7 +67,7 @@ def atlas_get_region(controller: ControllerView | AtlasBrainView, region: int | 
         structure = atlas._structure
     except:
         from neurocarto.util.atlas_struct import Structures
-        structure = Structures.of(atlas.brain)
+        structure = Structures(atlas.brain)
 
     try:
         return structure[region]
@@ -386,7 +386,7 @@ def atlas_mask_region(bp: BlueprintFunctions,
         structure = view._structure
     except:
         from neurocarto.util.atlas_struct import Structures
-        structure = Structures.of(view.brain)
+        structure = Structures(view.brain)
 
     ret = np.zeros_like(r, dtype=bool)
     if (target := atlas_get_region(view, region)) is None:
